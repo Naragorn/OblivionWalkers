@@ -1,0 +1,37 @@
+# Zombies by another name (docs/walkers-spec.md 4.2, [Zombies]
+# RenameToWalker, Name, RenameVanilla): with the deployed INI at
+# RenameVanilla=1 (set by hand for the run, back to 0 after) the plugin logs
+# at the main menu "Walkers: the 4 walker records named "Walker" (the first
+# reads "Walker")" and, for the game's zombies, "Walkers: 00025E6E "Zombie"
+# now reads "Walker" (RenameVanilla)" and the like, with the count renamed.
+# The console places CreatureZombie1 (00025E6E) at the player for the
+# picture at the placed mark.
+#
+# Results 2026-10-24 (artifacts/hand-script/rename/):
+#   21:31 (20261024-213144) PASS: "the 4 walker records named "Walker" (the
+#   first reads "Walker")", 153 records renamed (MOO loaded), Headless
+#   Walker, Walker Guardian among them.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rename.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 00025E6E 1
+
+expect HandScript: finished
+expect 00025E6E x1
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 5
+mark placed
+wait 1
+mark end
+wait 1

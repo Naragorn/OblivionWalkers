@@ -103,6 +103,12 @@ bool ReadSettings(walkers::Settings* settings) {
 	const int fame = GetPrivateProfileIntA("Zombies", "FamePerKills", 0, path);
 	rise.famePerKills = fame < 0 ? 0u : static_cast<UInt32>(fame);
 	rise.avoidChapels = GetPrivateProfileIntA("Zombies", "AvoidChapels", 1, path) != 0;
+	rise.renameToWalker = GetPrivateProfileIntA("Zombies", "RenameToWalker", 1, path) != 0;
+	GetPrivateProfileStringA("Zombies", "Name", "Walker", rise.walkerName, sizeof(rise.walkerName), path);
+	if (rise.walkerName[0] == '\0') {
+		std::snprintf(rise.walkerName, sizeof(rise.walkerName), "%s", "Walker");
+	}
+	rise.renameVanilla = GetPrivateProfileIntA("Zombies", "RenameVanilla", 0, path) != 0;
 	walkers::ReplaceSettings& replace = settings->replace;
 	replace.enabled = GetPrivateProfileIntA("Replace", "Enabled", 1, path) != 0;
 	const int least = GetPrivateProfileIntA("Replace", "MinCount", 1, path);
@@ -124,13 +130,14 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f CloneBase=%d ZombieRace=%d "
-	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d; "
+	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d; "
 	    "[Replace] ExtraPercent=%u",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
 	    rise.dropSeconds, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
 	    rise.walkOnly ? 1 : 0, rise.speedMultiplier, rise.speedRandomPercent, rise.famePerKills,
-	    rise.avoidChapels ? 1 : 0, replace.extraPercent);
+	    rise.avoidChapels ? 1 : 0, rise.renameToWalker ? 1 : 0, rise.walkerName, rise.renameVanilla ? 1 : 0,
+	    replace.extraPercent);
 	return true;
 }
 

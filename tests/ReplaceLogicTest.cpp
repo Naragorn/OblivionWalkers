@@ -328,6 +328,30 @@ void TestExtra() {
 	Check(differ, "and another for other lists");
 }
 
+void TestRename() {
+	std::printf("Zombies by another name\n");
+	char out[64];
+	Check(walkers::RenamedZombie("Zombie", "Walker", out, sizeof(out)) && std::strcmp(out, "Walker") == 0,
+	      "the game's zombie: Walker");
+	Check(walkers::RenamedZombie("Headless Zombie", "Walker", out, sizeof(out)) &&
+	          std::strcmp(out, "Headless Walker") == 0,
+	      "the word inside a name: Headless Walker");
+	Check(walkers::RenamedZombie("Dread Zombie", "Shambler", out, sizeof(out)) &&
+	          std::strcmp(out, "Dread Shambler") == 0,
+	      "another name set: Dread Shambler");
+	Check(!walkers::RenamedZombie("ZombieMixnMatch01", "Walker", out, sizeof(out)),
+	      "a test record's name with the word run into others: left");
+	Check(!walkers::RenamedZombie("Wolf", "Walker", out, sizeof(out)), "no zombie in the name: left");
+	Check(!walkers::RenamedZombie("zombie", "Walker", out, sizeof(out)), "in small letters: left, the game writes Zombie");
+	Check(!walkers::RenamedZombie(nullptr, "Walker", out, sizeof(out)), "no name: left");
+	Check(!walkers::RenamedZombie("Zombie", "", out, sizeof(out)), "an empty new name: left");
+	char tiny[4];
+	Check(!walkers::RenamedZombie("Headless Zombie", "Walker", tiny, sizeof(tiny)), "no room for the new name: left");
+	walkers::RiseSettings zombies;
+	Check(zombies.renameToWalker && std::strcmp(zombies.walkerName, "Walker") == 0 && !zombies.renameVanilla,
+	      "[Zombies] RenameToWalker=1, Name=Walker, RenameVanilla=0");
+}
+
 void TestSettings() {
 	std::printf("The defaults\n");
 	walkers::ReplaceSettings settings;
@@ -349,6 +373,7 @@ int main() {
 	TestHealth();
 	TestSpeed();
 	TestExtra();
+	TestRename();
 	TestSettings();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

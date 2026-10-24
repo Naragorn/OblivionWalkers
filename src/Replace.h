@@ -25,6 +25,11 @@ void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, Lo
 // The walker records' Speed (4.4): each record's own times the multiplier,
 // spread over the records (ReplaceLogic.h WalkerSpeed), from the values they
 // had at the first call - the records in memory only.
+// The walkers' name (4.2): Name on the ESP's walker records (the game's
+// "Zombie" with RenameToWalker=0), and with RenameVanilla every other
+// creature's "Zombie" too (ReplaceLogic.h RenamedZombie) - in memory only.
+void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espIndex, const RiseSettings& settings, LogFn log);
+
 void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log);
 
 }  // namespace walkers

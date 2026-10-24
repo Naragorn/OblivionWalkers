@@ -67,6 +67,13 @@ struct RiseSettings {
 	// [Zombies] AvoidChapels (4.7): nobody rises in a chapel - 28 Days' safe
 	// zones (IsChapelCell).
 	bool avoidChapels = true;
+	// [Zombies] RenameToWalker and Name (4.2): the walkers' name - written on
+	// the ESP's walker records at the start; 0: the game's "Zombie".
+	// RenameVanilla: the game's and the mods' zombies too, every "Zombie" in a
+	// creature's name becomes Name (RenamedZombie). In memory only.
+	bool renameToWalker = true;
+	char walkerName[32] = "Walker";
+	bool renameVanilla = false;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk

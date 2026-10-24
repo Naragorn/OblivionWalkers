@@ -361,6 +361,69 @@ void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, Lo
 	}
 }
 
+namespace {
+
+// BSStringT_Set (thiscall: the string, the chars, the least buffer; xOBSE
+// GameTypes.cpp Replace_MinBufLen) - the engine's own way to give a
+// TESFullName new chars, its heap and all.
+constexpr UInt32 kStringSet = 0x004028D0;
+
+void SetFullName(UInt32 form, const char* name) {
+	using SetFn = void(__fastcall*)(void* string, void* edx, const char* chars, UInt32 least);
+	reinterpret_cast<SetFn>(kStringSet)(reinterpret_cast<void*>(form + kFullNameOffset), nullptr, name, 0);
+}
+
+const char* FullNameOf(UInt32 form) {
+	const UInt32 chars = Read(form + kFullNameOffset);
+	return LooksLikeObject(chars) ? reinterpret_cast<const char*>(chars) : nullptr;
+}
+
+}  // namespace
+
+void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espIndex, const RiseSettings& settings, LogFn log) {
+	const char* const name = settings.renameToWalker ? settings.walkerName : "Zombie";
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 walker = LookupForm(walkerIds[i]);
+		if (LooksLikeObject(walker) && Read8(walker + kFormTypeOffset) == kFormTypeCreature) {
+			SetFullName(walker, name);
+		}
+	}
+	const UInt32 first = count > 0 ? LookupForm(walkerIds[0]) : 0;
+	const char* reads = LooksLikeObject(first) ? FullNameOf(first) : nullptr;
+	log("Walkers: the %u walker records named \"%s\" (the first reads \"%s\")", count, name,
+	    reads != nullptr ? reads : "(none)");
+	if (!settings.renameVanilla || !settings.renameToWalker) {
+		return;
+	}
+	UInt32 renamed = 0;
+	const UInt32 buckets = Read(kFormTable + kMapBucketsOffset);
+	const UInt32 bucketCount = Read(kFormTable + kMapBucketCountOffset);
+	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
+		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
+			const UInt32 form = Read(entry + kMapEntryFormOffset);
+			if (!LooksLikeObject(form) || Read8(form + kFormTypeOffset) != kFormTypeCreature ||
+			    (FormIdOf(form) >> 24) == espIndex) {
+				continue;
+			}
+			const char* before = FullNameOf(form);
+			char after[128];
+			if (!RenamedZombie(before, settings.walkerName, after, sizeof(after))) {
+				continue;
+			}
+			char was[128];
+			std::snprintf(was, sizeof(was), "%s", before);
+			SetFullName(form, after);
+			if (renamed < 12) {
+				const char* now = FullNameOf(form);
+				log("Walkers: %08X \"%s\" now reads \"%s\" (RenameVanilla)", FormIdOf(form), was,
+				    now != nullptr ? now : "(none)");
+			}
+			++renamed;
+		}
+	}
+	log("Walkers: %u of the game's and the mods' zombie records renamed (RenameVanilla)", renamed);
+}
+
 void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log) {
 	static UInt32 s_ids[8] = {};
 	static UInt8 s_speed[8] = {};

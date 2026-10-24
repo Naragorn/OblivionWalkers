@@ -811,6 +811,7 @@ void StepSpawns(float dt) {
 		g_spawnsDone = true;
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
+		RenameZombies(g_walkers, g_walkerCount, FindEspIndex(), g_settings, g_log);
 		if (g_replace.enabled) {
 			ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_log);
 		}

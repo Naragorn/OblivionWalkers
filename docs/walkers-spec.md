@@ -181,6 +181,15 @@ clone (SetName on the clone's TESFullName). Vanilla zombies that other mods
 place keep theirs unless `RenameVanilla=1`, which sets the name on the
 vanilla zombie records at start (in memory, every session).
 
+Built 2026-10-24 evening: at the first tick the plugin gives the four
+walker records Name (RenameToWalker=0: "Zombie") through the engine's own
+BSStringT_Set (0x004028D0, xOBSE GameTypes.cpp), and with RenameVanilla=1
+every other creature's "Zombie" standing as a word (`RenamedZombie`):
+Zombie, Headless Zombie, Dread Zombie - and quest ones too, "Zombie
+Guardian" becomes "Walker Guardian". RenameVanilla defaults to 0. In memory
+only, every session. `rename.txt` PASS 2026-10-24 21:31: the walker records
+read "Walker", 153 records renamed with MOO loaded, each read back.
+
 Cost: **cheap.** Records and one string write.
 
 ### 4.3 No skill gain from zombies - later, `[Zombies] NoSkillGain=1`
@@ -588,6 +597,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
+| `rename.txt` | the walkers named Name, the game's zombies renamed with RenameVanilla=1 (4.2) - PASS 2026-10-24 21:31 | the plugin, the ESP active, RenameVanilla by hand |
 | `chapel-walker.txt` | a walker placed in a chapel is taken out of the world (4.7) - PASS 2026-10-24 21:21, 21:26 (made-there rule) |
 | `chapel-follow.txt` | a walker met outside and moved into a chapel stays (4.7) - PASS 2026-10-24 21:27 | the plugin, the ESP active | the plugin, the ESP active |
 | `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |

@@ -373,6 +373,38 @@ inline UInt32 ExtraDraw(UInt32 listFormId, UInt32 level) {
 	return h % 1000;
 }
 
+// [Zombies] RenameVanilla (4.2): `name` with each "Zombie" standing as a
+// word of its own (Zombie, Headless Zombie, Dread Zombie) given `newName`;
+// a word run into others (the test records' ZombieMixnMatch01) and small
+// letters stay. False with `out` unspecified when nothing changes or the new
+// name does not fit.
+inline bool RenamedZombie(const char* name, const char* newName, char* out, UInt32 capacity) {
+	if (name == nullptr || newName == nullptr || newName[0] == '\0' || capacity == 0) {
+		return false;
+	}
+	static const char kWord[] = "Zombie";
+	const UInt32 wordLength = sizeof(kWord) - 1;
+	const UInt32 newLength = static_cast<UInt32>(std::strlen(newName));
+	const auto letter = [](char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); };
+	UInt32 used = 0;
+	bool changed = false;
+	for (const char* p = name; *p != '\0';) {
+		const bool word = std::strncmp(p, kWord, wordLength) == 0 && (p == name || !letter(p[-1])) &&
+		                  !letter(p[wordLength]);
+		const char* piece = word ? newName : p;
+		const UInt32 length = word ? newLength : 1;
+		if (used + length + 1 > capacity) {
+			return false;
+		}
+		std::memcpy(out + used, piece, length);
+		used += length;
+		p += word ? wordLength : 1;
+		changed = changed || word;
+	}
+	out[used] = '\0';
+	return changed;
+}
+
 // [Zombies] HealthPercent: 1 to 100 percent of the record's health, never
 // below one point; a record without health keeps none.
 inline UInt32 ScaledHealth(UInt32 health, UInt32 percent) {
