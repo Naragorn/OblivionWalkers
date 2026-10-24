@@ -1,0 +1,45 @@
+# A person set to 1 (docs/walkers-spec.md 4.6): people start at 0 in
+# [ReplaceCreatures]; a line set to 1 by hand makes that person a walker in
+# every leveled list, as for a creature.
+#
+# For the run, the deployed INI's five Bandit Hedge Wizard lines (Oblivion.esm
+# 03DC55, 03DC56, 03DC57, 03DC58, 069AD4) set to 1 by hand, and back to 0
+# after it. The console places LL1BanditHedgeWizard (0003DC59: only those
+# five, people without a script) three times at the player. Replaced, the
+# roster at the counted mark reads only walkers (base 0x00080x of the ESP's
+# index) and no hedge wizard; the plugin's log names the five "person -
+# confidence ..., flags ... - walkers".
+#
+# Results 2026-10-24 (artifacts/hand-script/spawn-replace-person/):
+#   20:49 (20261024-204912) PASS: 11000801 x1, 0003DC48 x1 (Bandit Bowman),
+#   0003DB27 x1 (Bandit) - MOO's list holds those too, at 0; the five
+#   hedge wizards "person - confidence 75, flags 0010029x - walkers".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-replace-person.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 0003DC59 3
+
+expect HandScript: finished
+expect 00080
+reject 0003DC55 x
+reject 0003DC56 x
+reject 0003DC57 x
+reject 0003DC58 x
+reject 00069AD4 x
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark counted
+wait 1
+mark end
+wait 1

@@ -89,6 +89,16 @@ inline const char* KindNote(CreatureKind kind) {
 	}
 }
 
+// The facts a creature's log line names. A person's record has no creature
+// type: what Replace.cpp reads at that offset of a TESNPC is no field of it.
+inline void FormatFacts(char* out, UInt32 capacity, const CreatureFacts& facts) {
+	if (facts.person) {
+		std::snprintf(out, capacity, "confidence %u, flags %08X", facts.confidence, facts.flags);
+	} else {
+		std::snprintf(out, capacity, "type %u, confidence %u, flags %08X", facts.type, facts.confidence, facts.flags);
+	}
+}
+
 // "<name> [<mod> <local ID>]<note>": the name to read, the mod that made
 // the record and its ID under that mod (the load index changes with the
 // load order, the local ID does not). The INI's own signs in a name become
@@ -196,21 +206,112 @@ inline bool AppendSectionLine(char* buffer, UInt32 capacity, UInt32* used, const
 	return true;
 }
 
-// The lines of `section` into `out`, as many as fit whole, the closing end
-// written; returns the bytes used before it.
-inline UInt32 CopySectionLines(const char* section, char* out, UInt32 capacity) {
-	UInt32 used = 0;
-	out[0] = '\0';
-	for (const char* line = section; *line != '\0'; line += std::strlen(line) + 1) {
-		const UInt32 length = static_cast<UInt32>(std::strlen(line)) + 1;
-		if (used + length + 1 > capacity) {
+// One line of an INI file's text, [begin, end) without its line feed; the
+// blanks and a carriage return around it do not count.
+inline void TrimLine(const char* text, UInt32* begin, UInt32* end) {
+	while (*begin < *end && (text[*begin] == ' ' || text[*begin] == '\t')) {
+		++*begin;
+	}
+	while (*end > *begin && (text[*end - 1] == ' ' || text[*end - 1] == '\t' || text[*end - 1] == '\r')) {
+		--*end;
+	}
+}
+
+// "[section]", the case aside - as the profile API matches a section.
+inline bool IsSectionHeader(const char* text, UInt32 begin, UInt32 end, const char* section) {
+	const UInt32 length = static_cast<UInt32>(std::strlen(section));
+	if (end - begin != length + 2 || text[begin] != '[' || text[end - 1] != ']') {
+		return false;
+	}
+	for (UInt32 i = 0; i < length; ++i) {
+		const char a = text[begin + 1 + i];
+		const char b = section[i];
+		if ((a >= 'A' && a <= 'Z' ? a + 32 : a) != (b >= 'A' && b <= 'Z' ? b + 32 : b)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+// The INI file's text with `lines` (each ended, the last one twice, as
+// AppendSectionLine writes them) put into [section] behind its last
+// key=value line - or behind the comments right under its header when it has
+// none - so the blank lines, the comments and the other sections stay as
+// they were (WritePrivateProfileSection rewrote the whole file under Wine,
+// blank lines dropped, a comment with "=" joined, 2026-10-24). No such
+// section: it is added at the file's end. The file's own line end, a
+// carriage return and line feed when it has none. Returns the bytes written
+// to `out`; 0 when they do not fit, nothing half written that counts.
+inline UInt32 InsertSectionLines(const char* text, UInt32 length, const char* section, const char* lines, char* out,
+                                 UInt32 capacity) {
+	bool feedsOnly = false;
+	for (UInt32 i = 0; i < length; ++i) {
+		if (text[i] == '\n') {
+			feedsOnly = i == 0 || text[i - 1] != '\r';
 			break;
 		}
-		std::memcpy(out + used, line, length);
-		used += length;
-		out[used] = '\0';
 	}
-	return used;
+	const char* newline = feedsOnly ? "\n" : "\r\n";
+
+	bool inSection = false;
+	bool keySeen = false;
+	bool blankSeen = false;
+	UInt32 insertAt = length;
+	for (UInt32 begin = 0; begin < length;) {
+		UInt32 end = begin;
+		while (end < length && text[end] != '\n') {
+			++end;
+		}
+		const UInt32 next = end < length ? end + 1 : length;
+		UInt32 from = begin;
+		UInt32 to = end;
+		TrimLine(text, &from, &to);
+		if (!inSection) {
+			if (IsSectionHeader(text, from, to, section)) {
+				inSection = true;
+				insertAt = next;
+			}
+		} else if (from < to && text[from] == '[') {
+			break;
+		} else if (from == to) {
+			blankSeen = true;
+		} else if (text[from] == ';' || text[from] == '#') {
+			if (!keySeen && !blankSeen) {
+				insertAt = next;
+			}
+		} else {
+			keySeen = true;
+			insertAt = next;
+		}
+		begin = next;
+	}
+
+	UInt32 used = 0;
+	bool fits = true;
+	const auto put = [&](const char* bytes, UInt32 count) {
+		if (!fits || used + count > capacity) {
+			fits = false;
+			return;
+		}
+		std::memcpy(out + used, bytes, count);
+		used += count;
+	};
+	put(text, insertAt);
+	if (insertAt == length && length > 0 && text[length - 1] != '\n' && lines[0] != '\0') {
+		put(newline, static_cast<UInt32>(std::strlen(newline)));
+	}
+	if (!inSection && lines[0] != '\0') {
+		put("[", 1);
+		put(section, static_cast<UInt32>(std::strlen(section)));
+		put("]", 1);
+		put(newline, static_cast<UInt32>(std::strlen(newline)));
+	}
+	for (const char* line = lines; *line != '\0'; line += std::strlen(line) + 1) {
+		put(line, static_cast<UInt32>(std::strlen(line)));
+		put(newline, static_cast<UInt32>(std::strlen(newline)));
+	}
+	put(text + insertAt, length - insertAt);
+	return fits ? used : 0;
 }
 
 // The ESP's WalkersZombieVariant holds every walker kVariantSlots times

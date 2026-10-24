@@ -281,13 +281,31 @@ at the first start with the mod, by the same rules (MOO's and Ascension's:
 785 in that run). The variant list holds every walker ten times now, so
 `MaxCount` goes to 10 with each count of 1..10 as likely; the default stays
 1 to 3. Scripted and swimming creatures stay at 0 - Nadi's word named
-harmless animals and people, these two are mine, asked.
+harmless animals and people, these two are mine, asked - Nadi kept them at 0
+(2026-10-24 evening).
+
+The INI kept as it is (built 2026-10-24 evening): the plugin puts its new
+lines into the file itself, behind the section's last key line
+(`InsertSectionLines`), written beside the INI and moved over it.
+WritePrivateProfileSection had rewritten the whole file under Wine: blank
+lines dropped, CRLF written, "; =0" joined to ";=0". Measured in the run of
+20:47: the shipped INI a byte-for-byte prefix of the file after the plugin
+appended 3329 + 15 lines of MOO and Ascension, its line feeds and blank
+lines as they were. A person's log line names no creature type now: the
+offset read for it is no field of a TESNPC (it read 84 and 192).
+
+`MaxCount=10` measured (20:47): the variant list's counts read 1..10 for
+each walker, the goblin list placed three times gave 15 walkers.
 
 Open: quests that count kills of a creature without a script on it (by
 GetDeadCount on its base) would never finish while it is a walker - none
 known, none searched for; the Oblivion planes' daedra become walkers too,
 which their INI lines switch off. A person turned on is a walker entry in a
-list that otherwise spawns people - not run yet.
+list that otherwise spawns people: `spawn-replace-person.txt` PASS 20:49 -
+the five Bandit Hedge Wizards set to 1, LL1BanditHedgeWizard placed three
+times gave one walker and two other bandits (a Bandit Bowman, a Bandit:
+in this load order the list holds more than the hedge wizards, at 0), no
+hedge wizard.
 
 Cost: **small** with the count working (the injection is bookkeeping over
 records already in memory); **medium** on the fallback.
@@ -477,8 +495,9 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-zombie-race.txt` | the clone's race set to the ESP's Walker race before the raise: a Redguard up with Imperial skin, his own face (4.1 step 3, 7.2's last question) | the plugin, the ESP active - run 1 19:50: the race on the clone, the old skin (Resurrect keeps the 3D); run 2 19:54 PASS: Update3D after the raise, pale Imperial skin in the picture; run 3 19:59 PASS: the plugin's own rebuild 3 s after the raise (`LookAfterSeconds`), pale skin in both pictures |
 | `rise-walker-clone.txt` | the same on a clone of the fallen one's base record (`[Rise] CloneBase=1`): the base swap on a corpse (7.2) - PASS 2026-10-23 18:07 (run 1 FAIL: CopyFrom is virtual 45, not 33; run 2 the swap worked, the runner's verdict fell to the scenario's own reject line) | the plugin |
 | `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) - PASS 2026-10-24 10:26 (Walk=1) and 10:29 (Walk=0) | the plugin |
-| `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed | the plugin, the ESP active |
+| `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed; MaxCount 10 PASS 20:47: 15 walkers | the plugin, the ESP active |
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
+| `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 

@@ -172,15 +172,71 @@ void TestSection() {
 	Check(!walkers::AppendSectionLine(buffer, sizeof(buffer), &used, "Too long for what is left", 1) && used == 58 &&
 	          buffer[58] == '\0',
 	      "no room: refused, the section as it was");
+}
 
-	char copy[96] = {};
-	UInt32 copied = walkers::CopySectionLines(section, copy, sizeof(copy));
-	Check(copied > 0 && walkers::FindReplaceSwitch(copy, "Oblivion.esm", 0x06E912) == 1 &&
-	          walkers::FindReplaceSwitch(copy, "Oblivion.esm", 0x031550) == 0 && copy[copied] == '\0',
-	      "the lines the INI holds copied over, as many as fit, each whole");
-	char none[8] = {};
-	Check(walkers::CopySectionLines(section, none, sizeof(none)) == 0 && none[0] == '\0',
-	      "a buffer too small for the first line: nothing copied");
+// InsertSectionLines over `text`, as a string; "" when it refused.
+std::string Inserted(const std::string& text, const char* lines, UInt32 capacity = 4096) {
+	std::string out(capacity, '\0');
+	const UInt32 used = walkers::InsertSectionLines(text.data(), static_cast<UInt32>(text.size()), "ReplaceCreatures",
+	                                                lines, &out[0], capacity);
+	out.resize(used);
+	return out;
+}
+
+void TestInsert() {
+	std::printf("New lines into the INI file, the rest of it as it was\n");
+	const char two[] = "Bat [Mod.esp 000001]=1\0Rat [Mod.esp 000002]=0\0";
+
+	const std::string middle =
+	    "; [ReplaceCreatures] lists them\r\n[Replace]\r\nEnabled=1\r\n\r\n[ReplaceCreatures]\r\n; =0 keeps one\r\n"
+	    "Wolf [Oblivion.esm 06E912]=1\r\n\r\n; the next\r\n[Zombies]\r\nWalk=1\r\n";
+	Check(Inserted(middle, two) ==
+	          "; [ReplaceCreatures] lists them\r\n[Replace]\r\nEnabled=1\r\n\r\n[ReplaceCreatures]\r\n; =0 keeps one\r\n"
+	          "Wolf [Oblivion.esm 06E912]=1\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n\r\n; the next\r\n"
+	          "[Zombies]\r\nWalk=1\r\n",
+	      "a section between others: behind its last line; the blank line, the comments and the next section kept");
+	Check(Inserted("[ReplaceCreatures]\r\nWolf [Oblivion.esm 06E912]=1\r\n", two) ==
+	          "[ReplaceCreatures]\r\nWolf [Oblivion.esm 06E912]=1\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n",
+	      "the section at the file's end");
+	Check(Inserted("[ReplaceCreatures]\r\nWolf [Oblivion.esm 06E912]=1", two) ==
+	          "[ReplaceCreatures]\r\nWolf [Oblivion.esm 06E912]=1\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n",
+	      "the last line without its end: ended first");
+	Check(Inserted("[ReplaceCreatures]\nWolf [Oblivion.esm 06E912]=1\n\n[Zombies]\n", two) ==
+	          "[ReplaceCreatures]\nWolf [Oblivion.esm 06E912]=1\nBat [Mod.esp 000001]=1\nRat [Mod.esp 000002]=0\n\n"
+	          "[Zombies]\n",
+	      "a file of plain line feeds: line feeds");
+	Check(Inserted("[ReplaceCreatures]\r\n[Zombies]\r\n", two) ==
+	          "[ReplaceCreatures]\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n[Zombies]\r\n",
+	      "an empty section: right under its header");
+	Check(Inserted("[ReplaceCreatures]\r\n; 1 replaces\r\n\r\n; the next\r\n[Zombies]\r\n", two) ==
+	          "[ReplaceCreatures]\r\n; 1 replaces\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n\r\n"
+	          "; the next\r\n[Zombies]\r\n",
+	      "a section of comments only: behind those right under the header, not the next section's");
+	Check(Inserted("[replacecreatures]  \r\n[Zombies]\r\n", two) ==
+	          "[replacecreatures]  \r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n[Zombies]\r\n",
+	      "the header in other case, spaces behind it: still the section, as the profile API reads it");
+	Check(Inserted("[Zombies]\r\nWalk=1\r\n", two) ==
+	          "[Zombies]\r\nWalk=1\r\n[ReplaceCreatures]\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n",
+	      "no such section: added at the end");
+	Check(Inserted("", two) == "[ReplaceCreatures]\r\nBat [Mod.esp 000001]=1\r\nRat [Mod.esp 000002]=0\r\n",
+	      "an empty file: the section alone");
+	Check(Inserted("[ReplaceCreatures]\r\nWolf=1\r\n", "") == "[ReplaceCreatures]\r\nWolf=1\r\n",
+	      "no new lines: the file as it was");
+	Check(Inserted(middle, two, 40).empty(), "no room for all of it: refused, nothing half written");
+}
+
+void TestFactsNote() {
+	std::printf("The facts behind a creature's log line\n");
+	char note[96];
+	walkers::FormatFacts(note, sizeof(note), Wolf());
+	Check(std::strcmp(note, "type 0, confidence 50, flags 00000350") == 0, "a creature: its type, confidence, flags");
+	CreatureFacts bandit;
+	bandit.person = true;
+	bandit.type = 84;  // what +0x104 of a TESNPC held in the run of 20:36 - no type there
+	bandit.confidence = 80;
+	bandit.flags = 0x00100291;
+	walkers::FormatFacts(note, sizeof(note), bandit);
+	Check(std::strcmp(note, "confidence 80, flags 00100291") == 0, "a person: no creature type to name");
 }
 
 void TestCounts() {
@@ -243,6 +299,8 @@ int main() {
 	TestClassify();
 	TestKeys();
 	TestSection();
+	TestInsert();
+	TestFactsNote();
 	TestCounts();
 	TestHealth();
 	TestSettings();

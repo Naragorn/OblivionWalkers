@@ -125,10 +125,54 @@ bool Decide(UInt32 creature, UInt32 espIndex, const char* section, std::vector<c
 			++newLines;
 		}
 	}
-	log("Spawns: %s - type %u, confidence %u, flags %08X - %s%s", key, facts.type, facts.confidence, facts.flags,
-	    on != 0 ? "walkers" : "kept", fresh ? " (new in the INI)" : "");
+	char note[64];
+	FormatFacts(note, sizeof(note), facts);
+	log("Spawns: %s - %s - %s%s", key, note, on != 0 ? "walkers" : "kept", fresh ? " (new in the INI)" : "");
 	g_decided[creature] = on != 0;
 	return on != 0;
+}
+
+// The new lines into the INI file itself, the rest of it byte for byte
+// (ReplaceLogic.h InsertSectionLines): written beside it, then moved over
+// it, so a failed write leaves the old file. `extra` bounds what the lines
+// add. Returns what happened, for the log.
+const char* AppendToIni(const char* iniPath, const char* lines, UInt32 extra) {
+	std::vector<char> text;
+	if (FILE* in = std::fopen(iniPath, "rb")) {
+		char chunk[65536];
+		for (size_t got; (got = std::fread(chunk, 1, sizeof(chunk), in)) > 0;) {
+			text.insert(text.end(), chunk, chunk + got);
+		}
+		std::fclose(in);
+	} else {
+		return "the INI could not be read";
+	}
+	// Each line gains a carriage return, the section header its own line.
+	std::vector<char> out(text.size() + extra * 2 + 64, '\0');
+	const UInt32 used = InsertSectionLines(text.data(), static_cast<UInt32>(text.size()), kSection, lines, out.data(),
+	                                       static_cast<UInt32>(out.size()));
+	if (used == 0) {
+		return "no room to put them in";
+	}
+	char tempPath[MAX_PATH];
+	if (std::snprintf(tempPath, sizeof(tempPath), "%s.new", iniPath) >= static_cast<int>(sizeof(tempPath))) {
+		return "the path is too long";
+	}
+	FILE* file = std::fopen(tempPath, "wb");
+	if (file == nullptr) {
+		return "the new INI could not be opened";
+	}
+	const bool whole = std::fwrite(out.data(), 1, used, file) == used;
+	const bool closed = std::fclose(file) == 0;
+	if (!whole || !closed) {
+		DeleteFileA(tempPath);
+		return "the new INI could not be written";
+	}
+	if (MoveFileExA(tempPath, iniPath, MOVEFILE_REPLACE_EXISTING) == 0) {
+		DeleteFileA(tempPath);
+		return "the new INI could not replace the old";
+	}
+	return "written";
 }
 
 }  // namespace
@@ -208,19 +252,8 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 	    "of them walkers",
 	    forms, lists, replaced, listsTouched, static_cast<UInt32>(g_decided.size()), on);
 	if (newLines > 0 && iniPath != nullptr && iniPath[0] != '\0') {
-		std::vector<char> merged(kSectionBytes * 2, '\0');
-		UInt32 used = CopySectionLines(section.data(), merged.data(), static_cast<UInt32>(merged.size()));
-		for (const char* line = added.data(); *line != '\0'; line += std::strlen(line) + 1) {
-			const UInt32 length = static_cast<UInt32>(std::strlen(line)) + 1;
-			if (used + length + 1 > merged.size()) {
-				break;
-			}
-			std::memcpy(merged.data() + used, line, length);
-			used += length;
-			merged[used] = '\0';
-		}
-		const bool wrote = WritePrivateProfileSectionA(kSection, merged.data(), iniPath) != 0;
-		log("Spawns: %u new creatures written to [%s] (%s)", newLines, kSection, wrote ? "written" : "the INI refused");
+		log("Spawns: %u new creatures written to [%s] (%s)", newLines, kSection,
+		    AppendToIni(iniPath, added.data(), addedUsed + newLines + 64));
 	}
 	return replaced;
 }

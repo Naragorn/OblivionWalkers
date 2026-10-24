@@ -539,22 +539,6 @@ void StepSwapInFlight(float dt) {
 		StepSwap(g_swap, dt, found, has3D, g_settings.dropSeconds < 0.0f ? 0.0f : g_settings.dropSeconds);
 	// Noted before its kill below: NoLoot never takes a risen walker.
 	NoteRisen(g_risenSet, g_swap.zombieId);
-	if (g_swap.active && g_swap.stage == SwapStage::Dropped) {
-		// The dropped walker's position, traced: it got up 600 units from
-		// the spot on 2026-10-24 07:07 although it stood on it, dead, 1.5 s
-		// before - where and when does it move.
-		static float s_traced = -1.0f;
-		if (g_swap.seconds < s_traced || g_swap.seconds - s_traced >= 0.25f) {
-			s_traced = g_swap.seconds;
-			const UInt32 zombie = LookupForm(g_swap.zombieId);
-			if (LooksLikeObject(zombie)) {
-				g_log("Swap: trace %.2f s - walker %08X at %.0f %.0f %.0f, dead %d, model %d", g_swap.seconds,
-				      g_swap.zombieId, FloatAt(zombie + kRefPositionOffset), FloatAt(zombie + kRefPositionOffset + 4),
-				      FloatAt(zombie + kRefPositionOffset + 8), IsActor(zombie) && IsDead(zombie) ? 1 : 0,
-				      Read(zombie + kRefNiNodeOffset) != 0 ? 1 : 0);
-			}
-		}
-	}
 	if (events == kSwapFound) {
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
 		g_log("Swap: walker %08X exists on %08X (model %s) - waiting for its model before the kill", g_swap.zombieId,
