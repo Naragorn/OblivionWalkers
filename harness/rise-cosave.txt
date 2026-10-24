@@ -1,0 +1,63 @@
+# The waiting list across a save and a load (docs/walkers-spec.md 4.1, the
+# co-save record "WAIT"): the bandit is placed in the hall, moved 150 units
+# north and killed; 3 s after the death the game is saved as WalkersCoSave
+# and loaded again at once. The plugin's log must carry "Co-save: 1 waiting
+# written", "Co-save: 1 waiting read" and then the swap - he gets up as a
+# walker after the load, his clock going on from what it had left.
+#
+# The save is a file of the test's own in the game's Saves folder
+# (WalkersCoSave.ess and .obse), deleted by hand after the run. Whether the
+# hand script survives a load in the middle of the run is part of what this
+# run shows; the plugin's log tells the result either way.
+#
+# Run 1, 2026-10-24 08:52 (PASS by its lines, FAIL in substance,
+# artifacts/hand-script/rise-cosave/20261024-085252): the save and the load
+# went through (obse.log: DoSaveGameHook, DoLoadGameHook on WalkersCoSave),
+# but no "Co-save" line: obse.log says "HandleSaveGame: plugin with default
+# opcode base registered for serialization" - xOBSE skips the callbacks of a
+# plugin without an opcode base of its own; the load emptied the list and
+# the bandit never rose. Since then the plugin sets 0x2B00 (free in the
+# registered list) before it registers the callbacks; the walker is now
+# expected after the load.
+#
+# Run 2, 2026-10-24 08:56 (PASS, artifacts/hand-script/rise-cosave/20261024-085619):
+# "Co-save: 1 waiting written", "Co-save: 1 waiting read", then the swap
+# after the load and the walker up ("1 loaded, 0 dead: 10000801 x1"). The
+# hand script ran on through the load. obse.log still names one plugin with
+# the default opcode base - not this one any more.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-cosave.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+console-at dead save WalkersCoSave
+console-at saved load WalkersCoSave
+
+expect HandScript: finished
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+expect 00080
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 4
+mark saved
+wait 40
+mark risen
+wait 1

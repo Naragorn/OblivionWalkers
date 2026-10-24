@@ -53,6 +53,7 @@ constexpr UInt32 kModEntryNameOffset = 0x1C;
 constexpr const char* kPluginEsp = "OblivionWalkers.esp";
 constexpr UInt32 kFrameSeconds = 0x00B33E9C;    // the last frame's seconds, a float (OBVR GameAddresses.h)
 constexpr UInt32 kTextStart = 0x00401000;
+constexpr UInt32 kOpcodeBase = 0x2B00;
 constexpr UInt32 kTextEnd = 0x00A27C39;
 
 LogFn g_log = nullptr;
@@ -745,11 +746,20 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, LogFn
 	}
 	TryRegisterDeath();
 	if (g_serialization != nullptr && xse.GetPluginHandle != nullptr) {
+		// xOBSE calls a plugin's save and load callbacks only when it set an
+		// opcode base of its own (the run of 2026-10-24 08:52: "HandleSaveGame:
+		// plugin with default opcode base registered for serialization", our
+		// save callback never ran). 0x2B00 is free in the registered list
+		// (github.com/llde/xOBSE/wiki/Registered-Opcodes-for-OBSE-Plugins,
+		// read 2026-10-24); a registration of our own is still to be asked for.
+		if (xse.SetOpcodeBase != nullptr) {
+			xse.SetOpcodeBase(kOpcodeBase);
+		}
 		const UInt32 plugin = xse.GetPluginHandle();
 		g_serialization->SetSaveCallback(plugin, &OnSave);
 		g_serialization->SetLoadCallback(plugin, &OnLoad);
 		g_serialization->SetNewGameCallback(plugin, &OnNewGame);
-		log("The waiting list goes to the co-save (plugin handle %u)", plugin);
+		log("The waiting list goes to the co-save (plugin handle %u, opcode base %04X)", plugin, kOpcodeBase);
 	} else {
 		g_serialization = nullptr;
 		log("No serialization interface: the waiting list lives for the session only");
