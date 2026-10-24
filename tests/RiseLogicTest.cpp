@@ -196,6 +196,15 @@ void TestTick() {
 	Check(n == 1 && due[0] == 0x12 && many.count == 0, "and come the next frame, even one of zero seconds");
 }
 
+void TestWalkOnly() {
+	std::printf("Walkers walk\n");
+	Check(walkers::WalkInsteadOfRun(0x0201) == 0x0101, "a run forward becomes a walk forward");
+	Check(walkers::WalkInsteadOfRun(0x0301) == 0x0101, "run and walk both set: the walk stays");
+	Check(walkers::WalkInsteadOfRun(0x0101) == 0x0101, "a walk is kept");
+	Check(walkers::WalkInsteadOfRun(0x0000) == 0x0000, "standing is kept");
+	Check(walkers::WalkInsteadOfRun(0x0230) == 0x0130, "the other bits kept");
+}
+
 void TestRequeue() {
 	std::printf("A due rise put back\n");
 	walkers::WaitingList list;
@@ -412,6 +421,7 @@ void TestImage() {
 int main() {
 	TestVerdicts();
 	TestTick();
+	TestWalkOnly();
 	TestRequeue();
 	TestEspRace();
 	TestSwap();

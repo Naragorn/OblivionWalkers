@@ -1,0 +1,58 @@
+# Walkers walk (docs/walkers-spec.md 4.4, [Zombies] Walk): the bandit is
+# placed 900 units north of the player in the hall and killed; with the
+# deployed INI at [Rise] AfterSeconds=10, JitterSeconds=0 (set by hand for
+# the run, back to the defaults after) he rises as a walker 10 s later and
+# comes at the untouchable player across the hall. The plugin logs every two
+# seconds "Walk: walker ... flags ..., N units/s, M runs turned to walks" -
+# run once with Walk=1 and once with Walk=0 (by hand in the deployed INI):
+# the speeds of the two are the measure, and "runs turned" above 0 with
+# Walk=1 shows the AI asked to run and got a walk. The pictures at the
+# coming marks show the gait.
+#
+# Results 2026-10-24 (artifacts/hand-script/walker-speed/):
+#   Walk=1, 10:26 (20261024-102627): flags 0101 throughout the approach, 31
+#   to 65 units/s, 618 runs turned to walks - the AI asked to run on every
+#   frame and walked; it reached the player after about 24 s.
+#   Walk=0, 10:29 (20261024-102942): mostly 0101 at 25 to 54 units/s (the
+#   game's zombie walks most of the way), one stretch at 0201, 196 units/s -
+#   a run; it reached the player after about 10 s.
+# So walk-only holds the walker to its walking pace, and the vanilla zombie
+# does run in bursts without it. (The 10:27 run with Walk=0 logged no speed:
+# the measurement was gated on Walk=1 then.)
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/walker-speed.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 900 0
+console-at moved killall
+
+expect HandScript: finished
+expect 00080
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 14
+mark coming
+wait 3
+mark coming2
+wait 3
+mark coming3
+wait 8
+mark end
+wait 1

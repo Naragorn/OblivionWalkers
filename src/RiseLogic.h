@@ -43,7 +43,21 @@ struct RiseSettings {
 	// Seconds between dropping the placed zombie and raising it: its ragdoll
 	// settles where the man lay, and the get-up starts from there.
 	float dropSeconds = 1.5f;
+	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
+	// becomes a walk, every frame, on the HighProcess movement flags.
+	bool walkOnly = true;
 };
+
+// HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk
+// 0x100, kMovement_Run 0x200; the actor's speed follows them - OBVR's slow
+// approach reads the same, 2026-10-09): a run turned into a walk, anything
+// else kept.
+inline constexpr UInt16 kMovementWalk = 0x0100;
+inline constexpr UInt16 kMovementRun = 0x0200;
+
+inline UInt16 WalkInsteadOfRun(UInt16 flags) {
+	return (flags & kMovementRun) != 0 ? static_cast<UInt16>((flags & ~kMovementRun) | kMovementWalk) : flags;
+}
 
 // The creature path's one swap in flight, stepped by the frame tick:
 // placed (the walker asked for, its reference not yet seen), loading (the

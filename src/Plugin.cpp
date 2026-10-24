@@ -93,6 +93,7 @@ bool ReadSettings(walkers::Settings* settings) {
 		rise.lookAfterSeconds = 0.0f;
 	}
 	rise.asCreature = GetPrivateProfileIntA("Rise", "AsCreature", 1, path) != 0;
+	rise.walkOnly = GetPrivateProfileIntA("Zombies", "Walk", 1, path) != 0;
 	rise.dropSeconds = IniFloat("Rise", "DropSeconds", 1.5f, path);
 	if (rise.dropSeconds < 0.0f) {
 		rise.dropSeconds = 0.0f;
@@ -105,10 +106,11 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f CloneBase=%d ZombieRace=%d "
-	    "LookAfterSeconds=%.1f",
+	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
-	    rise.dropSeconds, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds);
+	    rise.dropSeconds, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
+	    rise.walkOnly ? 1 : 0);
 	return true;
 }
 

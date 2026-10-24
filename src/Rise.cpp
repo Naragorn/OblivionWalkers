@@ -638,9 +638,114 @@ void StepSwapInFlight(float dt) {
 // Every main-loop pass (xOBSE's task queue): the waiting clocks run by the
 // engine's frame seconds for those in the world; a loading screen's frame
 // (a second or more) counts nothing.
+// The walkers walk (4.4): every frame, for every walker creature with a high
+// process, a run in its movement flags becomes a walk. No engine byte is
+// patched - OBVR reroutes the HighProcess flag setters for its slow
+// approach and refuses to when they are not the game's own, so the plugin
+// writes the flags its AI left, once a frame. Each walker's ground speed is
+// measured and logged every two seconds, the proof of the walk.
+constexpr UInt32 kMovementFlagsOffset = 0x1FC;  // HighProcess
+constexpr UInt32 kMobileProcessOffset = 0x058;  // MobileObject::process
+constexpr UInt32 kProcessLevelSlot = 0x08;      // BaseProcess virtual: 0 for a high process
+
+struct WalkerSeen {
+	UInt32 refId = 0;
+	float x = 0.0f;
+	float y = 0.0f;
+	float speed = 0.0f;
+	UInt32 turned = 0;
+	bool have = false;
+};
+WalkerSeen g_seen[16];
+float g_walkLogSeconds = 0.0f;
+
+UInt32 HighProcessOf(UInt32 actor) {
+	const UInt32 process = Read(actor + kMobileProcessOffset);
+	if (!LooksLikeObject(process) || !LooksLikeObject(Read(process))) {
+		return 0;
+	}
+	const UInt32 levelFn = Read(Read(process) + kProcessLevelSlot);
+	if (levelFn < kTextStart || levelFn >= kTextEnd) {
+		return 0;
+	}
+	using LevelFn = UInt32(__fastcall*)(void* process, void* edx);
+	return reinterpret_cast<LevelFn>(levelFn)(reinterpret_cast<void*>(process), nullptr) == 0 ? process : 0;
+}
+
+void StepWalkers(float dt) {
+	if (g_walkerCount == 0) {
+		return;
+	}
+	g_walkLogSeconds += dt;
+	const bool logNow = g_walkLogSeconds >= 2.0f;
+	if (logNow) {
+		g_walkLogSeconds = 0.0f;
+	}
+	for (UInt32 w = 0; w < g_walkerCount; ++w) {
+		UInt32 refs[16];
+		const UInt32 count = CollectWalkerRefs(g_walkers[w], refs, 16);
+		for (UInt32 i = 0; i < count; ++i) {
+			const UInt32 actor = LookupForm(refs[i]);
+			if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
+				continue;
+			}
+			const UInt32 process = HighProcessOf(actor);
+			if (process == 0) {
+				continue;
+			}
+			UInt16* const flags = reinterpret_cast<UInt16*>(process + kMovementFlagsOffset);
+			const UInt16 before = *flags;
+			if (g_settings.walkOnly) {
+				*flags = WalkInsteadOfRun(before);
+			}
+			WalkerSeen* seen = nullptr;
+			for (WalkerSeen& s : g_seen) {
+				if (s.refId == refs[i]) {
+					seen = &s;
+					break;
+				}
+			}
+			if (seen == nullptr) {
+				for (WalkerSeen& s : g_seen) {
+					if (s.refId == 0) {
+						s = WalkerSeen{};
+						s.refId = refs[i];
+						seen = &s;
+						break;
+					}
+				}
+			}
+			if (seen == nullptr) {
+				continue;
+			}
+			if (before != *flags) {
+				++seen->turned;
+			}
+			const float x = FloatAt(actor + kRefPositionOffset);
+			const float y = FloatAt(actor + kRefPositionOffset + 4);
+			if (seen->have && dt > 0.0f) {
+				const float moved = std::sqrt((x - seen->x) * (x - seen->x) + (y - seen->y) * (y - seen->y));
+				seen->speed = seen->speed * 0.9f + (moved / dt) * 0.1f;
+			}
+			seen->x = x;
+			seen->y = y;
+			seen->have = true;
+			if (logNow) {
+				g_log("Walk: walker %08X flags %04X, %.0f units/s, %u runs turned to walks", refs[i], *flags,
+				      seen->speed, seen->turned);
+			}
+		}
+	}
+}
+
 void Tick() {
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
+	}
+	{
+		const float frame = *reinterpret_cast<const float*>(kFrameSeconds);
+		FindWalkers();
+		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 	}
 	if (g_risenWatching) {
 		StepRisenWatch();
