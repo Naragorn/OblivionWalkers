@@ -9,6 +9,11 @@
 # activated" for it: the swap noted the walker as risen before its first
 # kill, so neither that kill nor the second set it destroyed.
 #
+# Results 2026-10-24 (artifacts/hand-script/rise-loot/):
+#   20:36 (20261024-203624) PASS: the bandit FF000EE8 up as walker FF000EEC
+#   (11000802) with his items, killed again, the activate opened
+#   "(Container)"; the plugin's log has no "can no longer be activated".
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-loot.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

@@ -29,6 +29,9 @@
 #   NoLoot=0, 11:15 (20261024-111541): 4 walkers (11000804 x2, 11000802 x2),
 #   the activate opened "(Container)" - the control, FAIL on that reject
 #   as meant.
+#   Ten-slot ESP (d2727bd), MinCount 1 MaxCount 3, 20:38 (20261024-203833)
+#   PASS: 8 walkers (11000801 x8), no goblin, eight "can no longer be
+#   activated", the activate opened nothing.
 #   The plugin at the main menu: 4055 entries in 832 of 2623 lists now
 #   walkers, 1093 creatures written to [ReplaceCreatures] (930 on); five
 #   seconds after the load 36 more entries in 23 lists (a mod's script).
