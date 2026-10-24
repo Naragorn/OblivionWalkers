@@ -538,11 +538,15 @@ void TestChapels() {
 	Check(walkers::NoteDeath(list, anywhere, inside, 0, 0.0f) == DeathVerdict::Waits && list.count == 1,
 	      "AvoidChapels=0: he rises there too");
 
-	// Nadi, 2026-10-24 evening: no walker of ours in a chapel at all.
-	Check(walkers::BanishFromChapel(true, true, false), "AvoidChapels=1, a live walker in a chapel: taken away");
-	Check(!walkers::BanishFromChapel(true, false, false), "outside a chapel: left alone");
-	Check(!walkers::BanishFromChapel(false, true, false), "AvoidChapels=0: left alone");
-	Check(!walkers::BanishFromChapel(true, true, true), "taken away already: not again");
+	// Nadi, 2026-10-24 evening: none of ours spawns in a chapel - one that
+	// walks in after the player may.
+	Check(walkers::SpawnedInChapel(true, true, false, false),
+	      "AvoidChapels=1, a live walker first seen in a chapel: spawned there, taken away");
+	Check(!walkers::SpawnedInChapel(true, true, true, false),
+	      "one seen outside before, now in a chapel: it walked in, left alone");
+	Check(!walkers::SpawnedInChapel(true, false, false, false), "outside a chapel: left alone");
+	Check(!walkers::SpawnedInChapel(false, true, false, false), "AvoidChapels=0: left alone");
+	Check(!walkers::SpawnedInChapel(true, true, false, true), "taken away already: not again");
 }
 
 void TestZombieDefaults() {

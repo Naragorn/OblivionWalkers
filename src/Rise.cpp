@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <unordered_set>
 
 namespace walkers {
 namespace {
@@ -690,34 +691,28 @@ struct WalkerSeen {
 };
 WalkerSeen g_seen[16];
 float g_walkLogSeconds = 0.0f;
-// The walkers taken out of a chapel this session (AvoidChapels), each once.
-UInt32 g_banished[32] = {};
-UInt32 g_banishedCount = 0;
+// The walkers met outside a chapel this session, and those taken out of
+// one (AvoidChapels, SpawnedInChapel).
+std::unordered_set<UInt32> g_seenOutside;
+std::unordered_set<UInt32> g_banished;
 
-bool Banished(UInt32 refId) {
-	for (UInt32 i = 0; i < g_banishedCount; ++i) {
-		if (g_banished[i] == refId) {
-			return true;
-		}
-	}
-	return false;
-}
-
-// A live walker in a chapel: disabled, as the swap hides a corpse.
+// A live walker made in a chapel: disabled, as the swap hides a corpse.
 bool StepChapel(UInt32 actor, UInt32 refId) {
 	const char* cellId = nullptr;
 	UInt32 owner = 0;
 	CellFacts(actor, &cellId, &owner);
-	if (!BanishFromChapel(g_settings.avoidChapels, IsChapelCell(cellId, owner), Banished(refId))) {
+	const bool inChapel = IsChapelCell(cellId, owner);
+	if (!inChapel) {
+		g_seenOutside.insert(refId);
+		return false;
+	}
+	if (!SpawnedInChapel(g_settings.avoidChapels, inChapel, g_seenOutside.count(refId) != 0,
+	                     g_banished.count(refId) != 0)) {
 		return false;
 	}
 	const bool hidden = ConsoleOn(actor, "Disable");
-	if (g_banishedCount < 32) {
-		g_banished[g_banishedCount++] = refId;
-	} else {
-		g_banished[refId % 32] = refId;
-	}
-	g_log("Chapel: walker %08X stood in %s (owned by %08X) - taken out of the world (Disable handed to xOBSE: %d)",
+	g_banished.insert(refId);
+	g_log("Chapel: walker %08X made in %s (owned by %08X) - taken out of the world (Disable handed to xOBSE: %d)",
 	      refId, cellId != nullptr ? cellId : "-", owner, hidden ? 1 : 0);
 	return true;
 }
@@ -925,7 +920,7 @@ void OnLoad(void*) {
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_lootlessCount = 0;
-	g_banishedCount = 0;
+	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
 	}
@@ -977,7 +972,7 @@ void OnNewGame(void*) {
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_lootlessCount = 0;
-	g_banishedCount = 0;
+	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
 	}

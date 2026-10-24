@@ -351,15 +351,18 @@ bandit killed in AnvilChapelofDibella, "cell AnvilChapelofDibella owned by
 000223BC) stays down (in a chapel, AvoidChapels=1)", no rise. Siege and
 horde do not exist yet.
 
-No walker of ours in a chapel at all (Nadi, 2026-10-24 evening: "In
-Kapellen gibts auch keine zombies durch unsere mod"): the frame tick's walk
-pass checks every live walker's cell, and one in a chapel - a mod's spawn
-there, one that followed the player through the door - is disabled, once
-(`BanishFromChapel`). `chapel-walker.txt` PASS 21:21: a walker placed in
-the Chapel of Dibella, "taken out of the world", none in the roster (the
-run of 21:19 FAILed only on its own reject line, which matched the
-console's placeatme line). Seen from the door it is a walker that never
-comes in; the feel of that is the player's to judge.
+None of ours spawns in a chapel (Nadi, 2026-10-24 evening, after a first
+build that took every walker out: "nur keine von unser mod spawnen oder
+aufstehen lassen"): the frame tick's walk pass checks every live walker's
+cell; one it first meets in a chapel was made there (a mod's list there, a
+script's placement) and is disabled, once (`SpawnedInChapel`); one it met
+outside before walked in after the player and stays. Met is per session -
+one that walked in, saved and loaded inside, counts as made there.
+`chapel-walker.txt` PASS 21:26: a walker placed in the Chapel of Dibella,
+"made in AnvilChapelofDibella ... taken out of the world", none in the
+roster. `chapel-follow.txt` PASS 21:27: a walker met in the hall, then
+moved into the chapel onto the priest's marker, stays (11000801 x1 in the
+chapel's roster, no Chapel line).
 
 Cost: **cheap.**
 
@@ -585,7 +588,8 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
-| `chapel-walker.txt` | a walker placed in a chapel is taken out of the world (4.7) - PASS 2026-10-24 21:21 | the plugin, the ESP active |
+| `chapel-walker.txt` | a walker placed in a chapel is taken out of the world (4.7) - PASS 2026-10-24 21:21, 21:26 (made-there rule) |
+| `chapel-follow.txt` | a walker met outside and moved into a chapel stays (4.7) - PASS 2026-10-24 21:27 | the plugin, the ESP active | the plugin, the ESP active |
 | `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |

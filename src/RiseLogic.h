@@ -277,12 +277,15 @@ inline bool IsChapelCell(const char* editorId, UInt32 ownerFormId) {
 	return editorId != nullptr && HasWord(editorId, "chapel") && !HasWord(editorId, "cadlew");
 }
 
-// No walker of ours in a chapel at all (Nadi, 2026-10-24 evening: "In
-// Kapellen gibts auch keine zombies durch unsere mod"): a live walker found
-// in one - a mod's spawn there, one that followed the player through the
-// door - is taken out of the world, once.
-inline bool BanishFromChapel(bool avoidChapels, bool inChapel, bool banishedAlready) {
-	return avoidChapels && inChapel && !banishedAlready;
+// None of ours spawns in a chapel (Nadi, 2026-10-24 evening: "nur keine von
+// unser mod spawnen oder aufstehen lassen"): a live walker the frame tick
+// first meets in a chapel - a spawn of a mod's list there, one a script
+// placed - was made there and is taken out of the world, once. One met
+// outside before walked in (after the player, through the door) and stays.
+// Met is per session: one that walked in, saved and loaded in the chapel,
+// counts as made there.
+inline bool SpawnedInChapel(bool avoidChapels, bool inChapel, bool seenOutside, bool banishedAlready) {
+	return avoidChapels && inChapel && !seenOutside && !banishedAlready;
 }
 
 // Oblivion.esm's human races: Imperial, Breton, Nord, Redguard (read off the

@@ -1,0 +1,43 @@
+# A walker that walks into a chapel stays (docs/walkers-spec.md 4.7, Nadi
+# 2026-10-24 evening: only none of ours spawns or rises there): a walker
+# (the ESP's 0x801) is placed in the hall and met there by the frame tick,
+# then moved into Anvil's Chapel of Dibella onto the priest's marker
+# (0000C0F6, AnvilChapelPriestMarker) - as one that followed the player
+# through the door - and the player after it. The roster at the counted
+# mark has the walker alive (11000801 x1), and the plugin's log has no
+# "Chapel: walker ... made in" line. chapel-walker.txt is the other half: one
+# placed in the chapel itself is taken out.
+#
+# Results 2026-10-24 (artifacts/hand-script/chapel-follow/):
+#   21:27 (20261024-212719) PASS: 11000801 x1 alive among the chapel's
+#   people, no Chapel line.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/chapel-follow.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 11000801 1
+console-at seen {actor}.moveto 0000C0F6
+console-at moved player.moveto 0000C0F6
+
+expect HandScript: finished
+expect 11000801 x1
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 5
+mark seen
+wait 2
+mark moved
+wait 10
+mark counted
+wait 1
+mark end
+wait 1

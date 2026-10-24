@@ -1,8 +1,8 @@
 # No walker of ours in a chapel (docs/walkers-spec.md 4.7, Nadi 2026-10-24
 # evening: "In Kapellen gibts auch keine zombies durch unsere mod"): the
 # player goes to Anvil's Chapel of Dibella and the console places a walker
-# (the ESP's 0x801) at the player - as a mod's spawn there, or one that
-# followed through the door, would stand. The plugin's log reads "Chapel:
+# (the ESP's 0x801) at the player - as a mod's spawn there would stand (one
+# that walks in stays: chapel-follow.txt). The plugin's log reads "Chapel:
 # walker ... stood in AnvilChapelofDibella (owned by 000223BC) - taken out of
 # the world", and the roster at the counted mark has no walker (1100080x).
 #
@@ -11,6 +11,8 @@
 #   line); the log had the walker taken out. 21:21 (20261024-212105) PASS:
 #   "Chapel: walker FF000EE7 stood in AnvilChapelofDibella (owned by
 #   000223BC) - taken out of the world", no walker in the roster.
+#   21:26 (20261024-212607) PASS with the made-there rule: "made in
+#   AnvilChapelofDibella", no walker in the roster.
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/chapel-walker.txt --headless \
