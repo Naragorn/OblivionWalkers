@@ -1,0 +1,95 @@
+# The risen one on the ESP's race: rise-walker-clone.txt with [Rise] CloneBase=1
+# in the deployed OblivionWalkers.ini (set by hand before the run, back to 0
+# after) and OblivionWalkers.esp active - the plugin clones the fallen
+# Redguard bandit's base, points the clone's race at the ESP's Walker race
+# (a copy of the Imperial race, tools/esp-write.py) and calls the engine's
+# Resurrect. The roster shows him alive on the clone ("1 loaded, 0 dead:
+# FF"); the pictures at the risen marks show whether the engine rebuilt him
+# from the new race: a Redguard with Imperial skin (pale, not dark) proves
+# the race swap, his own face on it the FaceGen carried over. The plugin's
+# log carries "race set to" with the race's form ID.
+#
+# The placement is rise-getup.txt's: the player faces north, the bandit is
+# moved 150 units north into view, a second later killall drops him. With
+# the defaults (AfterSeconds=20, JitterSeconds=10) he gets up 20 to 30 s
+# after the death; the pictures come 35 and 39 s after the kill.
+#
+# Run 1, 2026-10-23 19:50 (PASS by the roster, artifacts/hand-script/rise-zombie-race/20261023-195032):
+# the record side works - the plugin's log: "Race: OblivionWalkers.esp is mod
+# 0B, the Walker race 0B000800 found", "the clone's race set to 0B000800 (was
+# 00000D43)", "FF000BAF (base FF000BB1) gets up"; the roster alive on
+# FF000BB1. The look did not follow: in 06-risen-game.png and
+# 07-risen2-game.png the risen bandit stands at the player with the same
+# bronze Redguard skin as before - Resurrect with has3D=1 keeps the actor's
+# existing model and skin, the race on the record is read only when the 3D
+# is built anew. So the swap needs a rebuild of the 3D after the raise (the
+# engine's Update3D, or a disable/enable), to be built and run next. The
+# token gate's line in OBVR.log: "TEST OVERLAY ... read over OBVR.ini (its
+# HarnessToken is this run's)". The 37 % reprojection is the Performance
+# session's sampler in the live OBVR.ini, not this run's doing.
+#
+# Run 2 adds "console-at risen {actor}.update3d": xOBSE's Update3D rebuilds the
+# reference's 3D from its base (Set3D(0), then the model loader's queue) -
+# the risen one at 06-risen-game.png with his old skin, at 07-risen2-game.png
+# four seconds later with the skin the clone's race gives him, if the
+# rebuild is what the look needs.
+#
+# Run 2, 2026-10-23 19:54 (PASS, artifacts/hand-script/rise-zombie-race/20261023-195433):
+# the look follows the rebuild. 06-risen-game.png, before the Update3D: the
+# risen bandit from behind with his bronze Redguard arms and head;
+# 07-risen2-game.png, four seconds after "FF000BAF.update3d": the same
+# reference with pale Imperial skin on arms and neck, the Walker race's -
+# the race swap on the clone is visible once the 3D is built anew from the
+# base. No exception in obse.log. So the plugin itself issues the rebuild
+# after the raise (LookAfterSeconds, after the get-up); whether a rebuild on
+# the corpse before the raise keeps the ragdoll pose is a later experiment.
+#
+# Run 3 drops the console line: the plugin rebuilds the risen one itself,
+# LookAfterSeconds=3 after the raise through xOBSE's console interface
+# ("Risen: ... built anew from his base (Update3D handed to xOBSE ...)" in
+# OblivionWalkers.log); the risen2 picture shows the pale skin.
+#
+# Run 3, 2026-10-23 19:59 (PASS, artifacts/hand-script/rise-zombie-race/20261023-195906):
+# the plugin on its own - "Risen: FF000BAF built anew from his base (Update3D
+# handed to xOBSE, answer 1) 3000 ms after the Resurrect", no console line
+# of the scenario; 06-risen-game.png and 07-risen2-game.png both show the
+# risen one from behind with pale Imperial arms, the rebuild done before the
+# first picture (the rise 20 to 30 s after the death, the look 3 s later,
+# the picture 35 s after the kill). No exception in obse.log.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-zombie-race.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+expect 1 loaded, 0 dead: FF
+count 2 1 loaded, 0 dead: 00069AD1 x1
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 32
+mark risen
+wait 4
+mark risen2
+wait 1

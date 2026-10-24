@@ -1,0 +1,61 @@
+# The engine's own raising of a corpse, before the plugin exists: the
+# baseline for "the dead rise" (docs/walkers-spec.md, 4.1). A melee bandit
+# (00069AD1) is placed by an untouchable player (tgm) in the harness save's
+# hall, killed by the console (killall), and raised by the console's
+# ResurrectActor with the get-up animation ({actor}.resurrect 1 - {actor} is
+# the actor nearest the player from the mark's "HandScript: actors" line).
+# ResurrectActor is the command the plugin will call directly: its table
+# entry at 0x00B0DEA0 runs Actor's virtual at vtable+0x20C with (1, has3D,
+# animate) (read in Oblivion.exe with REA, 2026-10-23).
+#
+# The roster line reads the flow: nobody at ready, "1 loaded, 0 dead" once
+# placed, "1 loaded, 1 dead ... (dead 1)" once killed, and "1 loaded, 0 dead"
+# again once raised - so the alive line stands exactly twice in the log when
+# the raise worked and once when it did not. It also settles whether a
+# reference-prefixed line reaches the game through xOBSE's console
+# interface (the harness notes of 2026-10-18 doubted it).
+#
+# Result 2026-10-23 16:48 (PASS, artifacts/hand-script/rise-baseline/20261023-164840),
+# the roster line at the four marks:
+#   ready   0 loaded, 0 dead: none
+#   placed  1 loaded, 0 dead: 00069AD1 x1; nearest FF000BAF at 101 units
+#   dead    1 loaded, 1 dead: 00069AD1 x1 (dead 1); nearest FF000BAF at 146 units (dead)
+#   risen   1 loaded, 0 dead: 00069AD1 x1; nearest FF000BAF at 134 units
+# The console's resurrect on a corpse brings the same reference back alive
+# ten seconds later: the engine's own raise is sound, the plugin's base swap
+# before it stays the open question (docs/walkers-spec.md, 7.2). The
+# reference-prefixed line "FF000BAF.resurrect 1" reached the game through
+# xOBSE's console interface, settling the doubt of 2026-10-18; the
+# interface's answer is no success flag (0 for placeatme and resurrect, 1
+# for killall, all three took effect).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-baseline.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed killall
+console-at dead {actor}.resurrect 1
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+count 2 1 loaded, 0 dead: 00069AD1 x1
+expect .resurrect 1" handed to the game
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 6
+mark dead
+wait 10
+mark risen
+wait 1

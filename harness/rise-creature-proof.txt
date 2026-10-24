@@ -1,0 +1,107 @@
+# The rise as the game's own zombie, proven with console lines alone before
+# the plugin does it (docs/walkers-spec.md, 4.1 - Nadi's way of 2026-10-23
+# evening): the fallen person's corpse is swapped for a zombie creature at
+# its spot, the inventory moved over, the corpse disabled, and the zombie
+# raised with "resurrect 1" - so it gets up as a zombie where the person
+# fell. Everything here is a vanilla console command; the plugin stays out
+# ([Rise] Enabled=0 in the deployed OblivionWalkers.ini for this run, set by
+# hand before, back to 1 after - otherwise it would raise the bandit itself
+# after 20 s).
+#
+# The placement is rise-getup.txt's: the player faces north, the Redguard
+# bandit (00069AD1) is moved 150 units north into view, killall drops him.
+# At the dead mark "{actor}.placeatme 00025E6E 1" puts CreatureZombie1 on
+# the corpse ({actor} is the corpse, the only actor); the placed bandit is
+# FF000BAF and the zombie the next reference, FF000BB0 (the harness save
+# hands out the same IDs every run, as the rise runs showed). At the zombie
+# mark the corpse is disabled first (out of the roster, so {actor} can only
+# be the zombie from here on) and killall drops the zombie; at the swapped
+# mark the bandit's items go over from the disabled corpse
+# (FF000BAF.removeallitems {actor}) and the zombie is raised
+# ({actor}.resurrect 1).
+#
+# The roster reads it: "1 loaded, 1 dead: 00069AD1" at dead; "00025E6E x1"
+# once the zombie stands there; "1 loaded, 1 dead: 00025E6E x1 (dead 1)" at
+# swapped - the disabled corpse has no 3D and is gone from the line; "1
+# loaded, 0 dead: 00025E6E x1" at risen. The pictures (NN-swapped, up1, up2,
+# risen) show the zombie lying where the man lay and then getting up, if the
+# creature plays the get-up from its ragdoll as a person does (open: 7.x).
+#
+# Run 1, 2026-10-23 20:25 (FAIL, artifacts/hand-script/rise-creature-proof/20261023-202550):
+# the zombie came as FF000BB2, not FF000BB0 - the bandit's weapon dropped at
+# his death took FF000BB0 (and FF000BB1), so the two hardcoded lines hit no
+# reference and the zombie stayed dead. Everything else held, in the
+# pictures too: 05 the man lying with his mace beside him, 06 the zombie
+# placed on him and walking at the player, 07 the zombie lying dead where
+# the man lay and the man gone ("1 loaded, 1 dead: 00025E6E x1 (dead 1)").
+# Since then {actor} names the zombie in both lines.
+#
+# Run 2, 2026-10-23 20:28 (FAIL, artifacts/hand-script/rise-creature-proof/20261023-202807):
+# {actor} at the zombie mark was the corpse (nearest, the zombie not yet
+# closer), so the line read "FF000BAF.removeallitems FF000BAF" - a container
+# emptied into itself, and the engine loops on that: OBVR's watchdog saw no
+# frame end for the rest of the run, the main thread at Oblivion.exe+58DF71,
+# the runner closed the game after 300 s. Since then the corpse is disabled
+# before anything addresses {actor}, and the self-transfer is a reject line.
+#
+# Run 3, 2026-10-23 20:35 (PASS, artifacts/hand-script/rise-creature-proof/20261023-203517):
+# the whole chain by console lines. The roster: "2 loaded, 1 dead: 00025E6E
+# x1, 00069AD1 x1 (dead 1)" with the zombie placed (FF000BB2 - the harness
+# save's next free ID, after the dropped weapon's); "1 loaded, 1 dead:
+# 00025E6E x1 (dead 1)" at swapped, the corpse disabled and gone, the zombie
+# dropped; "1 loaded, 0 dead: 00025E6E x1" from up1 on, 1 s after
+# "FF000BB2.resurrect 1", the items moved over before it. The pictures:
+# 07-swapped the zombie lying where the man lay, nobody else; 08-up1 the
+# zombie low on the floor, on its hands, rising; 09-up2 upright; 10-risen at
+# the player's face, attacking. So a creature plays the get-up from its
+# ragdoll as a person does, and the swap reads as a body changing on the
+# floor and rising. 7.7 answered; the plugin takes this path.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-creature-proof.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+console-at dead {actor}.placeatme 00025E6E 1
+console-at zombie FF000BAF.disable
+console-at zombie killall
+console-at swapped FF000BAF.removeallitems {actor}
+console-at swapped {actor}.resurrect 1
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+expect 00025E6E x1
+expect 1 loaded, 1 dead: 00025E6E x1 (dead 1)
+expect 1 loaded, 0 dead: 00025E6E x1
+reject HandScript: WARNING
+reject removeallitems FF000BAF"
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 2
+mark zombie
+wait 3
+mark swapped
+wait 1
+mark up1
+wait 1.5
+mark up2
+wait 5
+mark risen
+wait 1

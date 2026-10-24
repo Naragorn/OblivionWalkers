@@ -1,0 +1,67 @@
+# The plugin's own rise, without a console resurrect: a melee bandit
+# (00069AD1, a generic person - his base carries the no-low-level-processing
+# flag, 00100290 in Oblivion.esm) is placed by an untouchable player (tgm) in
+# the harness save's hall and killed by the console (killall). Nothing else
+# is typed. OblivionWalkers.dll's death watch (xOBSE's OnDeath) puts him on
+# the waiting list, the frame tick counts [Rise] AfterSeconds=20 plus up to
+# JitterSeconds=10, and the plugin calls the engine's Resurrect itself
+# (docs/walkers-spec.md, 4.1).
+#
+# The roster line reads the flow as rise-baseline.txt did: "1 loaded, 1 dead
+# ... (dead 1)" at the dead mark and "1 loaded, 0 dead" at the risen mark,
+# 35 s later - the alive line twice when the plugin raised him, once when it
+# did not. No ".resurrect" console line may appear. The plugin's own log
+# (OblivionWalkers.log in the game folder, copied into the run's folder by
+# hand) carries the death's verdict and the rise.
+#
+# Run 1, 2026-10-23 17:41 (FAIL, artifacts/hand-script/rise-walker/20261023-174140):
+# the roster read "1 loaded, 1 dead ... (dead 1)" at both the dead and the
+# risen mark - nobody got up. OblivionWalkers.log says why: "xOBSE refused the
+# OnDeath handler" at the plugin's load. xOBSE's RegisterEvent answers false
+# while its EventManager has no event infos, and EventManager::Init() runs
+# in OBSE_Initialize AFTER the plugins are loaded (CommandTable::Init ->
+# PluginManager::Init -> InstallPlugins first; deepwiki llde/xOBSE). Since
+# then the frame tick asks again every frame until the handler is taken.
+#
+# Run 2, 2026-10-23 17:54 (PASS, artifacts/hand-script/rise-walker/20261023-175408),
+# the roster at the marks: "0 loaded, 0 dead: none"; "1 loaded, 0 dead:
+# 00069AD1 x1; nearest FF000BAF at 120 units"; "1 loaded, 1 dead: 00069AD1
+# x1 (dead 1); nearest FF000BAF at 206 units (dead)"; "1 loaded, 0 dead:
+# 00069AD1 x1; nearest FF000BAF at 91 units" - up again and closer. The
+# plugin's log: the handler taken at try 2 (the second frame tick); "Death:
+# FF000BAF (base 00069AD1, type 23, flags 00100290, killer 00000000, this
+# 00000000) waits to rise, 23.5 s"; "Rise: FF000BAF (base 00069AD1) gets
+# up". So: a console kill raises OnDeath, with no killer and a null thisObj;
+# the type byte of a person's base is 0x23; the engine's Resurrect called
+# from the DLL after the wait works like the console's.
+#
+# Runs on OBVR's harness, from the OBVR folder, with OblivionWalkers.dll and
+# its INI deployed beside OBVR.dll (tools/build-linux.sh --deploy):
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-walker.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+count 2 1 loaded, 0 dead: 00069AD1 x1
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 6
+mark dead
+wait 35
+mark risen
+wait 1

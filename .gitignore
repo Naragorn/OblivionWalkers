@@ -1,0 +1,8 @@
+build/
+build-*/
+artifacts/
+dist/
+*.zip
+__pycache__/
+# Written by tools/esp-write.py from Oblivion.esm (Bethesda record data, not ours to publish)
+OblivionWalkers.esp

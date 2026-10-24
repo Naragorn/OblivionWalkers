@@ -1,0 +1,524 @@
+# Oblivion Walkers - specification
+
+Status: design, 2026-10-23. Nothing built. Decided by Nadi on 2026-10-23: the
+features in section 4, the dead rise *as themselves* and only after a
+configurable delay (4.1), the mod in its own folder now and its own repository
+later.
+
+## 1. What it is
+
+A zombie apocalypse for Oblivion in the spirit of Zombie Walkers (Fallout 4,
+v2.6) and 28 Days and a Bit 4 (Oblivion, 2010-2014), done where those two
+could not go: in a native xOBSE plugin. Spawns become walkers, the fallen get
+up, cities get besieged, and every piece has a switch.
+
+It lives beside OBVR and does not need it. One feature (headshots only, 4.10)
+needs the hit's place on the body, which only OBVR knows; it is off without
+OBVR.
+
+Why a plugin and not a script mod: both predecessors ran on scripts, and the
+comment threads say what that cost. Zombie Walkers 2.6.3's resurrection
+script was the mod's CTD source ("crashing right when a body was waking up",
+Buffout logs pointing at the mod; the author dropped the feature in 3.0 as
+"script intensive" and crash-prone). 28 Days' infected-NPC script left corpses
+"running against walls" and flying off, with crashes at door breaches and in
+interiors. A plugin acts in the engine's own frame, at the exact point a
+thing is decided, and keeps its own bookkeeping outside the scripts' timing.
+
+## 2. Engine facts this rests on
+
+Read in Oblivion.exe 1.2.0.416 (Steam, SHA-256 74db8031...) with REA/Ghidra
+and in xOBSE's sources on 2026-10-23, plus the harness runs named.
+
+| Fact | Where | Status |
+|---|---|---|
+| Oblivion has one leveled-actor record, LVLC, for NPCs and creatures alike; each entry carries level, form and **count** | CS wiki Leveled Creature; `tools/esm-spawns.py` over Oblivion.esm: 682 lists, 8005 spawn points | read |
+| The vanilla lists with a count above 1 are the deer and horse herds (LL0Deer100: doe x3, x2; LL0Horse100: x3, x2) | `artifacts/esm/summary.md` | read |
+| A world spawn point with an entry of count above 1 spawns that many actors | `harness/spawn-count.txt`, 2026-10-23 15:29: 30 actors from the loaded grid's 16 leveled points, 18 deer where at most 16 points could yield deer, no directly placed actor there | **measured, honoured** - caveat: the harness save may carry spawns of an earlier visit to these cells, which the roster cannot tell apart; the clean proof is the plugin's own injection into LL0ZombieVariant at Hame |
+| `TESLeveledList::CalcElement` = 0x0046CC70: chance none at +0xC, flags at +0xD (1 calc all levels, 2 calc each in count), RNG 0x0047DF80 modulo 100, recursion into nested lists; only two callers, both in the container variant 0x0046CDE0 | REA | read |
+| The path "world reference with an LVLC base becomes an actor on cell load" uses another entry; not found | REA | open, not needed for the plan |
+| `ResurrectActor` (console `resurrect`): table entry 0x00B0DEA0, opcode 0x108C, execute 0x00510150 = DynamicCast to Actor, then Actor's virtual at **vtable+0x20C** with (1, has3D, animate) | REA, bytes read by hand | read |
+| The engine's resurrect on a corpse brings the same reference back alive: a placed bandit (00069AD1) killed by `killall` reads "1 loaded, 1 dead ... (dead 1)" and ten seconds after `<ref>.resurrect 1` "1 loaded, 0 dead" again; a reference-prefixed console line reaches the game through xOBSE's console interface (its answer is no success flag) | `harness/rise-baseline.txt`, 2026-10-23 16:48, PASS | **measured** |
+| A native plugin registers for OnDeath/OnHit through `OBSEEventManagerInterface::RegisterEvent` | deepwiki xOBSE (PluginAPI.h) | read |
+| Leveled-list edits by OBSE live for the session, not in the save | xOBSE docs | read |
+| `CloneForm`: `CreateFormInstance` + `CopyFrom` + the created-base list; clones get mod index FF and are saved | xOBSE GameForms.cpp | read |
+| TESNPC: race at +0xE4 (TESRaceForm, the pointer at +0xE8), hair +0x1C8, eyes +0x1D0, FaceGen on the NPC record; TESActorBaseData flags at base+0x24+4 (essential 0x2, respawn 0x8, no low-level processing 0x200) | xOBSE GameForms.h | read |
+| `TESObjectREFR::baseForm` at +0x1C; xOBSE's SetBaseForm refuses actors | xOBSE | read, the reason open |
+| PlaceAtMe actors stay in the save; DeleteReference refuses actors; dead actors of a reset cell go when it resets | CS wiki PlaceAtMe | read |
+| Movement: `RunSpeed = WalkSpeed * (fMoveRunMult + fMoveRunAthleticsMult * athletics/100)`, creatures from `fMoveCreatureWalkMin/Max` | CS wiki Movement Game Settings | read |
+| Oblivion gives no XP for kills; skills rise by use | the game | read |
+| The actor process manager's four lists (high to low) through 0x00673A50(0x00B3BD00, level) | OBVR GameAddresses.h | read, in use |
+| The plugin's Resurrect(1, has3D, 1) plays the get-up: the ragdolled bandit bent double with his hands at the floor under a second after the call, upright and walking 1.5 s later (pictures); the engine's dead flag flips at the call itself (12 ms), so the flag says nothing of the animation | `harness/rise-getup.txt` run 2, 2026-10-23 18:22 | **measured** |
+| Only people rise: a Character reference (vtable 0x00A6FC9C) with an NPC_ base; creatures never. Of those, `OnlyPlayableRaces=1` (default) keeps Dremora, Golden Saints and the like down through TESRace's playable byte (+0x70, the race pointer at TESNPC+0xE8); the bandit's race 00000D43 reads playable | xOBSE GameForms.h; `rise-getup.txt` run 2 | read, in use |
+| `<ref>.RemoveAllItems <the same ref>` - a container emptied into itself - loops the engine forever (the main thread at Oblivion.exe+58DF71, OBVR's watchdog); a placed actor's reference ID is not the next free one (the weapon dropped at a death takes IDs first) | `rise-creature-proof.txt` runs 1 and 2 | measured; the plugin never guesses a reference and never moves a container into itself |
+| Resurrect(1, has3D=1, 1) keeps the actor's existing 3D: a race swapped on the base before the raise shows no new skin (`rise-zombie-race.txt` run 1); xOBSE's Update3D (Set3D(0), then the model loader's queue) on the risen reference builds him anew from the clone - a Redguard with Imperial skin four seconds later, his own face and gear (run 2, 19:54) | the runs' pictures | **measured**: the swap is visible after a rebuild; the plugin issues it after the get-up |
+| The runtime keeps no editor IDs for races (xOBSE's GetEditorID: cells and quests only), so the plugin finds the ESP's race by load index: DataHandler (0x00B33A98) holds the loaded mods by runtime index at +0x8D4 (ModEntry::Data*, the file name at +0x1C) and their count at +0x8D0; the race is local ID 0x800 under that index | deepwiki xOBSE GameData.h | read, built (Rise.cpp FindZombieRace), to be run |
+| The ESP file: record header type/size/flags/formID/vcs, GRUP with the size including its header, TES4 data HEDR(1.0f, records, next ID) CNAM SNAM MAST DATA; a new record's mod index is the count of masters | DLCShiveringIsles.esp and Oblivion.esm bytes, UESP TES4 page | read, `tools/esp-write.py` writes and re-reads it |
+| The engine's frame seconds (0x00B33E9C) summed to 10.0 s in about 12 s of wall clock during a harness run with picture captures: AfterSeconds is engine time, a little slower than the wall | `rise-getup.txt` runs 1 and 2 | measured, cause not pinned (captures or a capped delta) |
+| The console's resurrect, byte by byte: `cmp [animate],1; sete al; cmp [actor+0x3C],0; setne cl; push eax; push ecx; push 1; call [vtbl+0x20C]` - Actor::Resurrect(1, has3D, animate), xOBSE names it `Resurrect(UInt32, UInt8, bool)` with the comment that animate=1 takes the bhkProxyController and 0 recreates the processes | REA 0x005101A8, xOBSE GameObjects.h | read, the plugin calls it the same way |
+| xOBSE's task queue (`kInterface_Tasks` = 8): a task enqueued with EnqueueTask runs once every main-loop pass until RemoveTask - the plugin's frame tick, no engine byte patched | deepwiki xOBSE TaskManager::Run | read, in use |
+| xOBSE's event manager (`kInterface_EventManager` = 10): `RegisterEvent("OnDeath", func, 0, 0, 0)`; the handler gets (arg0 the fallen reference, arg1 the killer or null, thisObj the fallen), cdecl, inside the death path on the main thread; nothing clears native handlers on a game load. **At the plugins' load RegisterEvent answers false**: EventManager::Init() runs in OBSE_Initialize after InstallPlugins, so the handler must be registered later - the plugin asks again from its frame tick until it is taken (run 1 of `rise-walker.txt`, 2026-10-23 17:41) | deepwiki xOBSE EventManager.cpp, obse.cpp; `rise-walker.txt` run 2, 2026-10-23 17:54 | read, in use; **measured**: the handler taken at the second frame tick, a console `killall` raises OnDeath with arg1 = 0 (no killer) and thisObj = 0, the DLL's Resurrect after 23.5 s stood the bandit up (the roster alive again, 91 units from the player) |
+| TESNPC/TESCreature: TESActorBaseData at +0x24, its flags at +0x28 (female 1, essential 2, respawn 8, no low-level processing 0x200); 719 of Oblivion.esm's 2482 NPC_ records carry 0x200, the bandits among them (00069AD1: 00100290), most named people not | xOBSE GameForms.h; `tools/esm-spawns.py` module over the ACBS subrecord | read |
+| `LookupFormByID` = 0x0046B250 (cdecl, the form ID), `CreateFormInstance` = 0x00447DF0 (the type byte), `TESForm::CopyFrom` is virtual **45** (vtable+0xB4, BaseFormComponent's four virtuals counted; a first reading as 33 was wrong and cost run 1 of `rise-walker-clone.txt`), `AddFormToDataHandler` 0x0044D950 on 0x00B33A98, `AddFormToCreatedBaseObjectsList` 0x00459800 on 0x00B33B00: xOBSE's CloneForm in that order; a clone's ID gets the FF index from the engine | deepwiki xOBSE GameAPI.cpp, GameForms.cpp | read, for the clone (4.1 step 3) |
+| The clone path's conventions, byte by byte: CreateFormInstance 0x00447DF0 takes the type off the stack behind its SEH frame (cdecl); AddFormToDataHandler 0x0044D950 and AddFormToCreatedBaseObjectsList 0x00459800 take their object in ecx and the form on the stack, `ret 4` (thiscall) - as xOBSE calls them | REA; `rise-walker-clone.txt`, 2026-10-23 18:04 and 18:07 | read, **measured**: the clone made (CreateFormInstance hands out the FF ID itself: FF000BB1, FF000BB4), CopyFrom (0x00521ED0 for a TESNPC) copied the flags, the reference's base swapped on the corpse, the engine's Resurrect stood him up on the clone - the roster alive with the clone's base |
+| xOBSE's SetBaseForm refuses actors only through its own guard `!thisObj->IsActor()` in the command - no engine reason is given | deepwiki xOBSE Commands | read; the swap on a corpse followed by the resurrect **works** (`rise-walker-clone.txt`, 2026-10-23) |
+
+## 3. Architecture
+
+Three parts:
+
+1. **`OblivionWalkers.esp`** - records only, no scripts, written by
+   `tools/esp-write.py` from Oblivion.esm's own records (no Construction Set):
+   today the Walker race for the risen (4.1, a copy of the Imperial race, local
+   ID 0x800, the look to follow); later the walker creatures (own copies of the
+   zombie records with their own animation folder, 4.4), factions, the Black
+   Horse Courier editions (4.8), the scenario globals.
+2. **`OblivionWalkers.dll`** (xOBSE plugin) - everything that happens at
+   runtime: list injection, the death watch, raising, speed, health, loot,
+   fame, hordes, sieges, scenarios, the INI.
+3. **`OblivionWalkers.ini`** - every switch, read at start and on change
+   (hot reload every few seconds, as OBVR's ReloadGate does).
+
+Save discipline: nothing the plugin does at start goes into the save. List
+injection is redone every session (the engine keeps lists in memory only).
+What *must* persist (who is waiting to rise, the scenario's state, the city
+populations) goes into the OBSE co-save through the serialization interface,
+with RefIDs resolved on load.
+
+Harness: OBVR's hand script harness runs the scenarios in `harness/`; since
+2026-10-23 every mark writes a `HandScript: actors` line (everyone loaded,
+by base form, alive and dead) and `{actor}` names the nearest actor in a
+console line. The Walkers plugin writes its own `Walkers:` log lines the
+scenarios `expect`.
+
+## 4. Features
+
+Costs: cheap / small / medium / large / huge, with the reason. Each feature
+names its setting, what it does, how, what it costs, and how it is tested.
+
+### 4.1 The dead rise - `[Rise] Enabled=1`, `AfterSeconds=20`, `JitterSeconds=10`, `ChancePercent=100`, `OnlyInfected=0`, `OnlyGeneric=1`, `OnlyPlayableRaces=1`, `OnlyHumans=0`, `CloneBase=0` (proof switch, to become 1), `ZombieRace=1`, `LookAfterSeconds=3`
+
+**Decided 2026-10-23 evening (Nadi): the fallen rises as the game's own zombie
+creature, not as himself with a zombie race.** At the rise the corpse is swapped
+for a Walker creature (a copy of CreatureZombie1..4, the records 4.6 uses too)
+at its spot: the zombie placed and dropped dead there, the corpse's inventory
+moved over, the corpse disabled (out of the world, a record left in the save
+until the cell resets - the engine deletes no actor), then the zombie raised
+with the engine's Resurrect(1, has3D, animate=1) so it gets up where the man
+fell. Gained: the zombie's look, shamble, groans, claws and hostility for free,
+no factions, combat style or walk to rebuild on a person, one set of Walker
+records for 4.1 and 4.6. Lost: his face, clothes and name. The race path below
+stays measured and built behind `CloneBase` as the fallback.
+
+What (the race path, built and measured, kept as the fallback): a fallen
+person of a playable race (men, mer, beast folk; `OnlyPlayableRaces=0` takes
+Dremora and the Isles' Saints and Seducers too; `OnlyHumans=1` narrows to the
+four human races, Nadi's extra option of 2026-10-23, off by default; creatures
+never) gets up as a zombie *as himself*:
+same face, same body, same inventory, grey skin, "Zombie" for a name, hostile
+to the living, slow. Not a spawn beside the corpse (decided 2026-10-23). After
+the delay, not at the death.
+
+How, in order:
+1. OnDeath (native callback): if the actor is an NPC, not essential, matches
+   the filters (`OnlyGeneric`: the base carries the no-low-level-processing
+   flag 0x200, which leveled-list NPCs must; `OnlyInfected`: the Zombie Rot
+   disease is on him, 4.14), roll `ChancePercent`, then put the reference on
+   the waiting list with a time: `AfterSeconds` plus a random share of
+   `JitterSeconds`. The death itself runs untouched: ragdoll, loot drop, quest
+   counters. Nothing is touched in the frame of the death - that was Zombie
+   Walkers' crash.
+2. A per-frame tick counts real seconds for every waiting reference whose
+   cell is loaded (3D present). Leaving the cell freezes the clock; it runs on
+   at the next visit, so the getting-up is always in view and never off-screen.
+3. Rise: clone the base (the engine's own clone path as xOBSE's CloneForm
+   does it), on the clone set the race to the ESP's zombie race, the name
+   (4.2), the factions (zombie faction, friendly to zombies), aggression 100,
+   the combat style (no spells, no bows), the speed (4.4), the health (4.5);
+   point the reference's base (+0x1C) at the clone; call Actor's virtual at
+   vtable+0x20C with (1, has3D, animate=1) - the engine plays the get-up on the
+   old model (it keeps the 3D it has); `LookAfterSeconds` (3) later the plugin
+   has xOBSE's Update3D build him anew from the clone, and the race shows
+   (measured 2026-10-23, `rise-zombie-race.txt`). Built: the clone, the race
+   from the ESP, the rebuild; open: the zombie look itself (textures), name,
+   factions, aggression, combat style, speed and health on the clone.
+4. "Already a zombie": the base's race is the zombie race. No co-save needed
+   for that; the waiting list with its clocks goes to the co-save.
+
+Why the clone and not the ESP's own base records: a raised bandit must keep
+his face; FaceGen lives on the NPC record, so the record that carries his
+face must be the one the reference points at. Cost of the clone: one created
+base record per risen zombie, in the save. Cap it: `[Rise] MostAlive=60`;
+above the cap nobody new rises until one is cut down. Whether a clone can be
+destroyed once its reference is gone (the engine's `Destroy`/`SetDeleted` on
+created forms) is open; until measured, the cap is the control.
+
+Essential NPCs only fall unconscious: no OnDeath, no rise. Quest NPCs are
+kept out by `OnlyGeneric=1` (default); `0` raises everyone and is the
+player's own risk.
+
+Cost: **medium to large.** Resurrect is found; the clone path is readable in
+xOBSE; the base swap on a corpse followed by the resurrect is measured and works
+(2026-10-23, `rise-walker-clone.txt`: clone, swap, get-up, the roster alive
+on the clone). The race swap's 3D rebuild (does the fallen NPC's head go on
+the zombie race's body?) is the one unknown left, and needs the ESP's race. Harness:
+`rise-baseline.txt` (the console's own resurrect: PASS 2026-10-23, the
+corpse stood up alive as the same reference), then `rise-walker.txt` (the
+plugin's rise, with the roster showing the clone base and the zombie race).
+
+### 4.2 Walkers by name - `[Zombies] RenameToWalker=1`, `Name=Walker`
+
+What: every zombie, spawned or risen, is called "Walker" (or the name set).
+
+How: the ESP's walker creatures carry the name; raised NPCs get it on their
+clone (SetName on the clone's TESFullName). Vanilla zombies that other mods
+place keep theirs unless `RenameVanilla=1`, which sets the name on the
+vanilla zombie records at start (in memory, every session).
+
+Cost: **cheap.** Records and one string write.
+
+### 4.3 No skill gain from zombies - later, `[Zombies] NoSkillGain=1`
+
+Oblivion has no kill XP; skills rise by use, so "no XP from zombie kills"
+becomes: a blow on a zombie trains nothing (Blade, Blunt, Hand to Hand,
+Marksman, Destruction and the armor skills through hits taken from one).
+Nadi, 2026-10-23: keep it, build it later, as a toggle that is **on by
+default**. On by default means a player who fights mostly walkers (the
+OblivionCrisis and Horde scenarios) trains no combat skill through them;
+that is the hard mode Nadi wants, and `0` gives the training back.
+
+How: a hook on the engine's skill-use increment with the hit's target at
+hand (the actor-value "skill use" path; entry point to be found with REA),
+vetoed when the target or the attacker is a walker. Cost: **medium** - the
+entry point is the unknown, the veto a few lines, the test a harness scenario
+that reads the player's skill-use counters before and after blows on a
+walker and on a bandit. Not in the first build (section 8, phase 4).
+
+### 4.4 Walkers walk - `[Zombies] Walk=1`, `SpeedMultiplier=1.0`, `SpeedRandomPercent=30`
+
+What: zombies never run. They shamble, each at its own pace.
+
+How: two layers. (a) Animation: the ESP's walker creatures have their own
+animation folder in which the run animation is the walk animation, so a
+zombie "running" in combat plays a walk. Raised NPCs use the zombie race's
+skeleton with the same trick. (b) Speed: the Speed attribute is set per actor
+so the feet match the ground: base `SpeedMultiplier` times a random spread of
+`SpeedRandomPercent` (Zombie Walkers' praised variety: some crawl, some
+shuffle fast). `Walk=0` leaves the vanilla running zombies.
+
+Open: that a new creature record can carry its own animation folder is
+modding practice I could not verify in the CS wiki; the harness measures it
+(`walker-speed.txt`: the roster's actor walked N units in T seconds).
+
+Cost: **small** for the records and the attribute write; **medium** if the
+animation folder does not take and the run state has to be forced in the
+engine (hook point unknown).
+
+### 4.5 Zombie health - `[Zombies] HealthPercent=100`
+
+What: 1 to 100 percent of the record's health. "Softie": 25 with more of them
+(4.6).
+
+How: the plugin scales the health of every zombie base record at start (in
+memory) and of every clone at the rise. Not per reference, so a save never
+carries a scaled value.
+
+Cost: **cheap.**
+
+### 4.6 Spawn replacement - `[Replace] Bandits=1`, `Marauders=1`, `Necromancers=0`, `Conjurers=0`, `Vampires=0`, `Goblins=0`, `Animals=0`, `Daedra=0`, `Undead=0`, `ChancePercent=100`, `MinCount=1`, `MaxCount=3`
+
+What: spawn points of the chosen kinds spawn walkers instead, one to three
+of them.
+
+How: list injection at start, every session. The plugin walks the LVLC
+records by editor-ID family (`LL*Bandit*`, `LL*Marauder*`, `LL*Necromancer*`,
+`LL*Conjurer*`, `LL*Vampire*`, `LL*Goblin*`, `LL*Wilderness*`/`LL*Beast*`
+for animals, `LL*Daedra*`/`LL*Dremora*`, `LL*Undead*`/`LL*Tomb*` - the
+families from `tools/esm-spawns.py`) and, per `ChancePercent`, replaces the
+entries with walker entries of count `MinCount`..`MaxCount` (one entry per
+count value, so the engine's own random pick gives the spread). The engine
+then spawns them itself at its own spawn points: no new references of the
+plugin's, no save bloat, the cell reset's respawn as always. Mods that add
+their own lists are covered by the same family match; a `Lists=` line in the
+INI names more.
+
+Rests on the count measurement (`spawn-count.txt`). If a world spawn point
+ignores the count, the fallback is the plugin spawning the extra ones beside
+the first at cell load (references of its own, with a cap and cleanup).
+
+Cost: **small** with the count working (the injection is bookkeeping over
+records already in memory); **medium** on the fallback.
+
+### 4.7 Zombies avoid chapels - `[Zombies] AvoidChapels=1`
+
+What: no walker spawns or rises in a chapel cell, and hordes do not path
+into one. 28 Days' safe zones.
+
+How: cells whose editor ID carries `Chapel` or whose owner faction is a
+chapel's are a no-go: the injection skips lists that only spawn there (none
+in vanilla), the rise skips corpses there, the siege (4.12) never picks a
+chapel door, and the horde's wander targets avoid them.
+
+Cost: **cheap.**
+
+### 4.8 Fame for kills - `[Zombies] FamePerKills=50`
+
+What: one point of fame per `FamePerKills` walkers cut down (28 Days gave
+one per 50). `0` turns it off.
+
+How: OnDeath of a zombie killed by the player counts; at the threshold
+`ModPCFame 1` through the engine's own command path.
+
+Cost: **cheap.**
+
+### 4.9 Black Horse Courier - `[News] Courier=1`
+
+What: an edition in every inn and tavern with the latest from the outbreak:
+which cities are infested, where the horde is heading, what the Legion asks.
+
+How: the ESP ships pre-written editions (one per city state and horde state,
+written once); the plugin swaps the placed edition reference's base for the
+edition that fits the scenario's state when the player enters the inn.
+Dynamic text in a book needs OBSE string work the engine fights; the
+pre-written set is what 28 Days did and it reads well.
+
+Cost: **small** (writing the editions is most of it).
+
+### 4.10 Headshots only - `[Zombies] HeadshotsOnly=0`
+
+What: a walker only dies from a blow to the head; body hits stagger and
+slow it.
+
+How: OBVR's melee contact knows the hit's place on the body. The two plugins
+talk through OBSE's plugin messaging: OBVR sends the hit's bone name with
+the target; Walkers vetoes or lets the damage through (OnHealthDamage, which
+fires before the damage is applied, can nullify it). Without OBVR the
+setting does nothing and says so in the log. Vanilla arrows and spells know
+no body part, so this is a VR feature.
+
+Cost: **medium**, across two repositories (the message in OBVR, the veto in
+Walkers, the stagger on a body hit).
+
+### 4.11 Horde behaviour - `[Horde] Enabled=1`, `WanderRadius=4000`, `FollowRank=1`
+
+What: walkers out of combat do not stand around; they drift in a direction,
+group up behind one of their own, and the group drifts on. Zombie Walkers'
+patrol-and-follow.
+
+How: each idle walker gets a wander target the plugin moves ahead of it
+(the AI's travel package to a marker the plugin owns, re-placed when
+reached or stale); a walker that sees another with a higher random rank
+follows it instead. Walkers that belong to a dungeon's spawn points are
+exempt, so dungeons stay cleared by their own count.
+
+Cost: **medium to large.** The packages are vanilla AI; the plugin's part is
+the target bookkeeping and the staleness watch (a walker stuck on a rock).
+The feel needs the headset.
+
+### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
+
+What: an infested city has walkers in its streets; more come out of the
+doors while you are there until the city's population is spent. Guards fight
+them. Zombie Walkers' settlement attacks, 28 Days' hordes.
+
+How: the scenario (section 5) keeps a population per city in the co-save.
+In a city cell the plugin spawns walkers from the cell's door references at
+the rate the population allows (the engine's own placement function, the
+plugin's references), the cap `MostAliveInCell`. Dead siege walkers are cut
+at the cell reset. Siege visuals (28 Days' rubble) are not planned.
+
+Cost: **medium.** The spawn is a known path; the population model is small;
+the test is the harness count line across a city cell.
+
+### 4.13 Extra spawns - `[Replace] ExtraPercent=0`
+
+What: more walkers in the wilderness and dungeons than the replaced spawns
+give, by a percentage.
+
+How: a second injection: the plugin adds walker entries to the wilderness
+and lair lists beside the originals, weighted by the percentage, so some
+of those spawn points become walkers without taking anything away.
+
+Cost: **cheap** once 4.6 stands.
+
+### 4.14 Infection - `[Infection] Enabled=1`, `BiteChancePercent=25`, `PlayerInfection=1`
+
+What: a walker's bite gives Zombie Rot, a disease: fatigue and health drain
+over days, cured by Cure Disease like any other. An infected NPC who dies
+rises even with `OnlyInfected=1`. The player dies of it if untreated (the
+game's own death).
+
+How: the ESP's disease (Oblivion's own mechanism, as 28 Days' "Touch of the
+Worm King"); the walkers' attack carries it with the chance set. No
+script: the engine applies diseases on hit itself.
+
+Cost: **cheap** for the disease; the rise filter is a flag read.
+
+### 4.15 No loot - `[Zombies] NoLoot=1`
+
+What: spawned walkers carry nothing worth taking. Raised NPCs keep their
+own inventory (their loot is the point of the corpse).
+
+How: the ESP's walker records have empty inventories; `NoLoot=0` gives them
+the vanilla zombie's Mort Flesh.
+
+Cost: **cheap.**
+
+### 4.16 Tempo - see 4.4; `[Zombies] AttackSpeedMultiplier=0.8`
+
+The attack speed goes through the same sequence-offset mechanism OBVR's
+EnemyAttackSpeed uses (OBVR attack-tempo lesson: the weapon speed is
+additive in the sequence offset).
+
+Cost: **small**, with OBVR's code as the pattern.
+
+### Later (named by Nadi, not in the first build)
+
+- Barricades (28 Days' door locks by Security skill, walkers breaking them).
+- Extra guards around the cities.
+- Guard parties that attack Oblivion gates and always lose when the player
+  is not there.
+
+## 5. Scenarios - `[Scenario] Preset=`
+
+All of 28 Days' plus one. A preset sets the switches above and the
+population model; `Custom` leaves the INI as written.
+
+| Preset | What |
+|---|---|
+| `Off` | the plugin sleeps |
+| `Hive` | one random city starts infested; the horde spreads from it to the next city every few days |
+| `Horde` | one roaming horde moves city to city, leaving "sleeper" walkers behind |
+| `PatientZero` | one infected NPC somewhere; the infection spreads by bites until it is noticed |
+| `DawnOfTheDead` | every city's population at its maximum from the start |
+| `Arcade` | DawnOfTheDead with double populations and extra spawns at 100 % |
+| `OblivionCrisis` | **new**: walkers spawn only around the Oblivion gates (the lists `LL1DaedricBeastOblivionGate100` family, 107 spawn points, and the gate cells) and move out from there into the world; cities are hit only by hordes that walked there from a gate. Closing a gate stops its source. |
+
+The scenario's state (populations, the horde's city, the gates' sources) is
+the co-save's; a preset change restarts it.
+
+## 6. Harness scenarios
+
+Run on OBVR's harness from the OBVR folder:
+
+```
+python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headless \
+    --artifact-root ../OblivionWalkers/artifacts/hand-script
+```
+
+| Scenario | Measures | Needs |
+|---|---|---|
+| `spawn-count.txt` | a world spawn point with a count-3 entry spawns three (4.6) - PASS 2026-10-23 15:29, with the caveat in section 2 | the roster line (OBVR, 2026-10-23) |
+| `rise-baseline.txt` | the engine's resurrect on a corpse through the console, and `{actor}` (4.1) - PASS 2026-10-23 16:48 | the roster line |
+| `rise-walker.txt` | the plugin's rise after N seconds through xOBSE's OnDeath, the frame tick and the engine's Resurrect - PASS 2026-10-23 17:54 (run 1 FAIL: the handler must be registered after the plugins' load) | the plugin |
+| `rise-getup.txt` | the get-up animation after the plugin's Resurrect, in pictures, and the engine's dead flag timed - PASS 2026-10-23 18:22 (run 1 looked at a wall) | the plugin |
+| `rise-races-playable.txt` | the race filter at its defaults: a Redguard and a Khajiit bandit get up, a Dremora churl stays down - PASS 2026-10-23 18:35 | the plugin |
+| `rise-races-humans.txt` | `OnlyHumans=1`: the Redguard gets up, the Khajiit and the Dremora stay down - PASS 2026-10-23 18:44 | the plugin |
+| `rise-creature.txt` | the plugin's own creature rise with the defaults (`AsCreature=1`): the walker asked for on the corpse, found, the corpse hidden, the walker dropped, DropSeconds later the items moved and the walker raised - PASS 2026-10-23 20:44 (run 1: xOBSE's answer to PlaceAtMe read as a refusal, the man rose and the walker killed him again) | the plugin, the ESP active |
+| `rise-creature-proof.txt` | the corpse swapped for CreatureZombie1 by console lines alone: placed on the corpse, the corpse disabled, the zombie dropped, the items moved, `resurrect 1` - the zombie gets up at the spot (7.7) - PASS 2026-10-23 20:35 (run 1 a guessed reference, run 2 a self-transfer that froze the engine) | nothing of the plugin ([Rise] Enabled=0 for the run) |
+| `rise-zombie-race.txt` | the clone's race set to the ESP's Walker race before the raise: a Redguard up with Imperial skin, his own face (4.1 step 3, 7.2's last question) | the plugin, the ESP active - run 1 19:50: the race on the clone, the old skin (Resurrect keeps the 3D); run 2 19:54 PASS: Update3D after the raise, pale Imperial skin in the picture; run 3 19:59 PASS: the plugin's own rebuild 3 s after the raise (`LookAfterSeconds`), pale skin in both pictures |
+| `rise-walker-clone.txt` | the same on a clone of the fallen one's base record (`[Rise] CloneBase=1`): the base swap on a corpse (7.2) - PASS 2026-10-23 18:07 (run 1 FAIL: CopyFrom is virtual 45, not 33; run 2 the swap worked, the runner's verdict fell to the scenario's own reject line) | the plugin |
+| `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) | the plugin |
+| `replace-bandits.txt` | a bandit cave spawns walkers x1..3 after injection (4.6) | the plugin |
+| `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
+
+Each plugin scenario `expect`s the plugin's own `Walkers:` log lines and the
+roster line's counts.
+
+## 7. Open questions, in the order they block
+
+1. Count at a world spawn point (`spawn-count.txt`): **answered 2026-10-23**, honoured
+   (section 2, with its caveat). 4.6 keeps its count shape; the plugin's injection
+   into LL0ZombieVariant at Hame is the clean proof.
+2. The base swap on a corpse followed by resurrect: **the engine takes it**
+   (`rise-walker-clone.txt`, 2026-10-23), and the race swap on the clone
+   **shows** once the 3D is built anew (`rise-zombie-race.txt` run 2, Update3D
+   after the raise: Imperial skin on the Redguard, his own face and gear).
+   Answered; left: the zombie textures themselves, and whether a rebuild on
+   the corpse before the raise keeps the ragdoll pose (then the get-up would
+   already show the new skin).
+3. A creature record with its own animation folder (4.4). Blocks the walk;
+   the fallback is an engine hook.
+4. Whether created base forms can be destroyed when their reference is gone.
+   Decides whether the cap in 4.1 is temporary.
+5. OBVR's hit-place message (4.10) - a change in OBVR too.
+6. The skill-use entry point (4.3) - when its phase comes.
+7. Does a zombie creature get up from its ragdoll with Resurrect(1, has3D, 1)
+   as a person does? **Yes** (`rise-creature-proof.txt` run 3, 2026-10-23 20:35:
+   placed on the corpse, the corpse disabled, the zombie dropped, the items
+   moved, raised - low on its hands a second later, upright at 2.5 s, at the
+   player at 7 s). Two things learned on the way: the new reference's ID is
+   not predictable (the dropped weapon takes the next ones), and RemoveAllItems
+   from a container into itself freezes the engine (run 2) - the corpse is
+   disabled before anything addresses the nearest actor. The plugin takes this
+   path.
+
+## 7a. Open bugs
+
+- **RESOLVED 2026-10-24 07:12** - the walker a few metres from the corpse, the man up again, old walkers raised: three causes, all measured (`rise-creature.txt` runs 3 to 5): the finder's radius missed the placed walker and matched old ones (now identity: the references before the PlaceAtMe against those after); a kill handed to the walker before its model existed left a "dead" body sliding at 400 units/s (the kill now waits for the model and lands in its first frame); and the two seconds of walking before the old finder gave up were the "few metres". The walker now drops within 40 units of the spot. The original entry, for the record:
+- **The walker appears a few metres from the corpse in Nadi's game, not on it**
+  (2026-10-23 21:23, his log): "walker 10000801 asked for at 3268 9112 40" and
+  "no walker appeared within 2 s - he gets up as himself" - the walker existed
+  (the player killed it later) but stood outside the finder's 150 units; the
+  second rise found walker FF000F33 within the radius, killed it at once and
+  raised it at 3983 8745 97, 550 units from the corpse - so the engine moves a
+  placed creature to a spot of its own in that exterior (the hall's flat floor
+  kept it on the corpse). Seen by Nadi as: zombie a few metres off, the man up
+  again, later a second zombie and the first one up again. Fix planned
+  (cheap): find the new walker by identity (the walker references before the
+  PlaceAtMe against those after, no radius), `PlaceAtMe <base> 1 0 0` with an
+  explicit distance of 0, and `MoveTo` the dead walker onto the corpse once
+  its model stands, before the corpse is hidden; plus OblivionWalkers.log.prev
+  so a player's log survives the next start.
+
+- **Narrowed 2026-10-24 08:46** (seven outdoor runs): the disabled corpse is
+  always and only the bandit the harness placed with the console's
+  `player.placeatme` - in every outdoor run, with and without Ragdolls, MOO and
+  both Enhanced Grabbing plugins, at the player's feet and 400 units off; an
+  area bandit of the very same base (00069AD1) rose fine, and all 17 people of
+  the area that died in those runs became walkers. In the hall the placed one
+  rose. So a console-placed actor dying outdoors gets disabled by the engine or
+  a remaining plugin some 20 s later - a harness artifact, not what a player's
+  kills meet (Nadi's own kills rose). Who exactly I could not verify; the plugin
+  leaves it alone.
+- **Corpses disabled by something else before their rise** (2026-10-24,
+  `rise-creature-outdoors.txt` runs 2 and 4, outdoors at Tamriel -29,5): a
+  waiting corpse goes "absent (no 3D)" with its form flags 00000108 ->
+  0000090A (0x800, disabled) some 20 s after the death, just before it is
+  due; it never rises. The plugin disables a corpse only inside a swap, and
+  none ran for these. Who does it I could not verify; the suspects are the
+  mods installed 2026-10-23 21:20 (Ragdolls for Oblivion, Maskar's Oblivion
+  Overhaul and others). Cheapest step that settles it: one run with those
+  mods off. A design choice follows either way - rise from a disabled
+  corpse too (place the walker at its last position) or leave it down.
+
+## 8. Phases
+
+1. **Engine proofs** (this week): `spawn-count`, `rise-baseline` (both PASS
+   2026-10-23); the plugin skeleton with INI, log, co-save and the rise on a
+   clone (`rise-walker`, `rise-walker-clone`, PASS 2026-10-23); the ESP with
+   the Walker race, the four Walker creatures and their list
+   (`tools/esp-write.py`); the creature rise (`rise-creature`, PASS 2026-10-23
+   20:44) - done.
+2. **Core**: 4.6 replacement, 4.4 walk, 4.5 health, 4.2 name, 4.15 loot, 4.1
+   rise. Harness green for each.
+3. **World**: 4.14 infection, 4.7 chapels, 4.8 fame, 4.13 extra spawns, 5
+   scenarios with OblivionCrisis, 4.9 Courier.
+4. **Feel**: 4.11 horde, 4.12 siege, 4.10 headshots with OBVR, 4.16 tempo,
+   4.3 no skill gain.
+5. Later list.
+
+## 9. Sources
+
+- Zombie Walkers: Nexus 20485 (description and 1700 of the 2480 comments,
+  read 2026-10-23), the author's blog (features, 2016 horde and spawner
+  posts, 2017 resurrection and replacement posts).
+- 28 Days and a Bit 4: Nexus 33037 (description and all 1373 comments, read
+  2026-10-23).
+- CS wiki: Leveled Creature, PlaceAtMe, Resurrect, Movement Game Settings,
+  Event Handler Functions. UESP: Zombie, Respawning.
+- xOBSE (llde/xOBSE) through deepwiki and GameForms.h.
+- Oblivion.exe through REA/Ghidra, 2026-10-23: CalcElement 0x0046CC70,
+  CalcItemForContainer 0x0046CDE0, ResurrectActor 0x00B0DEA0 / 0x00510150 /
+  vtable+0x20C.
+- `tools/esm-spawns.py` over Oblivion.esm: `artifacts/esm/`.

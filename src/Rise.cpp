@@ -1,0 +1,760 @@
+#include "Rise.h"
+
+#include <windows.h>
+
+#include <cmath>
+#include <cstdio>
+
+namespace walkers {
+namespace {
+
+// Engine facts of Oblivion 1.2.416, read with REA over Oblivion.exe and in
+// xOBSE's GameForms.h / GameObjects.h / GameAPI.cpp on 2026-10-23
+// (docs/walkers-spec.md, section 2).
+constexpr UInt32 kVtblCharacter = 0x00A6FC9C;   // a person in the world
+constexpr UInt32 kVtblCreature = 0x00A710F4;    // a creature in the world
+constexpr UInt32 kFormTypeOffset = 0x04;        // TESForm::typeID (0x23 NPC_, 0x24 CREA)
+constexpr UInt32 kFormIdOffset = 0x0C;          // TESForm::refID
+constexpr UInt32 kRefBaseFormOffset = 0x1C;     // TESObjectREFR::baseForm
+constexpr UInt32 kRefNiNodeOffset = 0x3C;       // TESObjectREFR::niNode: in the world when set
+constexpr UInt32 kActorBaseFlagsOffset = 0x28;  // TESActorBase::actorBaseData.flags
+constexpr UInt32 kNpcRacePointerOffset = 0xE8;  // TESNPC::race.race (TESRaceForm at 0xE4)
+constexpr UInt32 kRacePlayableOffset = 0x70;    // TESRace::isPlayable, a byte
+constexpr UInt32 kRefPositionOffset = 0x2C;     // TESObjectREFR::posX, posY, posZ
+constexpr UInt32 kActorBaseEssential = 0x2;
+constexpr UInt32 kActorBaseNoLowProcessing = 0x200;
+constexpr UInt32 kActorVtableIsDead = 0x198;    // as OBVR's ActorRoster reads it: (self, 0) & 1
+constexpr UInt32 kActorVtableResurrect = 0x20C; // the console's ResurrectActor: (1, has3D, animate)
+constexpr UInt32 kLookupFormByID = 0x0046B250;  // xOBSE GameAPI.cpp, cdecl (UInt32 id)
+// xOBSE's CloneForm, call by call (GameForms.cpp, GameAPI.cpp; the bytes at
+// the three addresses read with REA: the type comes off the stack behind the
+// SEH frame, the other two take their object in ecx and return with ret 4).
+constexpr UInt32 kCreateFormInstance = 0x00447DF0;         // cdecl (UInt8 type)
+constexpr UInt32 kAddFormToDataHandler = 0x0044D950;       // thiscall (DataHandler; form)
+constexpr UInt32 kAddFormToCreatedBaseList = 0x00459800;   // thiscall (TESSaveLoadGame; form)
+constexpr UInt32 kDataHandlerPointer = 0x00B33A98;
+constexpr UInt32 kCreatedBaseListPointer = 0x00B33B00;
+// TESForm::CopyFrom is virtual 45 of a form, counted from BaseFormComponent's
+// four (xOBSE GameForms.h's numbered list; a first reading as 33 skipped the
+// base's and sent run 3 of rise-walker-clone into IsOffLimits instead).
+constexpr UInt32 kFormVtableCopyFrom = 0xB4;
+constexpr UInt8 kFormTypeNpc = 0x23;
+constexpr UInt8 kFormTypeCreature = 0x24;
+constexpr UInt8 kFormTypeRace = 0x09;
+// The actor process manager's four lists (high to low), as OBVR's roster
+// reads them: a node is {data, next}; the list function takes the level.
+constexpr UInt32 kActorProcessManager = 0x00B3BD00;
+constexpr UInt32 kActorListByLevel = 0x00673A50;
+// DataHandler (xOBSE GameData.h): the loaded mods by their runtime index,
+// ModEntry::Data (the engine's TESFile) with the file name at +0x1C.
+constexpr UInt32 kDataHandlerModCountOffset = 0x8D0;
+constexpr UInt32 kDataHandlerModsByIdOffset = 0x8D4;
+constexpr UInt32 kModEntryNameOffset = 0x1C;
+constexpr const char* kPluginEsp = "OblivionWalkers.esp";
+constexpr UInt32 kFrameSeconds = 0x00B33E9C;    // the last frame's seconds, a float (OBVR GameAddresses.h)
+constexpr UInt32 kTextStart = 0x00401000;
+constexpr UInt32 kTextEnd = 0x00A27C39;
+
+LogFn g_log = nullptr;
+RiseSettings g_settings;
+WaitingList g_list;
+obse::EventManagerInterface* g_events = nullptr;
+obse::TasksInterface* g_tasks = nullptr;
+obse::SerializationInterface* g_serialization = nullptr;
+obse::ConsoleInterface* g_console = nullptr;
+UInt32 g_random = 0;
+bool g_deathWatchOn = false;
+UInt32 g_registerTries = 0;
+RisenWatch g_risen;
+bool g_risenWatching = false;
+Swap g_swap;
+UInt32 g_walkers[4] = {};
+UInt32 g_walkerCount = 0;
+bool g_walkersLooked = false;
+
+UInt32 Read(UInt32 address) { return *reinterpret_cast<const UInt32*>(address); }
+UInt8 Read8(UInt32 address) { return *reinterpret_cast<const UInt8*>(address); }
+float FloatAt(UInt32 address) { return *reinterpret_cast<const float*>(address); }
+
+// Out of the null page and aligned: the least an engine object pointer is.
+bool LooksLikeObject(UInt32 address) { return address >= 0x00010000 && (address & 3) == 0; }
+
+UInt32 NextRandom() {
+	g_random ^= g_random << 13;
+	g_random ^= g_random >> 17;
+	g_random ^= g_random << 5;
+	return g_random;
+}
+
+UInt32 LookupForm(UInt32 formId) {
+	using LookupFn = UInt32(__cdecl*)(UInt32 id);
+	return reinterpret_cast<LookupFn>(kLookupFormByID)(formId);
+}
+
+bool IsActor(UInt32 ref) {
+	const UInt32 vtable = Read(ref);
+	return vtable == kVtblCharacter || vtable == kVtblCreature;
+}
+
+bool IsDead(UInt32 actor) {
+	const UInt32 fn = Read(Read(actor) + kActorVtableIsDead);
+	if (fn < kTextStart || fn >= kTextEnd) {
+		return false;
+	}
+	using DeadFn = UInt8(__fastcall*)(void* self, void* edx, UInt32 arg);
+	return (reinterpret_cast<DeadFn>(fn)(reinterpret_cast<void*>(actor), nullptr, 0) & 1) != 0;
+}
+
+UInt32 FormIdOf(UInt32 object) { return LooksLikeObject(object) ? Read(object + kFormIdOffset) : 0; }
+
+// xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
+// the actor touched in this frame (Zombie Walkers' crash was there).
+void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
+	const UInt32 ref = reinterpret_cast<UInt32>(arg0);
+	Fallen fallen;
+	UInt8 type = 0;
+	UInt32 flags = 0;
+	UInt32 raceId = 0;
+	if (LooksLikeObject(ref)) {
+		fallen.refId = Read(ref + kFormIdOffset);
+		fallen.character = Read(ref) == kVtblCharacter;
+		const UInt32 base = Read(ref + kRefBaseFormOffset);
+		if (LooksLikeObject(base)) {
+			fallen.baseId = Read(base + kFormIdOffset);
+			type = Read8(base + kFormTypeOffset);
+			if (IsActor(ref)) {
+				flags = Read(base + kActorBaseFlagsOffset);
+				fallen.essential = (flags & kActorBaseEssential) != 0;
+				fallen.generic = (flags & kActorBaseNoLowProcessing) != 0;
+			}
+			if (fallen.character && type == kFormTypeNpc) {
+				const UInt32 race = Read(base + kNpcRacePointerOffset);
+				if (LooksLikeObject(race)) {
+					raceId = Read(race + kFormIdOffset);
+					fallen.racePlayable = Read8(race + kRacePlayableOffset) != 0;
+					fallen.raceHuman = IsHumanRace(raceId);
+				}
+			}
+		}
+	}
+	const UInt32 roll = NextRandom() % 100;
+	const float unit = static_cast<float>(NextRandom() % 10001) / 10000.0f;
+	const DeathVerdict verdict = NoteDeath(g_list, g_settings, fallen, roll, unit);
+	if (verdict == DeathVerdict::Waits) {
+		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X) %s, %.1f s; "
+		      "%u waiting",
+		      fallen.refId, fallen.baseId, type, flags, raceId, fallen.racePlayable ? " playable" : "",
+		      fallen.raceHuman ? " human" : "", FormIdOf(reinterpret_cast<UInt32>(arg1)),
+		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), VerdictText(verdict),
+		      g_list.entries[g_list.count - 1].secondsLeft, g_list.count);
+	} else {
+		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X) %s",
+		      fallen.refId, fallen.baseId, type, flags, raceId, fallen.racePlayable ? " playable" : "",
+		      fallen.raceHuman ? " human" : "", FormIdOf(reinterpret_cast<UInt32>(arg1)),
+		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), VerdictText(verdict));
+	}
+}
+
+Presence PresenceOfNow(UInt32 refId) {
+	const UInt32 ref = LookupForm(refId);
+	if (!LooksLikeObject(ref) || !IsActor(ref)) {
+		return Presence::Gone;
+	}
+	return Read(ref + kRefNiNodeOffset) != 0 ? Presence::Present : Presence::Absent;
+}
+
+// The presence as the waiting clocks see it, with a log line whenever a
+// waiting reference changes between present, absent and gone (an outdoor
+// run of 2026-10-24 07:22 lost two waiting bodies' 3D and never raised
+// them - the line says when and where).
+Presence PresenceOf(UInt32 refId) {
+	static UInt32 s_ids[kWaitingMost] = {};
+	static UInt8 s_last[kWaitingMost] = {};
+	static UInt32 s_count = 0;
+	const Presence now = PresenceOfNow(refId);
+	UInt32 slot = s_count;
+	for (UInt32 i = 0; i < s_count; ++i) {
+		if (s_ids[i] == refId) {
+			slot = i;
+			break;
+		}
+	}
+	if (slot == s_count) {
+		if (s_count == kWaitingMost) {
+			slot = refId % kWaitingMost;
+		} else {
+			++s_count;
+		}
+		s_ids[slot] = refId;
+		s_last[slot] = 0xFF;
+	}
+	if (s_last[slot] != static_cast<UInt8>(now)) {
+		const UInt32 ref = LookupForm(refId);
+		const bool object = LooksLikeObject(ref);
+		g_log("Waiting: %08X is now %s at %.0f %.0f %.0f (form flags %08X)", refId,
+		      now == Presence::Present ? "present" : (now == Presence::Absent ? "absent (no 3D)" : "gone"),
+		      object ? FloatAt(ref + kRefPositionOffset) : 0.0f, object ? FloatAt(ref + kRefPositionOffset + 4) : 0.0f,
+		      object ? FloatAt(ref + kRefPositionOffset + 8) : 0.0f, object ? Read(ref + 0x08) : 0u);
+		s_last[slot] = static_cast<UInt8>(now);
+	}
+	return now;
+}
+
+// A clone of a person's base record as xOBSE's CloneForm makes one: a new
+// instance of the type, CopyFrom the original, into the data handler and the
+// created-base list (so the save keeps it, under an FF form ID). 0 when the
+// engine refuses or the record is not a person's.
+UInt32 CloneBaseRecord(UInt32 base) {
+	if (Read8(base + kFormTypeOffset) != kFormTypeNpc) {
+		g_log("Clone: base %08X is of type %02X, not a person: not cloned", FormIdOf(base),
+		      Read8(base + kFormTypeOffset));
+		return 0;
+	}
+	// A line before every engine call: xOBSE swallows an exception in a task
+	// (Task<void>::Run's __try) and the log would otherwise say nothing of
+	// which call it was.
+	g_log("Clone: base %08X (vtable %08X) - creating an instance", FormIdOf(base), Read(base));
+	using CreateFn = UInt32(__cdecl*)(UInt8 type);
+	const UInt32 clone = reinterpret_cast<CreateFn>(kCreateFormInstance)(kFormTypeNpc);
+	if (!LooksLikeObject(clone)) {
+		g_log("Clone: the engine made no instance for base %08X", FormIdOf(base));
+		return 0;
+	}
+	const UInt32 copyFrom = Read(Read(clone) + kFormVtableCopyFrom);
+	g_log("Clone: instance %08X (vtable %08X, type %02X, id %08X), CopyFrom at %08X - copying", clone, Read(clone),
+	      Read8(clone + kFormTypeOffset), FormIdOf(clone), copyFrom);
+	if (copyFrom < kTextStart || copyFrom >= kTextEnd) {
+		g_log("Clone: no CopyFrom at vtable+0xB4 for base %08X: the instance is left empty and unused",
+		      FormIdOf(base));
+		return 0;
+	}
+	using CopyFn = void(__fastcall*)(void* self, void* edx, UInt32 source);
+	reinterpret_cast<CopyFn>(copyFrom)(reinterpret_cast<void*>(clone), nullptr, base);
+	g_log("Clone: copied (type %02X, id %08X, flags at +0x28 %08X) - into the data handler %08X", Read8(clone + kFormTypeOffset),
+	      FormIdOf(clone), Read(clone + kActorBaseFlagsOffset), Read(kDataHandlerPointer));
+	using AddFn = UInt32(__fastcall*)(void* self, void* edx, UInt32 form);
+	reinterpret_cast<AddFn>(kAddFormToDataHandler)(reinterpret_cast<void*>(Read(kDataHandlerPointer)), nullptr, clone);
+	g_log("Clone: in the data handler (id %08X) - into the created-base list %08X", FormIdOf(clone),
+	      Read(kCreatedBaseListPointer));
+	reinterpret_cast<AddFn>(kAddFormToCreatedBaseList)(reinterpret_cast<void*>(Read(kCreatedBaseListPointer)), nullptr,
+	                                                   clone);
+	g_log("Clone: base %08X cloned as %08X", FormIdOf(base), FormIdOf(clone));
+	return clone;
+}
+
+// OblivionWalkers.esp's runtime index from the data handler's mods-by-ID
+// table; 0x100 when the ESP is not loaded.
+UInt32 FindEspIndex() {
+	const UInt32 handler = Read(kDataHandlerPointer);
+	if (!LooksLikeObject(handler)) {
+		g_log("ESP: no data handler at %08X", kDataHandlerPointer);
+		return 0x100;
+	}
+	const UInt32 count = Read(handler + kDataHandlerModCountOffset);
+	for (UInt32 i = 0; i < count && i < 0xFF; ++i) {
+		const UInt32 entry = Read(handler + kDataHandlerModsByIdOffset + i * 4);
+		if (LooksLikeObject(entry) &&
+		    SameModName(reinterpret_cast<const char*>(entry + kModEntryNameOffset), kPluginEsp)) {
+			return i;
+		}
+	}
+	g_log("ESP: %s is not among the %u loaded mods", kPluginEsp, count);
+	return 0x100;
+}
+
+// The ESP's Walker race at its local ID 0x800. 0 when the ESP is not loaded
+// or the record there is no race; the log says which.
+UInt32 FindZombieRace() {
+	const UInt32 index = FindEspIndex();
+	if (index > 0xFF) {
+		g_log("Race: no ESP, the clone keeps his race");
+		return 0;
+	}
+	const UInt32 formId = ZombieRaceFormId(index);
+	const UInt32 race = LookupForm(formId);
+	if (!LooksLikeObject(race) || Read8(race + kFormTypeOffset) != kFormTypeRace) {
+		g_log("Race: %s is mod %02X, but %08X is no race (%s): the clone keeps his race", kPluginEsp, index,
+		      formId, LooksLikeObject(race) ? "another type" : "no form");
+		return 0;
+	}
+	g_log("Race: %s is mod %02X, the Walker race %08X found", kPluginEsp, index, formId);
+	return race;
+}
+
+// The ESP's Walker creatures (local IDs 0x801..0x804), looked up once per
+// session; g_walkerCount stays 0 without the ESP.
+void FindWalkers() {
+	if (g_walkersLooked) {
+		return;
+	}
+	g_walkersLooked = true;
+	g_walkerCount = 0;
+	const UInt32 index = FindEspIndex();
+	if (index > 0xFF) {
+		g_log("Walkers: no ESP, the fallen get up as themselves");
+		return;
+	}
+	for (UInt32 local : kWalkerLocalIds) {
+		const UInt32 formId = EspFormId(index, local);
+		const UInt32 form = LookupForm(formId);
+		if (LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeCreature) {
+			g_walkers[g_walkerCount++] = formId;
+		} else {
+			g_log("Walkers: %08X is no creature (%s)", formId, LooksLikeObject(form) ? "another type" : "no form");
+		}
+	}
+	g_log("Walkers: %s is mod %02X, %u walker creatures found", kPluginEsp, index, g_walkerCount);
+}
+
+// Every Creature reference of `base` on the process lists, with or without
+// a model, wherever it stands; returns how many were written to `out`.
+UInt32 CollectWalkerRefs(UInt32 base, UInt32* out, UInt32 most) {
+	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
+	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
+	struct Node {
+		void* data;
+		Node* next;
+	};
+	UInt32 count = 0;
+	for (UInt32 level = 0; level < 4 && count < most; ++level) {
+		auto* node = static_cast<Node*>(reinterpret_cast<ListFn>(kActorListByLevel)(manager, nullptr, level));
+		for (UInt32 visited = 0; node != nullptr && visited < 1024 && count < most; ++visited) {
+			if (!LooksLikeObject(reinterpret_cast<UInt32>(node))) {
+				break;
+			}
+			const UInt32 actor = reinterpret_cast<UInt32>(node->data);
+			node = node->next;
+			if (!LooksLikeObject(actor) || Read(actor) != kVtblCreature) {
+				continue;
+			}
+			const UInt32 actorBase = Read(actor + kRefBaseFormOffset);
+			if (!LooksLikeObject(actorBase) || Read(actorBase + kFormIdOffset) != base) {
+				continue;
+			}
+			const UInt32 refId = Read(actor + kFormIdOffset);
+			bool seen = false;
+			for (UInt32 i = 0; i < count; ++i) {
+				seen = seen || out[i] == refId;
+			}
+			if (!seen) {
+				out[count++] = refId;
+			}
+		}
+	}
+	return count;
+}
+
+// The walker just placed on the corpse: the first reference of its base
+// that was not there before the PlaceAtMe. 0 while none exists.
+UInt32 FindNewWalker(const Swap& swap) {
+	UInt32 refs[kSwapKnownMost + 4];
+	const UInt32 count = CollectWalkerRefs(swap.walkerBase, refs, kSwapKnownMost + 4);
+	return NewWalkerAmong(swap, refs, count);
+}
+
+// A console line run by xOBSE with the reference as "this" (the proof of
+// 2026-10-23, rise-creature-proof.txt: PlaceAtMe, Disable, Kill,
+// RemoveAllItems all vanilla).
+bool ConsoleOn(UInt32 ref, const char* line) {
+	if (g_console == nullptr) {
+		return false;
+	}
+	return g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
+}
+
+// The engine's own raise of the person himself, as the console's "resurrect
+// 1" does it: Actor's virtual at vtable+0x20C with (1, has3D, animate=1) -
+// the get-up animation, the inventory kept. With CloneBase the reference
+// points at a clone of its base first, so the engine rebuilds him from the
+// record that will carry the zombie race (4.1 step 3) - and with ZombieRace
+// the clone's race is the ESP's Walker race before the raise.
+void RaiseAsSelf(UInt32 refId) {
+	const UInt32 ref = LookupForm(refId);
+	if (!LooksLikeObject(ref) || !IsActor(ref)) {
+		g_log("Rise: %08X is gone, nobody gets up", refId);
+		return;
+	}
+	if (!IsDead(ref)) {
+		g_log("Rise: %08X is alive already", refId);
+		return;
+	}
+	const UInt32 fn = Read(Read(ref) + kActorVtableResurrect);
+	if (fn < kTextStart || fn >= kTextEnd) {
+		g_log("Rise: %08X has no Resurrect at vtable+0x20C (%08X), left down", refId, fn);
+		return;
+	}
+	bool lookWanted = false;
+	if (g_settings.cloneBase) {
+		const UInt32 base = Read(ref + kRefBaseFormOffset);
+		const UInt32 clone = LooksLikeObject(base) ? CloneBaseRecord(base) : 0;
+		if (clone != 0) {
+			*reinterpret_cast<UInt32*>(ref + kRefBaseFormOffset) = clone;
+			g_log("Rise: %08X now stands on base %08X (was %08X)", refId, FormIdOf(clone), FormIdOf(base));
+			if (g_settings.zombieRace) {
+				const UInt32 race = FindZombieRace();
+				if (race != 0) {
+					const UInt32 before = Read(clone + kNpcRacePointerOffset);
+					*reinterpret_cast<UInt32*>(clone + kNpcRacePointerOffset) = race;
+					g_log("Rise: the clone's race set to %08X (was %08X)", FormIdOf(race), FormIdOf(before));
+					lookWanted = true;
+				}
+			}
+		}
+	}
+	const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
+	using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
+	reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
+	g_risen = RisenWatch{};
+	g_risen.refId = refId;
+	g_risen.startMs = GetTickCount();
+	g_risen.x = FloatAt(ref + kRefPositionOffset);
+	g_risen.y = FloatAt(ref + kRefPositionOffset + 4);
+	g_risen.z = FloatAt(ref + kRefPositionOffset + 8);
+	g_risen.lookWanted = lookWanted;
+	g_risenWatching = true;
+	g_log("Rise: %08X (base %08X) gets up at %.0f %.0f %.0f, still dead to the engine: %d; %u waiting", refId,
+	      FormIdOf(Read(ref + kRefBaseFormOffset)), g_risen.x, g_risen.y, g_risen.z, IsDead(ref) ? 1 : 0,
+	      g_list.count);
+}
+
+// A due rise: as a walker (the creature path, 4.1) when the ESP's walkers
+// are there and the console interface too - the walker is asked for on the
+// corpse and the swap in flight takes it from there (StepSwapInFlight);
+// xOBSE's answer to the line is no success flag (the harness read 0 for
+// every placeatme that placed), the walker's appearance within
+// kSwapFindSeconds is. Otherwise the person himself gets up.
+void Raise(UInt32 refId) {
+	const UInt32 ref = LookupForm(refId);
+	if (!LooksLikeObject(ref) || !IsActor(ref)) {
+		g_log("Rise: %08X is gone, nobody gets up", refId);
+		return;
+	}
+	if (!IsDead(ref)) {
+		g_log("Rise: %08X is alive already", refId);
+		return;
+	}
+	if (g_settings.asCreature) {
+		FindWalkers();
+		const UInt32 walker = PickWalker(g_walkers, g_walkerCount, NextRandom());
+		if (walker != 0 && g_console != nullptr && !g_swap.active) {
+			char line[64];
+			std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1 0 0", walker);
+			g_swap = Swap{};
+			UInt32 before[kSwapKnownMost];
+			NoteKnownWalkers(g_swap, before, CollectWalkerRefs(walker, before, kSwapKnownMost));
+			const bool answer = ConsoleOn(ref, line);
+			g_swap.active = true;
+			g_swap.corpseId = refId;
+			g_swap.walkerBase = walker;
+			g_swap.x = FloatAt(ref + kRefPositionOffset);
+			g_swap.y = FloatAt(ref + kRefPositionOffset + 4);
+			g_swap.z = FloatAt(ref + kRefPositionOffset + 8);
+			g_log("Rise: %08X (base %08X) - walker %08X asked for at %.0f %.0f %.0f (xOBSE answered %d, %u of that "
+			      "base known before); %u waiting",
+			      refId, FormIdOf(Read(ref + kRefBaseFormOffset)), walker, g_swap.x, g_swap.y, g_swap.z,
+			      answer ? 1 : 0, g_swap.knownCount, g_list.count);
+			return;
+		}
+		if (walker != 0 && g_swap.active) {
+			if (Requeue(g_list, refId, FormIdOf(Read(ref + kRefBaseFormOffset)), 2.0f)) {
+				g_log("Rise: a swap is still in flight, %08X waits 2 s more", refId);
+				return;
+			}
+			g_log("Rise: a swap is still in flight and the list is full, %08X gets up as himself", refId);
+		} else if (walker != 0) {
+			g_log("Rise: no console interface for the walker, %08X gets up as himself", refId);
+		}
+	}
+	RaiseAsSelf(refId);
+}
+
+// The get-up, measured: the engine's dead flag and the first step off the
+// spot, in milliseconds after the Resurrect.
+void StepRisenWatch() {
+	const UInt32 ref = LookupForm(g_risen.refId);
+	if (!LooksLikeObject(ref) || !IsActor(ref)) {
+		g_log("Risen: %08X is gone, the watch ends", g_risen.refId);
+		g_risenWatching = false;
+		return;
+	}
+	const UInt32 now = GetTickCount();
+	const float lookSeconds = g_settings.lookAfterSeconds < 0.0f ? 0.0f : g_settings.lookAfterSeconds;
+	const UInt32 events = walkers::StepRisenWatch(g_risen, IsDead(ref), FloatAt(ref + kRefPositionOffset),
+	                                              FloatAt(ref + kRefPositionOffset + 4),
+	                                              FloatAt(ref + kRefPositionOffset + 8), now,
+	                                              static_cast<UInt32>(lookSeconds * 1000.0f));
+	if (events & kRisenAlive) {
+		g_log("Risen: %08X counted alive %u ms after the Resurrect", g_risen.refId, now - g_risen.startMs);
+	}
+	if (events & kRisenMoved) {
+		g_log("Risen: %08X first off the spot %u ms after the Resurrect", g_risen.refId, now - g_risen.startMs);
+	}
+	if (events & kRisenLook) {
+		// xOBSE's Update3D on the reference: Set3D(0), then the model
+		// loader's queue builds him anew from his base - the clone with the
+		// Walker race (rise-zombie-race.txt run 2: the skin followed).
+		if (g_console == nullptr) {
+			g_log("Risen: %08X keeps his old look - no console interface for Update3D", g_risen.refId);
+		} else {
+			const bool answer = g_console->RunScriptLine2("Update3D", reinterpret_cast<void*>(ref), true);
+			g_log("Risen: %08X built anew from his base (Update3D handed to xOBSE, answer %d) %u ms after the Resurrect",
+			      g_risen.refId, answer ? 1 : 0, now - g_risen.startMs);
+		}
+	}
+	if (events & kRisenDone) {
+		g_log("Risen: the watch on %08X ends after %u ms (alive seen %d, moved %d)", g_risen.refId,
+		      now - g_risen.startMs, g_risen.aliveSeen ? 1 : 0, g_risen.moveSeen ? 1 : 0);
+		g_risenWatching = false;
+	}
+}
+
+// xOBSE's RegisterEvent says no while its event manager holds no event
+// infos yet - at the plugins' load it does not (the run of 2026-10-23 17:41:
+// "refused the OnDeath handler"), so the frame tick asks again until it takes.
+bool TryRegisterDeath() {
+	++g_registerTries;
+	if (!g_events->RegisterEvent("OnDeath", &OnDeath, nullptr, nullptr, nullptr)) {
+		if (g_registerTries == 1) {
+			g_log("xOBSE refused the OnDeath handler at load (its event manager is not up yet): asked again "
+			      "every frame");
+		}
+		return false;
+	}
+	g_deathWatchOn = true;
+	g_log("Death watch on (the OnDeath handler taken at try %u)", g_registerTries);
+	return true;
+}
+
+// The swap in flight, one frame: the walker's reference is killed the
+// moment it exists (before its AI takes a step), the corpse hidden once the
+// walker's model stands on the spot, and DropSeconds after that the items go
+// over and the walker is raised where the man lay.
+void StepSwapInFlight(float dt) {
+	UInt32 found = 0;
+	bool has3D = false;
+	if (g_swap.stage == SwapStage::Placed) {
+		found = FindNewWalker(g_swap);
+	} else if (g_swap.stage == SwapStage::Loading) {
+		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		has3D = LooksLikeObject(zombie) && Read(zombie + kRefNiNodeOffset) != 0;
+	}
+	const UInt32 events =
+		StepSwap(g_swap, dt, found, has3D, g_settings.dropSeconds < 0.0f ? 0.0f : g_settings.dropSeconds);
+	if (g_swap.active && g_swap.stage == SwapStage::Dropped) {
+		// The dropped walker's position, traced: it got up 600 units from
+		// the spot on 2026-10-24 07:07 although it stood on it, dead, 1.5 s
+		// before - where and when does it move.
+		static float s_traced = -1.0f;
+		if (g_swap.seconds < s_traced || g_swap.seconds - s_traced >= 0.25f) {
+			s_traced = g_swap.seconds;
+			const UInt32 zombie = LookupForm(g_swap.zombieId);
+			if (LooksLikeObject(zombie)) {
+				g_log("Swap: trace %.2f s - walker %08X at %.0f %.0f %.0f, dead %d, model %d", g_swap.seconds,
+				      g_swap.zombieId, FloatAt(zombie + kRefPositionOffset), FloatAt(zombie + kRefPositionOffset + 4),
+				      FloatAt(zombie + kRefPositionOffset + 8), IsActor(zombie) && IsDead(zombie) ? 1 : 0,
+				      Read(zombie + kRefNiNodeOffset) != 0 ? 1 : 0);
+			}
+		}
+	}
+	if (events == kSwapFound) {
+		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		g_log("Swap: walker %08X exists on %08X (model %s) - waiting for its model before the kill", g_swap.zombieId,
+		      g_swap.corpseId, LooksLikeObject(zombie) && Read(zombie + kRefNiNodeOffset) != 0 ? "there" : "loading");
+	} else if (events == kSwapDropAndHide) {
+		// Killed in the frame its model appears: a kill before that left a
+		// "dead" walker sliding at walking speed (the trace of 2026-10-24
+		// 07:10, 400 units/s in a line), one after a few frames lets it take
+		// a step.
+		const UInt32 corpse = LookupForm(g_swap.corpseId);
+		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		// Outdoors the engine places the walker away from the corpse (the
+		// run of 2026-10-24 07:25: 670 units off on a slope; the hall's flat
+		// floor keeps it on the spot): onto the corpse first, then the kill.
+		char moveLine[64];
+		std::snprintf(moveLine, sizeof(moveLine), "MoveTo %08X", g_swap.corpseId);
+		const float bx = LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f;
+		const float by = LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f;
+		const bool movedOnto = LooksLikeObject(zombie) && ConsoleOn(zombie, moveLine);
+		g_log("Swap: walker %08X placed at %.0f %.0f, the corpse at %.0f %.0f - moved onto it (%d)", g_swap.zombieId, bx,
+		      by, g_swap.x, g_swap.y, movedOnto ? 1 : 0);
+		const bool killed = LooksLikeObject(zombie) && ConsoleOn(zombie, "Kill");
+		const bool hidden = LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable");
+		g_log("Swap: walker %08X's model is there after %.1f s at %.0f %.0f %.0f - killed (%d), dead now %d, the "
+		      "corpse %08X hidden (%d)",
+		      g_swap.zombieId, g_swap.seconds, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
+		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
+		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, killed ? 1 : 0,
+		      LooksLikeObject(zombie) && IsActor(zombie) && IsDead(zombie) ? 1 : 0, g_swap.corpseId, hidden ? 1 : 0);
+	} else if (events == kSwapGaveUp) {
+		g_log("Swap: no walker %08X appeared on %08X within %.0f s - he gets up as himself", g_swap.walkerBase,
+		      g_swap.corpseId, kSwapFindSeconds);
+		RaiseAsSelf(g_swap.corpseId);
+	} else if (events == kSwapAbandon) {
+		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		const bool hidden = LooksLikeObject(zombie) && ConsoleOn(zombie, "Disable");
+		g_log("Swap: walker %08X's model never came within %.0f s - the walker hidden (%d), %08X gets up as himself",
+		      g_swap.zombieId, kSwapLoadSeconds, hidden ? 1 : 0, g_swap.corpseId);
+		RaiseAsSelf(g_swap.corpseId);
+	} else if (events == kSwapRaise) {
+		const UInt32 corpse = LookupForm(g_swap.corpseId);
+		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		if (!LooksLikeObject(zombie) || !IsActor(zombie)) {
+			g_log("Swap: walker %08X is gone before the raise", g_swap.zombieId);
+			return;
+		}
+		if (!IsDead(zombie)) {
+			g_log("Swap: walker %08X is alive at the raise, at %.0f %.0f %.0f - left as it is, no raise", g_swap.zombieId,
+			      FloatAt(zombie + kRefPositionOffset), FloatAt(zombie + kRefPositionOffset + 4),
+			      FloatAt(zombie + kRefPositionOffset + 8));
+			return;
+		}
+		bool moved = false;
+		if (LooksLikeObject(corpse) && g_swap.corpseId != g_swap.zombieId) {
+			char line[64];
+			std::snprintf(line, sizeof(line), "RemoveAllItems %08X", g_swap.zombieId);
+			moved = ConsoleOn(corpse, line);
+		}
+		const UInt32 fn = Read(Read(zombie) + kActorVtableResurrect);
+		if (fn < kTextStart || fn >= kTextEnd) {
+			g_log("Swap: walker %08X has no Resurrect at vtable+0x20C, left down", g_swap.zombieId);
+			return;
+		}
+		const UInt32 has3D = Read(zombie + kRefNiNodeOffset) != 0 ? 1u : 0u;
+		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
+		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(zombie), nullptr, 1, has3D, 1);
+		g_risen = RisenWatch{};
+		g_risen.refId = g_swap.zombieId;
+		g_risen.startMs = GetTickCount();
+		g_risen.x = FloatAt(zombie + kRefPositionOffset);
+		g_risen.y = FloatAt(zombie + kRefPositionOffset + 4);
+		g_risen.z = FloatAt(zombie + kRefPositionOffset + 8);
+		g_risenWatching = true;
+		g_log("Swap: the items of %08X moved over (%d), walker %08X gets up at %.0f %.0f %.0f", g_swap.corpseId,
+		      moved ? 1 : 0, g_swap.zombieId, g_risen.x, g_risen.y, g_risen.z);
+	}
+}
+
+// Every main-loop pass (xOBSE's task queue): the waiting clocks run by the
+// engine's frame seconds for those in the world; a loading screen's frame
+// (a second or more) counts nothing.
+void Tick() {
+	if (!g_deathWatchOn && !TryRegisterDeath()) {
+		return;
+	}
+	if (g_risenWatching) {
+		StepRisenWatch();
+	}
+	float dt = *reinterpret_cast<const float*>(kFrameSeconds);
+	if (!(dt > 0.0f && dt < 1.0f)) {
+		dt = 0.0f;
+	}
+	if (g_swap.active) {
+		StepSwapInFlight(dt);
+	}
+	if (g_list.count == 0) {
+		return;
+	}
+	UInt32 due[kWaitingMost];
+	const UInt32 dueCount = TickWaiting(g_list, dt, &PresenceOf, due, kWaitingMost);
+	for (UInt32 i = 0; i < dueCount; ++i) {
+		Raise(due[i]);
+	}
+}
+
+void OnSave(void*) {
+	UInt8 image[kWaitingImageMost];
+	const UInt32 length = WaitingImage(g_list, image, sizeof(image));
+	if (!g_serialization->OpenRecord(kWaitingRecordType, kWaitingRecordVersion) ||
+	    !g_serialization->WriteRecordData(image, length)) {
+		g_log("Co-save: the waiting list could not be written (%u waiting)", g_list.count);
+		return;
+	}
+	g_log("Co-save: %u waiting written", g_list.count);
+}
+
+bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
+	return g_serialization->ResolveRefID(savedId, &loadedId);
+}
+
+void OnLoad(void*) {
+	g_list = WaitingList{};
+	UInt32 type = 0;
+	UInt32 version = 0;
+	UInt32 length = 0;
+	while (g_serialization->GetNextRecordInfo(&type, &version, &length)) {
+		if (type != kWaitingRecordType) {
+			continue;
+		}
+		if (version != kWaitingRecordVersion || length > kWaitingImageMost) {
+			g_log("Co-save: a waiting list of version %u, %u bytes: not read", version, length);
+			continue;
+		}
+		UInt8 image[kWaitingImageMost];
+		const UInt32 read = g_serialization->ReadRecordData(image, length);
+		if (!ReadWaitingImage(g_list, image, read, &ResolveSaved)) {
+			g_log("Co-save: the waiting list is cut short (%u of %u bytes), %u read before that", read, length,
+			      g_list.count);
+			continue;
+		}
+		g_log("Co-save: %u waiting read", g_list.count);
+	}
+}
+
+void OnNewGame(void*) {
+	g_list = WaitingList{};
+	g_log("New game: nobody waits");
+}
+
+}  // namespace
+
+bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, LogFn log) {
+	g_log = log;
+	g_settings = settings;
+	g_list = WaitingList{};
+	g_random = GetTickCount() | 1u;
+	g_deathWatchOn = false;
+	g_registerTries = 0;
+	g_risenWatching = false;
+	g_swap = Swap{};
+	g_walkersLooked = false;
+	g_walkerCount = 0;
+	if (xse.QueryInterface == nullptr) {
+		log("xOBSE offers no QueryInterface: no death watch");
+		return false;
+	}
+	g_events = static_cast<obse::EventManagerInterface*>(xse.QueryInterface(obse::kInterface_EventManager));
+	g_tasks = static_cast<obse::TasksInterface*>(xse.QueryInterface(obse::kInterface_Tasks));
+	g_serialization = static_cast<obse::SerializationInterface*>(xse.QueryInterface(obse::kInterface_Serialization));
+	g_console = static_cast<obse::ConsoleInterface*>(xse.QueryInterface(obse::kInterface_Console));
+	if (g_console != nullptr && (g_console->version < 2 || g_console->RunScriptLine2 == nullptr)) {
+		log("xOBSE's console interface is version %u without RunScriptLine2: the risen keep their old look",
+		    g_console->version);
+		g_console = nullptr;
+	}
+	if (g_events == nullptr) {
+		log("xOBSE has no event manager interface: no death watch");
+		return false;
+	}
+	if (g_tasks == nullptr) {
+		log("xOBSE has no task interface: no frame tick, no death watch");
+		return false;
+	}
+	if (g_tasks->EnqueueTask(&Tick) == nullptr) {
+		log("xOBSE refused the frame tick: no death watch");
+		return false;
+	}
+	TryRegisterDeath();
+	if (g_serialization != nullptr && xse.GetPluginHandle != nullptr) {
+		const UInt32 plugin = xse.GetPluginHandle();
+		g_serialization->SetSaveCallback(plugin, &OnSave);
+		g_serialization->SetLoadCallback(plugin, &OnLoad);
+		g_serialization->SetNewGameCallback(plugin, &OnNewGame);
+		log("The waiting list goes to the co-save (plugin handle %u)", plugin);
+	} else {
+		g_serialization = nullptr;
+		log("No serialization interface: the waiting list lives for the session only");
+	}
+	return true;
+}
+
+}  // namespace walkers

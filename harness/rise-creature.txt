@@ -1,0 +1,125 @@
+# The plugin's own creature rise (docs/walkers-spec.md 4.1, the path decided
+# on 2026-10-23): the defaults, AsCreature=1 - the fallen Redguard bandit's
+# corpse becomes a Walker, the ESP's zombie creature, 20 to 30 s after the
+# death: placed on the corpse (PlaceAtMe through xOBSE's console interface),
+# the corpse hidden and the walker dropped once it stands there, DropSeconds
+# later the items moved over and the walker raised with the get-up. Nothing
+# is typed by the scenario beyond the placement and the kill;
+# OblivionWalkers.log carries "Rise: ... a walker ... asked for", "Swap: walker
+# ... stands on ... the corpse hidden (1), the walker dropped (1)", "Swap: the
+# items of ... moved over (1), walker ... gets up".
+#
+# The placement is rise-getup.txt's: the player faces north, the bandit is
+# moved 150 units north into view, a second later killall drops him. The
+# roster at the risen mark (35 s after the kill) reads one walker alive and
+# nobody else: "1 loaded, 0 dead: <index>00080<1..4> x1" - the ESP's load
+# index changes with the load order (0B on 2026-10-23, 10 on the 24th), so the
+# expects are index-free: "00080" twice (risen, risen2) and exactly one dead
+# group in the whole run (the dead mark's bandit). The pictures at risen and
+# risen2 show the walker up, the man gone.
+#
+# Run 1, 2026-10-23 20:41 (FAIL, artifacts/hand-script/rise-creature/20261023-204120):
+# the plugin took xOBSE's answer to "PlaceAtMe 0B000803 1" (0) for a refusal
+# and raised the bandit as himself - while the walker had been placed all
+# the same ("2 loaded, 1 dead: 0B000803 x1, 00069AD1 x1 (dead 1)"): the
+# interface's answer is no success flag, as the harness notes say of every
+# placeatme. The walker then killed the risen bandit again (his second
+# death's killer FF000BB1, the walker), and so on. Since then the plugin
+# takes the walker's appearance within two seconds as the proof and falls
+# back to the person only when none appears.
+#
+# Run 2, 2026-10-23 20:44 (PASS, artifacts/hand-script/rise-creature/20261023-204411):
+# the plugin's log - "walker 0B000803 asked for at 231 -1505 -246 (xOBSE
+# answered 0)"; "Swap: walker FF000BB1 stands on FF000BAF - the corpse hidden
+# (1), the walker dropped (1)"; 1.5 s later "the items of FF000BAF moved
+# over (0), walker FF000BB1 gets up at 291 -1484 -248" (the 0 is xOBSE's
+# answer again, no flag); the roster at risen "1 loaded, 0 dead: 0B000803
+# x1; nearest FF000BB1 at 105 units", the man gone. The walker got up about
+# 60 units from where the man lay: placed on him, it took a step before the
+# kill reached it and its ragdoll fell there - the pictures show how that
+# reads.
+#
+# Nadi's own game, 2026-10-23 20:57 (the Linux game, an exterior): "the killed
+# NPC gets up again and a zombie spawns beside him". His log: the walker was
+# asked for, but "no walker 0B000801 appeared within 2 s - he gets up as
+# himself" - the plugin looked for a walker WITH a model, and a zombie's
+# first load in his game took longer than two seconds (the hall had the
+# model cached); the man rose as himself, the walker arrived after and
+# walked up beside him. Since then the plugin finds the walker's reference
+# with or without its model and kills it at once (no step), waits up to 15 s
+# for the model (stage Loading), hides the corpse once the model stands on
+# the spot, and only then counts DropSeconds. The NPC was no essential one
+# (flags 00000210).
+#
+# Nadi's second test, 21:23: the man up again and the walker a few metres off,
+# then a second walker and the first one raised - the finder's 150-unit
+# radius missed the placed walker (the engine puts a placed creature where it
+# likes in that exterior) and the next rise found an old walker within the
+# radius and raised that. Since 2026-10-24: the new walker is the reference
+# of its base that did not exist before the PlaceAtMe (identity, no radius),
+# the placement asks for distance 0, and once the walker's model is there it
+# is moved onto the corpse (MoveTo) before the corpse is hidden; the log
+# rotates to OblivionWalkers.log.prev at every start.
+#
+# Run 3, 2026-10-24 07:04 (artifacts/hand-script/rise-creature/20261024-070420): the
+# walker found by identity ("0 of that base known before"), "killed at once
+# (1)", its model there at the corpse's spot, "moved onto (1)", the corpse
+# hidden, the roster alive on 10000803 - but the walker got up at 541 -1936,
+# 600 units from the spot, 1.5 s after standing on it: the Kill handed to it
+# without a model had not taken, it walked. Since then the plugin reads dead
+# or alive at every step, kills a live walker again once its model is there,
+# and raises no live one. (The runner's FAIL was the old index-bound expect.)
+#
+# Run 4, 2026-10-24 07:10 (PASS, artifacts/hand-script/rise-creature/20261024-071005):
+# the cause, traced: the walker "killed at once (1), dead now: 1" while its
+# model was loading, then "trace 0.26 s at 300, 0.51 s at 401, 0.76 s at
+# 501 ..." - the dead walker sliding 400 units/s in a straight line, its
+# movement never stopped because no model and no ragdoll existed at the kill;
+# it got up 580 units from the spot. So a kill before the model slides the
+# body; Nadi's "a few metres" was the old finder's two seconds of walking.
+#
+# Run 5, 2026-10-24 07:12 (PASS, artifacts/hand-script/rise-creature/20261024-071256):
+# the kill in the frame the model appears: "model is there after 0.0 s at
+# 213 -1480 - killed (1), dead now 1, the corpse hidden (1)"; the trace shows
+# the ragdoll falling and settling within 40 units (z -244, -194, -222, -246);
+# "walker FF000EEC gets up at 239 -1456", 40 units from where the man lay,
+# the roster alive on 10000803. The MoveTo of the morning is gone again -
+# not needed, the placement is on the spot.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-creature.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+expect 00080
+count 2 00080
+count 1 x1 (dead 1)
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 32
+mark risen
+wait 4
+mark risen2
+wait 1

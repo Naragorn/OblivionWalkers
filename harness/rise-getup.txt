@@ -1,0 +1,83 @@
+# Does the risen one play the get-up animation, as the console's "resurrect 1"
+# does, or pop up standing? The plugin calls Actor's Resurrect with
+# animate=1 like the console; this run measures and pictures the get-up.
+#
+# The player (tgm) faces north (setangle z 0, the open hall of the harness
+# save) and the placed bandit is moved 150 units north of him, into view;
+# a second later killall drops him. With the deployed INI at [Rise]
+# AfterSeconds=10, JitterSeconds=0 (set by hand before the run, back to the
+# defaults after) the plugin raises him 10 s of frame time after the death.
+# Since run 1 the plugin watches the risen one: "Risen: ... counted alive N
+# ms after the Resurrect" and "first off the spot M ms after" in
+# OblivionWalkers.log are the get-up's length by the engine's own dead flag
+# and the first step. The pictures at the up marks (NN-up*-game.png, 9.5 to
+# 14 s after the kill) show him on the way up when the animation plays and
+# standing from the first when it does not.
+#
+# Run 1, 2026-10-23 18:16 (artifacts/hand-script/rise-getup/20261023-181632):
+# facing east, the bandit moved 200 east walked back to 32 units and lay
+# out of the picture - no picture of him. The plugin ordered the rise 10.0 s
+# after the death; the roster still read him dead 10.5 and 11.5 s after the
+# kill and alive 13 s after it: between the Resurrect and "alive" lie one to
+# three seconds, the get-up's length or the clock's lag - the watch tells
+# which from run 2 on. (The runner's FAIL was a count line of mine that
+# matched every alive line.)
+#
+# Run 2, 2026-10-23 18:22 (PASS, artifacts/hand-script/rise-getup/20261023-182157):
+# the get-up plays. 05-dead-game.png: the bandit ragdolled face down on the
+# floor, 174 units north; 09-up4-game.png (12.5 s after the kill, under a
+# second after the Resurrect): bent double, hands at the floor, on the way
+# up; 10-up5-game.png (1.5 s later): upright, mace drawn, walking at the
+# player; 11-risen-game.png: at the player, swinging. The plugin's watch:
+# "counted alive 12 ms after the Resurrect", "first off the spot 293 ms
+# after" - the engine flips the dead flag at the Resurrect itself and the
+# reference's position shifts with the get-up's first frames, so neither is
+# the animation's length; the pictures are. The roster read him dead at
+# 9.5, 10.5 and 11.5 s after the kill and alive at 12.5 s, for a wait the
+# plugin's clock counted as 10.0 s of frame seconds: the engine's frame
+# seconds ran about 2 s short of the wall clock over this stretch (the
+# marks' picture captures, or a capped frame delta - not measured).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-getup.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+expect 1 loaded, 0 dead: 00069AD1 x1
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 6.5
+mark up1
+wait 1
+mark up2
+wait 1
+mark up3
+wait 1
+mark up4
+wait 1.5
+mark up5
+wait 4
+mark risen
+wait 1

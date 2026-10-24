@@ -1,0 +1,58 @@
+# The race filter at its defaults (OnlyPlayableRaces=1, OnlyHumans=0): three
+# generic people are placed by an untouchable player (tgm) and killed by the
+# console - a Redguard bandit (00069AD1 BanditMeleeMale4B, race 00000D43), a
+# Khajiit highwayman (000C5228 BanditHighwayman02, race 000223C7) and a
+# Dremora churl (00000FCC Dremora0ChurlMeleeNOSUMMON, race 00038010, flags
+# 00104290: generic, not essential; read off Oblivion.esm). The two of
+# playable races get up within 20 to 30 s, the Dremora stays down.
+#
+# The roster line groups by base: at the dead mark all three carry
+# "(dead 1)"; at the risen mark, 35 s later, only the Dremora does - so
+# "00000FCC x1 (dead 1)" stands twice, the bandits' dead groups once each,
+# and the line starts "3 loaded, 1 dead". The plugin's log carries the
+# Dremora's verdict "stays down (not of a playable race, OnlyPlayableRaces=1)".
+# Placed people fight each other (bandits against the Dremora) - a death
+# before killall is a death too, only earlier.
+#
+# Run 1, 2026-10-23 18:35 (PASS, artifacts/hand-script/rise-races-playable/20261023-183508):
+# the plugin's log - "FF000BB3 (base 00000FCC ... race 00038010 ...) stays
+# down (not of a playable race, OnlyPlayableRaces=1)"; "FF000BB0 (base
+# 000C5228 ... race 000223C7 playable ...) waits to rise, 28.5 s"; "FF000BAF
+# (base 00069AD1 ... race 00000D43 playable human ...) waits to rise, 28.0 s";
+# both rises. The roster at the risen mark: "3 loaded, 1 dead: 00000FCC x1
+# (dead 1), 000C5228 x1, 00069AD1 x1".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-races-playable.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready player.placeatme 000C5228 1
+console-at ready player.placeatme 00000FCC 1
+console-at ready tgm
+console-at placed killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 3 loaded, 3 dead:
+expect 3 loaded, 1 dead:
+count 1 00069AD1 x1 (dead 1)
+count 1 000C5228 x1 (dead 1)
+count 2 00000FCC x1 (dead 1)
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 6
+mark dead
+wait 35
+mark risen
+wait 1

@@ -1,0 +1,81 @@
+# rise-creature.txt outdoors, where Nadi's game went wrong on 2026-10-23: the
+# player is moved to the Tamriel cell -29,5 (cow, as spawn-count.txt does;
+# uneven ground, a wilderness the zombie model is not cached for), the
+# Redguard bandit placed, moved 150 units north into view and killed with
+# everything around (killall). The plugin's log tells the rest: "asked for at
+# X Y Z", "model is there ... killed (1), dead now 1", the trace, "gets up at"
+# - the distance between the first and the last is the measure (the hall's
+# run 5: 40 units). The roster at risen carries a walker of the ESP
+# ("00080", index-free).
+#
+# Run 1, 2026-10-24 07:22 (FAIL, artifacts/hand-script/rise-creature-outdoors/20261024-072255):
+# killall took 32 actors (deer, wolves, Nadi's mod creatures, a Breton bandit
+# of the area, the placed Redguard); the two people waited (22.8 and 27.4 s)
+# but no Rise line came - at the risen mark both were gone from the roster,
+# their 3D away, so the waiting clocks stood (they run only while present).
+# The moveto on the mountain (player z 8388, "0 150 0" at the player's
+# height) is the suspect. Since then the bandit stays where placeatme puts
+# him, on the ground, and the plugin logs every waiting reference's change
+# between present, absent and gone with its position.
+#
+# Run 2, 2026-10-24 07:25 (PASS by the roster, artifacts/hand-script/rise-creature-outdoors/20261024-072543):
+# the swap ran for an area bandit (FF000EED, a Redguard): walker found,
+# killed when its model came, corpse hidden, raised - but the walker was
+# placed at -117004 20729 8325 while the corpse lay at -117445 20218 8120,
+# 670 units off, and got up there. Outdoors PlaceAtMe does not put a
+# creature on the corpse (Nadi's "a few metres"); the hall's floor did.
+# The placed bandit FF000F17 never rose: "now absent (no 3D)", its form
+# flags 00000108 -> 0000090A (0x800 set) - something disabled the corpse
+# 20 s after the death, not the plugin (it disables a corpse only in a swap,
+# and none ran for it); who, I could not verify (a corpse clean-up of the
+# installed mods is the guess). Since then the walker is moved onto the
+# corpse (MoveTo) in the frame its model appears, right before the kill.
+#
+# Run 3, 2026-10-24 08:09 (PASS, artifacts/hand-script/rise-creature-outdoors/20261024-080919):
+# MoveTo works: three walkers placed 660, 520 and 430 units off, each "moved
+# onto it (1)", killed, raised 40 to 60 units from the spot (the ragdoll's
+# roll). A fourth man, due while a swap was in flight, got up as himself -
+# the one-swap-at-a-time rule; since then he waits 2 s more (Requeue).
+#
+# Run 4, 2026-10-24 08:13 (PASS, artifacts/hand-script/rise-creature-outdoors/20261024-081318):
+# one swap (a Khajiit of the area, placed 720 units off, moved onto the
+# corpse, up 65 units from it); the two other fallen went "absent (no 3D)",
+# form flags 00000108 -> 0000090A, shortly before they were due - again
+# disabled by something other than the plugin (as in run 2; not in run 3).
+# The requeue was not exercised (no overlap this time).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-creature-outdoors.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready cow Tamriel -29 5
+console-at loaded player.placeatme 00069AD1 1
+console-at moved killall
+
+expect HandScript: finished
+expect 00069AD1 x1 (dead 1)
+expect 00080
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark loaded
+wait 4
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 32
+mark risen
+wait 4
+mark risen2
+wait 1

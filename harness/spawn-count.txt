@@ -1,0 +1,66 @@
+# Does a leveled creature list entry's count spawn that many actors at ONE
+# world spawn point? Oblivion Walkers' "1-3 zombies per spawn" rests on it
+# (docs/walkers-spec.md, 4.6).
+#
+# The vanilla lists with a count above 1 are the deer and horse herds
+# (tools/esm-spawns.py, 2026-10-23): LL0Deer100 (000343C9) holds
+# CreatureDeerDoe (00031550) x3, CreatureDeerDoe x2 and CreatureDeerBuck
+# (0003154F) x1, all at level 1, no chance none. The Tamriel cell -29,5
+# carries four of its spawn points (000054BF..000054C2, around -116800
+# 22900). The console moves the player there (cow Tamriel -29 5); the cell
+# loads fresh and the four points resolve. The "HandScript: actors" line at
+# the marks then reads:
+#   count honoured: 4 to 12 deer, most points x3 or x2 does
+#   count ignored:  exactly 4 deer, one per point
+# The runner can only match text, so the reading is by eye in summary.md's
+# OBVR.log: "00031550 x<does>" and "0003154F x<bucks>" with does + bucks
+# above 4 settling it. (All four points picking the buck, 1 in 81, leaves
+# it open: run again.)
+#
+# Result 2026-10-23 15:29 (PASS, artifacts/hand-script/spawn-count/20261023-152917):
+# "30 loaded, 0 dead: 0003154F x1, 00031550 x17, 0018AE3A x4, 0006E912 x6,
+# 0003DC43 x1, 0003DC44 x1" - 18 deer, 6 wolves, 4 bear cubs, 2 bandits. The
+# loaded grid (-31..-27, 3..7) holds 16 leveled spawn points and no directly
+# placed actor (tools/esm-spawns.py placed.tsv), 12 of the points able to
+# yield deer through the wilderness lists' nested LL0Deer100. Thirty actors
+# from sixteen points, eighteen deer from at most sixteen deer sources: more
+# than one actor stood at some points, and the only entries with a count
+# above 1 in the whole ESM are the deer and horse herds. Read as: the count
+# is honoured at world spawn points - unless the harness save carried
+# spawns of an earlier visit to these cells, which the roster cannot tell
+# apart (spawned actors are FF references either way). The clean proof
+# comes with the plugin: it injects "bandit x3" into LL0ZombieVariant in
+# memory itself, and Hame (one spawn point of that list) then shows x3 or x1.
+#
+# The first attempt (15:25) edited LL0ZombieVariant through xOBSE's
+# RemoveFromLeveledList/AddToLeveledList in the console and loaded Hame: a
+# vanilla Zombie4 stood at the point, no bandit - the list edits had not
+# taken through the console interface, or the pick fell on the one entry
+# in five; inconclusive, so the vanilla herds are measured instead.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-count.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready cow Tamriel -29 5
+
+expect HandScript: finished
+expect HandScript: actors -
+expect 00031550 x
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark herd
+wait 5
+mark herd2
+wait 5
+mark herd3
+wait 1

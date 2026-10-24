@@ -1,0 +1,75 @@
+# The plugin's rise on a clone of the fallen one's base record: rise-walker.txt
+# with [Rise] CloneBase=1 in the deployed OblivionWalkers.ini (set by hand
+# before the run, back to 0 after - the runner cannot touch the plugin's INI).
+# Before the engine's Resurrect the plugin clones the bandit's base
+# (00069AD1) the way xOBSE's CloneForm does and points the reference at the
+# clone - the base swap on a corpse of docs/walkers-spec.md 7.2, the one
+# engine unknown of the rise.
+#
+# The roster line groups by base form: "1 loaded, 0 dead: FF" at the risen
+# mark means he got up on the clone (a created base record, FF index); the
+# alive line with the original base, "1 loaded, 0 dead: 00069AD1 x1", stands
+# exactly once, at the placed mark - twice would mean the swap did not take.
+# The dead mark still reads the original base, the swap comes with the rise.
+#
+# Run 1, 2026-10-23 17:56 (FAIL, artifacts/hand-script/rise-walker-clone/20261023-175618):
+# the death noted ("waits to rise, 26.2 s"), then nothing - no Clone, no
+# Rise line, the roster dead at the risen mark, the game alive to the end.
+# Read as an exception inside the clone, swallowed by xOBSE (Task<void>::Run
+# wraps a task in __try/__except and logs "Catched Exception" to obse.log,
+# which the runner does not keep - copy it by hand next time). The cause
+# found in xOBSE's GameForms.h: CopyFrom is TESForm's virtual 45 (vtable+0xB4,
+# BaseFormComponent's four counted), not 33 - the plugin called IsOffLimits
+# with a form and went on with an empty record. Fixed, with a log line
+# before every engine call of the clone.
+#
+# Run 2, 2026-10-23 18:04 (artifacts/hand-script/rise-walker-clone/20261023-180429):
+# the swap works. The plugin's log: "Clone: instance 1B3685E4 (vtable
+# 00A53DD4, type 23, id FF000BB1), CopyFrom at 00521ED0 - copying"; "copied
+# (type 23, id FF000BB1, flags at +0x28 00100290)" - the bandit's flags on
+# the clone, so CopyFrom took; into the data handler and the created-base
+# list; "Rise: FF000BAF now stands on base FF000BB1 (was 00069AD1)"; "gets
+# up". The roster at the risen mark: "1 loaded, 0 dead: FF000BB1 x1; nearest
+# FF000BAF at 136 units" - the same reference, alive, on the clone. No
+# exception in obse.log. The runner still said FAIL: its reject line matched
+# the placed mark's "1 loaded, 0 dead: 00069AD1 x1" (alive before the death,
+# which is right) - the scenario's mistake, since turned into "count 1".
+# Also seen: CreateFormInstance hands out the FF form ID itself (FF000BB1
+# right after the creation, before the lists).
+#
+# Run 3, 2026-10-23 18:07 (PASS, artifacts/hand-script/rise-walker-clone/20261023-180703):
+# the corrected scenario, the same flow: clone FF000BB4, "Rise: FF000BAF now
+# stands on base FF000BB4 (was 00069AD1)", the roster "1 loaded, 0 dead:
+# FF000BB4 x1; nearest FF000BAF at 86 units" at the risen mark, no exception
+# in obse.log (kept with the run since this one).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-walker-clone.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 1 loaded, 1 dead: 00069AD1 x1 (dead 1)
+expect 1 loaded, 0 dead: FF
+count 1 1 loaded, 0 dead: 00069AD1 x1
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 6
+mark dead
+wait 35
+mark risen
+wait 1

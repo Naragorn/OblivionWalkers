@@ -1,0 +1,53 @@
+# The humans-only option: rise-races-playable.txt with [Rise] OnlyHumans=1 in
+# the deployed OblivionWalkers.ini (set by hand before the run, back to 0
+# after - the runner cannot touch the plugin's INI). The same three are
+# placed and killed: the Redguard bandit (00069AD1) gets up, the Khajiit
+# highwayman (000C5228) and the Dremora churl (00000FCC) stay down.
+#
+# The roster at the risen mark starts "3 loaded, 2 dead"; the Khajiit's and
+# the Dremora's dead groups stand twice (dead and risen mark), the
+# Redguard's once. The plugin's log: the Khajiit's verdict "stays down (not
+# human, OnlyHumans=1)", the Dremora's "not of a playable race" (that check
+# comes first).
+#
+# Run 1, 2026-10-23 18:44 (PASS, artifacts/hand-script/rise-races-humans/20261023-184409):
+# the plugin's log - the Dremora "stays down (not of a playable race,
+# OnlyPlayableRaces=1)", the Khajiit "stays down (not human, OnlyHumans=1)",
+# the Redguard "waits to rise, 22.4 s" and gets up. The roster at the risen
+# mark: "3 loaded, 2 dead: 00000FCC x1 (dead 1), 000C5228 x1 (dead 1),
+# 00069AD1 x1".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-races-humans.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready player.placeatme 000C5228 1
+console-at ready player.placeatme 00000FCC 1
+console-at ready tgm
+console-at placed killall
+
+expect HandScript: finished
+expect 0 loaded, 0 dead: none
+expect 3 loaded, 3 dead:
+expect 3 loaded, 2 dead:
+count 1 00069AD1 x1 (dead 1)
+count 2 000C5228 x1 (dead 1)
+count 2 00000FCC x1 (dead 1)
+reject .resurrect
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 6
+mark dead
+wait 35
+mark risen
+wait 1
