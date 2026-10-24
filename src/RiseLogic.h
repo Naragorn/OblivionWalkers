@@ -53,7 +53,8 @@ struct RiseSettings {
 	// [Zombies] NoLoot: a dead walker cannot be activated - no container
 	// opens (Nadi, 2026-10-24; the engine's SetDestroyed on the corpse, which
 	// the CS wiki gives as "prevents the actor from being activated for
-	// conversation, looting, or pick pocketing").
+	// conversation, looting, or pick pocketing"). Never a risen one
+	// (BlocksLoot).
 	bool noLoot = true;
 };
 
@@ -495,6 +496,96 @@ bool ReadWaitingImage(WaitingList& list, const UInt8* in, UInt32 length, Resolve
 		float seconds = 0.0f;
 		std::memcpy(&seconds, &bits, sizeof(seconds));
 		list.entries[list.count++] = Waiting{refId, Get32(in + at + 4), seconds};
+	}
+	return whole;
+}
+
+// The walkers risen from a corpse. Nadi, 2026-10-24: they stay lootable
+// whatever NoLoot says - the fallen's gear and quest items went over to them.
+// Noted when the swap finds its placed walker, before the kill that drops it.
+inline constexpr UInt32 kRisenMost = 256;
+
+struct RisenSet {
+	UInt32 ids[kRisenMost] = {};
+	UInt32 count = 0;
+};
+
+inline bool IsRisen(const RisenSet& set, UInt32 refId) {
+	for (UInt32 i = 0; i < set.count; ++i) {
+		if (set.ids[i] == refId) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// Full, the oldest goes: the likeliest to be gone from the world.
+inline void NoteRisen(RisenSet& set, UInt32 refId) {
+	if (refId == 0 || IsRisen(set, refId)) {
+		return;
+	}
+	if (set.count == kRisenMost) {
+		std::memmove(set.ids, set.ids + 1, (kRisenMost - 1) * sizeof(set.ids[0]));
+		--set.count;
+	}
+	set.ids[set.count++] = refId;
+}
+
+// NoLoot takes a dead walker, never a risen one.
+inline bool BlocksLoot(bool noLoot, bool isWalker, bool risen) { return noLoot && isWalker && !risen; }
+
+// Drops those `exists(id)` no longer finds, the order of the rest kept;
+// returns how many went.
+template <typename ExistsFn>
+UInt32 KeepRisen(RisenSet& set, ExistsFn exists) {
+	UInt32 kept = 0;
+	for (UInt32 i = 0; i < set.count; ++i) {
+		if (exists(set.ids[i])) {
+			set.ids[kept++] = set.ids[i];
+		}
+	}
+	const UInt32 gone = set.count - kept;
+	set.count = kept;
+	return gone;
+}
+
+// The co-save record of the risen: the count, then each reference ID.
+inline constexpr UInt32 kRisenRecordType = 0x5249534E;  // 'RISN'
+inline constexpr UInt32 kRisenRecordVersion = 1;
+inline constexpr UInt32 kRisenImageMost = 4 + kRisenMost * 4;
+
+// Returns the bytes written, 0 when the image does not fit.
+inline UInt32 RisenImage(const RisenSet& set, UInt8* out, UInt32 capacity) {
+	const UInt32 needed = 4 + set.count * 4;
+	if (capacity < needed) {
+		return 0;
+	}
+	Put32(out, set.count);
+	for (UInt32 i = 0; i < set.count; ++i) {
+		Put32(out + 4 + i * 4, set.ids[i]);
+	}
+	return needed;
+}
+
+// As ReadWaitingImage: `set` emptied first, an unresolved reference dropped,
+// false when cut short or claiming more than the set holds.
+template <typename ResolveFn>
+bool ReadRisenImage(RisenSet& set, const UInt8* in, UInt32 length, ResolveFn resolve) {
+	set.count = 0;
+	if (length < 4) {
+		return false;
+	}
+	const UInt32 count = Get32(in);
+	if (count > kRisenMost) {
+		return false;
+	}
+	const bool whole = length >= 4 + count * 4;
+	const UInt32 readable = whole ? count : (length - 4) / 4;
+	for (UInt32 i = 0; i < readable; ++i) {
+		UInt32 refId = 0;
+		if (resolve(Get32(in + 4 + i * 4), refId)) {
+			set.ids[set.count++] = refId;
+		}
 	}
 	return whole;
 }

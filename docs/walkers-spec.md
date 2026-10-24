@@ -265,10 +265,29 @@ the per-family switches are not built - the per-creature lines replace them.
 With MOO and Ascension loaded: 1108 creatures, 938 of them walkers.
 `spawn-replace.txt` and `spawn-replace-outdoors.txt` PASS (section 2).
 
+Changed 2026-10-24 afternoon, on Nadi's word: every creature and person the
+lists of Oblivion and the expansions can spawn is listed in the shipped
+INI, 1 or 0; harmless animals and all people start at 0. People are now
+list entries the plugin replaces too (an NPC_ entry - Oblivion's leveled
+creature lists hold people, LL1BanditBossLvl100 holds nothing else), with
+the note "person". `tools/ini-creatures.py` writes the section from
+Oblivion.esm (Shivering Isles inside it), Knights.esp and the official
+DLC*.esp, by the same rules as the plugin: 726 lines (249 on; 400 people, 63
+scripted, 8 harmless animals, 6 swimmers off). Checked against the section
+the plugin wrote in the run of 11:14: all 323 lines of those files it wrote
+are identical in the tool's output; three more of the tool's are entries MOO
+replaced in memory. A mod's creatures and people are appended by the plugin
+at the first start with the mod, by the same rules (MOO's and Ascension's:
+785 in that run). The variant list holds every walker ten times now, so
+`MaxCount` goes to 10 with each count of 1..10 as likely; the default stays
+1 to 3. Scripted and swimming creatures stay at 0 - Nadi's word named
+harmless animals and people, these two are mine, asked.
+
 Open: quests that count kills of a creature without a script on it (by
 GetDeadCount on its base) would never finish while it is a walker - none
 known, none searched for; the Oblivion planes' daedra become walkers too,
-which their INI lines switch off.
+which their INI lines switch off. A person turned on is a walker entry in a
+list that otherwise spawns people - not run yet.
 
 Cost: **small** with the count working (the injection is bookkeeping over
 records already in memory); **medium** on the fallback.
@@ -380,14 +399,25 @@ Cost: **cheap** for the disease; the rise filter is a flag read.
 
 ### 4.15 No loot - `[Zombies] NoLoot=1`
 
-What (Nadi, 2026-10-24): activating a dead walker opens nothing. That
-includes the risen, whose items went over to the walker.
+What (Nadi, 2026-10-24): activating a dead walker opens nothing. Not the
+risen (Nadi, 2026-10-24 afternoon: "sonst bricht das ja alles" - their gear
+and quest items went over to the walker): they stay lootable whatever
+NoLoot says.
 
 How (built 2026-10-24): the death watch notes a walker's death; the next
 frame tick sets the corpse destroyed (`SetDestroyed 1`, section 2) - a flag
 the save keeps, so a corpse stays closed when `NoLoot` is set to 0 later.
 `NoLoot=0` leaves them lootable. `spawn-replace.txt` PASS 11:14, its control
 with NoLoot=0 opened the container (11:15).
+
+The risen kept apart (built 2026-10-24 afternoon): the swap notes its
+walker's reference the frame it finds it - before the kill that drops it,
+which runs the death watch too and had set it destroyed until then - in a
+set of up to 256 (the oldest goes), kept in the co-save (record `RISN`;
+those gone from the game dropped at each save). `BlocksLoot` takes a dead
+walker only when it is not in the set. A risen walker set destroyed by the
+build before stays so in that save. Not run yet: `rise-creature.txt` with a
+kill of the risen walker and an activate.
 
 Cost: **cheap.**
 

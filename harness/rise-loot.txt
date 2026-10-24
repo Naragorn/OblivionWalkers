@@ -1,0 +1,50 @@
+# The risen keep their loot (docs/walkers-spec.md 4.15, Nadi 2026-10-24
+# afternoon): with [Zombies] NoLoot=1, the default, a walker risen from a
+# corpse stays lootable - the fallen's items went over to it. rise-creature's
+# placement and rise: the Redguard bandit killed, 20 to 30 s later up as a
+# walker with his items; then killall again and the console activates the
+# nearest corpse - the walker's (the man's own corpse is disabled). OBVR's
+# line at the opened mark names the container ("Hands: at the mark - menu
+# ... (Container)"), and the plugin's log has no "can no longer be
+# activated" for it: the swap noted the walker as risen before its first
+# kill, so neither that kill nor the second set it destroyed.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-loot.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+console-at risen killall
+console-at dead2 {actor}.activate player
+
+expect HandScript: finished
+expect 00080
+expect (Container)
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 32
+mark risen
+wait 4
+mark dead2
+wait 3
+mark opened
+wait 1
+mark end
+wait 1

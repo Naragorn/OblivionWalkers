@@ -30,7 +30,8 @@ constexpr UInt32 kListDataCountOffset = 0x08;
 // TESCreature in 1.2 (xOBSE GameForms.h): TESActorBaseData flags +0x28,
 // TESAIForm's AISettings at +0x6C (aggression, confidence, ...),
 // TESHealthForm's health +0x84, TESFullName's string +0xA4,
-// TESScriptableForm's script +0xC8, the type +0x104.
+// TESScriptableForm's script +0xC8, the type +0x104. The name and the
+// script are TESActorBase's, at the same offsets in a TESNPC.
 constexpr UInt32 kActorBaseFlagsOffset = 0x28;
 constexpr UInt32 kCreatureConfidenceOffset = 0x6D;
 constexpr UInt32 kActorBaseHealthOffset = 0x84;
@@ -88,6 +89,7 @@ CreatureFacts FactsOf(UInt32 creature, UInt32 espIndex) {
 	facts.flags = Read(creature + kActorBaseFlagsOffset);
 	facts.scripted = Read(creature + kScriptOffset) != 0;
 	facts.ours = (FormIdOf(creature) >> 24) == espIndex;
+	facts.person = Read8(creature + kFormTypeOffset) == kFormTypeNpc;
 	return facts;
 }
 
@@ -180,7 +182,13 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 					break;
 				}
 				const UInt32 target = Read(data + kListDataFormOffset);
-				if (!LooksLikeObject(target) || Read8(target + kFormTypeOffset) != kFormTypeCreature) {
+				if (!LooksLikeObject(target)) {
+					continue;
+				}
+				// A creature or a person: Oblivion's leveled creature lists hold
+				// both (LL1BanditBossLvl100 holds NPC_ records only).
+				const UInt8 targetType = Read8(target + kFormTypeOffset);
+				if (targetType != kFormTypeCreature && targetType != kFormTypeNpc) {
 					continue;
 				}
 				if (Decide(target, espIndex, section.data(), added, addedUsed, newLines, log)) {

@@ -42,17 +42,22 @@ struct CreatureFacts {
 	UInt8 confidence = 0;
 	UInt32 flags = 0;
 	bool scripted = false;
-	bool ours = false;  // a record of OblivionWalkers.esp
+	bool ours = false;    // a record of OblivionWalkers.esp
+	bool person = false;  // an NPC_ record, no creature
 };
 
-// Nadi, 2026-10-24: for now only creatures - no people - and no harmless
-// animals. A creature with a script stays too: a quest or the arena may
-// count on it; one that only swims would stand at the bottom of a lake.
-enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Walker };
+// Nadi, 2026-10-24: every creature and person a leveled list can spawn has
+// its line; harmless animals and all people start at 0. A creature with a
+// script stays too: a quest or the arena may count on it; one that only
+// swims would stand at the bottom of a lake.
+enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker };
 
 inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	if (facts.ours) {
 		return CreatureKind::Walker;
+	}
+	if (facts.person) {
+		return CreatureKind::Person;
 	}
 	if (facts.scripted) {
 		return CreatureKind::Scripted;
@@ -77,6 +82,8 @@ inline const char* KindNote(CreatureKind kind) {
 			return " swims only";
 		case CreatureKind::Scripted:
 			return " has a script";
+		case CreatureKind::Person:
+			return " person";
 		default:
 			return "";
 	}
@@ -209,7 +216,8 @@ inline UInt32 CopySectionLines(const char* section, char* out, UInt32 capacity) 
 // The ESP's WalkersZombieVariant holds every walker kVariantSlots times
 // (tools/esp-write.py); the plugin writes each slot's count from MinCount
 // and MaxCount, so the engine's own pick among the entries gives the spread.
-inline constexpr UInt32 kVariantSlots = 3;
+// Ten slots: MinCount=1, MaxCount=10 gives every count from 1 to 10 once.
+inline constexpr UInt32 kVariantSlots = 10;
 inline constexpr UInt32 kWalkersPerSpawnMost = 10;
 
 inline UInt32 SpreadCount(UInt32 minCount, UInt32 maxCount, UInt32 slot, UInt32 slots) {

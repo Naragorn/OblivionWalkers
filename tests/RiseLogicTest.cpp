@@ -416,6 +416,63 @@ void TestImage() {
 	      "a reference the game cannot resolve is dropped, the others take the resolved ID");
 }
 
+void TestRisenLoot() {
+	std::printf("The risen keep their loot\n");
+	walkers::RisenSet risen;
+	Check(!walkers::IsRisen(risen, 0xFF000C01), "nobody risen yet");
+	walkers::NoteRisen(risen, 0xFF000C01);
+	walkers::NoteRisen(risen, 0xFF000C01);
+	Check(walkers::IsRisen(risen, 0xFF000C01) && risen.count == 1, "noted once, however often the swap says so");
+	walkers::NoteRisen(risen, 0);
+	Check(risen.count == 1, "no reference: nothing noted");
+
+	Check(walkers::BlocksLoot(true, true, false), "NoLoot, a walker from a spawn: no loot");
+	Check(!walkers::BlocksLoot(true, true, true), "NoLoot, a risen walker: lootable all the same");
+	Check(!walkers::BlocksLoot(false, true, false), "NoLoot off: lootable");
+	Check(!walkers::BlocksLoot(true, false, false), "no walker: never touched");
+
+	walkers::RisenSet full;
+	for (UInt32 i = 0; i < walkers::kRisenMost; ++i) {
+		walkers::NoteRisen(full, 0xFF001000 + i);
+	}
+	walkers::NoteRisen(full, 0xFF00FFFF);
+	Check(full.count == walkers::kRisenMost && !walkers::IsRisen(full, 0xFF001000) &&
+	          walkers::IsRisen(full, 0xFF001001) && walkers::IsRisen(full, 0xFF00FFFF),
+	      "full: the oldest goes for the new one");
+
+	auto onlyEven = [](UInt32 id) { return (id & 1) == 0; };
+	walkers::RisenSet some;
+	walkers::NoteRisen(some, 0xFF000C02);
+	walkers::NoteRisen(some, 0xFF000C03);
+	walkers::NoteRisen(some, 0xFF000C04);
+	Check(walkers::KeepRisen(some, onlyEven) == 1 && some.count == 2 && walkers::IsRisen(some, 0xFF000C02) &&
+	          walkers::IsRisen(some, 0xFF000C04) && !walkers::IsRisen(some, 0xFF000C03),
+	      "those gone from the game are dropped, the order of the rest kept");
+
+	UInt8 image[walkers::kRisenImageMost] = {};
+	const UInt32 length = walkers::RisenImage(some, image, sizeof(image));
+	Check(length == 4 + 2 * 4 && image[0] == 2 && image[4] == 0x02 && image[7] == 0xFF,
+	      "the image: the count, then four bytes each, little-endian");
+	walkers::RisenSet back;
+	Check(walkers::ReadRisenImage(back, image, length, &ResolveSame) && back.count == 2 &&
+	          walkers::IsRisen(back, 0xFF000C04),
+	      "read back as written");
+	auto dropFirst = [](UInt32 id, UInt32& out) {
+		out = id;
+		return id != 0xFF000C02;
+	};
+	Check(walkers::ReadRisenImage(back, image, length, dropFirst) && back.count == 1 &&
+	          walkers::IsRisen(back, 0xFF000C04),
+	      "a reference the game cannot resolve is dropped");
+	Check(!walkers::ReadRisenImage(back, image, length - 1, &ResolveSame) && back.count == 1,
+	      "cut short: false, the whole entries before it kept");
+	Check(!walkers::ReadRisenImage(back, image, 3, &ResolveSame) && back.count == 0, "shorter than the count: false");
+	UInt8 bloated[8] = {0xFF, 0xFF, 0, 0, 0, 0, 0, 0};
+	Check(!walkers::ReadRisenImage(back, bloated, sizeof(bloated), &ResolveSame), "a count above the set's size: false");
+	UInt8 small[6];
+	Check(walkers::RisenImage(some, small, sizeof(small)) == 0, "a buffer too small: nothing written");
+}
+
 }  // namespace
 
 int main() {
@@ -427,6 +484,7 @@ int main() {
 	TestSwap();
 	TestRisenWatch();
 	TestImage();
+	TestRisenLoot();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

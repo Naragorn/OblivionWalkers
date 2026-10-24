@@ -73,14 +73,25 @@ void TestClassify() {
 	ours.ours = true;
 	Check(walkers::ClassifyCreature(ours) == CreatureKind::Walker, "a walker of the ESP: never replaced by itself");
 
+	CreatureFacts bandit;
+	bandit.person = true;
+	Check(walkers::ClassifyCreature(bandit) == CreatureKind::Person, "a person of a leveled list: a person");
+	CreatureFacts scriptedBandit = bandit;
+	scriptedBandit.scripted = true;
+	Check(walkers::ClassifyCreature(scriptedBandit) == CreatureKind::Person, "a person with a script: still a person");
+	CreatureFacts oursPerson = bandit;
+	oursPerson.ours = true;
+	Check(walkers::ClassifyCreature(oursPerson) == CreatureKind::Walker, "a record of the ESP: ours before a person");
+
 	Check(walkers::DefaultOn(CreatureKind::Replace) && !walkers::DefaultOn(CreatureKind::HarmlessAnimal) &&
 	          !walkers::DefaultOn(CreatureKind::SwimsOnly) && !walkers::DefaultOn(CreatureKind::Scripted) &&
-	          !walkers::DefaultOn(CreatureKind::Walker),
-	      "only the replaced kind is on by default");
+	          !walkers::DefaultOn(CreatureKind::Person) && !walkers::DefaultOn(CreatureKind::Walker),
+	      "only the replaced kind is on by default - never a person");
 	Check(std::strcmp(walkers::KindNote(CreatureKind::Replace), "") == 0 &&
 	          std::strcmp(walkers::KindNote(CreatureKind::HarmlessAnimal), " harmless animal") == 0 &&
 	          std::strcmp(walkers::KindNote(CreatureKind::SwimsOnly), " swims only") == 0 &&
-	          std::strcmp(walkers::KindNote(CreatureKind::Scripted), " has a script") == 0,
+	          std::strcmp(walkers::KindNote(CreatureKind::Scripted), " has a script") == 0 &&
+	          std::strcmp(walkers::KindNote(CreatureKind::Person), " person") == 0,
 	      "the notes the INI line carries");
 }
 
@@ -91,6 +102,8 @@ void TestKeys() {
 	Check(std::strcmp(key, "Timber Wolf [Oblivion.esm 01E5F6]") == 0, "a replaced creature: its name and its ID");
 	walkers::FormatReplaceKey(key, sizeof(key), "Deer", "Oblivion.esm", 0x00031550, CreatureKind::HarmlessAnimal);
 	Check(std::strcmp(key, "Deer [Oblivion.esm 031550] harmless animal") == 0, "a kept one: with its note");
+	walkers::FormatReplaceKey(key, sizeof(key), "Bandit", "Oblivion.esm", 0x00069AD1, CreatureKind::Person);
+	Check(std::strcmp(key, "Bandit [Oblivion.esm 069AD1] person") == 0, "a person: with its note");
 	walkers::FormatReplaceKey(key, sizeof(key), "A=B;[C]", "Mod.esp", 0x123, CreatureKind::Replace);
 	Check(std::strcmp(key, "A B  C  [Mod.esp 000123]") == 0, "the INI's own signs in a name become spaces");
 	walkers::FormatReplaceKey(key, sizeof(key), "", "Mod.esp", 0x123, CreatureKind::Replace);
@@ -187,6 +200,22 @@ void TestCounts() {
 	Check(walkers::SpreadCount(1, 3, 5, 3) == 3, "a slot past the last: the maximum");
 	Check(walkers::SpreadCount(1, 3, 0, 1) == 1 && walkers::SpreadCount(2, 3, 0, 0) == 2,
 	      "one slot or none: the minimum");
+
+	// The ESP's ten slots: 1 to 10 gives every count once, so each is as
+	// likely as the next.
+	bool every = true;
+	for (UInt32 slot = 0; slot < walkers::kVariantSlots; ++slot) {
+		every = every && walkers::SpreadCount(1, 10, slot, walkers::kVariantSlots) == slot + 1;
+	}
+	Check(every, "1 to 10 over the ten slots: 1, 2, ... 10");
+	UInt32 times[4] = {};
+	for (UInt32 slot = 0; slot < walkers::kVariantSlots; ++slot) {
+		++times[walkers::SpreadCount(1, 3, slot, walkers::kVariantSlots)];
+	}
+	Check(times[1] == 3 && times[2] == 4 && times[3] == 3, "1 to 3 over the ten slots: 3 ones, 4 twos, 3 threes");
+	Check(walkers::SpreadCount(10, 10, 0, walkers::kVariantSlots) == 10 &&
+	          walkers::SpreadCount(10, 10, 9, walkers::kVariantSlots) == 10,
+	      "10 to 10: always ten");
 }
 
 void TestHealth() {
@@ -204,7 +233,8 @@ void TestSettings() {
 	walkers::ReplaceSettings settings;
 	Check(settings.enabled && settings.minCount == 1 && settings.maxCount == 3,
 	      "[Replace] Enabled=1, MinCount=1, MaxCount=3");
-	Check(walkers::kVariantSlots == 3, "three count slots per walker in the ESP's list");
+	Check(walkers::kVariantSlots == 10 && walkers::kWalkersPerSpawnMost == 10,
+	      "ten count slots per walker in the ESP's list, ten walkers the most");
 }
 
 }  // namespace
