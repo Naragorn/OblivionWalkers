@@ -1,0 +1,44 @@
+# Spawn replacement at the engine's own spawn points (docs/walkers-spec.md
+# 4.6): the cell Tamriel -29,5 and its loaded grid hold 16 leveled spawn
+# points and no placed actor (tools/esm-spawns.py placed.tsv); spawn-count.txt
+# read 30 actors there on 2026-10-23 without the plugin - 18 deer, 6 wolves
+# (0006E912), 4 bear cubs (0018AE3A), 2 bandits.
+#
+# With the replacement the wolves' and the cubs' entries point at the
+# walkers: if the cells spawn fresh, the roster at the seen marks reads
+# walkers (0x00080x) and no wolf; the deer (harmless animals) and the
+# bandits (people) stay. A wolf there means the harness save carried that
+# spawn from an earlier visit (spawn-count.txt's caveat) - or the
+# replacement missed the list; the plugin's "Spawns:" lines tell which.
+#
+# Result 2026-10-24 11:17 PASS (artifacts/hand-script/spawn-replace-outdoors/
+# 20261024-111725): 39 actors - 31 walkers (11000801 x6, 802 x9, 803 x9,
+# 804 x7), 4 deer, a bandit (00069AD3) and two MOO Imperial Legion
+# Foresters (NPCs, 0D257C0D/0D257C10); no wolf, no cub. The cells spawned
+# fresh, so spawn-count.txt's caveat is settled.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-replace-outdoors.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready cow Tamriel -29 5
+
+expect HandScript: finished
+expect 00080
+reject 0006E912 x
+reject 0018AE3A x
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark seen
+wait 10
+mark seen2
+wait 1

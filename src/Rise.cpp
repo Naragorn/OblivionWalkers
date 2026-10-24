@@ -1,5 +1,8 @@
 #include "Rise.h"
 
+#include "Engine.h"
+#include "Replace.h"
+
 #include <windows.h>
 
 #include <cmath>
@@ -8,13 +11,13 @@
 namespace walkers {
 namespace {
 
+using namespace engine;
+
 // Engine facts of Oblivion 1.2.416, read with REA over Oblivion.exe and in
 // xOBSE's GameForms.h / GameObjects.h / GameAPI.cpp on 2026-10-23
 // (docs/walkers-spec.md, section 2).
 constexpr UInt32 kVtblCharacter = 0x00A6FC9C;   // a person in the world
 constexpr UInt32 kVtblCreature = 0x00A710F4;    // a creature in the world
-constexpr UInt32 kFormTypeOffset = 0x04;        // TESForm::typeID (0x23 NPC_, 0x24 CREA)
-constexpr UInt32 kFormIdOffset = 0x0C;          // TESForm::refID
 constexpr UInt32 kRefBaseFormOffset = 0x1C;     // TESObjectREFR::baseForm
 constexpr UInt32 kRefNiNodeOffset = 0x3C;       // TESObjectREFR::niNode: in the world when set
 constexpr UInt32 kActorBaseFlagsOffset = 0x28;  // TESActorBase::actorBaseData.flags
@@ -25,31 +28,22 @@ constexpr UInt32 kActorBaseEssential = 0x2;
 constexpr UInt32 kActorBaseNoLowProcessing = 0x200;
 constexpr UInt32 kActorVtableIsDead = 0x198;    // as OBVR's ActorRoster reads it: (self, 0) & 1
 constexpr UInt32 kActorVtableResurrect = 0x20C; // the console's ResurrectActor: (1, has3D, animate)
-constexpr UInt32 kLookupFormByID = 0x0046B250;  // xOBSE GameAPI.cpp, cdecl (UInt32 id)
 // xOBSE's CloneForm, call by call (GameForms.cpp, GameAPI.cpp; the bytes at
 // the three addresses read with REA: the type comes off the stack behind the
 // SEH frame, the other two take their object in ecx and return with ret 4).
 constexpr UInt32 kCreateFormInstance = 0x00447DF0;         // cdecl (UInt8 type)
 constexpr UInt32 kAddFormToDataHandler = 0x0044D950;       // thiscall (DataHandler; form)
 constexpr UInt32 kAddFormToCreatedBaseList = 0x00459800;   // thiscall (TESSaveLoadGame; form)
-constexpr UInt32 kDataHandlerPointer = 0x00B33A98;
 constexpr UInt32 kCreatedBaseListPointer = 0x00B33B00;
 // TESForm::CopyFrom is virtual 45 of a form, counted from BaseFormComponent's
 // four (xOBSE GameForms.h's numbered list; a first reading as 33 skipped the
 // base's and sent run 3 of rise-walker-clone into IsOffLimits instead).
 constexpr UInt32 kFormVtableCopyFrom = 0xB4;
-constexpr UInt8 kFormTypeNpc = 0x23;
-constexpr UInt8 kFormTypeCreature = 0x24;
 constexpr UInt8 kFormTypeRace = 0x09;
 // The actor process manager's four lists (high to low), as OBVR's roster
 // reads them: a node is {data, next}; the list function takes the level.
 constexpr UInt32 kActorProcessManager = 0x00B3BD00;
 constexpr UInt32 kActorListByLevel = 0x00673A50;
-// DataHandler (xOBSE GameData.h): the loaded mods by their runtime index,
-// ModEntry::Data (the engine's TESFile) with the file name at +0x1C.
-constexpr UInt32 kDataHandlerModCountOffset = 0x8D0;
-constexpr UInt32 kDataHandlerModsByIdOffset = 0x8D4;
-constexpr UInt32 kModEntryNameOffset = 0x1C;
 constexpr const char* kPluginEsp = "OblivionWalkers.esp";
 constexpr UInt32 kFrameSeconds = 0x00B33E9C;    // the last frame's seconds, a float (OBVR GameAddresses.h)
 constexpr UInt32 kTextStart = 0x00401000;
@@ -72,24 +66,20 @@ Swap g_swap;
 UInt32 g_walkers[4] = {};
 UInt32 g_walkerCount = 0;
 bool g_walkersLooked = false;
-
-UInt32 Read(UInt32 address) { return *reinterpret_cast<const UInt32*>(address); }
-UInt8 Read8(UInt32 address) { return *reinterpret_cast<const UInt8*>(address); }
-float FloatAt(UInt32 address) { return *reinterpret_cast<const float*>(address); }
-
-// Out of the null page and aligned: the least an engine object pointer is.
-bool LooksLikeObject(UInt32 address) { return address >= 0x00010000 && (address & 3) == 0; }
+ReplaceSettings g_replace;
+char g_iniPath[260] = {};
+bool g_spawnsDone = false;
+float g_spawnsAgainSeconds = -1.0f;
+// NoLoot: the dead walkers noted in the death path, made unusable at the
+// next frame tick (nothing of an actor is touched inside the death path).
+UInt32 g_lootless[32] = {};
+UInt32 g_lootlessCount = 0;
 
 UInt32 NextRandom() {
 	g_random ^= g_random << 13;
 	g_random ^= g_random >> 17;
 	g_random ^= g_random << 5;
 	return g_random;
-}
-
-UInt32 LookupForm(UInt32 formId) {
-	using LookupFn = UInt32(__cdecl*)(UInt32 id);
-	return reinterpret_cast<LookupFn>(kLookupFormByID)(formId);
 }
 
 bool IsActor(UInt32 ref) {
@@ -105,8 +95,6 @@ bool IsDead(UInt32 actor) {
 	using DeadFn = UInt8(__fastcall*)(void* self, void* edx, UInt32 arg);
 	return (reinterpret_cast<DeadFn>(fn)(reinterpret_cast<void*>(actor), nullptr, 0) & 1) != 0;
 }
-
-UInt32 FormIdOf(UInt32 object) { return LooksLikeObject(object) ? Read(object + kFormIdOffset) : 0; }
 
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
 // the actor touched in this frame (Zombie Walkers' crash was there).
@@ -135,6 +123,14 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 					fallen.racePlayable = Read8(race + kRacePlayableOffset) != 0;
 					fallen.raceHuman = IsHumanRace(raceId);
 				}
+			}
+		}
+	}
+	if (g_settings.noLoot && type == kFormTypeCreature && g_lootlessCount < 32) {
+		for (UInt32 w = 0; w < g_walkerCount; ++w) {
+			if (g_walkers[w] == fallen.baseId) {
+				g_lootless[g_lootlessCount++] = fallen.refId;
+				break;
 			}
 		}
 	}
@@ -253,9 +249,8 @@ UInt32 FindEspIndex() {
 	}
 	const UInt32 count = Read(handler + kDataHandlerModCountOffset);
 	for (UInt32 i = 0; i < count && i < 0xFF; ++i) {
-		const UInt32 entry = Read(handler + kDataHandlerModsByIdOffset + i * 4);
-		if (LooksLikeObject(entry) &&
-		    SameModName(reinterpret_cast<const char*>(entry + kModEntryNameOffset), kPluginEsp)) {
+		const char* name = ModNameAt(i);
+		if (name != nullptr && SameModName(name, kPluginEsp)) {
 			return i;
 		}
 	}
@@ -738,6 +733,45 @@ void StepWalkers(float dt) {
 	}
 }
 
+// The spawn replacement (4.6) and the walkers' health (4.5), once the ESP's
+// walkers are known: at the first tick (the main menu - the records are
+// loaded, nothing spawned yet), and again five game seconds after every
+// load, for the creatures a mod's script put into a list since.
+void StepSpawns(float dt) {
+	if (g_walkerCount == 0) {
+		return;
+	}
+	if (!g_spawnsDone) {
+		g_spawnsDone = true;
+		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
+		if (g_replace.enabled) {
+			ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_log);
+		}
+		return;
+	}
+	if (g_spawnsAgainSeconds < 0.0f) {
+		return;
+	}
+	g_spawnsAgainSeconds -= dt;
+	if (g_spawnsAgainSeconds <= 0.0f) {
+		g_spawnsAgainSeconds = -1.0f;
+		ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_log);
+	}
+}
+
+// NoLoot: the engine's SetDestroyed on each walker that died since the last
+// frame - the CS wiki: on an actor it "prevents the actor from being
+// activated for conversation, looting, or pick pocketing".
+void StepLootless() {
+	for (UInt32 i = 0; i < g_lootlessCount; ++i) {
+		const UInt32 ref = LookupForm(g_lootless[i]);
+		const bool done = LooksLikeObject(ref) && IsActor(ref) && ConsoleOn(ref, "SetDestroyed 1");
+		g_log("Loot: walker %08X can no longer be activated (SetDestroyed handed to xOBSE: %d)", g_lootless[i],
+		      done ? 1 : 0);
+	}
+	g_lootlessCount = 0;
+}
+
 void Tick() {
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
@@ -745,7 +779,9 @@ void Tick() {
 	{
 		const float frame = *reinterpret_cast<const float*>(kFrameSeconds);
 		FindWalkers();
+		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepLootless();
 	}
 	if (g_risenWatching) {
 		StepRisenWatch();
@@ -784,6 +820,10 @@ bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
 
 void OnLoad(void*) {
 	g_list = WaitingList{};
+	g_lootlessCount = 0;
+	if (g_replace.enabled) {
+		g_spawnsAgainSeconds = 5.0f;
+	}
 	UInt32 type = 0;
 	UInt32 version = 0;
 	UInt32 length = 0;
@@ -808,14 +848,24 @@ void OnLoad(void*) {
 
 void OnNewGame(void*) {
 	g_list = WaitingList{};
+	g_lootlessCount = 0;
+	if (g_replace.enabled) {
+		g_spawnsAgainSeconds = 5.0f;
+	}
 	g_log("New game: nobody waits");
 }
 
 }  // namespace
 
-bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, LogFn log) {
+bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const ReplaceSettings& replace,
+                 const char* iniPath, LogFn log) {
 	g_log = log;
 	g_settings = settings;
+	g_replace = replace;
+	std::snprintf(g_iniPath, sizeof(g_iniPath), "%s", iniPath != nullptr ? iniPath : "");
+	g_spawnsDone = false;
+	g_spawnsAgainSeconds = -1.0f;
+	g_lootlessCount = 0;
 	g_list = WaitingList{};
 	g_random = GetTickCount() | 1u;
 	g_deathWatchOn = false;

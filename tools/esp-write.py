@@ -12,8 +12,10 @@ index at runtime):
          but EDID and FULL: the walkers the risen become (4.1, the creature
          path decided 2026-10-23) and the spawns turn into (4.6); their own
          animation folder (4.4) comes later on these records.
-  0x805  LVLC WalkersZombieVariant - the four at level 1, count 1, no chance
-         none, flags 0, like LL0ZombieVariant (00034095): what 4.6 injects.
+  0x805  LVLC WalkersZombieVariant - each of the four three times at level 1
+         (counts 1, 2, 3, which the plugin rewrites from [Replace] MinCount
+         and MaxCount at the start), no chance none, flags 0, like
+         LL0ZombieVariant (00034095): what 4.6 puts in place of a creature.
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         --out OblivionWalkers.esp
@@ -45,6 +47,7 @@ WALKER_NAME = "Walker"
 ZOMBIE_SOURCES = [0x00025E6E, 0x00025E5E, 0x00025E55, 0x00025E4F]  # CreatureZombie1..4
 LOCAL_WALKER_IDS = [0x801, 0x802, 0x803, 0x804]
 LOCAL_LIST_ID = 0x805
+VARIANT_SLOTS = 3  # ReplaceLogic.h kVariantSlots
 LIST_EDID = "WalkersZombieVariant"
 AUTHOR = "Naragorn"
 DESCRIPTION = "Oblivion Walkers - the records the plugin needs: the Walker race for the risen."
@@ -124,14 +127,20 @@ def build_walker(template: list[tuple[bytes, bytes]], edid: str) -> bytes:
     return out
 
 
-def build_list(entries: list[int]) -> bytes:
-    """A leveled creature list of the entries at level 1, count 1: EDID, LVLD
-    (chance none), LVLF (flags), then LVLO level(2) pad(2) form(4) count(2) pad(2)."""
+def variant_entries(walkers: list[int]) -> list[tuple[int, int]]:
+    """Every walker VARIANT_SLOTS times, with the counts 1..VARIANT_SLOTS."""
+    return [(form, slot + 1) for form in walkers for slot in range(VARIANT_SLOTS)]
+
+
+def build_list(entries: list[tuple[int, int]]) -> bytes:
+    """A leveled creature list of the (form, count) entries at level 1: EDID,
+    LVLD (chance none), LVLF (flags), then LVLO level(2) pad(2) form(4)
+    count(2) pad(2)."""
     out = subrecord(b"EDID", zstring(LIST_EDID))
     out += subrecord(b"LVLD", bytes([0]))
     out += subrecord(b"LVLF", bytes([0]))
-    for form in entries:
-        out += subrecord(b"LVLO", struct.pack("<HHIHH", 1, 0, form, 1, 0))
+    for form, count in entries:
+        out += subrecord(b"LVLO", struct.pack("<HHIHH", 1, 0, form, count, 0))
     return out
 
 
@@ -155,7 +164,7 @@ def main() -> int:
     creatures = b"".join(record(b"CREA", form, build_walker(tpl, f"WalkersZombie{i + 1}"))
                          for i, (form, tpl) in enumerate(zip(walker_forms, walker_templates)))
     list_form = index | LOCAL_LIST_ID
-    lists = record(b"LVLC", list_form, build_list(walker_forms))
+    lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms)))
 
     body = group(b"RACE", races) + group(b"CREA", creatures) + group(b"LVLC", lists)
     groups = 3
@@ -183,12 +192,12 @@ def main() -> int:
         if back_names != {"EDID": f"WalkersZombie{i + 1}", "FULL": WALKER_NAME}:
             raise SystemExit(f"walker {i + 1}'s names are off: {back_names}")
     back_list = find_record(esm, plugin, b"LVLC", list_form)
-    entries = [struct.unpack_from("<HHIHH", d, 0)[2] for k, d in back_list if k == b"LVLO"]
-    if entries != walker_forms:
-        raise SystemExit(f"the list's entries are off: {[f'{e:08X}' for e in entries]}")
+    entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
+    if [(e[2], e[3]) for e in entries] != variant_entries(walker_forms) or any(e[0] != 1 for e in entries):
+        raise SystemExit(f"the list's entries are off: {[(f'{e[2]:08X}', e[3]) for e in entries]}")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
-          + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four; "
+          + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four x{VARIANT_SLOTS}; "
           "every other subrecord as the originals'")
     return 0
 

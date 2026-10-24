@@ -39,11 +39,14 @@ bool Load(const obse::Interface& xse, const Host& host) {
 		         "JitterSeconds=10 ChancePercent=100 OnlyGeneric=1");
 	}
 	const RiseSettings& rise = g_settings.rise;
-	if (!rise.enabled) {
-		host.log("Rise: off (Enabled=0), the fallen stay down");
+	const ReplaceSettings& replace = g_settings.replace;
+	if (!host.installRise(xse, g_settings)) {
+		host.log("Rise: not installed, the fallen stay down");
 		return true;
 	}
-	if (host.installRise(xse, rise)) {
+	if (!rise.enabled) {
+		host.log("Rise: off (Enabled=0), the fallen stay down");
+	} else {
 		const char* how = "";
 		if (rise.asCreature) {
 			how = " - as a walker, the ESP's zombie creature at his spot";
@@ -55,9 +58,16 @@ bool Load(const obse::Interface& xse, const Host& host) {
 		         rise.onlyGeneric ? "generic person" : "person",
 		         rise.onlyHumans ? " of a human race" : (rise.onlyPlayableRaces ? " of a playable race" : ""),
 		         rise.afterSeconds, rise.afterSeconds + rise.jitterSeconds, rise.chancePercent, how);
-	} else {
-		host.log("Rise: not installed, the fallen stay down");
 	}
+	if (replace.enabled) {
+		host.log("Spawns: the creatures of the leveled lists become %u to %u walkers, as [ReplaceCreatures] says",
+		         SpreadCount(replace.minCount, replace.maxCount, 0, kVariantSlots),
+		         SpreadCount(replace.minCount, replace.maxCount, kVariantSlots - 1, kVariantSlots));
+	} else {
+		host.log("Spawns: off (Enabled=0), the lists as they are");
+	}
+	host.log("Walkers: %u%% health, %s, %s", ScaledHealth(100, rise.healthPercent),
+	         rise.walkOnly ? "walk only" : "they run", rise.noLoot ? "no loot" : "lootable");
 	return true;
 }
 

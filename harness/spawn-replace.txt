@@ -1,0 +1,67 @@
+# Spawn replacement and no loot (docs/walkers-spec.md 4.6, 4.15): the
+# plugin points every leveled-list entry of a replaced creature at the
+# ESP's WalkersZombieVariant at the main menu; a leveled list placed in the
+# world then yields walkers instead of its creatures.
+#
+# The hall, the harness save: the console places LL0Goblin100 (00084B2C:
+# CreatureGoblin1 twice, CreatureGoblin1Archer, all at level 1, no chance
+# none) three times at the player. Replaced, the roster ("HandScript:
+# actors") at the counted mark reads only walkers (base 0x00080x of the
+# ESP's index) and no goblin (0001FCB1, 00084B29); with the variant list's
+# counts 1/2/3, more than three walkers say the count of a nested entry is
+# honoured for a placed list too. A placed list is no world spawn point:
+# the engine's own spawn points (a cell loaded fresh) are still to be seen.
+#
+# Then killall, and the console activates the nearest corpse - a walker's:
+# with [Zombies] NoLoot=1 the plugin has set it destroyed, and OBVR's line
+# at the opened mark ("Hands: at the mark - menu ...") names no container.
+# The control run with NoLoot=0 (set by hand in the deployed INI) names
+# "(Container)" there.
+#
+# The plugin's own log (OblivionWalkers.log, copied beside the run) carries
+# the decisions: "Spawns: ... entries in ... lists now walkers", one line per
+# creature, "Loot: walker ... can no longer be activated".
+#
+# Results 2026-10-24 (artifacts/hand-script/spawn-replace/):
+#   NoLoot=1, 11:14 (20261024-111422) PASS: 7 walkers from the three
+#   placements (11000802 x7), no goblin; after killall seven "Loot: walker
+#   ... can no longer be activated", the activate opened nothing (menu 0).
+#   NoLoot=0, 11:15 (20261024-111541): 4 walkers (11000804 x2, 11000802 x2),
+#   the activate opened "(Container)" - the control, FAIL on that reject
+#   as meant.
+#   The plugin at the main menu: 4055 entries in 832 of 2623 lists now
+#   walkers, 1093 creatures written to [ReplaceCreatures] (930 on); five
+#   seconds after the load 36 more entries in 23 lists (a mod's script).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-replace.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 00084B2C 3
+
+expect HandScript: finished
+expect 00080
+reject 0001FCB1 x
+reject 00084B29 x
+reject (Container)
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark counted
+console-at counted killall
+wait 4
+mark dead
+console-at dead {actor}.activate player
+wait 3
+mark opened
+wait 1
+mark end
+wait 1

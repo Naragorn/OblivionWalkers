@@ -46,6 +46,15 @@ struct RiseSettings {
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
+	// [Zombies] HealthPercent: 1 to 100 percent of the walker records'
+	// health, written on the records in memory at the start (4.5) - never
+	// per reference, so no save carries a scaled value.
+	UInt32 healthPercent = 100;
+	// [Zombies] NoLoot: a dead walker cannot be activated - no container
+	// opens (Nadi, 2026-10-24; the engine's SetDestroyed on the corpse, which
+	// the CS wiki gives as "prevents the actor from being activated for
+	// conversation, looting, or pick pocketing").
+	bool noLoot = true;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk

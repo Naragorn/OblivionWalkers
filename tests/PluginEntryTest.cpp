@@ -24,7 +24,7 @@ struct Fake {
 	walkers::Settings iniSettings;
 	int installs = 0;
 	bool installSucceeds = true;
-	walkers::RiseSettings installed;
+	walkers::Settings installed;
 	std::vector<std::string> lines;
 
 	bool Logged(const char* text) const {
@@ -54,9 +54,9 @@ bool FakeReadSettings(walkers::Settings* settings) {
 	*settings = g_fake->iniSettings;
 	return true;
 }
-bool FakeInstallRise(const walkers::obse::Interface&, const walkers::RiseSettings& rise) {
+bool FakeInstallRise(const walkers::obse::Interface&, const walkers::Settings& settings) {
 	++g_fake->installs;
-	g_fake->installed = rise;
+	g_fake->installed = settings;
 	return g_fake->installSucceeds;
 }
 
@@ -114,13 +114,13 @@ void TestLoad() {
 		fake.iniExists = false;
 		walkers::ResetForTest();
 		Check(walkers::Load(Game(), kHost) && fake.installs == 1, "no INI: the defaults, the rise installed");
-		Check(fake.Logged("No OblivionWalkers.ini") && fake.installed.enabled && fake.installed.afterSeconds == 20.0f &&
-		          fake.installed.jitterSeconds == 10.0f && fake.installed.chancePercent == 100 &&
-		          fake.installed.onlyGeneric,
+		Check(fake.Logged("No OblivionWalkers.ini") && fake.installed.rise.enabled && fake.installed.rise.afterSeconds == 20.0f &&
+		          fake.installed.rise.jitterSeconds == 10.0f && fake.installed.rise.chancePercent == 100 &&
+		          fake.installed.rise.onlyGeneric,
 		      "with the defaults named in the log");
 		Check(fake.Logged("Rise: watching deaths - a fallen generic person of a playable race gets up 20 to 30 s "
 		                  "later, 100% of the time - as a walker, the ESP's zombie creature at his spot") &&
-		          fake.installed.onlyPlayableRaces && fake.installed.asCreature && fake.installed.dropSeconds == 1.5f,
+		          fake.installed.rise.onlyPlayableRaces && fake.installed.rise.asCreature && fake.installed.rise.dropSeconds == 1.5f,
 		      "and the rise's line, the creature path by default");
 	}
 	{
@@ -133,12 +133,12 @@ void TestLoad() {
 		fake.iniSettings.rise.onlyPlayableRaces = false;
 		fake.iniSettings.rise.asCreature = false;
 		walkers::ResetForTest();
-		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && fake.installed.afterSeconds == 5.0f &&
-		          fake.installed.chancePercent == 40 && !fake.installed.onlyGeneric &&
-		          !fake.installed.onlyPlayableRaces,
+		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && fake.installed.rise.afterSeconds == 5.0f &&
+		          fake.installed.rise.chancePercent == 40 && !fake.installed.rise.onlyGeneric &&
+		          !fake.installed.rise.onlyPlayableRaces,
 		      "an INI: its values reach the installer");
 		Check(fake.Logged("a fallen person gets up 5 to 5 s later, 40% of the time") &&
-		          !fake.Logged("on a clone") && !fake.Logged("as a walker") && !fake.installed.asCreature &&
+		          !fake.Logged("on a clone") && !fake.Logged("as a walker") && !fake.installed.rise.asCreature &&
 		          walkers::LoadedSettings().rise.chancePercent == 40,
 		      "and the log, and LoadedSettings; AsCreature=0 reaches the installer");
 	}
@@ -147,7 +147,7 @@ void TestLoad() {
 		g_fake = &fake;
 		fake.iniSettings.rise.onlyHumans = true;
 		walkers::ResetForTest();
-		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && fake.installed.onlyHumans &&
+		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && fake.installed.rise.onlyHumans &&
 		          fake.Logged("a fallen generic person of a human race gets up 20 to 30 s later"),
 		      "OnlyHumans=1: reaches the installer, named in the log over the playable races");
 	}
@@ -157,8 +157,8 @@ void TestLoad() {
 		fake.iniSettings.rise.cloneBase = true;
 		fake.iniSettings.rise.asCreature = false;
 		walkers::ResetForTest();
-		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && fake.installed.cloneBase &&
-		          fake.installed.zombieRace &&
+		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && fake.installed.rise.cloneBase &&
+		          fake.installed.rise.zombieRace &&
 		          fake.Logged("of a playable race gets up 20 to 30 s later, 100% of the time, on a clone of his "
 		                      "base record with the Walker race"),
 		      "CloneBase=1 with the default ZombieRace=1: reaches the installer, both named in the log");
@@ -170,7 +170,7 @@ void TestLoad() {
 		fake.iniSettings.rise.zombieRace = false;
 		fake.iniSettings.rise.asCreature = false;
 		walkers::ResetForTest();
-		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && !fake.installed.zombieRace &&
+		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && !fake.installed.rise.zombieRace &&
 		          fake.Logged("on a clone of his base record") && !fake.Logged("Walker race"),
 		      "ZombieRace=0: the clone without the race, the log says only the clone");
 	}
@@ -179,8 +179,36 @@ void TestLoad() {
 		g_fake = &fake;
 		fake.iniSettings.rise.enabled = false;
 		walkers::ResetForTest();
-		Check(walkers::Load(Game(), kHost) && fake.installs == 0 && fake.Logged("Rise: off (Enabled=0)"),
-		      "Enabled=0: not installed, and the log says so");
+		Check(walkers::Load(Game(), kHost) && fake.installs == 1 && !fake.installed.rise.enabled &&
+		          fake.Logged("Rise: off (Enabled=0), the fallen stay down") && !fake.Logged("watching deaths"),
+		      "Rise Enabled=0: the tick still installed for the spawns and the walk, the rise named off");
+	}
+	{
+		Fake fake;
+		g_fake = &fake;
+		fake.iniExists = false;
+		walkers::ResetForTest();
+		Check(walkers::Load(Game(), kHost) && fake.installed.replace.enabled && fake.installed.replace.minCount == 1 &&
+		          fake.installed.replace.maxCount == 3 && fake.installed.rise.healthPercent == 100 &&
+		          fake.installed.rise.noLoot,
+		      "the spawn and zombie defaults reach the installer");
+		Check(fake.Logged("Spawns: the creatures of the leveled lists become 1 to 3 walkers, as [ReplaceCreatures] "
+		                  "says") &&
+		          fake.Logged("Walkers: 100% health, walk only, no loot"),
+		      "both named in the log");
+	}
+	{
+		Fake fake;
+		g_fake = &fake;
+		fake.iniSettings.replace.enabled = false;
+		fake.iniSettings.rise.healthPercent = 25;
+		fake.iniSettings.rise.walkOnly = false;
+		fake.iniSettings.rise.noLoot = false;
+		walkers::ResetForTest();
+		Check(walkers::Load(Game(), kHost) && !fake.installed.replace.enabled &&
+		          fake.installed.rise.healthPercent == 25 && fake.Logged("Spawns: off (Enabled=0), the lists as they are") &&
+		          fake.Logged("Walkers: 25% health, they run, lootable"),
+		      "Replace Enabled=0 and the zombie switches off: reach the installer, named in the log");
 	}
 	{
 		Fake fake;

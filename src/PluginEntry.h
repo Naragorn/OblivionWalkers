@@ -4,6 +4,7 @@
 // effects behind a Host so every flow runs in a test.
 
 #include "Obse.h"
+#include "ReplaceLogic.h"
 #include "RiseLogic.h"
 #include "Types.h"
 
@@ -22,6 +23,10 @@ constexpr UInt32 kObseVersionLeast = 21;
 
 struct Settings {
 	RiseSettings rise;
+	ReplaceSettings replace;
+	// The INI the settings came from: the spawn replacement writes its
+	// creature lines there ([ReplaceCreatures]). Empty without one.
+	char iniPath[260] = {};
 };
 
 struct Host {
@@ -30,9 +35,10 @@ struct Host {
 	// Reads the INI next to the DLL into *settings; false if there is no INI
 	// (the defaults then stand).
 	bool (*readSettings)(Settings* settings);
-	// Installs the death watch, the frame tick and the co-save; false when
-	// xOBSE lacks an interface it needs (the installer logs which).
-	bool (*installRise)(const obse::Interface& xse, const RiseSettings& rise);
+	// Installs the frame tick (the spawn replacement, the walkers' walk and
+	// health), the death watch and the co-save; false when xOBSE lacks an
+	// interface it needs (the installer logs which).
+	bool (*installRise)(const obse::Interface& xse, const Settings& settings);
 };
 
 bool Query(const obse::Interface& xse, obse::PluginInfo* info, const Host& host);

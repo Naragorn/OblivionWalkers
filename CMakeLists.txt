@@ -19,7 +19,7 @@ target_include_directories(logic INTERFACE src)
 add_library(plugin_entry STATIC src/PluginEntry.cpp)
 target_include_directories(plugin_entry PUBLIC src)
 
-add_library(rise STATIC src/Rise.cpp)
+add_library(rise STATIC src/Rise.cpp src/Replace.cpp)
 target_include_directories(rise PUBLIC src)
 
 add_library(OblivionWalkers SHARED src/Plugin.cpp)
@@ -30,6 +30,10 @@ enable_testing()
 add_executable(RiseLogicTest tests/RiseLogicTest.cpp)
 target_link_libraries(RiseLogicTest PRIVATE logic)
 add_test(NAME RiseLogicTest COMMAND RiseLogicTest)
+
+add_executable(ReplaceLogicTest tests/ReplaceLogicTest.cpp)
+target_link_libraries(ReplaceLogicTest PRIVATE logic)
+add_test(NAME ReplaceLogicTest COMMAND ReplaceLogicTest)
 
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)

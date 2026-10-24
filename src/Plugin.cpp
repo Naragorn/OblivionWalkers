@@ -94,6 +94,16 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	rise.asCreature = GetPrivateProfileIntA("Rise", "AsCreature", 1, path) != 0;
 	rise.walkOnly = GetPrivateProfileIntA("Zombies", "Walk", 1, path) != 0;
+	const int health = GetPrivateProfileIntA("Zombies", "HealthPercent", 100, path);
+	rise.healthPercent = health < 1 ? 1u : (health > 100 ? 100u : static_cast<UInt32>(health));
+	rise.noLoot = GetPrivateProfileIntA("Zombies", "NoLoot", 1, path) != 0;
+	walkers::ReplaceSettings& replace = settings->replace;
+	replace.enabled = GetPrivateProfileIntA("Replace", "Enabled", 1, path) != 0;
+	const int least = GetPrivateProfileIntA("Replace", "MinCount", 1, path);
+	const int most = GetPrivateProfileIntA("Replace", "MaxCount", 3, path);
+	replace.minCount = least < 1 ? 1u : static_cast<UInt32>(least);
+	replace.maxCount = most < 1 ? 1u : static_cast<UInt32>(most);
+	std::snprintf(settings->iniPath, sizeof(settings->iniPath), "%s", path);
 	rise.dropSeconds = IniFloat("Rise", "DropSeconds", 1.5f, path);
 	if (rise.dropSeconds < 0.0f) {
 		rise.dropSeconds = 0.0f;
@@ -114,8 +124,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	return true;
 }
 
-bool InstallRiseSideEffect(const walkers::obse::Interface& xse, const walkers::RiseSettings& rise) {
-	return walkers::InstallRise(xse, rise, &Log);
+bool InstallRiseSideEffect(const walkers::obse::Interface& xse, const walkers::Settings& settings) {
+	return walkers::InstallRise(xse, settings.rise, settings.replace, settings.iniPath, &Log);
 }
 
 const walkers::Host kHost{&ResetLog, &Log, &ReadSettings, &InstallRiseSideEffect};
