@@ -19,7 +19,10 @@ struct ReplaceSettings {
 	bool enabled = true;
 	// Walkers per replaced spawn, spread over the ESP's list (SpreadCount).
 	UInt32 minCount = 1;
-	UInt32 maxCount = 3;
+	UInt32 maxCount = 10;
+	// [Replace] ExtraPercent (4.13): walker entries added beside a list's own,
+	// so this share of its picks becomes walkers (ExtraEntries). 0: none.
+	UInt32 extraPercent = 0;
 };
 
 // TESCreature::type (xOBSE GameForms.h, at +0x104 in 1.2).
@@ -333,6 +336,41 @@ inline UInt32 SpreadCount(UInt32 minCount, UInt32 maxCount, UInt32 slot, UInt32 
 		return high;
 	}
 	return low + ((high - low) * slot * 2 + (slots - 1)) / ((slots - 1) * 2);
+}
+
+// [Replace] ExtraPercent (4.13): how many entries pointing at the walkers
+// go beside the `groupSize` entries one level of a list holds, so that
+// `percent` of the picks at that level are walkers. The engine picks alike
+// among the entries of a window of levels, the highest at or under the
+// player's down to iLevCreaLevelDifferenceMax below it (xOBSE GameForms.cpp
+// CalcElement's mirror; one in numMatches each), so a share kept per level
+// holds for any window. That is
+// groupSize * p / (100 - p) entries; the fraction left is one more entry for
+// that share of the lists, by the list's own draw (ExtraDraw, 0..999), so
+// the whole of the game's lists comes out at the percent asked. Up to 90
+// percent: a list keeps a tenth of its own picks. Never more than
+// kExtraEntriesMost per level.
+inline constexpr UInt32 kExtraPercentMost = 90;
+inline constexpr UInt32 kExtraEntriesMost = 64;
+
+inline UInt32 ExtraEntries(UInt32 groupSize, UInt32 percent, UInt32 draw) {
+	const UInt32 p = percent > kExtraPercentMost ? kExtraPercentMost : percent;
+	if (p == 0 || groupSize == 0) {
+		return 0;
+	}
+	const UInt32 milli = groupSize * p * 1000 / (100 - p);
+	const UInt32 entries = milli / 1000 + (draw < milli % 1000 ? 1 : 0);
+	return entries > kExtraEntriesMost ? kExtraEntriesMost : entries;
+}
+
+// A list's draw for one of its levels: the same every session (a dungeon
+// keeps its share), another from list to list.
+inline UInt32 ExtraDraw(UInt32 listFormId, UInt32 level) {
+	UInt32 h = listFormId * 0x9E3779B1u ^ (level + 0x7F4A7C15u);
+	h ^= h >> 15;
+	h *= 0x2C1B3C6Du;
+	h ^= h >> 12;
+	return h % 1000;
 }
 
 // [Zombies] HealthPercent: 1 to 100 percent of the record's health, never

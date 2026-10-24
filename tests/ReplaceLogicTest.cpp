@@ -303,11 +303,36 @@ void TestSpeed() {
 	Check(walkers::WalkerSpeed(0, 1.0f, 30, 3, 4) == 0, "a record of Speed 0 stays so");
 }
 
+void TestExtra() {
+	std::printf("Extra walkers beside a list's own entries\n");
+	Check(walkers::ExtraEntries(4, 0, 0) == 0 && walkers::ExtraEntries(4, 0, 999) == 0, "0 percent: none");
+	Check(walkers::ExtraEntries(4, 50, 0) == 4 && walkers::ExtraEntries(4, 50, 999) == 4,
+	      "50 percent beside four entries: four more, half of the picks walkers");
+	Check(walkers::ExtraEntries(9, 10, 500) == 1, "10 percent beside nine: one, a tenth of the picks");
+	Check(walkers::ExtraEntries(1, 10, 110) == 1 && walkers::ExtraEntries(1, 10, 112) == 0,
+	      "10 percent beside one entry: a ninth of an entry - one in nine lists gets one, by the list's draw");
+	Check(walkers::ExtraEntries(3, 25, 0) == 1 && walkers::ExtraEntries(3, 25, 999) == 1,
+	      "25 percent beside three: one, a quarter of the picks");
+	Check(walkers::ExtraEntries(2, 90, 0) == 18, "90 percent, the most: nine times the entries");
+	Check(walkers::ExtraEntries(2, 100, 0) == 18 && walkers::ExtraEntries(2, 500, 0) == 18,
+	      "above 90 percent read as 90: a list keeps a tenth of its own picks");
+	Check(walkers::ExtraEntries(0, 50, 0) == 0, "an empty level: none");
+	Check(walkers::ExtraEntries(200, 90, 0) == walkers::kExtraEntriesMost, "never more than the most per level");
+	Check(walkers::ExtraDraw(0x00084B2C, 1) == walkers::ExtraDraw(0x00084B2C, 1) &&
+	          walkers::ExtraDraw(0x00084B2C, 1) < 1000,
+	      "the list's draw: the same for the same list and level every session, under 1000");
+	bool differ = false;
+	for (UInt32 id = 0x00084B00; id < 0x00084B40; ++id) {
+		differ = differ || walkers::ExtraDraw(id, 1) != walkers::ExtraDraw(0x00084B2C, 1);
+	}
+	Check(differ, "and another for other lists");
+}
+
 void TestSettings() {
 	std::printf("The defaults\n");
 	walkers::ReplaceSettings settings;
-	Check(settings.enabled && settings.minCount == 1 && settings.maxCount == 3,
-	      "[Replace] Enabled=1, MinCount=1, MaxCount=3");
+	Check(settings.enabled && settings.minCount == 1 && settings.maxCount == 10 && settings.extraPercent == 0,
+	      "[Replace] Enabled=1, MinCount=1, MaxCount=10 (Nadi, 2026-10-24 evening), ExtraPercent=0");
 	Check(walkers::kVariantSlots == 10 && walkers::kWalkersPerSpawnMost == 10,
 	      "ten count slots per walker in the ESP's list, ten walkers the most");
 }
@@ -323,6 +348,7 @@ int main() {
 	TestCounts();
 	TestHealth();
 	TestSpeed();
+	TestExtra();
 	TestSettings();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

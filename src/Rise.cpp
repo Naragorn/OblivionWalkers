@@ -24,6 +24,15 @@ constexpr UInt32 kActorBaseFlagsOffset = 0x28;  // TESActorBase::actorBaseData.f
 constexpr UInt32 kNpcRacePointerOffset = 0xE8;  // TESNPC::race.race (TESRaceForm at 0xE4)
 constexpr UInt32 kRacePlayableOffset = 0x70;    // TESRace::isPlayable, a byte
 constexpr UInt32 kRefPositionOffset = 0x2C;     // TESObjectREFR::posX, posY, posZ
+constexpr UInt32 kRefParentCellOffset = 0x40;   // TESObjectREFR::parentCell
+// TESObjectCELL's ExtraDataList at +0x28, its first BSExtraData at +0x2C;
+// a BSExtraData is {vtable, type at +4, next at +8} (xOBSE GameForms.h,
+// GameBSExtraData.h). The cell's editor ID (ExtraEditorID, 0x0A: a
+// BSStringT, its chars at +0xC) and owner (ExtraOwnership, 0x27: the form
+// at +0xC) - what xOBSE's GetEditorID and GetParentCellOwner read.
+constexpr UInt32 kCellExtraFirstOffset = 0x2C;
+constexpr UInt8 kExtraEditorId = 0x0A;
+constexpr UInt8 kExtraOwnership = 0x27;
 constexpr UInt32 kActorBaseEssential = 0x2;
 constexpr UInt32 kActorBaseNoLowProcessing = 0x200;
 constexpr UInt32 kActorVtableIsDead = 0x198;    // as OBVR's ActorRoster reads it: (self, 0) & 1
@@ -94,6 +103,27 @@ bool IsActor(UInt32 ref) {
 	return vtable == kVtblCharacter || vtable == kVtblCreature;
 }
 
+// The editor ID and the owner of the cell `ref` stands in; nullptr and 0
+// for what it does not carry.
+void CellFacts(UInt32 ref, const char** editorId, UInt32* ownerId) {
+	*editorId = nullptr;
+	*ownerId = 0;
+	const UInt32 cell = Read(ref + kRefParentCellOffset);
+	if (!LooksLikeObject(cell)) {
+		return;
+	}
+	UInt32 visited = 0;
+	for (UInt32 extra = Read(cell + kCellExtraFirstOffset); LooksLikeObject(extra) && visited < 64;
+	     extra = Read(extra + 8), ++visited) {
+		const UInt8 type = Read8(extra + 4);
+		if (type == kExtraEditorId && LooksLikeObject(Read(extra + 0xC))) {
+			*editorId = reinterpret_cast<const char*>(Read(extra + 0xC));
+		} else if (type == kExtraOwnership) {
+			*ownerId = FormIdOf(Read(extra + 0xC));
+		}
+	}
+}
+
 bool IsDead(UInt32 actor) {
 	const UInt32 fn = Read(Read(actor) + kActorVtableIsDead);
 	if (fn < kTextStart || fn >= kTextEnd) {
@@ -111,7 +141,11 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	UInt8 type = 0;
 	UInt32 flags = 0;
 	UInt32 raceId = 0;
+	const char* cellId = nullptr;
+	UInt32 cellOwner = 0;
 	if (LooksLikeObject(ref)) {
+		CellFacts(ref, &cellId, &cellOwner);
+		fallen.inChapel = IsChapelCell(cellId, cellOwner);
 		fallen.refId = Read(ref + kFormIdOffset);
 		fallen.character = Read(ref) == kVtblCharacter;
 		const UInt32 base = Read(ref + kRefBaseFormOffset);
@@ -152,17 +186,20 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	const float unit = static_cast<float>(NextRandom() % 10001) / 10000.0f;
 	const DeathVerdict verdict = NoteDeath(g_list, g_settings, fallen, roll, unit);
 	if (verdict == DeathVerdict::Waits) {
-		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X) %s, %.1f s; "
-		      "%u waiting",
+		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X, cell %s owned by "
+		      "%08X) %s, %.1f s; %u waiting",
 		      fallen.refId, fallen.baseId, type, flags, raceId, fallen.racePlayable ? " playable" : "",
 		      fallen.raceHuman ? " human" : "", FormIdOf(reinterpret_cast<UInt32>(arg1)),
-		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), VerdictText(verdict),
+		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), cellId != nullptr ? cellId : "-", cellOwner,
+		      VerdictText(verdict),
 		      g_list.entries[g_list.count - 1].secondsLeft, g_list.count);
 	} else {
-		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X) %s",
+		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X, cell %s owned by "
+		      "%08X) %s",
 		      fallen.refId, fallen.baseId, type, flags, raceId, fallen.racePlayable ? " playable" : "",
 		      fallen.raceHuman ? " human" : "", FormIdOf(reinterpret_cast<UInt32>(arg1)),
-		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), VerdictText(verdict));
+		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), cellId != nullptr ? cellId : "-", cellOwner,
+		      VerdictText(verdict));
 	}
 }
 

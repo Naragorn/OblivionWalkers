@@ -39,3 +39,11 @@ Own folder for now; it becomes its own repository later.
   2026-10-24 but is not registered there yet. Before the mod goes public,
   ask for it to be registered there (or take the base it is given and change
   `kOpcodeBase`), so no other plugin picks the same one.
+
+## Not planned for now
+
+- **Attack tempo** (docs/walkers-spec.md 4.16): slower walker blows. The
+  engine fires an attack's keys twice when its time is moved back, and the
+  fix OBVR uses patches the one call that fires them (0x00477AB1); a second
+  patch there would collide with OBVR's. Maybe later, through OBVR (a factor
+  per walker handed over by plugin messaging) - the spec has the ways.

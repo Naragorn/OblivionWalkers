@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "Engine.h"
@@ -46,6 +47,15 @@ constexpr UInt32 kSectionBytes = 1u << 19;
 
 // A creature's decision, made once per session: on or off.
 std::unordered_map<UInt32, bool> g_decided;
+// The lists that got their extra walker entries this session (4.13).
+std::unordered_set<UInt32> g_extraDone;
+// The engine's own heap, as xOBSE's TESLeveledList::CreateData and
+// CreateEntry take a list's entries from it (GameAPI.cpp FormHeap_Allocate,
+// cdecl (size)) - so the engine frees ours like its own when a script
+// removes them.
+constexpr UInt32 kFormHeapAllocate = 0x00401F00;
+constexpr UInt32 kListDataBytes = 12;   // {level, pad, form, count}
+constexpr UInt32 kListEntryBytes = 8;   // {data, next}
 
 // The variant list's counts per walker slot (ReplaceLogic.h SpreadCount).
 void WriteVariantCounts(UInt32 variant, const ReplaceSettings& settings, LogFn log) {
@@ -177,6 +187,61 @@ const char* AppendToIni(const char* iniPath, const char* lines, UInt32 extra) {
 	return "written";
 }
 
+// ExtraPercent (4.13): walker entries put beside the own of each level of
+// `list`, each behind the last entry of its level, so the list stays in the
+// ascending order the engine's pick walks it in. Returns the entries added.
+UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
+	if (!g_extraDone.insert(list).second) {
+		return 0;
+	}
+	struct Group {
+		UInt16 level;
+		UInt32 size;
+		UInt32 last;  // its last node
+	};
+	Group groups[64];
+	UInt32 groupCount = 0;
+	UInt32 visited = 0;
+	for (UInt32 node = list + kLevCreatureListOffset; LooksLikeObject(node) && visited < 512;
+	     node = Read(node + 4), ++visited) {
+		const UInt32 data = Read(node);
+		if (!LooksLikeObject(data)) {
+			break;
+		}
+		const UInt16 level = *reinterpret_cast<const UInt16*>(data);
+		if (groupCount > 0 && groups[groupCount - 1].level == level) {
+			++groups[groupCount - 1].size;
+			groups[groupCount - 1].last = node;
+		} else if (groupCount < 64) {
+			groups[groupCount++] = Group{level, 1, node};
+		} else {
+			break;
+		}
+	}
+	using AllocateFn = void*(__cdecl*)(UInt32 size);
+	const auto allocate = reinterpret_cast<AllocateFn>(kFormHeapAllocate);
+	UInt32 added = 0;
+	for (UInt32 g = 0; g < groupCount; ++g) {
+		const UInt32 count = ExtraEntries(groups[g].size, percent, ExtraDraw(FormIdOf(list), groups[g].level));
+		for (UInt32 i = 0; i < count; ++i) {
+			auto* data = static_cast<UInt8*>(allocate(kListDataBytes));
+			auto* entry = static_cast<UInt32*>(allocate(kListEntryBytes));
+			if (data == nullptr || entry == nullptr) {
+				return added;
+			}
+			*reinterpret_cast<UInt16*>(data) = groups[g].level;
+			*reinterpret_cast<UInt16*>(data + 2) = 0;
+			*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = variant;
+			*reinterpret_cast<UInt32*>(data + kListDataCountOffset) = 1;
+			entry[0] = reinterpret_cast<UInt32>(data);
+			entry[1] = Read(groups[g].last + 4);
+			*reinterpret_cast<UInt32*>(groups[g].last + 4) = reinterpret_cast<UInt32>(entry);
+			++added;
+		}
+	}
+	return added;
+}
+
 }  // namespace
 
 UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, LogFn log) {
@@ -211,6 +276,8 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 	UInt32 lists = 0;
 	UInt32 listsTouched = 0;
 	UInt32 replaced = 0;
+	UInt32 extraAdded = 0;
+	UInt32 extraLists = 0;
 	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
 		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
 			const UInt32 form = Read(entry + kMapEntryFormOffset);
@@ -220,6 +287,7 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 			}
 			++lists;
 			bool touched = false;
+			UInt32 kept = 0;
 			UInt32 visited = 0;
 			for (UInt32 node = form + kLevCreatureListOffset; LooksLikeObject(node) && visited < 512;
 			     node = Read(node + 4), ++visited) {
@@ -241,9 +309,19 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = variant;
 					++replaced;
 					touched = true;
+				} else {
+					++kept;
 				}
 			}
 			listsTouched += touched ? 1 : 0;
+			// Extra walkers only where something of the list's own stays: a
+			// list all walkers has nothing to add to, one of lists only feeds
+			// its nested lists, which get theirs.
+			if (settings.extraPercent > 0 && kept > 0) {
+				const UInt32 more = AddExtraEntries(form, variant, settings.extraPercent);
+				extraAdded += more;
+				extraLists += more > 0 ? 1 : 0;
+			}
 		}
 	}
 	UInt32 on = 0;
@@ -253,6 +331,11 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 	log("Spawns: %u forms, %u leveled creature lists - %u entries in %u lists now walkers; %u creatures decided, %u "
 	    "of them walkers",
 	    forms, lists, replaced, listsTouched, static_cast<UInt32>(g_decided.size()), on);
+	if (settings.extraPercent > 0) {
+		log("Spawns: ExtraPercent=%u - %u walker entries added beside the lists' own, in %u lists (%u lists had theirs "
+		    "this session)",
+		    settings.extraPercent, extraAdded, extraLists, static_cast<UInt32>(g_extraDone.size()));
+	}
 	if (newLines > 0 && iniPath != nullptr && iniPath[0] != '\0') {
 		log("Spawns: %u new creatures written to [%s] (%s)", newLines, kSection,
 		    AppendToIni(iniPath, added.data(), addedUsed + newLines + 64));

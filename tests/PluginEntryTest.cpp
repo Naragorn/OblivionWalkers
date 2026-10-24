@@ -189,12 +189,12 @@ void TestLoad() {
 		fake.iniExists = false;
 		walkers::ResetForTest();
 		Check(walkers::Load(Game(), kHost) && fake.installed.replace.enabled && fake.installed.replace.minCount == 1 &&
-		          fake.installed.replace.maxCount == 3 && fake.installed.rise.healthPercent == 100 &&
+		          fake.installed.replace.maxCount == 10 && fake.installed.rise.healthPercent == 15 &&
 		          fake.installed.rise.noLoot,
 		      "the spawn and zombie defaults reach the installer");
-		Check(fake.Logged("Spawns: the creatures of the leveled lists become 1 to 3 walkers, as [ReplaceCreatures] "
+		Check(fake.Logged("Spawns: the creatures of the leveled lists become 1 to 10 walkers, as [ReplaceCreatures] "
 		                  "says") &&
-		          fake.Logged("Walkers: 100% health, walk only, no loot"),
+		          fake.Logged("Walkers: 15% health, walk only, no loot"),
 		      "both named in the log");
 	}
 	{

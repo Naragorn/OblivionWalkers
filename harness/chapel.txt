@@ -1,0 +1,41 @@
+# No rise in a chapel (docs/walkers-spec.md 4.7, [Zombies] AvoidChapels=1):
+# the player goes to the Chapel of Dibella in Anvil (AnvilChapelofDibella,
+# owned by the Nine Divines), the console places the Redguard bandit
+# (00069AD1) and kills him there. The plugin's log reads "Death: ... cell
+# AnvilChapelofDibella owned by 000223BC) stays down (in a chapel,
+# AvoidChapels=1)" and no "Rise:" follows; the roster at the end still
+# counts him dead (no walker, 00080, in it).
+#
+# Results 2026-10-24 (artifacts/hand-script/chapel/):
+#   21:13 (20261024-211345) PASS: "cell AnvilChapelofDibella owned by
+#   000223BC) stays down (in a chapel, AvoidChapels=1)", no Rise line.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/chapel.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready coc AnvilChapelofDibella
+console-at arrived tgm
+console-at arrived player.placeatme 00069AD1 1
+console-at placed killall
+
+expect HandScript: finished
+reject 00080
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 12
+mark arrived
+wait 5
+mark placed
+wait 3
+mark dead
+wait 35
+mark end
+wait 1

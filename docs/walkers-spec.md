@@ -291,8 +291,8 @@ are identical in the tool's output; three more of the tool's are entries MOO
 replaced in memory. A mod's creatures and people are appended by the plugin
 at the first start with the mod, by the same rules (MOO's and Ascension's:
 785 in that run). The variant list holds every walker ten times now, so
-`MaxCount` goes to 10 with each count of 1..10 as likely; the default stays
-1 to 3. Scripted and swimming creatures stay at 0 - Nadi's word named
+`MaxCount` goes to 10 with each count of 1..10 as likely; the default is
+1 to 10 since the evening (Nadi), and HealthPercent 15. Scripted and swimming creatures stay at 0 - Nadi's word named
 harmless animals and people, these two are mine, asked - Nadi kept them at 0
 (2026-10-24 evening).
 
@@ -331,6 +331,23 @@ How: cells whose editor ID carries `Chapel` or whose owner faction is a
 chapel's are a no-go: the injection skips lists that only spawn there (none
 in vanilla), the rise skips corpses there, the siege (4.12) never picks a
 chapel door, and the horde's wander targets avoid them.
+
+Built 2026-10-24 evening - the rise: `IsChapelCell` takes a cell the Nine
+Divines own (NineDivines, 000223BC) or one whose editor ID says "chapel";
+the death watch reads both off the corpse's cell (parentCell +0x40, its
+ExtraEditorID and ExtraOwnership; a cell keeps its editor ID in the game, as
+xOBSE's GetEditorID reads it). Oblivion.esm read for it: 29 cells say
+chapel - the nine city chapels with their halls and undercrofts (the
+Nine's), Kvatch's three (nobody's), Weynon Priory's (the Blades'), and
+Cadlew Chapel (a crypt), Hackdirt's Chapel of the Brethren, Newt Cave
+Chapels of Light and a dummy cell, which keep their dead down too. No
+leveled creature is placed in any of them (the ACRE records read the
+same day: rats and the like, placed directly), so the injection has
+nothing to skip in vanilla - a mod that puts a leveled list in a chapel
+gets walkers there, not handled. `chapel.txt` PASS 2026-10-24 21:13: the
+bandit killed in AnvilChapelofDibella, "cell AnvilChapelofDibella owned by
+000223BC) stays down (in a chapel, AvoidChapels=1)", no rise. Siege and
+horde do not exist yet.
 
 Cost: **cheap.**
 
@@ -419,7 +436,24 @@ How: a second injection: the plugin adds walker entries to the wilderness
 and lair lists beside the originals, weighted by the percentage, so some
 of those spawn points become walkers without taking anything away.
 
-Cost: **cheap** once 4.6 stands.
+Built 2026-10-24 evening: in the same pass as the replacement, every list
+with an entry of its own left (a creature or a person not switched to
+walkers) gets entries pointing at WalkersZombieVariant beside each of its
+levels - `ExtraEntries`: size * p / (100 - p) of them, the fraction one more
+for that share of lists by the list's own fixed draw, up to 90 percent and
+64 a level. The engine picks alike among the entries of a window of levels
+(CalcElement), so a share per level holds for any window. The entries come
+off the engine's own heap (FormHeap_Allocate 0x00401F00, as xOBSE's
+TESLeveledList::CreateData takes them), each behind the last entry of its
+level, so the list stays sorted the way the pick walks it; a list gets them
+once a session. `spawn-extra.txt` PASS 2026-10-24 21:15 with
+ExtraPercent=50: 4675 entries in 540 lists at the main menu, 321 in 39
+more after the load; LL1BanditHedgeWizard placed six times gave six of its
+own people (MOO's bandits) and 33 walkers. Open: a save that carries a
+list changed by a script (AddToLeveledList) brings that list back as saved;
+not run.
+
+Cost: **small** (was cheap; the heap and the order were the work).
 
 ### 4.14 Infection - `[Infection] Enabled=1`, `BiteChancePercent=25`, `PlayerInfection=1`
 
@@ -465,7 +499,8 @@ The attack speed goes through the same sequence-offset mechanism OBVR's
 EnemyAttackSpeed uses (OBVR attack-tempo lesson: the weapon speed is
 additive in the sequence offset).
 
-Not built - blocked (2026-10-24 evening, read in OBVR's
+Not built, not planned for now (Nadi, 2026-10-24 evening: "wont
+implement", maybe later; README). Blocked (2026-10-24 evening, read in OBVR's
 src/game/AttackTempo.cpp): slowing a sequence moves its offset back, and a
 key in the overlap fires twice (a blow lands twice), so OBVR re-points the
 one key-firing call 0x00477AB1 at a wrapper, and it checks the bytes first
@@ -536,6 +571,8 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed; MaxCount 10 PASS 20:47: 15 walkers | the plugin, the ESP active |
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
+| `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
+| `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |

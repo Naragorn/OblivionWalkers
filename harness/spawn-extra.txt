@@ -1,0 +1,38 @@
+# Extra walkers beside a list's own (docs/walkers-spec.md 4.13, [Replace]
+# ExtraPercent): with the deployed INI at ExtraPercent=50 (set by hand for
+# the run, back to 0 after), LL1BanditHedgeWizard (0003DC59; its hedge
+# wizards are people, 0 in [ReplaceCreatures], kept) gets as many walker
+# entries as it has of its own at each level. Placed six times at the
+# player, about half the picks are walkers: the roster at the counted mark
+# holds both walkers (00080x) and the list's own people. The plugin's log
+# reads "Spawns: ExtraPercent=50 - N walker entries added beside the lists'
+# own, in M lists".
+#
+# Results 2026-10-24 (artifacts/hand-script/spawn-extra/):
+#   21:15 (20261024-211544) PASS: 4675 walker entries in 540 lists at the
+#   main menu, 321 in 39 after the load; the roster 38 loaded - six of the
+#   list's own (MOO's bandits) and 33 walkers (MaxCount 10).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-extra.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 0003DC59 6
+
+expect HandScript: finished
+expect 00080
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark counted
+wait 1
+mark end
+wait 1

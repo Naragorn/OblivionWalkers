@@ -49,7 +49,7 @@ struct RiseSettings {
 	// [Zombies] HealthPercent: 1 to 100 percent of the walker records'
 	// health, written on the records in memory at the start (4.5) - never
 	// per reference, so no save carries a scaled value.
-	UInt32 healthPercent = 100;
+	UInt32 healthPercent = 15;
 	// [Zombies] NoLoot: a dead walker cannot be activated - no container
 	// opens (Nadi, 2026-10-24; the engine's SetDestroyed on the corpse, which
 	// the CS wiki gives as "prevents the actor from being activated for
@@ -63,6 +63,9 @@ struct RiseSettings {
 	// [Zombies] FamePerKills: a point of fame for every this many walkers
 	// the player cuts down (28 Days gave one per 50). 0: off.
 	UInt32 famePerKills = 50;
+	// [Zombies] AvoidChapels (4.7): nobody rises in a chapel - 28 Days' safe
+	// zones (IsChapelCell).
+	bool avoidChapels = true;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk
@@ -234,7 +237,41 @@ struct Fallen {
 	                            // among them) and most named people do not
 	bool racePlayable = false;  // his race's playable byte (TESRace+0x70)
 	bool raceHuman = false;     // one of Oblivion.esm's four human races (IsHumanRace)
+	bool inChapel = false;      // he fell in a chapel (IsChapelCell of his cell)
 };
+
+// A chapel (4.7): a cell the Nine Divines own (Oblivion.esm's NineDivines
+// faction, 000223BC - the city chapels, their halls and undercrofts), or one
+// whose editor ID says "chapel" (Kvatch's, owned by nobody; Weynon Priory's,
+// the Blades'; a mod's). Read off Oblivion.esm on 2026-10-24: 29 cells say
+// chapel, 24 of them the Nine's or Kvatch's or Weynon's; the others are
+// Cadlew Chapel (a crypt), the Brethren's chapel at Hackdirt, Newt Cave
+// Chapels of Light and a dummy - no rise there either. A cell keeps its
+// editor ID in the game (ExtraEditorID; xOBSE TESForm::GetEditorID).
+inline constexpr UInt32 kNineDivinesFaction = 0x000223BC;
+
+inline bool IsChapelCell(const char* editorId, UInt32 ownerFormId) {
+	if (ownerFormId == kNineDivinesFaction) {
+		return true;
+	}
+	if (editorId == nullptr) {
+		return false;
+	}
+	static const char kWord[] = "chapel";
+	for (const char* p = editorId; *p != '\0'; ++p) {
+		UInt32 i = 0;
+		for (; kWord[i] != '\0'; ++i) {
+			const char c = p[i];
+			if ((c >= 'A' && c <= 'Z' ? c + 32 : c) != kWord[i]) {
+				break;
+			}
+		}
+		if (kWord[i] == '\0') {
+			return true;
+		}
+	}
+	return false;
+}
 
 // Oblivion.esm's human races: Imperial, Breton, Nord, Redguard (read off the
 // RACE records on 2026-10-23). A mod's own human race does not count.
@@ -252,6 +289,7 @@ enum class DeathVerdict : UInt8 {
 	NotHuman,         // OnlyHumans=1 and his race is not one of the four human ones
 	AlreadyWaiting,   // the same reference died again before rising
 	ChanceMissed,     // the ChancePercent roll
+	InChapel,         // AvoidChapels=1 and he fell in a chapel
 	ListFull,         // kWaitingMost references wait already
 };
 
@@ -275,6 +313,8 @@ inline const char* VerdictText(DeathVerdict verdict) {
 			return "waits already";
 		case DeathVerdict::ChanceMissed:
 			return "stays down (the chance roll)";
+		case DeathVerdict::InChapel:
+			return "stays down (in a chapel, AvoidChapels=1)";
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
 	}
@@ -335,6 +375,9 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 	}
 	if (settings.onlyHumans && !fallen.raceHuman) {
 		return DeathVerdict::NotHuman;
+	}
+	if (settings.avoidChapels && fallen.inChapel) {
+		return DeathVerdict::InChapel;
 	}
 	if (FindWaiting(list, fallen.refId) >= 0) {
 		return DeathVerdict::AlreadyWaiting;

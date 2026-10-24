@@ -512,11 +512,38 @@ void TestFame() {
 	Check(walkers::FameImage(saved, tiny, sizeof(tiny)) == 0, "a buffer too small: nothing written");
 }
 
+void TestChapels() {
+	std::printf("No rise in a chapel\n");
+	Check(walkers::IsChapelCell("AnvilChapelHall", 0x000223BC), "a chapel by name and by its owner, the Nine");
+	Check(walkers::IsChapelCell("SomeModTemple", 0x000223BC), "a cell the Nine own, whatever its name");
+	Check(walkers::IsChapelCell("KvatchChapelofAkatosh", 0), "Kvatch's chapel, owned by nobody: by its name");
+	Check(walkers::IsChapelCell("weynonpriorychapel", 0x000274AB), "the name without case (Weynon's, the Blades')");
+	Check(!walkers::IsChapelCell("AnvilFightersGuild", 0x00022296), "a guild hall: no chapel");
+	Check(!walkers::IsChapelCell(nullptr, 0), "no editor ID, no owner: no chapel");
+	Check(!walkers::IsChapelCell("", 0), "an empty editor ID: no chapel");
+
+	using walkers::DeathVerdict;
+	walkers::RiseSettings settings;
+	walkers::WaitingList list;
+	walkers::Fallen inside = Bandit();
+	inside.inChapel = true;
+	Check(walkers::NoteDeath(list, settings, inside, 0, 0.0f) == DeathVerdict::InChapel && list.count == 0,
+	      "AvoidChapels=1, a death in a chapel: stays down");
+	Check(std::strcmp(walkers::VerdictText(DeathVerdict::InChapel), "stays down (in a chapel, AvoidChapels=1)") == 0,
+	      "and the log says why");
+	walkers::RiseSettings anywhere;
+	anywhere.avoidChapels = false;
+	Check(walkers::NoteDeath(list, anywhere, inside, 0, 0.0f) == DeathVerdict::Waits && list.count == 1,
+	      "AvoidChapels=0: he rises there too");
+}
+
 void TestZombieDefaults() {
 	std::printf("The [Zombies] defaults\n");
 	walkers::RiseSettings settings;
 	Check(settings.speedMultiplier == 1.0f && settings.speedRandomPercent == 30 && settings.famePerKills == 50,
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=50 (spec 4.4, 4.8)");
+	Check(settings.healthPercent == 15 && settings.avoidChapels,
+	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
 }
 
 }  // namespace
@@ -532,6 +559,7 @@ int main() {
 	TestImage();
 	TestRisenLoot();
 	TestFame();
+	TestChapels();
 	TestZombieDefaults();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
