@@ -28,3 +28,14 @@ What exists:
 - `artifacts/` - what the tools and the runs wrote (not for a repository).
 
 Own folder for now; it becomes its own repository later.
+
+## Before a public release
+
+- **Register the opcode base.** The plugin sets opcode base `0x2B00`
+  (`src/Rise.cpp`, `kOpcodeBase`): xOBSE runs a plugin's co-save callbacks
+  only for one with an opcode base of its own (docs/walkers-spec.md,
+  section 2). `0x2B00` was free in xOBSE's list
+  (github.com/llde/xOBSE/wiki/Registered-Opcodes-for-OBSE-Plugins) on
+  2026-10-24 but is not registered there yet. Before the mod goes public,
+  ask for it to be registered there (or take the base it is given and change
+  `kOpcodeBase`), so no other plugin picks the same one.
