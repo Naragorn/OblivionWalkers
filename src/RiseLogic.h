@@ -56,6 +56,13 @@ struct RiseSettings {
 	// conversation, looting, or pick pocketing"). Never a risen one
 	// (BlocksLoot).
 	bool noLoot = true;
+	// [Zombies] SpeedMultiplier and SpeedRandomPercent: the walkers' pace,
+	// spread over the four walker records (ReplaceLogic.h WalkerSpeed).
+	float speedMultiplier = 1.0f;
+	UInt32 speedRandomPercent = 30;
+	// [Zombies] FamePerKills: a point of fame for every this many walkers
+	// the player cuts down (28 Days gave one per 50). 0: off.
+	UInt32 famePerKills = 50;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk
@@ -588,6 +595,49 @@ bool ReadRisenImage(RisenSet& set, const UInt8* in, UInt32 length, ResolveFn res
 		}
 	}
 	return whole;
+}
+
+// Fame for walkers cut down (4.8): a walker's death counts when the player
+// is its killer (xOBSE's OnDeath hands the killer over; the console's Kill
+// without one hands none).
+inline bool FameKill(bool walker, bool killedByPlayer) { return walker && killedByPlayer; }
+
+struct FameCount {
+	UInt32 kills = 0;  // toward the next point
+};
+
+// One walker more: true when it completes `perKills` - a point of fame, the
+// count starts over. A count already at or past the threshold (FamePerKills
+// lowered between two sessions) earns one point, not the lot. 0: off.
+inline bool CountWalkerKill(FameCount& count, UInt32 perKills) {
+	if (perKills == 0) {
+		return false;
+	}
+	++count.kills;
+	if (count.kills < perKills) {
+		return false;
+	}
+	count.kills = 0;
+	return true;
+}
+
+// The count in the co-save, record 'FAME' version 1: four bytes.
+inline constexpr UInt32 kFameRecordType = 0x46414D45;  // 'FAME'
+inline constexpr UInt32 kFameRecordVersion = 1;
+inline constexpr UInt32 kFameImageBytes = 4;
+
+inline UInt32 FameImage(const FameCount& count, UInt8* out, UInt32 capacity) {
+	if (capacity < kFameImageBytes) {
+		return 0;
+	}
+	Put32(out, count.kills);
+	return kFameImageBytes;
+}
+
+// False when cut short; the count then starts at 0.
+inline bool ReadFameImage(FameCount& count, const UInt8* in, UInt32 length) {
+	count.kills = length >= kFameImageBytes ? Get32(in) : 0;
+	return length >= kFameImageBytes;
 }
 
 }  // namespace walkers

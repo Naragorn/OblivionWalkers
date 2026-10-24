@@ -284,6 +284,25 @@ void TestHealth() {
 	Check(walkers::ScaledHealth(0, 50) == 0, "a record without health stays so");
 }
 
+void TestSpeed() {
+	std::printf("The walkers' pace, one per record\n");
+	// The ESP's walkers read Speed 12 (CreatureZombie1..4's DATA).
+	Check(walkers::WalkerSpeed(12, 1.0f, 0, 0, 4) == 12 && walkers::WalkerSpeed(12, 1.0f, 0, 3, 4) == 12,
+	      "no spread, multiplier 1: the record's own for all four");
+	Check(walkers::WalkerSpeed(12, 1.0f, 30, 0, 4) == 8 && walkers::WalkerSpeed(12, 1.0f, 30, 1, 4) == 11 &&
+	          walkers::WalkerSpeed(12, 1.0f, 30, 2, 4) == 13 && walkers::WalkerSpeed(12, 1.0f, 30, 3, 4) == 16,
+	      "30 percent over four: 8, 11, 13, 16 - the slowest 30 percent under, the fastest 30 over");
+	Check(walkers::WalkerSpeed(12, 2.0f, 0, 1, 4) == 24, "multiplier 2: twice the record's");
+	Check(walkers::WalkerSpeed(12, 0.5f, 30, 0, 4) == 4, "both: half, then the slowest 30 percent under");
+	Check(walkers::WalkerSpeed(12, 1.0f, 30, 0, 1) == 12, "one record alone: no spread to make");
+	Check(walkers::WalkerSpeed(12, 1.0f, 500, 0, 4) == 1, "above 100 percent read as 100: the slowest stands at 1");
+	Check(walkers::WalkerSpeed(200, 2.0f, 0, 0, 4) == 255, "past what the record holds: 255");
+	Check(walkers::WalkerSpeed(12, 0.0f, 0, 0, 4) == 12 && walkers::WalkerSpeed(12, -1.0f, 0, 0, 4) == 12,
+	      "a multiplier of 0 or below - a word in the INI reads 0: the record's own");
+	Check(walkers::WalkerSpeed(12, 1.0f, 30, 7, 4) == 16, "a slot past the last: the fastest");
+	Check(walkers::WalkerSpeed(0, 1.0f, 30, 3, 4) == 0, "a record of Speed 0 stays so");
+}
+
 void TestSettings() {
 	std::printf("The defaults\n");
 	walkers::ReplaceSettings settings;
@@ -303,6 +322,7 @@ int main() {
 	TestFactsNote();
 	TestCounts();
 	TestHealth();
+	TestSpeed();
 	TestSettings();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

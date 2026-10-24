@@ -35,6 +35,8 @@ constexpr UInt32 kListDataCountOffset = 0x08;
 constexpr UInt32 kActorBaseFlagsOffset = 0x28;
 constexpr UInt32 kCreatureConfidenceOffset = 0x6D;
 constexpr UInt32 kActorBaseHealthOffset = 0x84;
+// TESAttributes at +0x88, its attr[8] at +4 of that: Speed the fifth.
+constexpr UInt32 kActorBaseSpeedOffset = 0x90;
 constexpr UInt32 kFullNameOffset = 0xA4;
 constexpr UInt32 kScriptOffset = 0xC8;
 constexpr UInt32 kCreatureTypeOffset = 0x104;
@@ -273,6 +275,25 @@ void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, Lo
 		}
 		*health = ScaledHealth(s_health[i], percent);
 		log("Walkers: %08X health %u (%u%% of %u)", walkerIds[i], *health, percent, s_health[i]);
+	}
+}
+
+void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log) {
+	static UInt32 s_ids[8] = {};
+	static UInt8 s_speed[8] = {};
+	for (UInt32 i = 0; i < count && i < 8; ++i) {
+		const UInt32 walker = LookupForm(walkerIds[i]);
+		if (!LooksLikeObject(walker) || Read8(walker + kFormTypeOffset) != kFormTypeCreature) {
+			continue;
+		}
+		UInt8* const speed = reinterpret_cast<UInt8*>(walker + kActorBaseSpeedOffset);
+		if (s_ids[i] != walkerIds[i]) {
+			s_ids[i] = walkerIds[i];
+			s_speed[i] = *speed;
+		}
+		*speed = WalkerSpeed(s_speed[i], multiplier, randomPercent, i, count);
+		log("Walkers: %08X speed %u (x%.2f, %u%% spread, slot %u of %u, the record's %u)", walkerIds[i], *speed,
+		    multiplier, randomPercent, i + 1, count, s_speed[i]);
 	}
 }
 

@@ -473,6 +473,52 @@ void TestRisenLoot() {
 	Check(walkers::RisenImage(some, small, sizeof(small)) == 0, "a buffer too small: nothing written");
 }
 
+void TestFame() {
+	std::printf("Fame for walkers cut down\n");
+	Check(walkers::FameKill(true, true), "a walker the player killed: counts");
+	Check(!walkers::FameKill(true, false), "a walker someone else killed (or the console): not");
+	Check(!walkers::FameKill(false, true), "anyone else the player killed: not");
+
+	walkers::FameCount count;
+	bool earned = false;
+	for (UInt32 i = 0; i < 49; ++i) {
+		earned = earned || walkers::CountWalkerKill(count, 50);
+	}
+	Check(!earned && count.kills == 49, "49 of 50: no fame yet");
+	Check(walkers::CountWalkerKill(count, 50) && count.kills == 0, "the 50th: a point, the count starts over");
+	Check(!walkers::CountWalkerKill(count, 50) && count.kills == 1, "and the next one counts toward the next point");
+
+	walkers::FameCount every;
+	Check(walkers::CountWalkerKill(every, 1) && walkers::CountWalkerKill(every, 1) && every.kills == 0,
+	      "FamePerKills=1: a point for every walker");
+	walkers::FameCount off;
+	Check(!walkers::CountWalkerKill(off, 0) && off.kills == 0, "FamePerKills=0: off, nothing counted");
+	walkers::FameCount lowered;
+	lowered.kills = 40;
+	Check(walkers::CountWalkerKill(lowered, 10) && lowered.kills == 0,
+	      "a count past a lowered threshold (40 kept, now 10): a point at the next kill, not four");
+
+	UInt8 image[walkers::kFameImageBytes] = {};
+	walkers::FameCount saved;
+	saved.kills = 0x01020304;
+	Check(walkers::FameImage(saved, image, sizeof(image)) == 4 && image[0] == 0x04 && image[3] == 0x01,
+	      "the image: the count, four bytes little-endian");
+	walkers::FameCount back;
+	Check(walkers::ReadFameImage(back, image, 4) && back.kills == 0x01020304, "read back as written");
+	walkers::FameCount untouched;
+	untouched.kills = 7;
+	Check(!walkers::ReadFameImage(untouched, image, 3) && untouched.kills == 0, "cut short: false, the count at 0");
+	UInt8 tiny[3];
+	Check(walkers::FameImage(saved, tiny, sizeof(tiny)) == 0, "a buffer too small: nothing written");
+}
+
+void TestZombieDefaults() {
+	std::printf("The [Zombies] defaults\n");
+	walkers::RiseSettings settings;
+	Check(settings.speedMultiplier == 1.0f && settings.speedRandomPercent == 30 && settings.famePerKills == 50,
+	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=50 (spec 4.4, 4.8)");
+}
+
 }  // namespace
 
 int main() {
@@ -485,6 +531,8 @@ int main() {
 	TestRisenWatch();
 	TestImage();
 	TestRisenLoot();
+	TestFame();
+	TestZombieDefaults();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

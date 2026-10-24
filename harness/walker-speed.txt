@@ -20,6 +20,10 @@
 # does run in bursts without it. (The 10:27 run with Walk=0 logged no speed:
 # the measurement was gated on Walk=1 then.)
 #
+#   SpeedMultiplier=2, SpeedRandomPercent=0 (by hand), 21:00
+#   (20261024-210015) PASS: the four records at Speed 24 (the record's 12),
+#   69 to 106 units/s walking (flags 0101), at the player after about 10 s.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/walker-speed.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

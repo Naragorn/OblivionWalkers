@@ -97,6 +97,11 @@ bool ReadSettings(walkers::Settings* settings) {
 	const int health = GetPrivateProfileIntA("Zombies", "HealthPercent", 100, path);
 	rise.healthPercent = health < 1 ? 1u : (health > 100 ? 100u : static_cast<UInt32>(health));
 	rise.noLoot = GetPrivateProfileIntA("Zombies", "NoLoot", 1, path) != 0;
+	rise.speedMultiplier = IniFloat("Zombies", "SpeedMultiplier", 1.0f, path);
+	const int spread = GetPrivateProfileIntA("Zombies", "SpeedRandomPercent", 30, path);
+	rise.speedRandomPercent = spread < 0 ? 0u : (spread > 100 ? 100u : static_cast<UInt32>(spread));
+	const int fame = GetPrivateProfileIntA("Zombies", "FamePerKills", 50, path);
+	rise.famePerKills = fame < 0 ? 0u : static_cast<UInt32>(fame);
 	walkers::ReplaceSettings& replace = settings->replace;
 	replace.enabled = GetPrivateProfileIntA("Replace", "Enabled", 1, path) != 0;
 	const int least = GetPrivateProfileIntA("Replace", "MinCount", 1, path);
@@ -116,11 +121,11 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f CloneBase=%d ZombieRace=%d "
-	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d",
+	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
 	    rise.dropSeconds, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
-	    rise.walkOnly ? 1 : 0);
+	    rise.walkOnly ? 1 : 0, rise.speedMultiplier, rise.speedRandomPercent, rise.famePerKills);
 	return true;
 }
 

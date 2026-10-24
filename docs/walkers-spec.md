@@ -209,11 +209,23 @@ HighProcess movement flags becomes a walk - no hook, so OBVR's slow approach
 keeps its own (section 2). `Walk=0` leaves the vanilla zombies' bursts. The
 first plan - an animation folder whose run is the walk - was not needed.
 
-Open: the speed spread (`SpeedMultiplier`, `SpeedRandomPercent`: the Speed
-attribute per actor, some crawl, some shuffle fast) is not built.
-
-Cost of the rest: **small** - an attribute write per walker; the feel is the
-headset's.
+The pace (built 2026-10-24 evening): `SpeedMultiplier` and
+`SpeedRandomPercent` set the Speed of the four walker records in memory at
+the start (TESAttributes at +0x88 of TESActorBase, Speed at +0x90; xOBSE
+GameForms.h), spread evenly from the percent under to the percent over the
+multiplied pace (`WalkerSpeed`: 8, 11, 13, 16 at the defaults, the zombies'
+own 12). Four paces, not one per walker: per reference the engine offers
+SetActorValue, which the CS wiki says writes the base record anyway, and
+ModActorValue, whose script modifier stays in the save for good. A creature
+walks at fMoveCreatureWalkMin + (Max - Min) * Speed / 100 (5 and 300; the CS
+wiki's Movement Game Settings) - Speed 12 is about 40 units a second.
+Measured 2026-10-24 21:00 (`walker-speed.txt`, SpeedMultiplier=2,
+SpeedRandomPercent=0): the records at 24, the risen walker at 69 to 106
+units/s where the run of 10:26 read 31 to 65, at the player after about 10 s
+where it took 24. The spread itself (four different paces) is in the log
+line per record; not run with walkers of all four records side by side.
+The feel of the paces (and whether the walk animation slides at the fast
+end) is the headset's.
 
 ### 4.5 Zombie health - `[Zombies] HealthPercent=100`
 
@@ -327,8 +339,15 @@ Cost: **cheap.**
 What: one point of fame per `FamePerKills` walkers cut down (28 Days gave
 one per 50). `0` turns it off.
 
-How: OnDeath of a zombie killed by the player counts; at the threshold
-`ModPCFame 1` through the engine's own command path.
+How (built 2026-10-24 evening): OnDeath of a walker whose killer is the
+player (0x14) counts (`CountWalkerKill`); at the threshold the next frame
+tick hands `ModPCFame 1` to xOBSE's console on the player. The count toward
+the next point is kept in the co-save (record `FAME`). `fame.txt` PASS
+2026-10-24 21:01 with FamePerKills=1: the walker killed by the player
+earned the point ("ModPCFame handed to xOBSE: 1"), the one killed by
+`killall` (no killer) counted nothing. That the fame value itself rose I
+could not verify: xOBSE's console answer is no success flag and the harness
+reads no console output - `player.GetPCFame` in the console settles it.
 
 Cost: **cheap.**
 
@@ -446,7 +465,26 @@ The attack speed goes through the same sequence-offset mechanism OBVR's
 EnemyAttackSpeed uses (OBVR attack-tempo lesson: the weapon speed is
 additive in the sequence offset).
 
-Cost: **small**, with OBVR's code as the pattern.
+Not built - blocked (2026-10-24 evening, read in OBVR's
+src/game/AttackTempo.cpp): slowing a sequence moves its offset back, and a
+key in the overlap fires twice (a blow lands twice), so OBVR re-points the
+one key-firing call 0x00477AB1 at a wrapper, and it checks the bytes first
+and leaves a call that is not the game's own alone. A second copy of that
+in this plugin would meet OBVR's patch (or OBVR meet ours) and one of the
+two would stand down; with OBVR the walkers fighting the player already run
+at its EnemyAttackSpeed (default 75 %). The ways:
+1. OBVR applies a factor per actor that this plugin hands it (OBSE plugin
+   messaging: the walker records), multiplied with its own - medium, two
+   repositories, without OBVR no tempo.
+2. One shared tempo: OBVR's AttackTempo moves into this plugin or a small
+   plugin of its own both use - medium to large.
+3. The walkers' own combat style in the ESP (TESCreature +0x118): attack
+   chance and hold times, no patch - small, but it is the frequency, not
+   the tempo of a blow.
+Recommended: 1 for the tempo, 3 at once for the frequency if wanted.
+Nadi decides.
+
+Cost: **medium** (was given as small before the patch conflict was read).
 
 ### Later (named by Nadi, not in the first build)
 
@@ -494,9 +532,10 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-creature-proof.txt` | the corpse swapped for CreatureZombie1 by console lines alone: placed on the corpse, the corpse disabled, the zombie dropped, the items moved, `resurrect 1` - the zombie gets up at the spot (7.7) - PASS 2026-10-23 20:35 (run 1 a guessed reference, run 2 a self-transfer that froze the engine) | nothing of the plugin ([Rise] Enabled=0 for the run) |
 | `rise-zombie-race.txt` | the clone's race set to the ESP's Walker race before the raise: a Redguard up with Imperial skin, his own face (4.1 step 3, 7.2's last question) | the plugin, the ESP active - run 1 19:50: the race on the clone, the old skin (Resurrect keeps the 3D); run 2 19:54 PASS: Update3D after the raise, pale Imperial skin in the picture; run 3 19:59 PASS: the plugin's own rebuild 3 s after the raise (`LookAfterSeconds`), pale skin in both pictures |
 | `rise-walker-clone.txt` | the same on a clone of the fallen one's base record (`[Rise] CloneBase=1`): the base swap on a corpse (7.2) - PASS 2026-10-23 18:07 (run 1 FAIL: CopyFrom is virtual 45, not 33; run 2 the swap worked, the runner's verdict fell to the scenario's own reject line) | the plugin |
-| `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) - PASS 2026-10-24 10:26 (Walk=1) and 10:29 (Walk=0) | the plugin |
+| `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) - PASS 2026-10-24 10:26 (Walk=1) and 10:29 (Walk=0); SpeedMultiplier=2 PASS 21:00, 69 to 106 units/s | the plugin |
 | `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed; MaxCount 10 PASS 20:47: 15 walkers | the plugin, the ESP active |
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
+| `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |

@@ -1,0 +1,45 @@
+# Fame for walkers cut down (docs/walkers-spec.md 4.8, [Zombies]
+# FamePerKills): a walker (the ESP's 0x801) placed at the player and killed
+# with the player as its killer (`Kill player`: the console's Kill takes the
+# killer as its argument - xOBSE's OnDeath hands it over). With the deployed
+# INI at FamePerKills=1 (set by hand for the run, back to 50 after) the
+# plugin logs "Fame: walker ... cut down by the player - 0 of 1 toward the
+# next point, a point earned" and, at the next tick, "Fame: 1 point for
+# walkers cut down (ModPCFame handed to xOBSE: 1)". The control is the
+# killall after it: a second walker killed without a killer counts nothing
+# (no second "cut down by the player").
+#
+# Results 2026-10-24 (artifacts/hand-script/fame/):
+#   21:01 (20261024-210153) PASS: "killer 00000014" for the first walker,
+#   the point earned and "ModPCFame handed to xOBSE: 1"; the second, killed
+#   by killall ("killer 00000000"), counted nothing.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/fame.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 11000801 1
+console-at killed {actor}.kill player
+console-at control player.placeatme 11000802 1
+console-at control2 killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 4
+mark killed
+wait 3
+mark control
+wait 2
+mark control2
+wait 3
+mark end
+wait 1

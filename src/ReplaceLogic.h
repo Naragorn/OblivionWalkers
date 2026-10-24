@@ -346,4 +346,29 @@ inline UInt32 ScaledHealth(UInt32 health, UInt32 percent) {
 	return scaled < 1 ? 1 : scaled;
 }
 
+// [Zombies] SpeedMultiplier and SpeedRandomPercent (4.4): the Speed of the
+// walker record `slot` of `slots`, from the record's own. The records spread
+// evenly from RandomPercent under to RandomPercent over the multiplied pace,
+// so the variant list's walkers and the risen (a record drawn at random)
+// shamble at four paces. A creature walks at fMoveCreatureWalkMin + (Max -
+// Min) * Speed / 100 units a second (5 and 300 by default; the CS wiki's
+// Movement Game Settings) - Speed 12, the zombies', 40. On the records, not
+// per reference: SetActorValue would write the base record anyway (the CS
+// wiki), and ModActorValue on a reference stays in the save for good. 1 to
+// 255, what the record's byte holds; a record of 0 stays so.
+inline UInt8 WalkerSpeed(UInt8 base, float multiplier, UInt32 randomPercent, UInt32 slot, UInt32 slots) {
+	if (base == 0) {
+		return 0;
+	}
+	const float m = multiplier > 0.0f ? multiplier : 1.0f;
+	const float spread = static_cast<float>(randomPercent > 100 ? 100 : randomPercent) / 100.0f;
+	float where = 0.0f;
+	if (slots > 1) {
+		const UInt32 s = slot >= slots ? slots - 1 : slot;
+		where = static_cast<float>(s * 2) / static_cast<float>(slots - 1) - 1.0f;
+	}
+	const float speed = static_cast<float>(base) * m * (1.0f + spread * where) + 0.5f;
+	return speed < 1.0f ? 1 : (speed >= 255.0f ? 255 : static_cast<UInt8>(speed));
+}
+
 }  // namespace walkers

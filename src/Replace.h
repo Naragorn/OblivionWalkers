@@ -22,4 +22,9 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 // they had at the first call - the record in memory only.
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log);
 
+// The walker records' Speed (4.4): each record's own times the multiplier,
+// spread over the records (ReplaceLogic.h WalkerSpeed), from the values they
+// had at the first call - the records in memory only.
+void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log);
+
 }  // namespace walkers

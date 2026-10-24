@@ -76,6 +76,11 @@ UInt32 g_lootless[32] = {};
 UInt32 g_lootlessCount = 0;
 // The walkers risen from a corpse: lootable whatever NoLoot says.
 RisenSet g_risenSet;
+// Fame (4.8): the player's walker kills toward the next point, and the
+// points earned in the death path, handed to the engine at the next tick.
+FameCount g_fame;
+UInt32 g_famePending = 0;
+constexpr UInt32 kPlayerRefId = 0x14;
 
 UInt32 NextRandom() {
 	g_random ^= g_random << 13;
@@ -134,6 +139,14 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	}
 	if (BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
+	}
+	if (FameKill(walker, FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId) &&
+	    g_settings.famePerKills > 0) {
+		if (CountWalkerKill(g_fame, g_settings.famePerKills)) {
+			++g_famePending;
+		}
+		g_log("Fame: walker %08X cut down by the player - %u of %u toward the next point%s", fallen.refId,
+		      g_fame.kills, g_settings.famePerKills, g_famePending > 0 ? ", a point earned" : "");
 	}
 	const UInt32 roll = NextRandom() % 100;
 	const float unit = static_cast<float>(NextRandom() % 10001) / 10000.0f;
@@ -731,6 +744,7 @@ void StepSpawns(float dt) {
 	if (!g_spawnsDone) {
 		g_spawnsDone = true;
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
+		ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
 		if (g_replace.enabled) {
 			ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_log);
 		}
@@ -759,6 +773,22 @@ void StepLootless() {
 	g_lootlessCount = 0;
 }
 
+// Fame: the points the death path earned, through the engine's own
+// ModPCFame (the CS wiki: "Adds the value to the player character current
+// fame value").
+void StepFame() {
+	if (g_famePending == 0) {
+		return;
+	}
+	const UInt32 player = LookupForm(kPlayerRefId);
+	char line[32];
+	std::snprintf(line, sizeof(line), "ModPCFame %u", g_famePending);
+	const bool handed = LooksLikeObject(player) && ConsoleOn(player, line);
+	g_log("Fame: %u point%s for walkers cut down (ModPCFame handed to xOBSE: %d)", g_famePending,
+	      g_famePending == 1 ? "" : "s", handed ? 1 : 0);
+	g_famePending = 0;
+}
+
 void Tick() {
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
@@ -769,6 +799,7 @@ void Tick() {
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepLootless();
+		StepFame();
 	}
 	if (g_risenWatching) {
 		StepRisenWatch();
@@ -803,8 +834,14 @@ void OnSave(void*) {
 	const UInt32 risenLength = RisenImage(g_risenSet, risen, sizeof(risen));
 	const bool risenWritten = g_serialization->OpenRecord(kRisenRecordType, kRisenRecordVersion) &&
 	                          g_serialization->WriteRecordData(risen, risenLength);
-	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped)", g_list.count,
-	      g_risenSet.count, risenWritten ? "written" : "could not be written", gone);
+	UInt8 fame[kFameImageBytes];
+	const UInt32 fameLength = FameImage(g_fame, fame, sizeof(fame));
+	const bool fameWritten = g_serialization->OpenRecord(kFameRecordType, kFameRecordVersion) &&
+	                         g_serialization->WriteRecordData(fame, fameLength);
+	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
+	      "the next point of fame %s",
+	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
+	      fameWritten ? "written" : "could not be written");
 }
 
 bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
@@ -814,6 +851,8 @@ bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
 void OnLoad(void*) {
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_fame = FameCount{};
+	g_famePending = 0;
 	g_lootlessCount = 0;
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -822,6 +861,15 @@ void OnLoad(void*) {
 	UInt32 version = 0;
 	UInt32 length = 0;
 	while (g_serialization->GetNextRecordInfo(&type, &version, &length)) {
+		if (type == kFameRecordType) {
+			UInt8 fame[kFameImageBytes];
+			const UInt32 read =
+				version == kFameRecordVersion && length <= sizeof(fame) ? g_serialization->ReadRecordData(fame, length) : 0;
+			const bool whole = ReadFameImage(g_fame, fame, read);
+			g_log("Co-save: %u walker kills toward the next point of fame read%s", g_fame.kills,
+			      whole ? "" : " (version or length off: from 0)");
+			continue;
+		}
 		if (type == kRisenRecordType) {
 			if (version != kRisenRecordVersion || length > kRisenImageMost) {
 				g_log("Co-save: risen walkers of version %u, %u bytes: not read", version, length);
@@ -854,6 +902,8 @@ void OnLoad(void*) {
 void OnNewGame(void*) {
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_fame = FameCount{};
+	g_famePending = 0;
 	g_lootlessCount = 0;
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -874,6 +924,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_lootlessCount = 0;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_fame = FameCount{};
+	g_famePending = 0;
 	g_random = GetTickCount() | 1u;
 	g_deathWatchOn = false;
 	g_registerTries = 0;
