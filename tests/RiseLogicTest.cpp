@@ -519,6 +519,8 @@ void TestChapels() {
 	Check(walkers::IsChapelCell("KvatchChapelofAkatosh", 0), "Kvatch's chapel, owned by nobody: by its name");
 	Check(walkers::IsChapelCell("weynonpriorychapel", 0x000274AB), "the name without case (Weynon's, the Blades')");
 	Check(!walkers::IsChapelCell("AnvilFightersGuild", 0x00022296), "a guild hall: no chapel");
+	Check(!walkers::IsChapelCell("CadlewChapel", 0) && !walkers::IsChapelCell("cadlewchapel", 0),
+	      "Cadlew Chapel, the crypt: no chapel (Nadi, 2026-10-24 evening)");
 	Check(!walkers::IsChapelCell(nullptr, 0), "no editor ID, no owner: no chapel");
 	Check(!walkers::IsChapelCell("", 0), "an empty editor ID: no chapel");
 
@@ -535,13 +537,19 @@ void TestChapels() {
 	anywhere.avoidChapels = false;
 	Check(walkers::NoteDeath(list, anywhere, inside, 0, 0.0f) == DeathVerdict::Waits && list.count == 1,
 	      "AvoidChapels=0: he rises there too");
+
+	// Nadi, 2026-10-24 evening: no walker of ours in a chapel at all.
+	Check(walkers::BanishFromChapel(true, true, false), "AvoidChapels=1, a live walker in a chapel: taken away");
+	Check(!walkers::BanishFromChapel(true, false, false), "outside a chapel: left alone");
+	Check(!walkers::BanishFromChapel(false, true, false), "AvoidChapels=0: left alone");
+	Check(!walkers::BanishFromChapel(true, true, true), "taken away already: not again");
 }
 
 void TestZombieDefaults() {
 	std::printf("The [Zombies] defaults\n");
 	walkers::RiseSettings settings;
-	Check(settings.speedMultiplier == 1.0f && settings.speedRandomPercent == 30 && settings.famePerKills == 50,
-	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=50 (spec 4.4, 4.8)");
+	Check(settings.speedMultiplier == 1.0f && settings.speedRandomPercent == 30 && settings.famePerKills == 0,
+	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
 }

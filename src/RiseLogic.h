@@ -61,8 +61,9 @@ struct RiseSettings {
 	float speedMultiplier = 1.0f;
 	UInt32 speedRandomPercent = 30;
 	// [Zombies] FamePerKills: a point of fame for every this many walkers
-	// the player cuts down (28 Days gave one per 50). 0: off.
-	UInt32 famePerKills = 50;
+	// the player cuts down (28 Days gave one per 50). 0, the default (Nadi,
+	// 2026-10-24 evening): no fame.
+	UInt32 famePerKills = 0;
 	// [Zombies] AvoidChapels (4.7): nobody rises in a chapel - 28 Days' safe
 	// zones (IsChapelCell).
 	bool avoidChapels = true;
@@ -246,31 +247,42 @@ struct Fallen {
 // the Blades'; a mod's). Read off Oblivion.esm on 2026-10-24: 29 cells say
 // chapel, 24 of them the Nine's or Kvatch's or Weynon's; the others are
 // Cadlew Chapel (a crypt), the Brethren's chapel at Hackdirt, Newt Cave
-// Chapels of Light and a dummy - no rise there either. A cell keeps its
-// editor ID in the game (ExtraEditorID; xOBSE TESForm::GetEditorID).
+// Chapels of Light and a dummy - no rise there either, except Cadlew
+// Chapel: a crypt full of the dead, no chapel (Nadi, 2026-10-24 evening:
+// "Cadlew Chapel ist eine Ausnahme"). A cell keeps its editor ID in the game
+// (ExtraEditorID; xOBSE TESForm::GetEditorID).
 inline constexpr UInt32 kNineDivinesFaction = 0x000223BC;
+
+// `word` (lower case) somewhere in `text`, the case of `text` aside.
+inline bool HasWord(const char* text, const char* word) {
+	for (const char* p = text; *p != '\0'; ++p) {
+		UInt32 i = 0;
+		for (; word[i] != '\0'; ++i) {
+			const char c = p[i];
+			if ((c >= 'A' && c <= 'Z' ? c + 32 : c) != word[i]) {
+				break;
+			}
+		}
+		if (word[i] == '\0') {
+			return true;
+		}
+	}
+	return false;
+}
 
 inline bool IsChapelCell(const char* editorId, UInt32 ownerFormId) {
 	if (ownerFormId == kNineDivinesFaction) {
 		return true;
 	}
-	if (editorId == nullptr) {
-		return false;
-	}
-	static const char kWord[] = "chapel";
-	for (const char* p = editorId; *p != '\0'; ++p) {
-		UInt32 i = 0;
-		for (; kWord[i] != '\0'; ++i) {
-			const char c = p[i];
-			if ((c >= 'A' && c <= 'Z' ? c + 32 : c) != kWord[i]) {
-				break;
-			}
-		}
-		if (kWord[i] == '\0') {
-			return true;
-		}
-	}
-	return false;
+	return editorId != nullptr && HasWord(editorId, "chapel") && !HasWord(editorId, "cadlew");
+}
+
+// No walker of ours in a chapel at all (Nadi, 2026-10-24 evening: "In
+// Kapellen gibts auch keine zombies durch unsere mod"): a live walker found
+// in one - a mod's spawn there, one that followed the player through the
+// door - is taken out of the world, once.
+inline bool BanishFromChapel(bool avoidChapels, bool inChapel, bool banishedAlready) {
+	return avoidChapels && inChapel && !banishedAlready;
 }
 
 // Oblivion.esm's human races: Imperial, Breton, Nord, Redguard (read off the

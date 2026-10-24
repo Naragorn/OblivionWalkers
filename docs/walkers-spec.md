@@ -339,8 +339,10 @@ ExtraEditorID and ExtraOwnership; a cell keeps its editor ID in the game, as
 xOBSE's GetEditorID reads it). Oblivion.esm read for it: 29 cells say
 chapel - the nine city chapels with their halls and undercrofts (the
 Nine's), Kvatch's three (nobody's), Weynon Priory's (the Blades'), and
-Cadlew Chapel (a crypt), Hackdirt's Chapel of the Brethren, Newt Cave
-Chapels of Light and a dummy cell, which keep their dead down too. No
+Cadlew Chapel (a crypt - no chapel, Nadi 2026-10-24 evening: "Cadlew Chapel
+ist eine Ausnahme"; its dead rise, walkers walk there), Hackdirt's Chapel of
+the Brethren, Newt Cave Chapels of Light and a dummy cell, which count as
+chapels. No
 leveled creature is placed in any of them (the ACRE records read the
 same day: rats and the like, placed directly), so the injection has
 nothing to skip in vanilla - a mod that puts a leveled list in a chapel
@@ -349,12 +351,23 @@ bandit killed in AnvilChapelofDibella, "cell AnvilChapelofDibella owned by
 000223BC) stays down (in a chapel, AvoidChapels=1)", no rise. Siege and
 horde do not exist yet.
 
+No walker of ours in a chapel at all (Nadi, 2026-10-24 evening: "In
+Kapellen gibts auch keine zombies durch unsere mod"): the frame tick's walk
+pass checks every live walker's cell, and one in a chapel - a mod's spawn
+there, one that followed the player through the door - is disabled, once
+(`BanishFromChapel`). `chapel-walker.txt` PASS 21:21: a walker placed in
+the Chapel of Dibella, "taken out of the world", none in the roster (the
+run of 21:19 FAILed only on its own reject line, which matched the
+console's placeatme line). Seen from the door it is a walker that never
+comes in; the feel of that is the player's to judge.
+
 Cost: **cheap.**
 
-### 4.8 Fame for kills - `[Zombies] FamePerKills=50`
+### 4.8 Fame for kills - `[Zombies] FamePerKills=0`
 
 What: one point of fame per `FamePerKills` walkers cut down (28 Days gave
-one per 50). `0` turns it off.
+one per 50). `0` turns it off - the default (Nadi, 2026-10-24 evening: no
+fame unless set).
 
 How (built 2026-10-24 evening): OnDeath of a walker whose killer is the
 player (0x14) counts (`CountWalkerKill`); at the threshold the next frame
@@ -572,6 +585,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
+| `chapel-walker.txt` | a walker placed in a chapel is taken out of the world (4.7) - PASS 2026-10-24 21:21 | the plugin, the ESP active |
 | `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |

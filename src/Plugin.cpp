@@ -100,7 +100,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.speedMultiplier = IniFloat("Zombies", "SpeedMultiplier", 1.0f, path);
 	const int spread = GetPrivateProfileIntA("Zombies", "SpeedRandomPercent", 30, path);
 	rise.speedRandomPercent = spread < 0 ? 0u : (spread > 100 ? 100u : static_cast<UInt32>(spread));
-	const int fame = GetPrivateProfileIntA("Zombies", "FamePerKills", 50, path);
+	const int fame = GetPrivateProfileIntA("Zombies", "FamePerKills", 0, path);
 	rise.famePerKills = fame < 0 ? 0u : static_cast<UInt32>(fame);
 	rise.avoidChapels = GetPrivateProfileIntA("Zombies", "AvoidChapels", 1, path) != 0;
 	walkers::ReplaceSettings& replace = settings->replace;
