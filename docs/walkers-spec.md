@@ -201,6 +201,25 @@ off the corpse's. Neither settled: the log now gives the pelvis and head of
 both before the pose, when shown and at the raise, for the next run. The
 headset is to judge it.
 
+The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
+- MatchCorpse=1: the turn read 55 degrees; when shown the walker's head lay
+  exactly on the corpse's (245 -1423), and at the raise its pelvis lay 8
+  units off the corpse's and it pointed 4 degrees off the corpse's heading -
+  the placement holds.
+- MatchCorpse=2: when shown the head lay exactly on the corpse's too, but by
+  the raise (3 s on) the walker had turned 55 degrees off the corpse's
+  heading, its head 32 units away - the copied pose does not hold. The likely
+  cause (derived, not proven): each body took the human bone's world place,
+  but the walker's bones are of other lengths, so the bodies stand off their
+  own joints and the joints pull them together, turning the body. The fix in
+  reach: lay the bones by the corpse's rotations along the walker's own bone
+  lengths (forward kinematics from the pelvis - what retargeting does),
+  small to medium. Not built.
+- Both: the pelvis node and the reference's position stay where the walker
+  fell for a frame or more after the bodies moved (the pelvis carries no
+  body on these skeletons); by the raise they have followed. Whether the
+  mesh is seen stretched in those frames is not known.
+
 ### 4.2 Walkers by name - `[Zombies] RenameToWalker=1`, `Name=Walker`
 
 What: every zombie, spawned or risen, is called "Walker" (or the name set).
@@ -667,6 +686,18 @@ roster line's counts.
    path.
 
 ## 7a. Open bugs
+
+- **RESOLVED 2026-10-25 09:24 (1883c49) - "Zombies ersetzen nicht die leiche
+  am boden sondern schweben fallend auf den boden ganz runter und stehen dann
+  erst auf"** (Nadi, Windows, 2026-10-24 evening; relayed by the OBVR
+  session with Nadi's OBVR log D:/Modding/OBVR/artifacts/scratch/
+  OBVR-win-20261024-2229.log): the swap showed the walker standing on the
+  corpse and killed it there, so its fall was seen, the corpse already gone.
+  Now it drops unseen and the two change places once it lies (section 4.1,
+  the swap's look; `rise-swap-look.txt` PASS), and since 2026-10-25 it is
+  laid into the corpse's place or pose first (MatchCorpse).
+- **"Zombies respawnen unendlich"** (the same session) - the walkers getting
+  up again and again: MOO's zombie resurrect, the entry below.
 
 - **Walkers get up again and again with MOO** (Nadi, Windows, 2026-10-25):
   not the plugin - its death watch keeps a dead walker down ("stays down (not
