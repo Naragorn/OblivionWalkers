@@ -48,10 +48,10 @@ struct RiseSettings {
 	float lieSeconds = 1.0f;
 	// [Rise] MatchCorpse (PoseLogic.h): 0 the walker lies where it fell, 1
 	// moved and turned onto the corpse's spot, 2 every bone in the corpse's
-	// pose. Nadi, 2026-10-25: both, the pose by default - then the place by
-	// default (1) while the pose does not hold (the walker turned 46 to 83
-	// degrees off within three seconds).
-	UInt8 matchCorpse = 1;
+	// pose, settled, then placed. Nadi, 2026-10-25: both, the pose by
+	// default; the place (1) by default while the pose alone did not hold;
+	// the settled pose (2) again once settle-then-place held (13:31).
+	UInt8 matchCorpse = 2;
 	// [Rise] SettleSeconds: with MatchCorpse=2, how long the walker lies
 	// unseen in the corpse's pose before it is moved onto the corpse's place.
 	float settleSeconds = 1.5f;
@@ -117,7 +117,7 @@ inline UInt16 WalkInsteadOfRun(UInt16 flags) {
 // take the corpse's place instead), done. A kill before the model exists leaves a "dead" walker sliding at
 // walking speed (the trace of 2026-10-24 07:10: 400 units/s in a line), so
 // the kill waits for the model.
-enum class SwapStage : UInt8 { Placed, Loading, Dropped, Posed, Placing, Lying, Done };
+enum class SwapStage : UInt8 { Placed, Loading, Dropped, Posed, Lying, Done };
 
 struct Swap {
 	bool active = false;
@@ -170,7 +170,7 @@ enum : UInt32 {
 	kSwapFound = 1,        // the walker's reference is there, its model on the way
 	kSwapDropUnseen = 2,   // its model is there: make it unseen and kill it this frame, the corpse stays
 	kSwapPose = 64,        // the ragdoll settled: lay the unseen walker into the corpse's place or pose (MatchCorpse)
-	kSwapPlace = 128,      // SettleSeconds after the pose: move and turn the settled walker onto the corpse's place
+	kSwapPlace = 128,      // SettleSeconds after the pose: the settled walker onto the corpse's place, and the reveal
 	kSwapReveal = 32,      // a frame on, its bones moved: hide the corpse, show the walker, move the items over
 	kSwapGaveUp = 4,    // no reference appeared in time: the man gets up as himself
 	kSwapRaise = 8,     // it lay long enough in the corpse's place: raise it
@@ -224,23 +224,22 @@ inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3
 	// With SettleSeconds (MatchCorpse=2) the posed walker is left unseen that
 	// long for its joints to settle the corpse's pose into one they hold (the
 	// pose alone turned 46 to 83 degrees within three seconds), then moved and
-	// turned whole onto the corpse's place, which holds. Otherwise, and after
-	// that, one frame before the reveal: the nodes follow the moved bodies
-	// with the next physics step, so the walker is never seen before.
+	// turned whole onto the corpse's place - and the two change places in
+	// that frame, so the corpse is gone before the next physics step could
+	// push the walker off (harness 2026-10-25 13:31: 1 unit off with the
+	// corpse gone, 9 to 46 with it lying on). The walker moves little then,
+	// so its nodes catching up a step later is not seen. Without a settle,
+	// one frame between the place and the reveal: the walker moves from where
+	// it fell, and its nodes follow with the next physics step.
 	if (swap.stage == SwapStage::Posed) {
 		if (settleSeconds > 0.0f) {
 			if (swap.seconds < settleSeconds) {
 				return kSwapWait;
 			}
-			swap.stage = SwapStage::Placing;
+			swap.stage = SwapStage::Lying;
 			swap.seconds = 0.0f;
 			return kSwapPlace;
 		}
-		swap.stage = SwapStage::Lying;
-		swap.seconds = 0.0f;
-		return kSwapReveal;
-	}
-	if (swap.stage == SwapStage::Placing) {
 		swap.stage = SwapStage::Lying;
 		swap.seconds = 0.0f;
 		return kSwapReveal;

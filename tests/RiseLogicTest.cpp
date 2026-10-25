@@ -275,7 +275,9 @@ void TestSwap() {
 
 	// MatchCorpse=2 (Nadi, 2026-10-25: "B dann A"): laid into the corpse's
 	// pose, left unseen SettleSeconds for its joints to settle it, then the
-	// settled walker moved and turned whole onto the corpse's place, and a
+	// settled walker moved and turned whole onto the corpse's place and shown
+	// in the same frame, the corpse hidden (the collision test of 13:31: the
+	// corpse lying on spoils the placement),
 	// frame later shown.
 	walkers::Swap settle;
 	settle.active = true;
@@ -287,12 +289,12 @@ void TestSwap() {
 	Check(walkers::StepSwap(settle, 0.016f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapWait && settle.active,
 	      "then left unseen for its joints to settle - not shown yet");
 	Check(walkers::StepSwap(settle, 1.5f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapPlace &&
-	          settle.stage == walkers::SwapStage::Placing,
-	      "SettleSeconds over: the settled walker moved and turned onto the corpse's place");
-	Check(walkers::StepSwap(settle, 0.0f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapReveal &&
-	          settle.stage == walkers::SwapStage::Lying,
-	      "a frame on: shown in the corpse's place");
-	Check(walkers::StepSwap(settle, 1.0f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapRaise && !settle.active,
+	          settle.stage == walkers::SwapStage::Lying && settle.seconds == 0.0f,
+	      "SettleSeconds over: the settled walker moved and turned onto the corpse's place, and the two change "
+	      "places in that same frame - the corpse gone before the next physics step can push the walker");
+	Check(walkers::StepSwap(settle, 0.9f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapWait && settle.active,
+	      "lying in the corpse's place");
+	Check(walkers::StepSwap(settle, 0.1f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapRaise && !settle.active,
 	      "LieSeconds on: up");
 
 	walkers::Swap nobody;
@@ -601,8 +603,8 @@ void TestZombieDefaults() {
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
 	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=1.5 for MatchCorpse=2; the test switch HideCorpseAtPose off");
-	Check(settings.matchCorpse == 1 && settings.lieSeconds == 1.0f,
-	      "[Rise] MatchCorpse=1, the corpse's place while the pose does not hold (Nadi, 2026-10-25), LieSeconds=1");
+	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
+	      "[Rise] MatchCorpse=2, the pose settled then placed (Nadi, 2026-10-25), LieSeconds=1");
 }
 
 }  // namespace

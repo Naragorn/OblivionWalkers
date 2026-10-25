@@ -574,6 +574,33 @@ bool TryRegisterDeath() {
 	return true;
 }
 
+// The two change places in one frame: the corpse hidden, the walker shown
+// lying where it was laid, the man's items on it.
+void RevealSwap() {
+	const UInt32 corpse = LookupForm(g_swap.corpseId);
+	const UInt32 zombie = LookupForm(g_swap.zombieId);
+	const bool hidden = g_settings.hideCorpseAtPose || (LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable"));
+	const bool shown = LooksLikeObject(zombie) && ConsoleOn(zombie, "SetActorAlpha 1");
+	bool moved = false;
+	if (LooksLikeObject(corpse) && LooksLikeObject(zombie) && g_swap.corpseId != g_swap.zombieId) {
+		char line[64];
+		std::snprintf(line, sizeof(line), "RemoveAllItems %08X", g_swap.zombieId);
+		moved = ConsoleOn(corpse, line);
+	}
+	Vec3 pelvis{};
+	Vec3 head{};
+	if (PelvisAndHead(zombie, &pelvis, &head)) {
+		g_log("Pose: shown - the walker's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", pelvis.x, pelvis.y,
+		      pelvis.z, head.x, head.y, head.z);
+	}
+	g_log("Swap: walker %08X lies at %.0f %.0f %.0f in the place of %08X - the corpse hidden (%d), the walker "
+	      "shown (%d), the items moved over (%d)",
+	      g_swap.zombieId, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
+	      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
+	      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, g_swap.corpseId,
+	      hidden ? 1 : 0, shown ? 1 : 0, moved ? 1 : 0);
+}
+
 // The swap in flight, one frame: the walker's reference is made unseen and
 // killed the moment its model exists (before its AI takes a step); its
 // ragdoll settles unseen where the man lies, DropSeconds later the two
@@ -627,9 +654,10 @@ void StepSwapInFlight(float dt) {
 		      LooksLikeObject(zombie) && IsActor(zombie) && IsDead(zombie) ? 1 : 0, g_swap.corpseId);
 	} else if (events == kSwapPose || events == kSwapPlace) {
 		// Laid into the corpse's place (MatchCorpse=1) or pose (2) while still
-		// unseen; with 2 the pose settles SettleSeconds, then the settled body
-		// is moved and turned onto the corpse's place (kSwapPlace). The reveal
-		// waits a frame for the nodes to follow the bodies.
+		// unseen. With 1 the reveal waits a frame for the nodes to follow the
+		// bodies. With 2 the pose settles SettleSeconds, then the settled body
+		// is moved and turned onto the corpse's place and shown at once
+		// (kSwapPlace).
 		static bool s_logged = false;
 		// The corpse's spine and head at the pose: the settled walker's later
 		// placement goes there, whether the corpse still lies or not.
@@ -670,31 +698,13 @@ void StepSwapInFlight(float dt) {
 				      pelvis.y, pelvis.z, head.x, head.y, head.z);
 			}
 		}
+		if (events == kSwapPlace) {
+			// The settled walker placed: the two change places in this frame,
+			// before the next physics step - the corpse lying on would push it.
+			RevealSwap();
+		}
 	} else if (events == kSwapReveal) {
-		// The two change places in one frame: the corpse hidden, the walker
-		// shown lying where it settled, the man's items on it.
-		const UInt32 corpse = LookupForm(g_swap.corpseId);
-		const UInt32 zombie = LookupForm(g_swap.zombieId);
-		const bool hidden = g_settings.hideCorpseAtPose || (LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable"));
-		const bool shown = LooksLikeObject(zombie) && ConsoleOn(zombie, "SetActorAlpha 1");
-		bool moved = false;
-		if (LooksLikeObject(corpse) && LooksLikeObject(zombie) && g_swap.corpseId != g_swap.zombieId) {
-			char line[64];
-			std::snprintf(line, sizeof(line), "RemoveAllItems %08X", g_swap.zombieId);
-			moved = ConsoleOn(corpse, line);
-		}
-		Vec3 pelvis{};
-		Vec3 head{};
-		if (PelvisAndHead(zombie, &pelvis, &head)) {
-			g_log("Pose: shown - the walker's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", pelvis.x, pelvis.y,
-			      pelvis.z, head.x, head.y, head.z);
-		}
-		g_log("Swap: walker %08X lies at %.0f %.0f %.0f in the place of %08X - the corpse hidden (%d), the walker "
-		      "shown (%d), the items moved over (%d)",
-		      g_swap.zombieId, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
-		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
-		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, g_swap.corpseId,
-		      hidden ? 1 : 0, shown ? 1 : 0, moved ? 1 : 0);
+		RevealSwap();
 	} else if (events == kSwapGaveUp) {
 		g_log("Swap: no walker %08X appeared on %08X within %.0f s - he gets up as himself", g_swap.walkerBase,
 		      g_swap.corpseId, kSwapFindSeconds);

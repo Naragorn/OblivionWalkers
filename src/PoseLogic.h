@@ -1,8 +1,8 @@
 #pragma once
 
 // The walker taking the corpse's place, process-free (docs/walkers-spec.md
-// 4.1, the swap's look; Nadi, 2026-10-25: both ways, the place by default while
-// the pose does not hold).
+// 4.1, the swap's look; Nadi, 2026-10-25: both ways; by default the pose,
+// settled unseen, then placed).
 // When the walker has settled unseen beside the corpse, its ragdoll's
 // bodies are laid where the corpse lies before the two change places:
 //
@@ -63,8 +63,9 @@ inline Vec3 Mul(const Mat3& a, const Vec3& v) {
 	            a.m[2][0] * v.x + a.m[2][1] * v.y + a.m[2][2] * v.z};
 }
 
-// [Rise] MatchCorpse: 0 the walker lies where it fell, 1 (the default)
-// moved and turned onto the corpse's spot, 2 every bone in the corpse's pose.
+// [Rise] MatchCorpse: 0 the walker lies where it fell, 1 moved and turned
+// onto the corpse's spot, 2 (the default) the corpse's pose, settled, then
+// moved and turned onto the corpse's spot.
 enum class MatchCorpse : UInt8 { Off = 0, Place = 1, Pose = 2 };
 
 inline MatchCorpse MatchCorpseFrom(int value) {
