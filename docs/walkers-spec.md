@@ -261,6 +261,18 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   itself (its joints), which the settle-then-place absorbs; the corpse's
   collision spoils the placement by up to tens of units and degrees (the 46
   of 13:00, the 9 of 12:59). Both measured, one run each.
+- fc46f62 (MatchCorpse=2 by default, the settled walker placed and shown in
+  one frame), harness 2026-10-25 13:48: worse - while the pose settled on the
+  corpse the two pushed each other: the corpse's head moved 50 units and rose
+  20, the walker ended sitting on it (its head 80 units above the floor);
+  placed and shown, it lay 26 units off and 35 high at the raise. The second
+  run FAILed before the world (the script did not start in 240 s; SteamVR's
+  compositor had aborted at 13:49:03 on a watchdog, the Performance
+  session's report). So the corpse must not collide with the walker while it
+  settles - the settle needs the corpse out of the walker's way, not just at
+  the reveal. Unbuilt fix: keep the walker's bodies from colliding with the
+  corpse's (Havok's collision filter, rb+0x30, the rule 0x008A7F70 - OBVR's
+  GrabPhysics.h; whether two ragdolls can be kept apart by it is not read).
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
