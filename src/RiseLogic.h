@@ -52,6 +52,9 @@ struct RiseSettings {
 	// default (1) while the pose does not hold (the walker turned 46 to 83
 	// degrees off within three seconds).
 	UInt8 matchCorpse = 1;
+	// [Rise] SettleSeconds: with MatchCorpse=2, how long the walker lies
+	// unseen in the corpse's pose before it is moved onto the corpse's place.
+	float settleSeconds = 1.5f;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
@@ -109,7 +112,7 @@ inline UInt16 WalkInsteadOfRun(UInt16 flags) {
 // take the corpse's place instead), done. A kill before the model exists leaves a "dead" walker sliding at
 // walking speed (the trace of 2026-10-24 07:10: 400 units/s in a line), so
 // the kill waits for the model.
-enum class SwapStage : UInt8 { Placed, Loading, Dropped, Posed, Lying, Done };
+enum class SwapStage : UInt8 { Placed, Loading, Dropped, Posed, Placing, Lying, Done };
 
 struct Swap {
 	bool active = false;
@@ -161,7 +164,8 @@ enum : UInt32 {
 	kSwapWait = 0,      // nothing this frame
 	kSwapFound = 1,        // the walker's reference is there, its model on the way
 	kSwapDropUnseen = 2,   // its model is there: make it unseen and kill it this frame, the corpse stays
-	kSwapPose = 64,        // the ragdoll settled: lay the unseen walker into the corpse's place (MatchCorpse)
+	kSwapPose = 64,        // the ragdoll settled: lay the unseen walker into the corpse's place or pose (MatchCorpse)
+	kSwapPlace = 128,      // SettleSeconds after the pose: move and turn the settled walker onto the corpse's place
 	kSwapReveal = 32,      // a frame on, its bones moved: hide the corpse, show the walker, move the items over
 	kSwapGaveUp = 4,    // no reference appeared in time: the man gets up as himself
 	kSwapRaise = 8,     // it lay long enough in the corpse's place: raise it
@@ -175,7 +179,7 @@ inline constexpr float kSwapLoadSeconds = 15.0f;
 // model is in the world. The swap ends with kSwapRaise, kSwapGaveUp or
 // kSwapAbandon.
 inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3D, float dropSeconds,
-                       float lieSeconds) {
+                       float settleSeconds, float lieSeconds) {
 	if (!swap.active) {
 		return kSwapWait;
 	}
@@ -212,10 +216,26 @@ inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3
 		swap.seconds = 0.0f;
 		return kSwapPose;
 	}
-	// One frame between the pose and the reveal: the nodes follow the moved
-	// bodies with the next physics step, so the walker is never seen in the
-	// pose it fell in.
+	// With SettleSeconds (MatchCorpse=2) the posed walker is left unseen that
+	// long for its joints to settle the corpse's pose into one they hold (the
+	// pose alone turned 46 to 83 degrees within three seconds), then moved and
+	// turned whole onto the corpse's place, which holds. Otherwise, and after
+	// that, one frame before the reveal: the nodes follow the moved bodies
+	// with the next physics step, so the walker is never seen before.
 	if (swap.stage == SwapStage::Posed) {
+		if (settleSeconds > 0.0f) {
+			if (swap.seconds < settleSeconds) {
+				return kSwapWait;
+			}
+			swap.stage = SwapStage::Placing;
+			swap.seconds = 0.0f;
+			return kSwapPlace;
+		}
+		swap.stage = SwapStage::Lying;
+		swap.seconds = 0.0f;
+		return kSwapReveal;
+	}
+	if (swap.stage == SwapStage::Placing) {
 		swap.stage = SwapStage::Lying;
 		swap.seconds = 0.0f;
 		return kSwapReveal;

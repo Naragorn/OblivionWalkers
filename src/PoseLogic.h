@@ -11,7 +11,10 @@
 //   corpse's does. The limbs keep the walker's own fall.
 // - Pose (MatchCorpse=2): the walker's pelvis laid on the corpse's, and
 //   every bone below retargeted from it - turned as the corpse's bone of the
-//   same name, placed at the walker's own bone length (Retargeted).
+//   same name, placed at the walker's own bone length (Retargeted). The pose
+//   alone does not hold (its joints turned it 46 to 83 degrees off within
+//   three seconds), so the swap lets it settle unseen and then places the
+//   settled body as in Place (Nadi, 2026-10-25: "B dann A").
 //
 // A body's place is its node's world transform: the engine's own
 // node-to-Havok push (0x0089EAE0) hands the node's world translation and

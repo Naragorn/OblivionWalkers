@@ -590,6 +590,9 @@ void StepSwapInFlight(float dt) {
 	}
 	const UInt32 events =
 		StepSwap(g_swap, dt, found, has3D, g_settings.dropSeconds < 0.0f ? 0.0f : g_settings.dropSeconds,
+		         MatchCorpseFrom(g_settings.matchCorpse) == MatchCorpse::Pose && g_settings.settleSeconds > 0.0f
+		             ? g_settings.settleSeconds
+		             : 0.0f,
 		         g_settings.lieSeconds < 0.0f ? 0.0f : g_settings.lieSeconds);
 	// Noted before its kill below: NoLoot never takes a risen walker.
 	NoteRisen(g_risenSet, g_swap.zombieId);
@@ -622,18 +625,32 @@ void StepSwapInFlight(float dt) {
 		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
 		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, killed ? 1 : 0,
 		      LooksLikeObject(zombie) && IsActor(zombie) && IsDead(zombie) ? 1 : 0, g_swap.corpseId);
-	} else if (events == kSwapPose) {
-		// Laid into the corpse's place and pose while still unseen; the reveal
+	} else if (events == kSwapPose || events == kSwapPlace) {
+		// Laid into the corpse's place (MatchCorpse=1) or pose (2) while still
+		// unseen; with 2 the pose settles SettleSeconds, then the settled body
+		// is moved and turned onto the corpse's place (kSwapPlace). The reveal
 		// waits a frame for the nodes to follow the bodies.
 		static bool s_logged = false;
-		const MatchCorpse mode = MatchCorpseFrom(g_settings.matchCorpse);
+		const MatchCorpse setting = MatchCorpseFrom(g_settings.matchCorpse);
+		const MatchCorpse mode = events == kSwapPlace ? MatchCorpse::Place : setting;
 		const PoseReport pose =
 			MatchWalkerToCorpse(LookupForm(g_swap.zombieId), LookupForm(g_swap.corpseId), mode, !s_logged, g_log);
 		s_logged = s_logged || pose.bodies > 0;
-		g_log("Swap: walker %08X laid into the place of %08X (MatchCorpse=%u) - %u bodies: %u turned as the corpse's "
-		      "bones, %u carried along, %u moved and turned whole%s, %u left; %.0f us",
-		      g_swap.zombieId, g_swap.corpseId, static_cast<UInt32>(g_settings.matchCorpse), pose.bodies, pose.copied,
-		      pose.carried, pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds);
+		g_log("Swap: walker %08X %s %08X (MatchCorpse=%u) - %u bodies: %u turned as the corpse's bones, %u carried "
+		      "along, %u moved and turned whole%s, %u left; %.0f us",
+		      g_swap.zombieId,
+		      events == kSwapPlace ? "settled, now moved onto the place of"
+		                           : (mode == MatchCorpse::Pose ? "laid into the pose of" : "laid into the place of"),
+		      g_swap.corpseId, static_cast<UInt32>(g_settings.matchCorpse), pose.bodies, pose.copied, pose.carried,
+		      pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds);
+		if (events == kSwapPlace || mode != MatchCorpse::Pose) {
+			Vec3 pelvis{};
+			Vec3 head{};
+			if (PelvisAndHead(LookupForm(g_swap.zombieId), &pelvis, &head)) {
+				g_log("Pose: before the move - the walker's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", pelvis.x,
+				      pelvis.y, pelvis.z, head.x, head.y, head.z);
+			}
+		}
 	} else if (events == kSwapReveal) {
 		// The two change places in one frame: the corpse hidden, the walker
 		// shown lying where it settled, the man's items on it.

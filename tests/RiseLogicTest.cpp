@@ -240,66 +240,88 @@ void TestSwap() {
 	// walker drops unseen, the corpse stays until the walker lies, then the
 	// two change places and the walker lies a moment before it gets up.
 	walkers::Swap idle;
-	Check(walkers::StepSwap(idle, 1.0f, 0xFF000BB2, true, 1.5f, 1.0f) == walkers::kSwapWait && !idle.active,
+	Check(walkers::StepSwap(idle, 1.0f, 0xFF000BB2, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait && !idle.active,
 	      "no swap in flight: nothing, whatever stands there");
 
 	walkers::Swap swap;
 	swap.active = true;
 	swap.corpseId = 0xFF000BAF;
 	swap.walkerBase = 0x0B000801;
-	Check(walkers::StepSwap(swap, 0.5f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait &&
+	Check(walkers::StepSwap(swap, 0.5f, 0, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait &&
 	          swap.stage == walkers::SwapStage::Placed,
 	      "placed, no walker yet: wait");
-	Check(walkers::StepSwap(swap, 0.5f, 0xFF000BB2, false, 1.5f, 1.0f) == walkers::kSwapFound &&
+	Check(walkers::StepSwap(swap, 0.5f, 0xFF000BB2, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapFound &&
 	          swap.stage == walkers::SwapStage::Loading && swap.zombieId == 0xFF000BB2 && swap.seconds == 0.0f,
 	      "the walker's reference exists: wait for its model, the clock restarts");
-	Check(walkers::StepSwap(swap, 3.0f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
+	Check(walkers::StepSwap(swap, 3.0f, 0, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait && swap.active,
 	      "its model still loading: wait, however long DropSeconds is");
-	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 1.0f) == walkers::kSwapDropUnseen &&
+	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapDropUnseen &&
 	          swap.stage == walkers::SwapStage::Dropped && swap.seconds == 0.0f,
 	      "the model is there: made unseen and killed, the corpse still lying, the clock restarts");
-	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
+	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait && swap.active,
 	      "the unseen ragdoll settling: wait");
-	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 1.0f) == walkers::kSwapPose &&
+	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapPose &&
 	          swap.stage == walkers::SwapStage::Posed && swap.active,
 	      "DropSeconds over: the unseen walker laid into the corpse's place and pose (MatchCorpse)");
-	Check(walkers::StepSwap(swap, 0.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapReveal &&
+	Check(walkers::StepSwap(swap, 0.0f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapReveal &&
 	          swap.stage == walkers::SwapStage::Lying && swap.seconds == 0.0f && swap.active,
 	      "the next frame, its bones moved: the corpse hidden, the walker shown, the items over");
-	Check(walkers::StepSwap(swap, 0.9f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
+	Check(walkers::StepSwap(swap, 0.9f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait && swap.active,
 	      "the walker lying in the corpse's place: wait");
-	Check(walkers::StepSwap(swap, 0.1f, 0, true, 1.5f, 1.0f) == walkers::kSwapRaise && !swap.active &&
+	Check(walkers::StepSwap(swap, 0.1f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapRaise && !swap.active &&
 	          swap.stage == walkers::SwapStage::Done,
 	      "LieSeconds over: it gets up - the swap ends");
-	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait, "and nothing after");
+	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait, "and nothing after");
+
+	// MatchCorpse=2 (Nadi, 2026-10-25: "B dann A"): laid into the corpse's
+	// pose, left unseen SettleSeconds for its joints to settle it, then the
+	// settled walker moved and turned whole onto the corpse's place, and a
+	// frame later shown.
+	walkers::Swap settle;
+	settle.active = true;
+	walkers::StepSwap(settle, 0.1f, 0xFF000BB5, false, 1.5f, 1.5f, 1.0f);
+	walkers::StepSwap(settle, 0.1f, 0, true, 1.5f, 1.5f, 1.0f);
+	Check(walkers::StepSwap(settle, 1.5f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapPose &&
+	          settle.stage == walkers::SwapStage::Posed,
+	      "settling: first laid into the corpse's pose");
+	Check(walkers::StepSwap(settle, 0.016f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapWait && settle.active,
+	      "then left unseen for its joints to settle - not shown yet");
+	Check(walkers::StepSwap(settle, 1.5f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapPlace &&
+	          settle.stage == walkers::SwapStage::Placing,
+	      "SettleSeconds over: the settled walker moved and turned onto the corpse's place");
+	Check(walkers::StepSwap(settle, 0.0f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapReveal &&
+	          settle.stage == walkers::SwapStage::Lying,
+	      "a frame on: shown in the corpse's place");
+	Check(walkers::StepSwap(settle, 1.0f, 0, true, 1.5f, 1.5f, 1.0f) == walkers::kSwapRaise && !settle.active,
+	      "LieSeconds on: up");
 
 	walkers::Swap nobody;
 	nobody.active = true;
-	Check(walkers::StepSwap(nobody, 1.9f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait,
+	Check(walkers::StepSwap(nobody, 1.9f, 0, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait,
 	      "no walker for 1.9 s: still waiting");
-	Check(walkers::StepSwap(nobody, 0.1f, 0, false, 1.5f, 1.0f) == walkers::kSwapGaveUp && !nobody.active,
+	Check(walkers::StepSwap(nobody, 0.1f, 0, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapGaveUp && !nobody.active,
 	      "none within two seconds: given up, the man gets up as himself");
 
 	walkers::Swap noModel;
 	noModel.active = true;
-	Check(walkers::StepSwap(noModel, 0.1f, 0xFF000BB4, false, 1.5f, 1.0f) == walkers::kSwapFound,
+	Check(walkers::StepSwap(noModel, 0.1f, 0xFF000BB4, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapFound,
 	      "found, waiting for the model");
-	Check(walkers::StepSwap(noModel, 14.9f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait && noModel.active,
+	Check(walkers::StepSwap(noModel, 14.9f, 0, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapWait && noModel.active,
 	      "the model 14.9 s on the way: still waiting");
-	Check(walkers::StepSwap(noModel, 0.1f, 0, false, 1.5f, 1.0f) == walkers::kSwapAbandon && !noModel.active,
+	Check(walkers::StepSwap(noModel, 0.1f, 0, false, 1.5f, 0.0f, 1.0f) == walkers::kSwapAbandon && !noModel.active,
 	      "none within fifteen seconds: the walker abandoned, the man gets up as himself");
 
 	walkers::Swap quick;
 	quick.active = true;
-	Check(walkers::StepSwap(quick, 0.016f, 0xFF000BB3, true, 0.0f, 0.0f) == walkers::kSwapFound,
+	Check(walkers::StepSwap(quick, 0.016f, 0xFF000BB3, true, 0.0f, 0.0f, 0.0f) == walkers::kSwapFound,
 	      "found at once, model there: still one frame for the kill");
-	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapDropUnseen,
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f, 0.0f) == walkers::kSwapDropUnseen,
 	      "the next frame: unseen and killed");
-	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapPose,
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f, 0.0f) == walkers::kSwapPose,
 	      "DropSeconds=0: laid into the corpse's place the frame after");
-	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapReveal,
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f, 0.0f) == walkers::kSwapReveal,
 	      "and shown the frame after that");
-	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapRaise,
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f, 0.0f) == walkers::kSwapRaise,
 	      "LieSeconds=0: up the frame after that");
 
 	walkers::Swap identity;
@@ -577,6 +599,7 @@ void TestZombieDefaults() {
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
+	Check(settings.settleSeconds == 1.5f, "[Rise] SettleSeconds=1.5 for MatchCorpse=2");
 	Check(settings.matchCorpse == 1 && settings.lieSeconds == 1.0f,
 	      "[Rise] MatchCorpse=1, the corpse's place while the pose does not hold (Nadi, 2026-10-25), LieSeconds=1");
 }

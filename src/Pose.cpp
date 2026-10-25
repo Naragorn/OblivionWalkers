@@ -226,6 +226,12 @@ void Lay(UInt32 wrapper, const Vec3& pos, const Mat3& rot) {
 	reinterpret_cast<ActivateFn>(kActivateBody)(reinterpret_cast<void*>(body), nullptr);
 }
 
+// The lowest spine bone, or the pelvis when the skeleton names none.
+UInt32 SpineOrPelvisOf(UInt32 root) {
+	const UInt32 spine = NodeOf(root, "Bip01 Spine");
+	return spine != 0 ? spine : NodeOf(root, "Bip01 Pelvis");
+}
+
 // The head, or the neck when the skeleton names no head.
 UInt32 HeadNodeOf(UInt32 root) {
 	const UInt32 head = NodeOf(root, "Bip01 Head");
@@ -317,10 +323,16 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	const UInt32 corpsePelvis = NodeOf(corpseRoot, "Bip01 Pelvis");
 	const UInt32 walkerHead = HeadNodeOf(walkerRoot);
 	const UInt32 corpseHead = HeadNodeOf(corpseRoot);
+	// The placement goes by the lowest spine bone: it carries a body, so its
+	// node follows the ragdoll each frame, where the pelvis - no body on
+	// these skeletons - lags frames behind a moved ragdoll (measured
+	// 2026-10-25: still the old spot a frame after the move).
+	const UInt32 walkerPivot = SpineOrPelvisOf(walkerRoot);
+	const UInt32 corpsePivot = SpineOrPelvisOf(corpseRoot);
 	PlacePlan plan = NoPlan();
-	if (walkerPelvis != 0 && corpsePelvis != 0) {
-		plan = PlanPlace(PositionOf(walkerPelvis), walkerHead != 0 ? PositionOf(walkerHead) : PositionOf(walkerPelvis),
-		                 PositionOf(corpsePelvis), corpseHead != 0 ? PositionOf(corpseHead) : PositionOf(corpsePelvis));
+	if (walkerPivot != 0 && corpsePivot != 0) {
+		plan = PlanPlace(PositionOf(walkerPivot), walkerHead != 0 ? PositionOf(walkerHead) : PositionOf(walkerPivot),
+		                 PositionOf(corpsePivot), corpseHead != 0 ? PositionOf(corpseHead) : PositionOf(corpsePivot));
 	}
 	report.planOk = plan.ok;
 	if (firstLog) {
