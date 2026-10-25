@@ -59,8 +59,8 @@ inline Vec3 Mul(const Mat3& a, const Vec3& v) {
 	            a.m[2][0] * v.x + a.m[2][1] * v.y + a.m[2][2] * v.z};
 }
 
-// [Rise] MatchCorpse: 0 the walker lies where it fell, 1 moved and turned
-// onto the corpse's spot, 2 (the default) every bone in the corpse's pose.
+// [Rise] MatchCorpse: 0 the walker lies where it fell, 1 (the default)
+// moved and turned onto the corpse's spot, 2 every bone in the corpse's pose.
 enum class MatchCorpse : UInt8 { Off = 0, Place = 1, Pose = 2 };
 
 inline MatchCorpse MatchCorpseFrom(int value) {

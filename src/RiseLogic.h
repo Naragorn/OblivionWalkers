@@ -48,8 +48,10 @@ struct RiseSettings {
 	float lieSeconds = 1.0f;
 	// [Rise] MatchCorpse (PoseLogic.h): 0 the walker lies where it fell, 1
 	// moved and turned onto the corpse's spot, 2 every bone in the corpse's
-	// pose (Nadi, 2026-10-25: both, the pose by default).
-	UInt8 matchCorpse = 2;
+	// pose. Nadi, 2026-10-25: both, the pose by default - then the place by
+	// default (1) while the pose does not hold (the walker turned 46 to 83
+	// degrees off within three seconds).
+	UInt8 matchCorpse = 1;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

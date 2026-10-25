@@ -577,8 +577,8 @@ void TestZombieDefaults() {
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
-	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
-	      "[Rise] MatchCorpse=2, the corpse's pose (Nadi, 2026-10-25), LieSeconds=1");
+	Check(settings.matchCorpse == 1 && settings.lieSeconds == 1.0f,
+	      "[Rise] MatchCorpse=1, the corpse's place while the pose does not hold (Nadi, 2026-10-25), LieSeconds=1");
 }
 
 }  // namespace
