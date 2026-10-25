@@ -277,6 +277,51 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   the filter): the place alone, 4 to 18 units and 4 to 46 degrees off in its
   runs, against 2's 26 units and sitting on the corpse. Neither live INI
   names MatchCorpse, so the DLL's default holds in both installs.
+- The filter read (REA, 2026-10-25; ApartLogic.h has every step) and
+  measured: both ragdolls are bipeds (layer 8), parts 1 to 16, not linked,
+  one group each (harness 15:27: walker 0xCF, corpse 0xCD) - the rule
+  0x008A7F70 lets two groups of bipeds collide, every pair. That run
+  (MatchCorpse=1, the corpse lying on): pelvis 4 units off at the raise,
+  but turned 77 degrees - the frame between the place and the reveal is
+  enough for the overlapping bodies to push.
+- KeepCorpseApart built (47e13a7, `[Rise] KeepCorpseApart`, off by
+  default): from the frame the walker's model exists - before its drop onto
+  the corpse - the corpse's bodies take the walker's group and part 0. By
+  the rule, one group of bipeds goes to the bone table by part, and no bone
+  row has bit 0, so walker and corpse never meet; with anyone else the
+  corpse is decided as before (its layer kept). Written as the engine's own
+  setters do (the word, then the wrapper's vtable +0x80 = 0x008B0060,
+  updateCollisionFilterOnEntity), inside the Havok lock, and only when the
+  rule's code is the game's own and the rule on the live tables says no
+  pair meets. Asked again each frame until it takes.
+- KeepCorpseApart runs (harness 2026-10-25, one walker each, numbers from
+  the log: the corpse's spine and head at the pose against the walker's at
+  the raise, artifacts/hand-script/rise-swap-look/<run>/OblivionWalkers.log).
+  Every run: "16 ragdoll bodies moved into walker's collision group, part
+  0" in under 90 us, the filter log then reads the corpse as 00CF0008
+  beside the walker's 00CF0208 and so on - the move took. The pictures
+  show no body through the floor.
+
+  | Run | MatchCorpse | Pelvis off | Head off | Turned | The corpse, pose to reveal |
+  |---|---|---|---|---|---|
+  | 15:27 (apart off) | 1 | 4 | 56 | 77 degrees | - |
+  | 18:04 | 1 | 7 | 2 | 9 degrees | did not move |
+  | 18:08 | 1 | 16 | 46 | 81 degrees | did not move |
+  | 18:06 | 2 | 4 | 10 | 18 degrees | 9 units |
+  | 18:09 | 2 | 4 | 12 | 17 degrees | 6 units |
+
+  So (measured): the two no longer push each other - the corpse lying on
+  stays put, and with 2 the walker ends on the corpse's spot in both runs,
+  where without it it sat on the corpse (13:48). With 1 the walker still
+  turned some 80 degrees in one run of two while it lay seen, with nothing
+  to push it - so 1 has a second cause the filter does not touch. Suspect
+  (not proven): ragdoll bodies on nodes outside the bone list
+  (Pose.cpp kBones) are not moved by the place, and their constraints yank
+  the moved body round; with 2 the settle lets them follow before the small
+  final move. The cheapest step that settles it: log every node of the
+  walker's skeleton that carries a body. Open as well: the corpse moved 6
+  to 9 units while the posed walker settled (seen, in its 1.5 s) - its own
+  settling, or its bodies no longer meeting each other; not read.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the

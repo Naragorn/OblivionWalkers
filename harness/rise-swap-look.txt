@@ -18,6 +18,9 @@
 #   and s12 the walker lying in its place and the corpse gone ("the corpse
 #   hidden (1), the walker shown (1)"), s14 the walker up, s16 at the player,
 #   fully seen. It lay 58 units off the corpse's spot (its ragdoll slid).
+#   18:04, 18:06, 18:08, 18:09 PASS with [Rise] KeepCorpseApart=1 (MatchCorpse
+#   1, 2, 1, 2; the numbers in docs/walkers-spec.md 4.1): the corpse's
+#   bodies in the walker's group every time, no body through the floor.
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-swap-look.txt --headless \
