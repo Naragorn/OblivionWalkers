@@ -375,6 +375,14 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   absorbed that in both runs that had it. Derived: not FrameFixes (it
   changes how scripts find their variables; the swap reads none). Open:
   whether 0 stays the default - Nadi's call.
+- SettleSeconds=1.5 by default again (Nadi, 2026-10-25: "ich will aber
+  keine Lücke in der keine Leiche da ist und auch kein Walker der
+  aufsteht"): the corpse lies seen while the walker settles unseen, and the
+  two change places in one frame (RevealSwap: the corpse's Disable and the
+  walker's SetActorAlpha 1 in the same call) - never a moment with neither.
+  The harness's pictures are a second apart, so that one frame is read in
+  the code, not seen. Harness 20:24 PASS: 1 unit and 1 degree off at the
+  raise, the corpse not moved.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
@@ -972,8 +980,8 @@ roster line's counts.
   every zombie without a brain: with BlockMooResurrect=0 the walker stood
   again between 15 and 30 s after the kill and walked to the player
   (20:10); with 1 it lay dead to the end, 70 s (20:12). MOO's INI in both
-  installs still has ini_zombie_resurrect 0 - back to MOO's 70 is Nadi's
-  call.
+  installs is back to MOO's own ini_zombie_resurrect 70 (Nadi, 2026-10-25:
+  "2. ja mach"), so MOO's own zombies get up again as MOO means them to.
 
 - **RESOLVED 2026-10-24 07:12** - the walker a few metres from the corpse, the man up again, old walkers raised: three causes, all measured (`rise-creature.txt` runs 3 to 5): the finder's radius missed the placed walker and matched old ones (now identity: the references before the PlaceAtMe against those after); a kill handed to the walker before its model existed left a "dead" body sliding at 400 units/s (the kill now waits for the model and lands in its first frame); and the two seconds of walking before the old finder gave up were the "few metres". The walker now drops within 40 units of the spot. The original entry, for the record:
 - **The walker appears a few metres from the corpse in Nadi's game, not on it**

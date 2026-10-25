@@ -615,9 +615,9 @@ void TestZombieDefaults() {
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
-	Check(settings.settleSeconds == 0.0f && !settings.hideCorpseAtPose,
-	      "[Rise] SettleSeconds=0 - the pose holds since every body is laid (Nadi, 2026-10-25: go); the test "
-	      "switch HideCorpseAtPose off");
+	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
+	      "[Rise] SettleSeconds=1.5 - the pose settles unseen while the corpse still lies, never a gap (Nadi, "
+	      "2026-10-25: \"keine Luecke\", after 0 slid seen once in four runs); the test switch HideCorpseAtPose off");
 	Check(settings.blockMooResurrect,
 	      "[Zombies] BlockMooResurrect=1 - a dead walker loses MOO's token and brain (Nadi, 2026-10-25: go)");
 	Check(settings.keepCorpseApart,

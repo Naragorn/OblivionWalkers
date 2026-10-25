@@ -126,7 +126,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	const int match = GetPrivateProfileIntA("Rise", "MatchCorpse", 2, path);
 	rise.matchCorpse = static_cast<UInt8>(walkers::MatchCorpseFrom(match));
-	rise.settleSeconds = IniFloat("Rise", "SettleSeconds", 0.0f, path);
+	rise.settleSeconds = IniFloat("Rise", "SettleSeconds", 1.5f, path);
 	if (!(rise.settleSeconds >= 0.0f)) {
 		rise.settleSeconds = 0.0f;
 	}
