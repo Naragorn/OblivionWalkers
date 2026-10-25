@@ -228,6 +228,15 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   child bone in the bone's own axes on both skeletons - equal directions
   mean equal axes. If they differ, retarget by bone directions (axis-free)
   instead of turns.
+- Run 2026-10-25 12:50 (e56ed2d, MatchCorpse=2): the axes agree. The child
+  bone lies along the bone's own x on both skeletons (Spine to Spine1, Spine2
+  to Neck, upper arm to forearm, thigh to calf: 1.00 0.00 0.00 on both); only
+  pelvis to spine differs by some 20 degrees (the walker's 0.97 0.01 0.25,
+  the corpse's 0.99 -0.01 -0.11). The roll about x is not covered by this
+  test. The pose drifted again: 69 degrees off the corpse's heading by the
+  raise, the pelvis 10 units off - the body turned about its pelvis. So the
+  axes are not the cause; left as suspects (not proven): the zombie's joint
+  limits and its limbs meeting the floor at other lengths. Default stays 1.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
