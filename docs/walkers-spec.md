@@ -322,6 +322,40 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   walker's skeleton that carries a body. Open as well: the corpse moved 6
   to 9 units while the posed walker settled (seen, in its 1.5 s) - its own
   settling, or its bodies no longer meeting each other; not read.
+- Defaults MatchCorpse=2 and KeepCorpseApart=1 (Nadi, 2026-10-25: "go").
+  Harness 18:29 and 18:30 with the defaults: 8 and 13 units off, 14 and 8
+  degrees; the corpse moved 15 and 7 units while the walker settled.
+- The body census (18:29, every node of both skeletons asked for its body):
+  the walker carries 17 bodies, the bone list named 16 - the one it missed
+  is "Bip01 NonAccum" (filter 00CF0208: a biped, part 2, the hips' body on
+  skeletons whose pelvis carries none); the corpse carries 18, missing
+  "Bip01 NonAccum" and "SideWeapon" (00CF4008, switched off). So the place
+  and the pose moved every body but the one at the hips, which stayed
+  where the walker fell and pulled the rest round; and the corpse's two
+  were left in its own group, so the walker still met them.
+- Fixed (582b6cf, Pose.cpp BodiesOf): the swap and KeepCorpseApart take
+  every body on the skeleton - the tree walked down from the reference's
+  root, each node asked for its body - instead of the named list (kept for
+  the census). Harness 18:34, 18:35, 18:37 (MatchCorpse=1) and 18:39,
+  18:40 (MatchCorpse=2, the defaults), all PASS:
+
+  | Run | MatchCorpse | Pelvis off | Head off | Turned | The pose's drift while settling | The corpse moved |
+  |---|---|---|---|---|---|---|
+  | 18:34 | 1 | 0 | 1 | 1 degree | - | 0 |
+  | 18:35 | 1 | 0 | 0 | 0 degrees | - | 0 |
+  | 18:37 | 1 | 1 | 1 | 2 degrees | - | 0 |
+  | 18:39 | 2 | 0 | 1 | 1 degree | 2 degrees | 0 |
+  | 18:40 | 2 | 0 | 1 | 1 degree | 5 degrees | 0 |
+
+  Measured: the walker now lies where the corpse lay, to a unit and a
+  degree, in both modes; the copied pose holds while it settles (2 and 5
+  degrees, where it turned 46 to 83 before); the corpse lying on no longer
+  moves. The pictures of 18:40 (s10, s12) show the walker in the corpse's
+  place and much its pose. Derived: the two causes were the corpse's
+  collision and the body at "Bip01 NonAccum" left behind - the "joint
+  limits" and "bone axes" suspects above are dropped. Since the pose now
+  holds, the settle (SettleSeconds 1.5) may no longer be needed - with 0
+  the walker would show a frame after its pose; not run.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
