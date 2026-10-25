@@ -1,5 +1,6 @@
 #include "Pose.h"
 
+#include "ApartLogic.h"
 #include "Engine.h"
 
 #include <windows.h>
@@ -40,6 +41,28 @@ constexpr UInt32 kBodyMotionOffset = 0x50;
 constexpr UInt32 kMotionSetLinearVelocitySlot = 0x54;
 constexpr UInt32 kMotionSetAngularVelocitySlot = 0x58;
 constexpr UInt32 kActivateBody = 0x008A6410;
+// The body's collision filter word (hkRigidBody +0x30; OBVR GrabPhysics.h):
+// the layer in the low 6 bits, the part number in bits 8 to 12, 0x4000 no
+// collision, 0x8000 linked, the system group in the high 16 bits - the
+// engine's rule 0x008A7F70 decides each pair by it (read with REA
+// 2026-10-25).
+constexpr UInt32 kBodyFilterOffset = 0x30;
+// The rule's first bytes (mov edx, [esp+4]; push esi; mov esi, [esp+0xC];
+// push edi; mov edi, edx; and edi, 0x3F): RuleCollides mirrors this code,
+// so a rule another mod has patched refuses the move.
+constexpr UInt32 kFilterRule = 0x008A7F70;
+constexpr UInt8 kFilterRuleBytes[15] = {0x8B, 0x54, 0x24, 0x04, 0x56, 0x8B, 0x74, 0x24,
+                                        0x0C, 0x57, 0x8B, 0xFA, 0x83, 0xE7, 0x3F};
+// The tables the rule reads, the layer matrix then the bone table
+// (ApartLogic.h).
+constexpr UInt32 kFilterTables = 0x00BA7DB0;
+// The wrapper's filter refresh, vtable +0x80: 0x008B0060 hands the body to
+// hkWorld::updateCollisionFilterOnEntity (0x0089B630) when it is in a world
+// - as the engine's own setters 0x0089F4D0 and 0x0089F520 do after writing
+// the word, and OBVR's hand bodies (HandBodies.cpp, Refilter). Three
+// vtables carry it (0x00A55DFC, 0x00A5605C, 0x00A980A4).
+constexpr UInt32 kRefreshFilterSlot = 0x80;
+constexpr UInt32 kRefreshFilter = 0x008B0060;
 constexpr UInt32 kHavokLock = 0x00BA7B00;
 constexpr UInt32 kHavokLockEnter = 0x0043F2E0;
 constexpr UInt32 kHavokLockLeave = 0x0043F300;
@@ -226,6 +249,12 @@ void Lay(UInt32 wrapper, const Vec3& pos, const Mat3& rot) {
 	reinterpret_cast<ActivateFn>(kActivateBody)(reinterpret_cast<void*>(body), nullptr);
 }
 
+// The collision filter word of the wrapper's body; 0 when it has none.
+UInt32 FilterOf(UInt32 wrapper) {
+	const UInt32 body = wrapper != 0 ? Read(wrapper + kWrapperBodyOffset) : 0;
+	return LooksLikeObject(body) ? Read(body + kBodyFilterOffset) : 0;
+}
+
 // The lowest spine bone, or the pelvis when the skeleton names none.
 UInt32 SpineOrPelvisOf(UInt32 root) {
 	const UInt32 spine = NodeOf(root, "Bip01 Spine");
@@ -297,6 +326,82 @@ bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head) {
 	*pelvis = PositionOf(pelvisNode);
 	*head = headNode != 0 ? PositionOf(headNode) : *pelvis;
 	return true;
+}
+
+ApartReport KeepCorpseApart(UInt32 walker, UInt32 corpse) {
+	ApartReport report;
+	LARGE_INTEGER start;
+	QueryPerformanceCounter(&start);
+	if (std::memcmp(reinterpret_cast<const void*>(kCollisionObjectOf), kCollisionObjectOfBytes,
+	                sizeof(kCollisionObjectOfBytes)) != 0) {
+		report.refused = "the collision object getter is not the game's own";
+		return report;
+	}
+	if (std::memcmp(reinterpret_cast<const void*>(kFilterRule), kFilterRuleBytes, sizeof(kFilterRuleBytes)) != 0) {
+		report.refused = "the collision rule at 008A7F70 is not the game's own";
+		return report;
+	}
+	const UInt32 walkerRoot = LooksLikeObject(walker) ? Read(walker + kRefNiNodeOffset) : 0;
+	const UInt32 corpseRoot = LooksLikeObject(corpse) ? Read(corpse + kRefNiNodeOffset) : 0;
+	if (!LooksLikeObject(walkerRoot) || !LooksLikeObject(corpseRoot)) {
+		report.refused = LooksLikeObject(walkerRoot) ? "the corpse has no model" : "the walker has no model";
+		return report;
+	}
+	UInt32 walkerFilters[kBoneCount];
+	for (UInt32 i = 0; i < kBoneCount; ++i) {
+		const UInt32 node = NodeOf(walkerRoot, kBones[i]);
+		const UInt32 wrapper = node != 0 ? WrapperOf(node) : 0;
+		if (wrapper != 0) {
+			walkerFilters[report.walkerBodies++] = FilterOf(wrapper);
+		}
+	}
+	if (report.walkerBodies == 0) {
+		report.refused = "the walker has no ragdoll bodies";
+		return report;
+	}
+	UInt32 tables[kFilterTableWords];
+	std::memcpy(tables, reinterpret_cast<const void*>(kFilterTables), sizeof(tables));
+	struct Move {
+		UInt32 wrapper;
+		UInt32 body;
+		UInt32 filter;
+	};
+	Move moves[kBoneCount];
+	UInt32 count = 0;
+	for (UInt32 i = 0; i < kBoneCount; ++i) {
+		const UInt32 node = NodeOf(corpseRoot, kBones[i]);
+		const UInt32 wrapper = node != 0 ? WrapperOf(node) : 0;
+		if (wrapper == 0) {
+			continue;
+		}
+		if (Read(Read(wrapper) + kRefreshFilterSlot) != kRefreshFilter) {
+			report.refused = "a corpse body's filter refresh is not the engine's 008B0060";
+			return report;
+		}
+		const UInt32 apart = ApartFilter(FilterOf(wrapper), walkerFilters[0]);
+		if (!KeptApart(walkerFilters, report.walkerBodies, apart, tables)) {
+			report.refused = "the engine's rule, on its live tables, would still let them meet";
+			return report;
+		}
+		moves[count++] = Move{wrapper, Read(wrapper + kWrapperBodyOffset), apart};
+	}
+	if (count == 0) {
+		report.refused = "the corpse has no ragdoll bodies";
+		return report;
+	}
+	{
+		Lock lock;
+		using RefreshFn = void(__fastcall*)(void* wrapper, void* edx);
+		for (UInt32 i = 0; i < count; ++i) {
+			*reinterpret_cast<UInt32*>(moves[i].body + kBodyFilterOffset) = moves[i].filter;
+			reinterpret_cast<RefreshFn>(kRefreshFilter)(reinterpret_cast<void*>(moves[i].wrapper), nullptr);
+		}
+	}
+	report.done = true;
+	report.corpseBodies = count;
+	report.group = walkerFilters[0] >> 16;
+	report.microseconds = MicrosecondsSince(start);
+	return report;
 }
 
 PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, bool firstLog, LogFn log,
@@ -373,6 +478,10 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	UInt32 count = 0;
 	char found[512] = {};
 	UInt32 foundUsed = 0;
+	// Each body's filter word, the walker's then the corpse's (0: none), for
+	// keeping the two ragdolls from colliding (spec 4.1).
+	char filters[768] = {};
+	UInt32 filtersUsed = 0;
 	for (UInt32 i = 0; i < kBoneCount; ++i) {
 		const UInt32 node = NodeOf(walkerRoot, kBones[i]);
 		const UInt32 wrapper = node != 0 ? WrapperOf(node) : 0;
@@ -386,6 +495,12 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		BoneSource source = SourceOf(mode, plan.ok, canRetarget);
 		if (source == BoneSource::Retargeted && !retarget.LaidOf(node, &laid, &turnedAsCorpse)) {
 			source = SourceOf(mode, plan.ok, false);
+		}
+		if (firstLog && filtersUsed + 40 < sizeof(filters)) {
+			filtersUsed += static_cast<UInt32>(std::snprintf(filters + filtersUsed, sizeof(filters) - filtersUsed,
+			                                                 "%s%s %08X/%08X", filtersUsed == 0 ? "" : ", ",
+			                                                 kBones[i] + 6, FilterOf(wrapper),
+			                                                 match != 0 ? FilterOf(WrapperOf(match)) : 0u));
 		}
 		if (firstLog && foundUsed + 40 < sizeof(found)) {
 			foundUsed += static_cast<UInt32>(std::snprintf(found + foundUsed, sizeof(found) - foundUsed, "%s%s%s",
@@ -416,6 +531,7 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	report.microseconds = MicrosecondsSince(start);
 	if (firstLog) {
 		log("Pose: the walker's ragdoll bodies on %s", foundUsed > 0 ? found : "none of the bones looked at");
+		log("Pose: the filters, the walker's/the corpse's: %s", filtersUsed > 0 ? filters : "none read");
 	}
 	return report;
 }

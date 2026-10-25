@@ -62,6 +62,11 @@ struct RiseSettings {
 	// ragdolls cannot collide while the walker settles (the suspect for its
 	// drift, 2026-10-25). The picture then shows neither for a moment.
 	bool hideCorpseAtPose = false;
+	// [Rise] KeepCorpseApart: the corpse's ragdoll bodies moved into the
+	// walker's collision group the moment the walker's model exists, so the
+	// unseen walker falls and settles through the corpse instead of being
+	// pushed off it (ApartLogic.h). Off until the runs show it holds.
+	bool keepCorpseApart = false;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
@@ -252,6 +257,15 @@ inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3
 		return kSwapRaise;
 	}
 	return kSwapWait;
+}
+
+// [Rise] KeepCorpseApart: the corpse's ragdoll is moved out of the walker's
+// way (ApartLogic.h) from the frame the walker's model exists - before it
+// is dropped onto the corpse - until it takes, while the two have not yet
+// changed places. Tried again each frame until done: the walker's bodies
+// may not be in the world the first frame.
+inline bool ApartDue(bool enabled, SwapStage stage, bool done) {
+	return enabled && !done && (stage == SwapStage::Dropped || stage == SwapStage::Posed);
 }
 
 // One of the ESP's walkers by the caller's random number; 0 without any.

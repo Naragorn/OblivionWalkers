@@ -24,6 +24,23 @@ struct PoseReport {
 	Vec3 corpseHead{0.0f, 0.0f, 0.0f};
 };
 
+struct ApartReport {
+	bool done = false;          // every corpse body moved into the walker's group
+	UInt32 walkerBodies = 0;    // the walker's ragdoll bodies read
+	UInt32 corpseBodies = 0;    // the corpse's ragdoll bodies moved over
+	UInt32 group = 0;           // the walker's collision group
+	const char* refused = "";  // why not, when not done
+	float microseconds = 0.0f;
+};
+
+// The corpse's ragdoll bodies moved into the walker's collision group, part
+// 0 (ApartLogic.h): each body's filter word written and handed to the world
+// (the wrapper's vtable +0x80, 0x008B0060: hkWorld::updateCollisionFilterOnEntity),
+// inside the Havok lock - but only when the engine's rule, on its live
+// tables, says no corpse body then meets any walker body. Both references
+// must have their 3D.
+ApartReport KeepCorpseApart(UInt32 walker, UInt32 corpse);
+
 // The pelvis's and the head's world positions of `ref` (game units); false
 // when it has no model or no pelvis. For the log: where a body lies.
 bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head);

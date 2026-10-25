@@ -39,6 +39,10 @@ add_executable(PoseLogicTest tests/PoseLogicTest.cpp)
 target_link_libraries(PoseLogicTest PRIVATE logic)
 add_test(NAME PoseLogicTest COMMAND PoseLogicTest)
 
+add_executable(ApartLogicTest tests/ApartLogicTest.cpp)
+target_link_libraries(ApartLogicTest PRIVATE logic)
+add_test(NAME ApartLogicTest COMMAND ApartLogicTest)
+
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)
 add_test(NAME PluginEntryTest COMMAND PluginEntryTest)

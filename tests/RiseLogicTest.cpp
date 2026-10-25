@@ -594,6 +594,20 @@ void TestChapels() {
 	Check(!walkers::SpawnedInChapel(true, true, false, true), "taken away already: not again");
 }
 
+void TestApartDue() {
+	std::printf("KeepCorpseApart - when the corpse is moved out of the walker's way\n");
+	using walkers::ApartDue;
+	using walkers::SwapStage;
+	Check(ApartDue(true, SwapStage::Dropped, false), "the walker's model there, dropping unseen: now");
+	Check(ApartDue(true, SwapStage::Posed, false), "laid, settling unseen, not yet done: still");
+	Check(!ApartDue(false, SwapStage::Dropped, false), "the setting off: never");
+	Check(!ApartDue(true, SwapStage::Dropped, true), "done for this walker: not again");
+	Check(!ApartDue(true, SwapStage::Placed, false) && !ApartDue(true, SwapStage::Loading, false),
+	      "no walker model yet: nothing to go by");
+	Check(!ApartDue(true, SwapStage::Lying, false) && !ApartDue(true, SwapStage::Done, false),
+	      "the two changed places: the corpse is gone");
+}
+
 void TestZombieDefaults() {
 	std::printf("The [Zombies] defaults\n");
 	walkers::RiseSettings settings;
@@ -603,6 +617,8 @@ void TestZombieDefaults() {
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
 	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=1.5 for MatchCorpse=2; the test switch HideCorpseAtPose off");
+	Check(!settings.keepCorpseApart,
+	      "[Rise] KeepCorpseApart=0 until the runs show it holds (the corpse's ragdoll out of the walker's)");
 	Check(settings.matchCorpse == 1 && settings.lieSeconds == 1.0f,
 	      "[Rise] MatchCorpse=1, the place (Nadi, 2026-10-25: back to 1 while the settling pose and the corpse "
 	      "push each other), LieSeconds=1");
@@ -622,6 +638,7 @@ int main() {
 	TestRisenLoot();
 	TestFame();
 	TestChapels();
+	TestApartDue();
 	TestZombieDefaults();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

@@ -74,6 +74,10 @@ UInt32 g_registerTries = 0;
 RisenWatch g_risen;
 bool g_risenWatching = false;
 Swap g_swap;
+// KeepCorpseApart: the walker whose corpse was moved out of its way, and the
+// one whose refusal was logged (once a swap).
+UInt32 g_apartWalker = 0;
+UInt32 g_apartRefusedFor = 0;
 UInt32 g_walkers[4] = {};
 UInt32 g_walkerCount = 0;
 bool g_walkersLooked = false;
@@ -579,6 +583,14 @@ bool TryRegisterDeath() {
 void RevealSwap() {
 	const UInt32 corpse = LookupForm(g_swap.corpseId);
 	const UInt32 zombie = LookupForm(g_swap.zombieId);
+	Vec3 corpsePelvis{};
+	Vec3 corpseHead{};
+	if (!g_settings.hideCorpseAtPose && PelvisAndHead(corpse, &corpsePelvis, &corpseHead)) {
+		// Where the corpse lies as it goes: against the pose's reading, whether
+		// the walker pushed it - or, kept apart, whether it sank.
+		g_log("Pose: the corpse at the reveal - pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", corpsePelvis.x,
+		      corpsePelvis.y, corpsePelvis.z, corpseHead.x, corpseHead.y, corpseHead.z);
+	}
 	const bool hidden = g_settings.hideCorpseAtPose || (LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable"));
 	const bool shown = LooksLikeObject(zombie) && ConsoleOn(zombie, "SetActorAlpha 1");
 	bool moved = false;
@@ -623,6 +635,22 @@ void StepSwapInFlight(float dt) {
 		         g_settings.lieSeconds < 0.0f ? 0.0f : g_settings.lieSeconds);
 	// Noted before its kill below: NoLoot never takes a risen walker.
 	NoteRisen(g_risenSet, g_swap.zombieId);
+	// The corpse out of the walker's way: before the walker is dropped onto
+	// it below, and each frame after until it takes.
+	if (ApartDue(g_settings.keepCorpseApart, g_swap.stage, g_apartWalker == g_swap.zombieId)) {
+		const ApartReport apart = KeepCorpseApart(LookupForm(g_swap.zombieId), LookupForm(g_swap.corpseId));
+		if (apart.done) {
+			g_apartWalker = g_swap.zombieId;
+			g_log("Apart: the corpse %08X's %u ragdoll bodies moved into walker %08X's collision group %04X, part 0 - "
+			      "the two cannot meet (%u walker bodies read, %.0f us)",
+			      g_swap.corpseId, apart.corpseBodies, g_swap.zombieId, apart.group, apart.walkerBodies,
+			      apart.microseconds);
+		} else if (g_apartRefusedFor != g_swap.zombieId) {
+			g_apartRefusedFor = g_swap.zombieId;
+			g_log("Apart: not yet for walker %08X - %s (asked again each frame until the two change places)",
+			      g_swap.zombieId, apart.refused);
+		}
+	}
 	if (events == kSwapFound) {
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
 		g_log("Swap: walker %08X exists on %08X (model %s) - waiting for its model before the kill", g_swap.zombieId,
