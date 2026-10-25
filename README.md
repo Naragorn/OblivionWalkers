@@ -47,3 +47,16 @@ Own folder for now; it becomes its own repository later.
   fix OBVR uses patches the one call that fires them (0x00477AB1); a second
   patch there would collide with OBVR's. Maybe later, through OBVR (a factor
   per walker handed over by plugin messaging) - the spec has the ways.
+
+## Known conflicts
+
+- **Maskar's Oblivion Overhaul (MOO): walkers that never stay dead.** MOO
+  gives every creature with a zombie model (`\Zombie\`) a brain in its
+  inventory (70 % by default) and raises a dead zombie again while it still
+  carries one (MOOAddZombieBrainFunctionScript and MOOTokenZombieScript in
+  its ESP). The walkers wear the zombie models, so MOO takes them for
+  zombies - and with `[Zombies] NoLoot=1` nobody can take the brain from the
+  corpse. Until the walkers get a head script of their own: set
+  `set MOO.ini_zombie_resurrect to 0` in `Maskar's Oblivion Overhaul.ini`.
+  MOO's own zombies stay down then too, its mummies still get up. Walkers
+  that already carry a brain in a save keep getting up.

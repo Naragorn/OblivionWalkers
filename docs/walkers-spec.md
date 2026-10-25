@@ -638,6 +638,21 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **Walkers get up again and again with MOO** (Nadi, Windows, 2026-10-25):
+  not the plugin - its death watch keeps a dead walker down ("stays down (not
+  a person)"). Maskar's Oblivion Overhaul, read in its ESP's script sources:
+  MOOInitNpcTokenForCreatureFunctionScript gives every creature whose model
+  path holds `\Zombie\` a brain (MOOZombieBrain, MOO's 0F8B6D) at
+  `ini_zombie_resurrect` percent (70), and MOOTokenZombieScript (token
+  MOOTokenZombie, 042C18) raises a dead zombie that still carries it
+  (`me.Resurrect 1`). The walkers are copies of CreatureZombie1..4 with their
+  models, and NoLoot keeps the brain out of reach. For now (Nadi): MOO's
+  `set MOO.ini_zombie_resurrect to 0` in both installs (done 2026-10-25),
+  noted in the README. The fix at the plugin is a head script of the
+  walkers' own, later (Nadi) - or taking MOO's brain and token off a dead
+  walker (small). Not seen in a log: the Windows log was not read (both NTFS
+  volumes were dirty after the crash of 2026-10-24 21:40).
+
 - **RESOLVED 2026-10-24 07:12** - the walker a few metres from the corpse, the man up again, old walkers raised: three causes, all measured (`rise-creature.txt` runs 3 to 5): the finder's radius missed the placed walker and matched old ones (now identity: the references before the PlaceAtMe against those after); a kill handed to the walker before its model existed left a "dead" body sliding at 400 units/s (the kill now waits for the model and lands in its first frame); and the two seconds of walking before the old finder gave up were the "few metres". The walker now drops within 40 units of the spot. The original entry, for the record:
 - **The walker appears a few metres from the corpse in Nadi's game, not on it**
   (2026-10-23 21:23, his log): "walker 10000801 asked for at 3268 9112 40" and
