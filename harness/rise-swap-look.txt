@@ -12,6 +12,13 @@
 # The plugin's log: "unseen (1), moved onto it (1)", "lies at ... in the
 # place of ... the corpse hidden (1), the walker shown (1)", "gets up".
 #
+# Results 2026-10-25 (artifacts/hand-script/rise-swap-look/):
+#   09:24 (20261025-092414) PASS: s09 and s10 the bandit's corpse alone
+#   while the walker settled unseen ("unseen (1), moved onto it (1)"), s11
+#   and s12 the walker lying in its place and the corpse gone ("the corpse
+#   hidden (1), the walker shown (1)"), s14 the walker up, s16 at the player,
+#   fully seen. It lay 58 units off the corpse's spot (its ragdoll slid).
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-swap-look.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

@@ -172,6 +172,18 @@ the zombie race's body?) is the one unknown left, and needs the ESP's race. Harn
 corpse stood up alive as the same reference), then `rise-walker.txt` (the
 plugin's rise, with the roster showing the clone base and the zombie race).
 
+The swap's look (built 2026-10-25, Nadi 2026-10-24: "die zombies fallen an
+deren stelle aus dem himmel auf den boden und stehen dann auf. besser wäre:
+zombie ersetzt direkt die leiche und steht dann auf"): the walker is made
+unseen (SetActorAlpha 0) in the frame its model appears, moved onto the
+corpse and killed; its ragdoll settles unseen while the corpse still lies.
+DropSeconds later the two change places in one frame - the corpse disabled,
+the walker shown (SetActorAlpha 1), the man's items on it - and after
+`[Rise] LieSeconds` (1) it gets up. `rise-swap-look.txt` PASS 2026-10-25
+09:24. The walker lies in its own ragdoll pose, not the corpse's, up to a
+few dozen units off (58 in the run); copying the pose bone by bone (Havok)
+would be medium to large, not built.
+
 ### 4.2 Walkers by name - `[Zombies] RenameToWalker=1`, `Name=Walker`
 
 What: every zombie, spawned or risen, is called "Walker" (or the name set).
@@ -597,6 +609,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
+| `rise-swap-look.txt` | the walker takes the corpse's place: it settles unseen, the two change places, it lies, it gets up (4.1) - PASS 2026-10-25 09:24, pictures a second apart | the plugin, the ESP active, timings by hand |
 | `rename.txt` | the walkers named Name, the game's zombies renamed with RenameVanilla=1 (4.2) - PASS 2026-10-24 21:31 | the plugin, the ESP active, RenameVanilla by hand |
 | `chapel-walker.txt` | a walker placed in a chapel is taken out of the world (4.7) - PASS 2026-10-24 21:21, 21:26 (made-there rule) |
 | `chapel-follow.txt` | a walker met outside and moved into a chapel stays (4.7) - PASS 2026-10-24 21:27 | the plugin, the ESP active | the plugin, the ESP active |
