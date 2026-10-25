@@ -1,7 +1,8 @@
 #pragma once
 
 // The walker taking the corpse's place, process-free (docs/walkers-spec.md
-// 4.1, the swap's look; Nadi, 2026-10-25: both ways, the pose by default).
+// 4.1, the swap's look; Nadi, 2026-10-25: both ways, the place by default while
+// the pose does not hold).
 // When the walker has settled unseen beside the corpse, its ragdoll's
 // bodies are laid where the corpse lies before the two change places:
 //
