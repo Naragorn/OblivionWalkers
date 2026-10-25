@@ -58,7 +58,10 @@ struct RiseSettings {
 	UInt8 matchCorpse = 2;
 	// [Rise] SettleSeconds: with MatchCorpse=2, how long the walker lies
 	// unseen in the corpse's pose before it is moved onto the corpse's place.
-	float settleSeconds = 1.5f;
+	// 0 (the default since the pose holds - every body laid, 2 and 5 degrees
+	// of drift in 1.5 s on 2026-10-25 18:39 and 18:40): shown the frame after
+	// its pose, no second placement.
+	float settleSeconds = 0.0f;
 	// [Rise] HideCorpseAtPose: a test switch, off - the corpse disabled when
 	// the walker is laid into its place rather than at the reveal, so the two
 	// ragdolls cannot collide while the walker settles (the suspect for its

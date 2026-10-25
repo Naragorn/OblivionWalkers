@@ -615,8 +615,9 @@ void TestZombieDefaults() {
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
-	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
-	      "[Rise] SettleSeconds=1.5 for MatchCorpse=2; the test switch HideCorpseAtPose off");
+	Check(settings.settleSeconds == 0.0f && !settings.hideCorpseAtPose,
+	      "[Rise] SettleSeconds=0 - the pose holds since every body is laid (Nadi, 2026-10-25: go); the test "
+	      "switch HideCorpseAtPose off");
 	Check(settings.keepCorpseApart,
 	      "[Rise] KeepCorpseApart=1 (Nadi, 2026-10-25: go after the runs of 18:04 to 18:09)");
 	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
