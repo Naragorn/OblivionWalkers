@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace {
 
@@ -178,8 +179,30 @@ void TestRetarget() {
 
 }  // namespace
 
+void TestCensus() {
+	std::printf("The body census - which nodes are nodes, which bodies the bone list misses\n");
+	Check(walkers::ClassIsNode("NiNode@@") && walkers::ClassIsNode("BSFadeNode@@") &&
+	          walkers::ClassIsNode("NiBillboardNode"),
+	      "NiNode, BSFadeNode, NiBillboardNode: nodes, with or without the RTTI tail");
+	Check(!walkers::ClassIsNode("NiTriShape@@") && !walkers::ClassIsNode("NiTriStrips@@"),
+	      "geometry: no children to read");
+	Check(!walkers::ClassIsNode("") && !walkers::ClassIsNode("Node@@") && !walkers::ClassIsNode("?"),
+	      "no name, a bare \"Node\", the unreadable \"?\": not taken for a node");
+	const char* const list[] = {"Bip01 Spine", "Bip01 Head"};
+	Check(walkers::NamedIn("Bip01 Head", list, 2) && !walkers::NamedIn("Bip01 Ponytail1", list, 2),
+	      "a name on the list, one off it");
+	Check(!walkers::NamedIn("bip01 head", list, 2), "the engine's names compare exactly");
+	Check(!walkers::NamedIn(nullptr, list, 2) && !walkers::NamedIn("Bip01 Head", list, 0),
+	      "no name, or an empty list: not on it");
+	Check(std::strcmp(walkers::ShortName("Bip01 NonAccum"), "NonAccum") == 0 &&
+	          std::strcmp(walkers::ShortName("SideWeapon"), "SideWeapon") == 0 &&
+	          std::strcmp(walkers::ShortName("Bip01"), "Bip01") == 0 && std::strcmp(walkers::ShortName(nullptr), "") == 0,
+	      "for the log: \"Bip01 \" dropped, other names as they are, none as empty");
+}
+
 int main() {
 	TestSetting();
+	TestCensus();
 	TestSource();
 	TestHeading();
 	TestPlace();

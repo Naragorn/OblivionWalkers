@@ -617,11 +617,11 @@ void TestZombieDefaults() {
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
 	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=1.5 for MatchCorpse=2; the test switch HideCorpseAtPose off");
-	Check(!settings.keepCorpseApart,
-	      "[Rise] KeepCorpseApart=0 until the runs show it holds (the corpse's ragdoll out of the walker's)");
-	Check(settings.matchCorpse == 1 && settings.lieSeconds == 1.0f,
-	      "[Rise] MatchCorpse=1, the place (Nadi, 2026-10-25: back to 1 while the settling pose and the corpse "
-	      "push each other), LieSeconds=1");
+	Check(settings.keepCorpseApart,
+	      "[Rise] KeepCorpseApart=1 (Nadi, 2026-10-25: go after the runs of 18:04 to 18:09)");
+	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
+	      "[Rise] MatchCorpse=2, the pose settled then placed, the corpse kept apart (Nadi, 2026-10-25: go), "
+	      "LieSeconds=1");
 }
 
 }  // namespace

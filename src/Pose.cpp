@@ -78,6 +78,12 @@ constexpr UInt32 kNodeLocalRotationOffset = 0x30;
 constexpr UInt32 kNodeLocalPositionOffset = 0x54;
 constexpr UInt32 kNodeLocalScaleOffset = 0x60;
 constexpr UInt32 kRefNiNodeOffset = 0x3C;
+// NiNode's children (OBVR GameAddresses.h, kNiChildrenOffset): the array at
+// +0xB0, the count beside it at +0xB6; holes in the array are normal.
+constexpr UInt32 kNodeChildrenOffset = 0xB0;
+constexpr UInt32 kNodeChildCountOffset = 0xB6;
+constexpr UInt32 kCensusDepth = 32;
+constexpr UInt32 kCensusNodes = 1024;
 constexpr float kHavokPerUnit = 0.142877f;
 constexpr UInt32 kTextStart = 0x00401000;
 constexpr UInt32 kTextEnd = 0x00A27C39;
@@ -85,8 +91,9 @@ constexpr UInt32 kTextEnd = 0x00A27C39;
 // calls it: mov eax, [esp+4]; push esi; mov esi, [eax+0xA8].
 constexpr UInt8 kCollisionObjectOfBytes[8] = {0x8B, 0x44, 0x24, 0x04, 0x56, 0x8B, 0xB0, 0xA8};
 
-// The bones of the human skeleton the ragdoll's bodies hang on, and some
-// more a walker's may carry; those with no body on the walker are skipped.
+// The bones of the human skeleton the ragdoll's bodies were taken to hang
+// on. The swap now takes every body on the skeleton (BodiesOf); the list
+// stays for the census, which names the bodies it misses.
 constexpr const char* kBones[] = {
 	"Bip01 Pelvis",     "Bip01 Spine",     "Bip01 Spine1",     "Bip01 Spine2",    "Bip01 Neck",
 	"Bip01 Head",       "Bip01 L Clavicle", "Bip01 R Clavicle", "Bip01 L UpperArm", "Bip01 L Forearm",
@@ -249,6 +256,96 @@ void Lay(UInt32 wrapper, const Vec3& pos, const Mat3& rot) {
 	reinterpret_cast<ActivateFn>(kActivateBody)(reinterpret_cast<void*>(body), nullptr);
 }
 
+// The class name from MSVC's RTTI (OBVR FirstPersonHide.cpp, ClassNameOf):
+// the vtable's complete-object locator at -4, its type descriptor at +0x0C,
+// the mangled ".?AVNiNode@@" at +0x08; "?" when it does not read.
+const char* ClassNameOf(UInt32 object) {
+	const UInt32 vtable = LooksLikeObject(object) ? Read(object) : 0;
+	const UInt32 locator = LooksLikeObject(vtable) ? Read(vtable - 4) : 0;
+	const UInt32 descriptor = LooksLikeObject(locator) ? Read(locator + 0x0C) : 0;
+	if (!LooksLikeObject(descriptor)) {
+		return "?";
+	}
+	const char* const mangled = reinterpret_cast<const char*>(descriptor + 0x08);
+	return mangled[0] == '.' && mangled[1] == '?' && mangled[2] == 'A' ? mangled + 4 : "?";
+}
+
+const char* NodeNameOf(UInt32 node) {
+	const UInt32 name = Read(node + kNodeNameOffset);
+	return LooksLikeObject(name) ? reinterpret_cast<const char*>(name) : "";
+}
+
+// Every body on a skeleton: the tree under the reference's root walked
+// down, each node asked for its body. The bone list (kBones) missed two the
+// census of 2026-10-25 18:29 found - "Bip01 NonAccum" on walker and corpse,
+// "SideWeapon" on the corpse - so the swap goes by the walk, not by names.
+struct BodyAt {
+	UInt32 node;
+	UInt32 wrapper;
+};
+constexpr UInt32 kBodiesMost = 48;
+
+struct Bodies {
+	BodyAt at[kBodiesMost];
+	UInt32 count = 0;
+	UInt32 nodes = 0;    // looked at
+	bool full = false;   // more bodies than kBodiesMost
+};
+
+void CollectBodies(UInt32 node, UInt32 depth, Bodies& bodies) {
+	if (!LooksLikeObject(node) || !LooksLikeObject(Read(node)) || bodies.nodes >= kCensusNodes) {
+		return;
+	}
+	++bodies.nodes;
+	const UInt32 wrapper = WrapperOf(node);
+	if (wrapper != 0) {
+		if (bodies.count < kBodiesMost) {
+			bodies.at[bodies.count++] = BodyAt{node, wrapper};
+		} else {
+			bodies.full = true;
+		}
+	}
+	if (depth >= kCensusDepth || !ClassIsNode(ClassNameOf(node))) {
+		return;
+	}
+	const UInt32 children = Read(node + kNodeChildrenOffset);
+	const UInt32 count = *reinterpret_cast<const UInt16*>(node + kNodeChildCountOffset);
+	if (!LooksLikeObject(children) || count > 512) {
+		return;
+	}
+	for (UInt32 i = 0; i < count; ++i) {
+		CollectBodies(Read(children + 4 * i), depth + 1, bodies);
+	}
+}
+
+void BodiesOf(UInt32 root, Bodies& bodies) {
+	bodies.count = 0;
+	bodies.nodes = 0;
+	bodies.full = false;
+	CollectBodies(root, 0, bodies);
+}
+
+UInt32 FilterOf(UInt32 wrapper);
+
+// The census for the log: how many bodies, how many the old bone list
+// names, and the others with their filter words.
+void LogCensus(const char* whose, const Bodies& bodies, LogFn log) {
+	char off[384] = {};
+	UInt32 used = 0;
+	UInt32 listed = 0;
+	for (UInt32 i = 0; i < bodies.count; ++i) {
+		const char* const name = NodeNameOf(bodies.at[i].node);
+		if (NamedIn(name, kBones, kBoneCount)) {
+			++listed;
+		} else if (used + 48 < sizeof(off)) {
+			used += static_cast<UInt32>(std::snprintf(off + used, sizeof(off) - used, "%s%.24s %08X",
+			                                          used == 0 ? "" : ", ", name, FilterOf(bodies.at[i].wrapper)));
+		}
+	}
+	log("Pose: %s skeleton carries %u bodies%s, %u on the bone list; off it: %s (%u nodes looked at)", whose,
+	    bodies.count, bodies.full ? " (more not taken)" : "", listed, used > 0 ? off : "none", bodies.nodes);
+}
+
 // The collision filter word of the wrapper's body; 0 when it has none.
 UInt32 FilterOf(UInt32 wrapper) {
 	const UInt32 body = wrapper != 0 ? Read(wrapper + kWrapperBodyOffset) : 0;
@@ -347,13 +444,13 @@ ApartReport KeepCorpseApart(UInt32 walker, UInt32 corpse) {
 		report.refused = LooksLikeObject(walkerRoot) ? "the corpse has no model" : "the walker has no model";
 		return report;
 	}
-	UInt32 walkerFilters[kBoneCount];
-	for (UInt32 i = 0; i < kBoneCount; ++i) {
-		const UInt32 node = NodeOf(walkerRoot, kBones[i]);
-		const UInt32 wrapper = node != 0 ? WrapperOf(node) : 0;
-		if (wrapper != 0) {
-			walkerFilters[report.walkerBodies++] = FilterOf(wrapper);
-		}
+	static Bodies walkerBodies;
+	static Bodies corpseBodies;
+	BodiesOf(walkerRoot, walkerBodies);
+	BodiesOf(corpseRoot, corpseBodies);
+	UInt32 walkerFilters[kBodiesMost];
+	for (UInt32 i = 0; i < walkerBodies.count; ++i) {
+		walkerFilters[report.walkerBodies++] = FilterOf(walkerBodies.at[i].wrapper);
 	}
 	if (report.walkerBodies == 0) {
 		report.refused = "the walker has no ragdoll bodies";
@@ -366,14 +463,10 @@ ApartReport KeepCorpseApart(UInt32 walker, UInt32 corpse) {
 		UInt32 body;
 		UInt32 filter;
 	};
-	Move moves[kBoneCount];
+	Move moves[kBodiesMost];
 	UInt32 count = 0;
-	for (UInt32 i = 0; i < kBoneCount; ++i) {
-		const UInt32 node = NodeOf(corpseRoot, kBones[i]);
-		const UInt32 wrapper = node != 0 ? WrapperOf(node) : 0;
-		if (wrapper == 0) {
-			continue;
-		}
+	for (UInt32 i = 0; i < corpseBodies.count; ++i) {
+		const UInt32 wrapper = corpseBodies.at[i].wrapper;
 		if (Read(Read(wrapper) + kRefreshFilterSlot) != kRefreshFilter) {
 			report.refused = "a corpse body's filter refresh is not the engine's 008B0060";
 			return report;
@@ -448,8 +541,14 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		                 targetGiven ? *headTarget : report.corpseHead);
 	}
 	report.planOk = plan.ok;
+	static Bodies walkerBodies;
+	BodiesOf(walkerRoot, walkerBodies);
 	if (firstLog && LooksLikeObject(corpseRoot)) {
 		LogBoneAxes(walkerRoot, corpseRoot, log);
+		static Bodies corpseBodies;
+		BodiesOf(corpseRoot, corpseBodies);
+		LogCensus("the walker's", walkerBodies, log);
+		LogCensus("the corpse's", corpseBodies, log);
 	}
 	if (walkerPelvis != 0 && corpsePelvis != 0) {
 		const Vec3 wp = PositionOf(walkerPelvis);
@@ -474,7 +573,7 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	                      ? BoneFrame{WorldOf(corpsePelvis).rot, PositionOf(corpsePelvis), WorldOf(walkerPelvis).scale}
 	                      : BoneFrame{IdentityMat(), Vec3{0.0f, 0.0f, 0.0f}, 1.0f});
 	const bool canRetarget = walkerPelvis != 0 && corpsePelvis != 0;
-	Laying layings[kBoneCount];
+	Laying layings[kBodiesMost];
 	UInt32 count = 0;
 	char found[512] = {};
 	UInt32 foundUsed = 0;
@@ -482,14 +581,12 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	// keeping the two ragdolls from colliding (spec 4.1).
 	char filters[768] = {};
 	UInt32 filtersUsed = 0;
-	for (UInt32 i = 0; i < kBoneCount; ++i) {
-		const UInt32 node = NodeOf(walkerRoot, kBones[i]);
-		const UInt32 wrapper = node != 0 ? WrapperOf(node) : 0;
-		if (wrapper == 0) {
-			continue;
-		}
+	for (UInt32 i = 0; i < walkerBodies.count; ++i) {
+		const UInt32 node = walkerBodies.at[i].node;
+		const UInt32 wrapper = walkerBodies.at[i].wrapper;
+		const char* const name = NodeNameOf(node);
 		++report.bodies;
-		const UInt32 match = NodeOf(corpseRoot, kBones[i]);
+		const UInt32 match = name[0] != '\0' ? NodeOf(corpseRoot, name) : 0;
 		BoneFrame laid{};
 		bool turnedAsCorpse = false;
 		BoneSource source = SourceOf(mode, plan.ok, canRetarget);
@@ -498,13 +595,13 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		}
 		if (firstLog && filtersUsed + 40 < sizeof(filters)) {
 			filtersUsed += static_cast<UInt32>(std::snprintf(filters + filtersUsed, sizeof(filters) - filtersUsed,
-			                                                 "%s%s %08X/%08X", filtersUsed == 0 ? "" : ", ",
-			                                                 kBones[i] + 6, FilterOf(wrapper),
+			                                                 "%s%.24s %08X/%08X", filtersUsed == 0 ? "" : ", ",
+			                                                 ShortName(name), FilterOf(wrapper),
 			                                                 match != 0 ? FilterOf(WrapperOf(match)) : 0u));
 		}
 		if (firstLog && foundUsed + 40 < sizeof(found)) {
-			foundUsed += static_cast<UInt32>(std::snprintf(found + foundUsed, sizeof(found) - foundUsed, "%s%s%s",
-			                                               foundUsed == 0 ? "" : ", ", kBones[i] + 6,
+			foundUsed += static_cast<UInt32>(std::snprintf(found + foundUsed, sizeof(found) - foundUsed, "%s%.24s%s",
+			                                               foundUsed == 0 ? "" : ", ", ShortName(name),
 			                                               match != 0 ? "" : " (not on the corpse)"));
 		}
 		if (source == BoneSource::Leave) {

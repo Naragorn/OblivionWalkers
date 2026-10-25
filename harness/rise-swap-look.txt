@@ -21,6 +21,10 @@
 #   18:04, 18:06, 18:08, 18:09 PASS with [Rise] KeepCorpseApart=1 (MatchCorpse
 #   1, 2, 1, 2; the numbers in docs/walkers-spec.md 4.1): the corpse's
 #   bodies in the walker's group every time, no body through the floor.
+#   18:29, 18:30 PASS with the new defaults (MatchCorpse=2, KeepCorpseApart=1).
+#   18:34, 18:35, 18:37 (MatchCorpse=1), 18:39, 18:40 (defaults) PASS with
+#   every body on the skeleton taken: the walker 0 to 1 unit and 0 to 2
+#   degrees off the corpse at the raise, the corpse not moved.
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-swap-look.txt --headless \

@@ -123,14 +123,14 @@ bool ReadSettings(walkers::Settings* settings) {
 	if (rise.dropSeconds < 0.0f) {
 		rise.dropSeconds = 0.0f;
 	}
-	const int match = GetPrivateProfileIntA("Rise", "MatchCorpse", 1, path);
+	const int match = GetPrivateProfileIntA("Rise", "MatchCorpse", 2, path);
 	rise.matchCorpse = static_cast<UInt8>(walkers::MatchCorpseFrom(match));
 	rise.settleSeconds = IniFloat("Rise", "SettleSeconds", 1.5f, path);
 	if (!(rise.settleSeconds >= 0.0f)) {
 		rise.settleSeconds = 0.0f;
 	}
 	rise.hideCorpseAtPose = GetPrivateProfileIntA("Rise", "HideCorpseAtPose", 0, path) != 0;
-	rise.keepCorpseApart = GetPrivateProfileIntA("Rise", "KeepCorpseApart", 0, path) != 0;
+	rise.keepCorpseApart = GetPrivateProfileIntA("Rise", "KeepCorpseApart", 1, path) != 0;
 	rise.lieSeconds = IniFloat("Rise", "LieSeconds", 1.0f, path);
 	if (rise.lieSeconds < 0.0f) {
 		rise.lieSeconds = 0.0f;

@@ -52,8 +52,10 @@ struct RiseSettings {
 	// default; the place (1) by default while the pose alone did not hold;
 	// the settled pose (2) again once settle-then-place held (13:31); the
 	// place (1) again after the settling pose and the corpse pushed each
-	// other (13:48) - until the two ragdolls cannot collide.
-	UInt8 matchCorpse = 1;
+	// other (13:48) - until the two ragdolls cannot collide; the settled pose
+	// (2) once they could not (KeepCorpseApart, the runs of 18:06 and 18:09:
+	// 4 units off the corpse's spot both times).
+	UInt8 matchCorpse = 2;
 	// [Rise] SettleSeconds: with MatchCorpse=2, how long the walker lies
 	// unseen in the corpse's pose before it is moved onto the corpse's place.
 	float settleSeconds = 1.5f;
@@ -65,8 +67,9 @@ struct RiseSettings {
 	// [Rise] KeepCorpseApart: the corpse's ragdoll bodies moved into the
 	// walker's collision group the moment the walker's model exists, so the
 	// unseen walker falls and settles through the corpse instead of being
-	// pushed off it (ApartLogic.h). Off until the runs show it holds.
-	bool keepCorpseApart = false;
+	// pushed off it (ApartLogic.h). On since the runs of 2026-10-25 18:04 to
+	// 18:09 (Nadi: go).
+	bool keepCorpseApart = true;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

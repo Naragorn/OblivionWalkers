@@ -1,8 +1,8 @@
 #pragma once
 
 // The walker taking the corpse's place, process-free (docs/walkers-spec.md
-// 4.1, the swap's look; Nadi, 2026-10-25: both ways; by default the place,
-// while the settling pose and the corpse push each other).
+// 4.1, the swap's look; Nadi, 2026-10-25: both ways; by default the pose,
+// settled unseen with the corpse kept apart, then placed).
 // When the walker has settled unseen beside the corpse, its ragdoll's
 // bodies are laid where the corpse lies before the two change places:
 //
@@ -24,6 +24,7 @@
 // by rotation * point.
 
 #include <cmath>
+#include <cstring>
 
 #include "Types.h"
 
@@ -63,13 +64,55 @@ inline Vec3 Mul(const Mat3& a, const Vec3& v) {
 	            a.m[2][0] * v.x + a.m[2][1] * v.y + a.m[2][2] * v.z};
 }
 
-// [Rise] MatchCorpse: 0 the walker lies where it fell, 1 (the default) moved
-// and turned onto the corpse's spot, 2 the corpse's pose, settled, then moved
-// and turned onto the corpse's spot.
+// [Rise] MatchCorpse: 0 the walker lies where it fell, 1 moved and turned
+// onto the corpse's spot, 2 (the default) the corpse's pose, settled, then
+// moved and turned onto the corpse's spot.
 enum class MatchCorpse : UInt8 { Off = 0, Place = 1, Pose = 2 };
 
 inline MatchCorpse MatchCorpseFrom(int value) {
 	return value <= 0 ? MatchCorpse::Off : (value == 1 ? MatchCorpse::Place : MatchCorpse::Pose);
+}
+
+// The body census (spec 4.1: the place alone still turned the walker 80
+// degrees in one run of two with nothing to push it - are there bodies the
+// bone list misses?). Whether an object's class, by its MSVC RTTI name
+// (with or without the "@@" tail), is a node that keeps children: every
+// NetImmerse node class ends in "Node" - NiNode, BSFadeNode,
+// NiBillboardNode - and geometry does not (OBVR FirstPersonHide.cpp,
+// ClassIsNode). A bare "Node" is no class of the engine's.
+inline bool ClassIsNode(const char* className) {
+	if (className == nullptr) {
+		return false;
+	}
+	UInt32 length = 0;
+	while (className[length] != '\0' && length < 96) {
+		++length;
+	}
+	while (length > 0 && className[length - 1] == '@') {
+		--length;
+	}
+	return length > 4 && std::strncmp(className + length - 4, "Node", 4) == 0;
+}
+
+// Whether `name` is one of `list` - the engine's node names, exactly.
+inline bool NamedIn(const char* name, const char* const* list, UInt32 count) {
+	if (name == nullptr) {
+		return false;
+	}
+	for (UInt32 i = 0; i < count; ++i) {
+		if (std::strcmp(name, list[i]) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// A node's name for the log: "Bip01 " dropped, others as they are.
+inline const char* ShortName(const char* name) {
+	if (name == nullptr) {
+		return "";
+	}
+	return std::strncmp(name, "Bip01 ", 6) == 0 ? name + 6 : name;
 }
 
 // What one of the walker's ragdoll bodies takes: left as it fell, moved and
