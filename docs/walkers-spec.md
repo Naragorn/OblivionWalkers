@@ -12,9 +12,9 @@ v2.6) and 28 Days and a Bit 4 (Oblivion, 2010-2014), done where those two
 could not go: in a native xOBSE plugin. Spawns become walkers, the fallen get
 up, cities get besieged, and every piece has a switch.
 
-It lives beside OBVR and does not need it. One feature (headshots only, 4.10)
-needs the hit's place on the body, which only OBVR knows; it is off without
-OBVR.
+It lives beside OBVR and does not need it. Two features need what only OBVR
+knows: headshots only (4.10) the hit's place on the body, and the end by a
+lost head (4.17) OBVR's cut; both are off without OBVR.
 
 Why a plugin and not a script mod: both predecessors ran on scripts, and the
 comment threads say what that cost. Zombie Walkers 2.6.3's resurrection
@@ -606,6 +606,81 @@ Nadi decides.
 
 Cost: **medium** (was given as small before the patch conflict was read).
 
+### 4.17 Only a lost head ends a walker - `[Zombies] DieOnlyBeheaded=1`, `RiseAgainSeconds=20`, `RiseAgainJitterSeconds=10`
+
+What (Nadi, 2026-10-25: "walker nur sterben wenn geköpft. default an.
+ansonsten resurrect[en] die immer"): a walker that falls gets up again, every
+time, until its head is cut off. Every walker: the replaced spawns (4.6), the
+extra spawns (4.13) and the risen (4.1). It is the walkers' own answer to
+MOO's zombie resurrect (7a), which stays off.
+
+How (Proposed, nothing built):
+
+1. **Down, then up.** The death watch (built) notes a walker's death and puts
+   it on 4.1's waiting list (co-save) with `RiseAgainSeconds` plus a random
+   share of `RiseAgainJitterSeconds`. When its time comes the plugin raises
+   the same reference with the engine's Resurrect(1, has3D, animate=1) - the
+   call 4.1 uses, measured on a zombie creature (section 7, question 7). No
+   swap and no clone: it is a walker already. Its health comes back with the
+   resurrect (4.5's share stays on the record).
+2. **The head.** OBVR cuts heads off (OBVR `docs/dismemberment-spec.md`,
+   designed 2026-10-25, not built): on the blow that kills, with a blade or
+   an axe fast enough on the neck, and on a corpse's neck at any time. OBVR
+   tells other plugins of each cut through OBSE's plugin messaging (the
+   actor's reference and the part; the same channel 4.10 planned). A walker
+   whose head is off leaves the waiting list for good and is noted dead in
+   the co-save; the head stays off through OBVR's own co-save.
+3. **The way to end one**, follows from 1 and 2: down a walker with anything,
+   then take its head off before it gets up - or take it off with the
+   blow that downs it.
+4. **Order.** OBVR cuts once it sees the death, so its message comes after
+   the death watch, and the rise is seconds later: the cut lands in time. A
+   cut for a walker not on the list (already ended, or never a walker) is
+   ignored.
+5. **Without a head cutter the feature stands down.** No OBVR, OBVR with
+   `Dismemberment=0`, or an OBVR that sends no cuts: walkers die as they do
+   today, and one log line says why. OBVR tells at its start (and after an
+   INI reload) whether it cuts. Proposed because default on would otherwise
+   make every walker immortal in flat play, and in VR until OBVR's cut
+   exists. Nadi decides (decision b).
+6. **The others.**
+   - 4.15 NoLoot: the corpse is set destroyed only at the end for good (the
+     cut), not at each fall; whether a destroyed reference can be raised is
+     not read, so the plugin never tries it.
+   - 4.8 Fame: counts the ends, not the falls.
+   - 4.10 HeadshotsOnly: a different rule (body hits do no harm); both can be
+     on - then only head hits drop a walker and only a cut ends it.
+   - Unloaded cells: a walker due while its cell is unloaded gets up when the
+     cell loads, as 4.1's waiting list does.
+
+Decisions for Nadi:
+
+a. **Maces, hammers, arrows, spells never end a walker** (only an edge cuts).
+   Proposed: a killing blow to the head with a blunt weapon counts as an end
+   too (OBVR knows the part hit, `BodyPart` Head; a second kind of message,
+   "head destroyed", no cut shown) - cheap once the message exists. Arrows
+   and spells: no part is known, they only drop a walker.
+b. **Flat play:** stand down (5, recommended: no rule without a head), or a
+   flat stand-in (a power attack's kill ends it) that has nothing to do with
+   the head.
+c. **"Immer":** no cap on the rises (as said). A cap would be one number in
+   the co-save per walker.
+
+Cost: **small** here - the death watch, the waiting list, the resurrect and
+the co-save are built; new are the message receiver, the stand-down check
+and the NoLoot and Fame ordering. The cut itself is OBVR's, **medium to
+large** and not built; the message in OBVR is cheap. Until then the feature
+stands down (5).
+
+Tests: pure - a walker's death goes on the list, a person's does not (4.1
+decides those); a cut takes it off, a late or foreign cut is ignored; no
+cutter: nothing goes on the list. Harness with a stand-in for OBVR's
+message (a debug console command on the plugin's opcode base 0x2B00 that
+hands the plugin a cut for a reference): a walker killed with `kill` gets
+up after the delay; killed again and given the cut, it stays down and
+cannot be looted; with the stand-in off it dies as before and the log says
+so. Then with OBVR: the corpse cut of OBVR's spec.
+
 ### Later (named by Nadi, not in the first build)
 
 - Barricades (28 Days' door locks by Security skill, walkers breaking them).
@@ -686,6 +761,8 @@ roster line's counts.
 4. Whether created base forms can be destroyed when their reference is gone.
    Decides whether the cap in 4.1 is temporary.
 5. OBVR's hit-place message (4.10) - a change in OBVR too.
+   The cut message of 4.17 is the same channel, and needs OBVR's
+   dismemberment (OBVR docs/dismemberment-spec.md, not built).
 6. The skill-use entry point (4.3) - when its phase comes.
 7. Does a zombie creature get up from its ragdoll with Resurrect(1, has3D, 1)
    as a person does? **Yes** (`rise-creature-proof.txt` run 3, 2026-10-23 20:35:
