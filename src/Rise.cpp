@@ -1,6 +1,7 @@
 #include "Rise.h"
 
 #include "Engine.h"
+#include "Pose.h"
 #include "Replace.h"
 
 #include <windows.h>
@@ -621,6 +622,18 @@ void StepSwapInFlight(float dt) {
 		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
 		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, killed ? 1 : 0,
 		      LooksLikeObject(zombie) && IsActor(zombie) && IsDead(zombie) ? 1 : 0, g_swap.corpseId);
+	} else if (events == kSwapPose) {
+		// Laid into the corpse's place and pose while still unseen; the reveal
+		// waits a frame for the nodes to follow the bodies.
+		static bool s_logged = false;
+		const MatchCorpse mode = MatchCorpseFrom(g_settings.matchCorpse);
+		const PoseReport pose =
+			MatchWalkerToCorpse(LookupForm(g_swap.zombieId), LookupForm(g_swap.corpseId), mode, !s_logged, g_log);
+		s_logged = s_logged || pose.bodies > 0;
+		g_log("Swap: walker %08X laid into the place of %08X (MatchCorpse=%u) - %u bodies: %u in the corpse's pose, %u "
+		      "moved and turned%s, %u left; %.0f us",
+		      g_swap.zombieId, g_swap.corpseId, static_cast<UInt32>(g_settings.matchCorpse), pose.bodies, pose.copied,
+		      pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds);
 	} else if (events == kSwapReveal) {
 		// The two change places in one frame: the corpse hidden, the walker
 		// shown lying where it settled, the man's items on it.

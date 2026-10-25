@@ -46,6 +46,10 @@ struct RiseSettings {
 	// Seconds the walker lies in the corpse's place, seen, before it gets up
 	// (Nadi, 2026-10-24: it should take the corpse's place, then get up).
 	float lieSeconds = 1.0f;
+	// [Rise] MatchCorpse (PoseLogic.h): 0 the walker lies where it fell, 1
+	// moved and turned onto the corpse's spot, 2 every bone in the corpse's
+	// pose (Nadi, 2026-10-25: both, the pose by default).
+	UInt8 matchCorpse = 2;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
@@ -96,13 +100,14 @@ inline UInt16 WalkInsteadOfRun(UInt16 flags) {
 // 2026-10-23 20:57 took more than two seconds for a zombie's first load),
 // dropped (the model is there and the walker made unseen and killed in that
 // very frame, before its AI takes a step; its ragdoll settles unseen beside
-// the corpse, which still lies there), lying (the two changed places: the
+// the corpse, which still lies there), posed (laid into the corpse's place
+// and pose, still unseen - PoseLogic.h), lying (the two changed places: the
 // corpse hidden, the walker shown where it lay, LieSeconds before it gets
 // up - Nadi, 2026-10-24: the walker fell onto the spot from above, it should
 // take the corpse's place instead), done. A kill before the model exists leaves a "dead" walker sliding at
 // walking speed (the trace of 2026-10-24 07:10: 400 units/s in a line), so
 // the kill waits for the model.
-enum class SwapStage : UInt8 { Placed, Loading, Dropped, Lying, Done };
+enum class SwapStage : UInt8 { Placed, Loading, Dropped, Posed, Lying, Done };
 
 struct Swap {
 	bool active = false;
@@ -154,7 +159,8 @@ enum : UInt32 {
 	kSwapWait = 0,      // nothing this frame
 	kSwapFound = 1,        // the walker's reference is there, its model on the way
 	kSwapDropUnseen = 2,   // its model is there: make it unseen and kill it this frame, the corpse stays
-	kSwapReveal = 32,      // the ragdoll settled: hide the corpse, show the walker, move the items over
+	kSwapPose = 64,        // the ragdoll settled: lay the unseen walker into the corpse's place (MatchCorpse)
+	kSwapReveal = 32,      // a frame on, its bones moved: hide the corpse, show the walker, move the items over
 	kSwapGaveUp = 4,    // no reference appeared in time: the man gets up as himself
 	kSwapRaise = 8,     // it lay long enough in the corpse's place: raise it
 	kSwapAbandon = 16,  // the model never came: hide the walker, the man gets up as himself
@@ -200,6 +206,14 @@ inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3
 		return kSwapWait;
 	}
 	if (swap.stage == SwapStage::Dropped && swap.seconds >= dropSeconds) {
+		swap.stage = SwapStage::Posed;
+		swap.seconds = 0.0f;
+		return kSwapPose;
+	}
+	// One frame between the pose and the reveal: the nodes follow the moved
+	// bodies with the next physics step, so the walker is never seen in the
+	// pose it fell in.
+	if (swap.stage == SwapStage::Posed) {
 		swap.stage = SwapStage::Lying;
 		swap.seconds = 0.0f;
 		return kSwapReveal;

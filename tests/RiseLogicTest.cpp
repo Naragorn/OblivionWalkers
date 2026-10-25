@@ -260,9 +260,12 @@ void TestSwap() {
 	      "the model is there: made unseen and killed, the corpse still lying, the clock restarts");
 	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
 	      "the unseen ragdoll settling: wait");
-	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 1.0f) == walkers::kSwapReveal &&
+	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 1.0f) == walkers::kSwapPose &&
+	          swap.stage == walkers::SwapStage::Posed && swap.active,
+	      "DropSeconds over: the unseen walker laid into the corpse's place and pose (MatchCorpse)");
+	Check(walkers::StepSwap(swap, 0.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapReveal &&
 	          swap.stage == walkers::SwapStage::Lying && swap.seconds == 0.0f && swap.active,
-	      "DropSeconds over: the corpse hidden, the walker shown where it lay, the items over");
+	      "the next frame, its bones moved: the corpse hidden, the walker shown, the items over");
 	Check(walkers::StepSwap(swap, 0.9f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
 	      "the walker lying in the corpse's place: wait");
 	Check(walkers::StepSwap(swap, 0.1f, 0, true, 1.5f, 1.0f) == walkers::kSwapRaise && !swap.active &&
@@ -292,8 +295,10 @@ void TestSwap() {
 	      "found at once, model there: still one frame for the kill");
 	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapDropUnseen,
 	      "the next frame: unseen and killed");
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapPose,
+	      "DropSeconds=0: laid into the corpse's place the frame after");
 	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapReveal,
-	      "DropSeconds=0: shown the frame after");
+	      "and shown the frame after that");
 	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapRaise,
 	      "LieSeconds=0: up the frame after that");
 
@@ -572,6 +577,8 @@ void TestZombieDefaults() {
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
+	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
+	      "[Rise] MatchCorpse=2, the corpse's pose (Nadi, 2026-10-25), LieSeconds=1");
 }
 
 }  // namespace

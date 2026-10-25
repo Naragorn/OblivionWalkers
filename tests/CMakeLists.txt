@@ -17,7 +17,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 enable_testing()
 
-foreach(name RiseLogicTest ReplaceLogicTest PluginEntryTest)
+foreach(name RiseLogicTest ReplaceLogicTest PluginEntryTest PoseLogicTest)
 	add_executable(${name} ${name}.cpp ../src/PluginEntry.cpp)
 	target_include_directories(${name} PRIVATE ../src)
 	target_compile_options(${name} PRIVATE -Wall -Wextra)
