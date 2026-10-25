@@ -8,9 +8,9 @@
 // - Place (MatchCorpse=1): the whole walker moved so its pelvis lies on the
 //   corpse's, and turned about the vertical so its head points the way the
 //   corpse's does. The limbs keep the walker's own fall.
-// - Pose (MatchCorpse=2): every body on a bone the corpse has too takes that
-//   bone's place and turn - the corpse's pose; a body on a bone the corpse
-//   lacks is moved and turned as in Place, so the body holds together.
+// - Pose (MatchCorpse=2): the walker's pelvis laid on the corpse's, and
+//   every bone below retargeted from it - turned as the corpse's bone of the
+//   same name, placed at the walker's own bone length (Retargeted).
 //
 // A body's place is its node's world transform: the engine's own
 // node-to-Havok push (0x0089EAE0) hands the node's world translation and
@@ -67,15 +67,18 @@ inline MatchCorpse MatchCorpseFrom(int value) {
 	return value <= 0 ? MatchCorpse::Off : (value == 1 ? MatchCorpse::Place : MatchCorpse::Pose);
 }
 
-// What one of the walker's ragdoll bodies takes.
-enum class BoneSource : UInt8 { Leave, Placed, Copied };
+// What one of the walker's ragdoll bodies takes: left as it fell, moved and
+// turned with the whole (Place), or retargeted down from the pelvis (Pose) -
+// which needs both pelvises; without them the pose falls back to the place,
+// and without a plan either the body is left.
+enum class BoneSource : UInt8 { Leave, Placed, Retargeted };
 
-inline BoneSource SourceOf(MatchCorpse mode, bool planOk, bool corpseHasBone) {
+inline BoneSource SourceOf(MatchCorpse mode, bool planOk, bool canRetarget) {
 	if (mode == MatchCorpse::Off) {
 		return BoneSource::Leave;
 	}
-	if (mode == MatchCorpse::Pose && corpseHasBone) {
-		return BoneSource::Copied;
+	if (mode == MatchCorpse::Pose && canRetarget) {
+		return BoneSource::Retargeted;
 	}
 	return planOk ? BoneSource::Placed : BoneSource::Leave;
 }
@@ -128,6 +131,39 @@ inline void Placed(const PlacePlan& plan, const Vec3& pos, const Mat3& rot, Vec3
 	const Vec3 turned = Mul(plan.turn, offset);
 	*outPos = Vec3{turned.x + plan.to.x, turned.y + plan.to.y, turned.z + plan.to.z};
 	*outRot = Mul(plan.turn, rot);
+}
+
+// A bone's transform as Gamebryo keeps it, local (to its parent) or world.
+struct BoneFrame {
+	Mat3 rot;
+	Vec3 pos;
+	float scale;
+};
+
+// A child's world transform from its parent's world and its own local one
+// (NiAVObject's world update): the offset turned and scaled by the parent,
+// the turns composed, the scales multiplied.
+inline BoneFrame ChildWorld(const BoneFrame& parent, const BoneFrame& local) {
+	const Vec3 offset = Mul(parent.rot, Vec3{local.pos.x * parent.scale, local.pos.y * parent.scale,
+	                                         local.pos.z * parent.scale});
+	return BoneFrame{Mul(parent.rot, local.rot),
+	                 Vec3{parent.pos.x + offset.x, parent.pos.y + offset.y, parent.pos.z + offset.z},
+	                 parent.scale * local.scale};
+}
+
+// The pose by retargeting (MatchCorpse=2, rebuilt 2026-10-25 after the
+// first build laid each body on the human bone's own place and the walker's
+// joints, of other lengths, pulled the body 55 degrees round within three
+// seconds): a bone is placed by its parent's laid transform and its own
+// local offset - the walker's bone length - and turned as the corpse's bone
+// of the same name is (`sourceRot`), or, where the corpse has none, as the
+// walker's skeleton carries it.
+inline BoneFrame Retargeted(const BoneFrame& parentLaid, const BoneFrame& local, const Mat3* sourceRot) {
+	BoneFrame laid = ChildWorld(parentLaid, local);
+	if (sourceRot != nullptr) {
+		laid.rot = *sourceRot;
+	}
+	return laid;
 }
 
 // A rotation as a unit quaternion in Havok's order (x, y, z, w), by the

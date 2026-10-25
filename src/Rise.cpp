@@ -630,10 +630,10 @@ void StepSwapInFlight(float dt) {
 		const PoseReport pose =
 			MatchWalkerToCorpse(LookupForm(g_swap.zombieId), LookupForm(g_swap.corpseId), mode, !s_logged, g_log);
 		s_logged = s_logged || pose.bodies > 0;
-		g_log("Swap: walker %08X laid into the place of %08X (MatchCorpse=%u) - %u bodies: %u in the corpse's pose, %u "
-		      "moved and turned%s, %u left; %.0f us",
+		g_log("Swap: walker %08X laid into the place of %08X (MatchCorpse=%u) - %u bodies: %u turned as the corpse's "
+		      "bones, %u carried along, %u moved and turned whole%s, %u left; %.0f us",
 		      g_swap.zombieId, g_swap.corpseId, static_cast<UInt32>(g_settings.matchCorpse), pose.bodies, pose.copied,
-		      pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds);
+		      pose.carried, pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds);
 	} else if (events == kSwapReveal) {
 		// The two change places in one frame: the corpse hidden, the walker
 		// shown lying where it settled, the man's items on it.

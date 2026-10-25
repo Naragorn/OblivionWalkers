@@ -61,18 +61,16 @@ void TestSetting() {
 void TestSource() {
 	std::printf("Where each of the walker's bodies goes\n");
 	Check(walkers::SourceOf(MatchCorpse::Off, true, true) == BoneSource::Leave, "off: every body left as it fell");
-	Check(walkers::SourceOf(MatchCorpse::Pose, true, true) == BoneSource::Copied,
-	      "pose, the corpse has the same bone: the bone's place and turn copied");
-	Check(walkers::SourceOf(MatchCorpse::Pose, false, true) == BoneSource::Copied,
-	      "pose, no placement plan: still copied where the corpse has the bone");
+	Check(walkers::SourceOf(MatchCorpse::Pose, true, true) == BoneSource::Retargeted,
+	      "pose, both pelvises read: retargeted down from the pelvis");
 	Check(walkers::SourceOf(MatchCorpse::Pose, true, false) == BoneSource::Placed,
-	      "pose, a bone the corpse lacks: moved and turned with the rest, so the body holds together");
+	      "pose without a bone chain to go down: moved and turned with the whole instead");
 	Check(walkers::SourceOf(MatchCorpse::Place, true, true) == BoneSource::Placed,
-	      "place: moved and turned, the corpse's bones not copied");
+	      "place: moved and turned with the whole, the corpse's bones not used");
 	Check(walkers::SourceOf(MatchCorpse::Place, false, true) == BoneSource::Leave,
 	      "place without a plan (no pelvis to go by): left");
 	Check(walkers::SourceOf(MatchCorpse::Pose, false, false) == BoneSource::Leave,
-	      "pose, neither a bone nor a plan: left");
+	      "pose, neither a chain nor a plan: left");
 }
 
 void TestHeading() {
@@ -142,6 +140,42 @@ void TestQuaternion() {
 	      "half a turn about z: (0, 0, 1, 0)");
 }
 
+void TestRetarget() {
+	std::printf("The corpse's pose along the walker's own bones\n");
+	using walkers::BoneFrame;
+	// A parent at (10, 0, 0), turned a quarter about z, scale 1; a child 5
+	// units along its parent's x.
+	const BoneFrame parent{TurnAboutZ(90.0f), Vec3{10, 0, 0}, 1.0f};
+	const BoneFrame local{walkers::IdentityMat(), Vec3{5, 0, 0}, 1.0f};
+	BoneFrame child = walkers::ChildWorld(parent, local);
+	Check(NearVec(child.pos, Vec3{10, 5, 0}) && NearMat(child.rot, TurnAboutZ(90.0f)) && Near(child.scale, 1.0f),
+	      "a child's world: along its parent's turned axis, its turn the parent's after its own");
+	const BoneFrame bent{TurnAboutZ(30.0f), Vec3{5, 0, 0}, 1.0f};
+	child = walkers::ChildWorld(parent, bent);
+	Check(NearMat(child.rot, TurnAboutZ(120.0f)), "a bent child: the two turns added");
+	const BoneFrame big{walkers::IdentityMat(), Vec3{10, 0, 0}, 2.0f};
+	child = walkers::ChildWorld(big, local);
+	Check(NearVec(child.pos, Vec3{20, 0, 0}) && Near(child.scale, 2.0f),
+	      "a parent of scale 2: the child's offset doubled, its scale the parent's times its own");
+
+	const Mat3 corpseTurn = TurnAboutZ(-45.0f);
+	BoneFrame laid = walkers::Retargeted(parent, local, &corpseTurn);
+	Check(NearVec(laid.pos, Vec3{10, 5, 0}) && NearMat(laid.rot, corpseTurn),
+	      "a bone the corpse has: the corpse's turn, but where the walker's own bone length puts it");
+	laid = walkers::Retargeted(parent, bent, nullptr);
+	Check(NearVec(laid.pos, Vec3{10, 5, 0}) && NearMat(laid.rot, TurnAboutZ(120.0f)),
+	      "a bone the corpse lacks: carried along by its parent as the walker's skeleton holds it");
+
+	// A chain of two, the pelvis laid on the corpse's: the second bone's place
+	// follows the first's copied turn, not the corpse's own (longer) bone.
+	const BoneFrame pelvis{walkers::IdentityMat(), Vec3{100, 100, 0}, 1.0f};
+	const Mat3 up = TurnAboutZ(90.0f);
+	const BoneFrame spine = walkers::Retargeted(pelvis, BoneFrame{walkers::IdentityMat(), Vec3{0, 0, 8}, 1.0f}, &up);
+	const BoneFrame head = walkers::Retargeted(spine, BoneFrame{walkers::IdentityMat(), Vec3{6, 0, 0}, 1.0f}, nullptr);
+	Check(NearVec(spine.pos, Vec3{100, 100, 8}) && NearVec(head.pos, Vec3{100, 106, 8}),
+	      "down a chain: each bone at its own length from its parent, turned as the corpse's parent is");
+}
+
 }  // namespace
 
 int main() {
@@ -150,6 +184,7 @@ int main() {
 	TestHeading();
 	TestPlace();
 	TestQuaternion();
+	TestRetarget();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

@@ -45,6 +45,15 @@ constexpr UInt32 kHavokLockEnter = 0x0043F2E0;
 constexpr UInt32 kHavokLockLeave = 0x0043F300;
 constexpr UInt32 kNodeWorldRotationOffset = 0x64;
 constexpr UInt32 kNodeWorldPositionOffset = 0x88;
+constexpr UInt32 kNodeWorldScaleOffset = 0x94;
+// NiAVObject (OBVR src/game/GameTypes.h, checked against the EXE there): the
+// name at +0x08, the parent at +0x1C, the local transform at +0x30
+// (rotation; position +0x54, scale +0x60).
+constexpr UInt32 kNodeNameOffset = 0x08;
+constexpr UInt32 kNodeParentOffset = 0x1C;
+constexpr UInt32 kNodeLocalRotationOffset = 0x30;
+constexpr UInt32 kNodeLocalPositionOffset = 0x54;
+constexpr UInt32 kNodeLocalScaleOffset = 0x60;
 constexpr UInt32 kRefNiNodeOffset = 0x3C;
 constexpr float kHavokPerUnit = 0.142877f;
 constexpr UInt32 kTextStart = 0x00401000;
@@ -100,6 +109,82 @@ Mat3 RotationOf(UInt32 node) {
 	std::memcpy(r.m, reinterpret_cast<const void*>(node + kNodeWorldRotationOffset), sizeof(r.m));
 	return r;
 }
+
+BoneFrame FrameAt(UInt32 node, UInt32 rotation, UInt32 position, UInt32 scale) {
+	BoneFrame f{};
+	std::memcpy(f.rot.m, reinterpret_cast<const void*>(node + rotation), sizeof(f.rot.m));
+	std::memcpy(&f.pos, reinterpret_cast<const void*>(node + position), sizeof(f.pos));
+	f.scale = *reinterpret_cast<const float*>(node + scale);
+	return f;
+}
+
+BoneFrame LocalOf(UInt32 node) {
+	return FrameAt(node, kNodeLocalRotationOffset, kNodeLocalPositionOffset, kNodeLocalScaleOffset);
+}
+
+BoneFrame WorldOf(UInt32 node) {
+	return FrameAt(node, kNodeWorldRotationOffset, kNodeWorldPositionOffset, kNodeWorldScaleOffset);
+}
+
+// The walker's bones laid down from its pelvis (PoseLogic.h Retargeted): the
+// pelvis on the corpse's, every bone below at the walker's own length from
+// its parent, turned as the corpse's bone of its name. Each bone once.
+class Retarget {
+public:
+	Retarget(UInt32 walkerPelvis, UInt32 corpseRoot, const BoneFrame& pelvisLaid)
+		: pelvis_(walkerPelvis), corpseRoot_(corpseRoot), pelvisLaid_(pelvisLaid) {}
+
+	// False when the bone does not hang below the pelvis (within 24 parents)
+	// or a node on the way does not read. `turnedAsCorpse` says whether the
+	// corpse had the bone.
+	bool LaidOf(UInt32 node, BoneFrame* out, bool* turnedAsCorpse) { return Laid(node, out, turnedAsCorpse, 0); }
+
+private:
+	struct Known {
+		UInt32 node;
+		BoneFrame laid;
+		bool matched;
+	};
+
+	bool Laid(UInt32 node, BoneFrame* out, bool* matched, UInt32 depth) {
+		if (node == pelvis_) {
+			*out = pelvisLaid_;
+			*matched = true;
+			return true;
+		}
+		for (UInt32 i = 0; i < count_; ++i) {
+			if (known_[i].node == node) {
+				*out = known_[i].laid;
+				*matched = known_[i].matched;
+				return true;
+			}
+		}
+		if (depth > 24 || !LooksLikeObject(node)) {
+			return false;
+		}
+		BoneFrame parent{};
+		bool parentMatched = false;
+		if (!Laid(Read(node + kNodeParentOffset), &parent, &parentMatched, depth + 1)) {
+			return false;
+		}
+		const UInt32 name = Read(node + kNodeNameOffset);
+		const UInt32 match = LooksLikeObject(name) ? NodeOf(corpseRoot_, reinterpret_cast<const char*>(name)) : 0;
+		const Mat3 corpseTurn = match != 0 ? WorldOf(match).rot : IdentityMat();
+		*out = Retargeted(parent, LocalOf(node), match != 0 ? &corpseTurn : nullptr);
+		*matched = match != 0;
+		if (count_ < kKnownMost) {
+			known_[count_++] = Known{node, *out, *matched};
+		}
+		return true;
+	}
+
+	static constexpr UInt32 kKnownMost = 64;
+	UInt32 pelvis_;
+	UInt32 corpseRoot_;
+	BoneFrame pelvisLaid_;
+	Known known_[kKnownMost] = {};
+	UInt32 count_ = 0;
+};
 
 struct Lock {
 	Lock() {
@@ -218,6 +303,13 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		Vec3 pos;
 		Mat3 rot;
 	};
+	// The pose: the walker's pelvis laid on the corpse's (its turn and place,
+	// the walker's own scale), the rest retargeted down from it.
+	Retarget retarget(walkerPelvis, corpseRoot,
+	                  walkerPelvis != 0 && corpsePelvis != 0
+	                      ? BoneFrame{WorldOf(corpsePelvis).rot, PositionOf(corpsePelvis), WorldOf(walkerPelvis).scale}
+	                      : BoneFrame{IdentityMat(), Vec3{0.0f, 0.0f, 0.0f}, 1.0f});
+	const bool canRetarget = walkerPelvis != 0 && corpsePelvis != 0;
 	Laying layings[kBoneCount];
 	UInt32 count = 0;
 	char found[512] = {};
@@ -230,7 +322,12 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		}
 		++report.bodies;
 		const UInt32 match = NodeOf(corpseRoot, kBones[i]);
-		const BoneSource source = SourceOf(mode, plan.ok, match != 0);
+		BoneFrame laid{};
+		bool turnedAsCorpse = false;
+		BoneSource source = SourceOf(mode, plan.ok, canRetarget);
+		if (source == BoneSource::Retargeted && !retarget.LaidOf(node, &laid, &turnedAsCorpse)) {
+			source = SourceOf(mode, plan.ok, false);
+		}
 		if (firstLog && foundUsed + 40 < sizeof(found)) {
 			foundUsed += static_cast<UInt32>(std::snprintf(found + foundUsed, sizeof(found) - foundUsed, "%s%s%s",
 			                                               foundUsed == 0 ? "" : ", ", kBones[i] + 6,
@@ -242,10 +339,10 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		}
 		Laying& laying = layings[count++];
 		laying.wrapper = wrapper;
-		if (source == BoneSource::Copied) {
-			laying.pos = PositionOf(match);
-			laying.rot = RotationOf(match);
-			++report.copied;
+		if (source == BoneSource::Retargeted) {
+			laying.pos = laid.pos;
+			laying.rot = laid.rot;
+			++(turnedAsCorpse ? report.copied : report.carried);
 		} else {
 			Placed(plan, PositionOf(node), RotationOf(node), &laying.pos, &laying.rot);
 			++report.placed;

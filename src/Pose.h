@@ -11,7 +11,8 @@ namespace walkers {
 
 struct PoseReport {
 	UInt32 bodies = 0;  // the walker's ragdoll bodies found on the bones looked at
-	UInt32 copied = 0;  // laid onto the corpse's bone of the same name
+	UInt32 copied = 0;   // turned as the corpse's bone of the same name, at the walker's own bone length
+	UInt32 carried = 0;  // a bone the corpse lacks, carried along by its parent
 	UInt32 placed = 0;  // moved and turned with the pelvis
 	UInt32 left = 0;    // left where they fell
 	bool planOk = false;
