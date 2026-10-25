@@ -1,0 +1,64 @@
+# The walker takes the corpse's place (docs/walkers-spec.md 4.1, Nadi
+# 2026-10-24: "human leichen verschwinden aber die zombies fallen an deren
+# stelle aus dem himmel auf den boden und stehen dann auf. besser wäre:
+# zombie ersetzt direkt die leiche und steht dann auf"): the Redguard bandit
+# (00069AD1) placed 150 units in front of the player and killed; with the
+# deployed INI at [Rise] AfterSeconds=10, JitterSeconds=0, DropSeconds=3,
+# LieSeconds=3 (set by hand for the run - the longer windows for the
+# pictures - back to the defaults after) the walker is asked for 10 s after
+# the death. The pictures from the dead mark on, a second apart: the corpse
+# lies alone while the walker settles unseen (SetActorAlpha 0), then the
+# walker lies where the corpse lay and the corpse is gone, then it gets up.
+# The plugin's log: "unseen (1), moved onto it (1)", "lies at ... in the
+# place of ... the corpse hidden (1), the walker shown (1)", "gets up".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-swap-look.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+
+expect HandScript: finished
+expect 00080
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 9
+mark s09
+wait 1
+mark s10
+wait 1
+mark s11
+wait 1
+mark s12
+wait 1
+mark s13
+wait 1
+mark s14
+wait 1
+mark s15
+wait 1
+mark s16
+wait 1
+mark s17
+wait 1
+mark s18
+wait 2
+mark end
+wait 1

@@ -43,6 +43,9 @@ struct RiseSettings {
 	// Seconds between dropping the placed zombie and raising it: its ragdoll
 	// settles where the man lay, and the get-up starts from there.
 	float dropSeconds = 1.5f;
+	// Seconds the walker lies in the corpse's place, seen, before it gets up
+	// (Nadi, 2026-10-24: it should take the corpse's place, then get up).
+	float lieSeconds = 1.0f;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
@@ -91,12 +94,15 @@ inline UInt16 WalkInsteadOfRun(UInt16 flags) {
 // placed (the walker asked for, its reference not yet seen), loading (the
 // reference is there, its model still on the way - Nadi's game of
 // 2026-10-23 20:57 took more than two seconds for a zombie's first load),
-// dropped (the model is there and the walker killed in that very frame,
-// before its AI takes a step, the corpse hidden, the ragdoll settling),
-// done. A kill before the model exists leaves a "dead" walker sliding at
+// dropped (the model is there and the walker made unseen and killed in that
+// very frame, before its AI takes a step; its ragdoll settles unseen beside
+// the corpse, which still lies there), lying (the two changed places: the
+// corpse hidden, the walker shown where it lay, LieSeconds before it gets
+// up - Nadi, 2026-10-24: the walker fell onto the spot from above, it should
+// take the corpse's place instead), done. A kill before the model exists leaves a "dead" walker sliding at
 // walking speed (the trace of 2026-10-24 07:10: 400 units/s in a line), so
 // the kill waits for the model.
-enum class SwapStage : UInt8 { Placed, Loading, Dropped, Done };
+enum class SwapStage : UInt8 { Placed, Loading, Dropped, Lying, Done };
 
 struct Swap {
 	bool active = false;
@@ -147,9 +153,10 @@ inline UInt32 NewWalkerAmong(const Swap& swap, const UInt32* refs, UInt32 count)
 enum : UInt32 {
 	kSwapWait = 0,      // nothing this frame
 	kSwapFound = 1,        // the walker's reference is there, its model on the way
-	kSwapDropAndHide = 2,  // its model is there: kill it this frame, hide the corpse
+	kSwapDropUnseen = 2,   // its model is there: make it unseen and kill it this frame, the corpse stays
+	kSwapReveal = 32,      // the ragdoll settled: hide the corpse, show the walker, move the items over
 	kSwapGaveUp = 4,    // no reference appeared in time: the man gets up as himself
-	kSwapRaise = 8,     // the ragdoll settled: move the items over, raise the walker
+	kSwapRaise = 8,     // it lay long enough in the corpse's place: raise it
 	kSwapAbandon = 16,  // the model never came: hide the walker, the man gets up as himself
 };
 inline constexpr float kSwapFindSeconds = 2.0f;
@@ -159,7 +166,8 @@ inline constexpr float kSwapLoadSeconds = 15.0f;
 // near the corpse (0 while none exists), `zombieHas3D` whether the walker's
 // model is in the world. The swap ends with kSwapRaise, kSwapGaveUp or
 // kSwapAbandon.
-inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3D, float dropSeconds) {
+inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3D, float dropSeconds,
+                       float lieSeconds) {
 	if (!swap.active) {
 		return kSwapWait;
 	}
@@ -182,7 +190,7 @@ inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3
 		if (zombieHas3D) {
 			swap.stage = SwapStage::Dropped;
 			swap.seconds = 0.0f;
-			return kSwapDropAndHide;
+			return kSwapDropUnseen;
 		}
 		if (swap.seconds >= kSwapLoadSeconds) {
 			swap.active = false;
@@ -192,6 +200,11 @@ inline UInt32 StepSwap(Swap& swap, float dt, UInt32 zombieFound, bool zombieHas3
 		return kSwapWait;
 	}
 	if (swap.stage == SwapStage::Dropped && swap.seconds >= dropSeconds) {
+		swap.stage = SwapStage::Lying;
+		swap.seconds = 0.0f;
+		return kSwapReveal;
+	}
+	if (swap.stage == SwapStage::Lying && swap.seconds >= lieSeconds) {
 		swap.active = false;
 		swap.stage = SwapStage::Done;
 		return kSwapRaise;

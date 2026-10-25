@@ -120,7 +120,7 @@ void TestLoad() {
 		      "with the defaults named in the log");
 		Check(fake.Logged("Rise: watching deaths - a fallen generic person of a playable race gets up 20 to 30 s "
 		                  "later, 100% of the time - as a walker, the ESP's zombie creature at his spot") &&
-		          fake.installed.rise.onlyPlayableRaces && fake.installed.rise.asCreature && fake.installed.rise.dropSeconds == 1.5f,
+		          fake.installed.rise.onlyPlayableRaces && fake.installed.rise.asCreature && fake.installed.rise.dropSeconds == 1.5f && fake.installed.rise.lieSeconds == 1.0f,
 		      "and the rise's line, the creature path by default");
 	}
 	{

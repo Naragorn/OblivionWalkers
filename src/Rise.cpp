@@ -573,10 +573,11 @@ bool TryRegisterDeath() {
 	return true;
 }
 
-// The swap in flight, one frame: the walker's reference is killed the
-// moment it exists (before its AI takes a step), the corpse hidden once the
-// walker's model stands on the spot, and DropSeconds after that the items go
-// over and the walker is raised where the man lay.
+// The swap in flight, one frame: the walker's reference is made unseen and
+// killed the moment its model exists (before its AI takes a step); its
+// ragdoll settles unseen where the man lies, DropSeconds later the two
+// change places - the corpse hidden, the walker shown, the items over - and
+// LieSeconds after that the walker gets up from there.
 void StepSwapInFlight(float dt) {
 	UInt32 found = 0;
 	bool has3D = false;
@@ -587,20 +588,22 @@ void StepSwapInFlight(float dt) {
 		has3D = LooksLikeObject(zombie) && Read(zombie + kRefNiNodeOffset) != 0;
 	}
 	const UInt32 events =
-		StepSwap(g_swap, dt, found, has3D, g_settings.dropSeconds < 0.0f ? 0.0f : g_settings.dropSeconds);
+		StepSwap(g_swap, dt, found, has3D, g_settings.dropSeconds < 0.0f ? 0.0f : g_settings.dropSeconds,
+		         g_settings.lieSeconds < 0.0f ? 0.0f : g_settings.lieSeconds);
 	// Noted before its kill below: NoLoot never takes a risen walker.
 	NoteRisen(g_risenSet, g_swap.zombieId);
 	if (events == kSwapFound) {
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
 		g_log("Swap: walker %08X exists on %08X (model %s) - waiting for its model before the kill", g_swap.zombieId,
 		      g_swap.corpseId, LooksLikeObject(zombie) && Read(zombie + kRefNiNodeOffset) != 0 ? "there" : "loading");
-	} else if (events == kSwapDropAndHide) {
+	} else if (events == kSwapDropUnseen) {
 		// Killed in the frame its model appears: a kill before that left a
 		// "dead" walker sliding at walking speed (the trace of 2026-10-24
 		// 07:10, 400 units/s in a line), one after a few frames lets it take
-		// a step.
-		const UInt32 corpse = LookupForm(g_swap.corpseId);
+		// a step. Unseen first (SetActorAlpha 0, the CS wiki's "0.0 meaning
+		// fully transparent"): its fall onto the spot is nobody's to see.
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		const bool unseen = LooksLikeObject(zombie) && ConsoleOn(zombie, "SetActorAlpha 0");
 		// Outdoors the engine places the walker away from the corpse (the
 		// run of 2026-10-24 07:25: 670 units off on a slope; the hall's flat
 		// floor keeps it on the spot): onto the corpse first, then the kill.
@@ -609,16 +612,34 @@ void StepSwapInFlight(float dt) {
 		const float bx = LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f;
 		const float by = LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f;
 		const bool movedOnto = LooksLikeObject(zombie) && ConsoleOn(zombie, moveLine);
-		g_log("Swap: walker %08X placed at %.0f %.0f, the corpse at %.0f %.0f - moved onto it (%d)", g_swap.zombieId, bx,
-		      by, g_swap.x, g_swap.y, movedOnto ? 1 : 0);
+		g_log("Swap: walker %08X placed at %.0f %.0f, the corpse at %.0f %.0f - unseen (%d), moved onto it (%d)",
+		      g_swap.zombieId, bx, by, g_swap.x, g_swap.y, unseen ? 1 : 0, movedOnto ? 1 : 0);
 		const bool killed = LooksLikeObject(zombie) && ConsoleOn(zombie, "Kill");
-		const bool hidden = LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable");
 		g_log("Swap: walker %08X's model is there after %.1f s at %.0f %.0f %.0f - killed (%d), dead now %d, the "
-		      "corpse %08X hidden (%d)",
+		      "corpse %08X still lying",
 		      g_swap.zombieId, g_swap.seconds, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
 		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
 		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, killed ? 1 : 0,
-		      LooksLikeObject(zombie) && IsActor(zombie) && IsDead(zombie) ? 1 : 0, g_swap.corpseId, hidden ? 1 : 0);
+		      LooksLikeObject(zombie) && IsActor(zombie) && IsDead(zombie) ? 1 : 0, g_swap.corpseId);
+	} else if (events == kSwapReveal) {
+		// The two change places in one frame: the corpse hidden, the walker
+		// shown lying where it settled, the man's items on it.
+		const UInt32 corpse = LookupForm(g_swap.corpseId);
+		const UInt32 zombie = LookupForm(g_swap.zombieId);
+		const bool hidden = LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable");
+		const bool shown = LooksLikeObject(zombie) && ConsoleOn(zombie, "SetActorAlpha 1");
+		bool moved = false;
+		if (LooksLikeObject(corpse) && LooksLikeObject(zombie) && g_swap.corpseId != g_swap.zombieId) {
+			char line[64];
+			std::snprintf(line, sizeof(line), "RemoveAllItems %08X", g_swap.zombieId);
+			moved = ConsoleOn(corpse, line);
+		}
+		g_log("Swap: walker %08X lies at %.0f %.0f %.0f in the place of %08X - the corpse hidden (%d), the walker "
+		      "shown (%d), the items moved over (%d)",
+		      g_swap.zombieId, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
+		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
+		      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, g_swap.corpseId,
+		      hidden ? 1 : 0, shown ? 1 : 0, moved ? 1 : 0);
 	} else if (events == kSwapGaveUp) {
 		g_log("Swap: no walker %08X appeared on %08X within %.0f s - he gets up as himself", g_swap.walkerBase,
 		      g_swap.corpseId, kSwapFindSeconds);
@@ -630,7 +651,6 @@ void StepSwapInFlight(float dt) {
 		      g_swap.zombieId, kSwapLoadSeconds, hidden ? 1 : 0, g_swap.corpseId);
 		RaiseAsSelf(g_swap.corpseId);
 	} else if (events == kSwapRaise) {
-		const UInt32 corpse = LookupForm(g_swap.corpseId);
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
 		if (!LooksLikeObject(zombie) || !IsActor(zombie)) {
 			g_log("Swap: walker %08X is gone before the raise", g_swap.zombieId);
@@ -641,12 +661,6 @@ void StepSwapInFlight(float dt) {
 			      FloatAt(zombie + kRefPositionOffset), FloatAt(zombie + kRefPositionOffset + 4),
 			      FloatAt(zombie + kRefPositionOffset + 8));
 			return;
-		}
-		bool moved = false;
-		if (LooksLikeObject(corpse) && g_swap.corpseId != g_swap.zombieId) {
-			char line[64];
-			std::snprintf(line, sizeof(line), "RemoveAllItems %08X", g_swap.zombieId);
-			moved = ConsoleOn(corpse, line);
 		}
 		const UInt32 fn = Read(Read(zombie) + kActorVtableResurrect);
 		if (fn < kTextStart || fn >= kTextEnd) {
@@ -663,8 +677,8 @@ void StepSwapInFlight(float dt) {
 		g_risen.y = FloatAt(zombie + kRefPositionOffset + 4);
 		g_risen.z = FloatAt(zombie + kRefPositionOffset + 8);
 		g_risenWatching = true;
-		g_log("Swap: the items of %08X moved over (%d), walker %08X gets up at %.0f %.0f %.0f", g_swap.corpseId,
-		      moved ? 1 : 0, g_swap.zombieId, g_risen.x, g_risen.y, g_risen.z);
+		g_log("Swap: walker %08X gets up at %.0f %.0f %.0f where %08X lay", g_swap.zombieId, g_risen.x, g_risen.y,
+		      g_risen.z, g_swap.corpseId);
 	}
 }
 

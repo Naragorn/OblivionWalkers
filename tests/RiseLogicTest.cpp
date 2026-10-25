@@ -235,51 +235,67 @@ void TestEspRace() {
 
 void TestSwap() {
 	std::printf("The swap in flight\n");
+	// Nadi, 2026-10-24: the walker fell onto the spot and got up, the corpse
+	// gone - it should take the corpse's place and get up from there. So the
+	// walker drops unseen, the corpse stays until the walker lies, then the
+	// two change places and the walker lies a moment before it gets up.
 	walkers::Swap idle;
-	Check(walkers::StepSwap(idle, 1.0f, 0xFF000BB2, true, 1.5f) == walkers::kSwapWait && !idle.active,
+	Check(walkers::StepSwap(idle, 1.0f, 0xFF000BB2, true, 1.5f, 1.0f) == walkers::kSwapWait && !idle.active,
 	      "no swap in flight: nothing, whatever stands there");
 
 	walkers::Swap swap;
 	swap.active = true;
 	swap.corpseId = 0xFF000BAF;
 	swap.walkerBase = 0x0B000801;
-	Check(walkers::StepSwap(swap, 0.5f, 0, false, 1.5f) == walkers::kSwapWait &&
+	Check(walkers::StepSwap(swap, 0.5f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait &&
 	          swap.stage == walkers::SwapStage::Placed,
 	      "placed, no walker yet: wait");
-	Check(walkers::StepSwap(swap, 0.5f, 0xFF000BB2, false, 1.5f) == walkers::kSwapFound &&
+	Check(walkers::StepSwap(swap, 0.5f, 0xFF000BB2, false, 1.5f, 1.0f) == walkers::kSwapFound &&
 	          swap.stage == walkers::SwapStage::Loading && swap.zombieId == 0xFF000BB2 && swap.seconds == 0.0f,
 	      "the walker's reference exists: wait for its model, the clock restarts");
-	Check(walkers::StepSwap(swap, 3.0f, 0, false, 1.5f) == walkers::kSwapWait && swap.active,
+	Check(walkers::StepSwap(swap, 3.0f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
 	      "its model still loading: wait, however long DropSeconds is");
-	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f) == walkers::kSwapDropAndHide &&
+	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 1.0f) == walkers::kSwapDropUnseen &&
 	          swap.stage == walkers::SwapStage::Dropped && swap.seconds == 0.0f,
-	      "the model is there: kill it and hide the corpse, the clock restarts");
-	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f) == walkers::kSwapWait && swap.active,
-	      "the ragdoll settling: wait");
-	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f) == walkers::kSwapRaise && !swap.active &&
+	      "the model is there: made unseen and killed, the corpse still lying, the clock restarts");
+	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
+	      "the unseen ragdoll settling: wait");
+	Check(walkers::StepSwap(swap, 0.5f, 0, true, 1.5f, 1.0f) == walkers::kSwapReveal &&
+	          swap.stage == walkers::SwapStage::Lying && swap.seconds == 0.0f && swap.active,
+	      "DropSeconds over: the corpse hidden, the walker shown where it lay, the items over");
+	Check(walkers::StepSwap(swap, 0.9f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait && swap.active,
+	      "the walker lying in the corpse's place: wait");
+	Check(walkers::StepSwap(swap, 0.1f, 0, true, 1.5f, 1.0f) == walkers::kSwapRaise && !swap.active &&
 	          swap.stage == walkers::SwapStage::Done,
-	      "DropSeconds over: move the items, raise - the swap ends");
-	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f) == walkers::kSwapWait, "and nothing after");
+	      "LieSeconds over: it gets up - the swap ends");
+	Check(walkers::StepSwap(swap, 1.0f, 0, true, 1.5f, 1.0f) == walkers::kSwapWait, "and nothing after");
 
 	walkers::Swap nobody;
 	nobody.active = true;
-	Check(walkers::StepSwap(nobody, 1.9f, 0, false, 1.5f) == walkers::kSwapWait, "no walker for 1.9 s: still waiting");
-	Check(walkers::StepSwap(nobody, 0.1f, 0, false, 1.5f) == walkers::kSwapGaveUp && !nobody.active,
+	Check(walkers::StepSwap(nobody, 1.9f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait,
+	      "no walker for 1.9 s: still waiting");
+	Check(walkers::StepSwap(nobody, 0.1f, 0, false, 1.5f, 1.0f) == walkers::kSwapGaveUp && !nobody.active,
 	      "none within two seconds: given up, the man gets up as himself");
 
 	walkers::Swap noModel;
 	noModel.active = true;
-	Check(walkers::StepSwap(noModel, 0.1f, 0xFF000BB4, false, 1.5f) == walkers::kSwapFound, "found, waiting for the model");
-	Check(walkers::StepSwap(noModel, 14.9f, 0, false, 1.5f) == walkers::kSwapWait && noModel.active,
+	Check(walkers::StepSwap(noModel, 0.1f, 0xFF000BB4, false, 1.5f, 1.0f) == walkers::kSwapFound,
+	      "found, waiting for the model");
+	Check(walkers::StepSwap(noModel, 14.9f, 0, false, 1.5f, 1.0f) == walkers::kSwapWait && noModel.active,
 	      "the model 14.9 s on the way: still waiting");
-	Check(walkers::StepSwap(noModel, 0.1f, 0, false, 1.5f) == walkers::kSwapAbandon && !noModel.active,
+	Check(walkers::StepSwap(noModel, 0.1f, 0, false, 1.5f, 1.0f) == walkers::kSwapAbandon && !noModel.active,
 	      "none within fifteen seconds: the walker abandoned, the man gets up as himself");
 
 	walkers::Swap quick;
 	quick.active = true;
-	Check(walkers::StepSwap(quick, 0.016f, 0xFF000BB3, true, 0.0f) == walkers::kSwapFound, "found at once, model there: still one frame for the kill");
-	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f) == walkers::kSwapDropAndHide, "the next frame: killed and the corpse hidden");
-	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f) == walkers::kSwapRaise, "DropSeconds=0: raised the frame after");
+	Check(walkers::StepSwap(quick, 0.016f, 0xFF000BB3, true, 0.0f, 0.0f) == walkers::kSwapFound,
+	      "found at once, model there: still one frame for the kill");
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapDropUnseen,
+	      "the next frame: unseen and killed");
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapReveal,
+	      "DropSeconds=0: shown the frame after");
+	Check(walkers::StepSwap(quick, 0.016f, 0, true, 0.0f, 0.0f) == walkers::kSwapRaise,
+	      "LieSeconds=0: up the frame after that");
 
 	walkers::Swap identity;
 	const UInt32 before[2] = {0xFF000EE4, 0xFF000F00};
