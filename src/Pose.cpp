@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -159,6 +160,18 @@ float MicrosecondsSince(const LARGE_INTEGER& start) {
 
 }  // namespace
 
+bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head) {
+	const UInt32 root = LooksLikeObject(ref) ? Read(ref + kRefNiNodeOffset) : 0;
+	const UInt32 pelvisNode = NodeOf(root, "Bip01 Pelvis");
+	if (pelvisNode == 0) {
+		return false;
+	}
+	const UInt32 headNode = HeadNodeOf(root);
+	*pelvis = PositionOf(pelvisNode);
+	*head = headNode != 0 ? PositionOf(headNode) : *pelvis;
+	return true;
+}
+
 PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, bool firstLog, LogFn log) {
 	PoseReport report;
 	LARGE_INTEGER start;
@@ -189,6 +202,16 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		                 PositionOf(corpsePelvis), corpseHead != 0 ? PositionOf(corpseHead) : PositionOf(corpsePelvis));
 	}
 	report.planOk = plan.ok;
+	if (walkerPelvis != 0 && corpsePelvis != 0) {
+		const Vec3 wp = PositionOf(walkerPelvis);
+		const Vec3 cp = PositionOf(corpsePelvis);
+		const Vec3 wh = walkerHead != 0 ? PositionOf(walkerHead) : wp;
+		const Vec3 ch = corpseHead != 0 ? PositionOf(corpseHead) : cp;
+		log("Pose: the corpse's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f; the walker's pelvis at %.0f %.0f %.0f, "
+		    "head at %.0f %.0f %.0f; the turn %.0f degrees",
+		    cp.x, cp.y, cp.z, ch.x, ch.y, ch.z, wp.x, wp.y, wp.z, wh.x, wh.y, wh.z,
+		    std::atan2(plan.turn.m[1][0], plan.turn.m[0][0]) * 57.29578f);
+	}
 
 	struct Laying {
 		UInt32 wrapper;

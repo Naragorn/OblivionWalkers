@@ -18,6 +18,10 @@ struct PoseReport {
 	float microseconds = 0.0f;  // the whole of it, for the log
 };
 
+// The pelvis's and the head's world positions of `ref` (game units); false
+// when it has no model or no pelvis. For the log: where a body lies.
+bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head);
+
 // The walker's ragdoll bodies laid where the corpse lies, as `mode` says;
 // both references must have their 3D. Inside the engine's Havok lock, each
 // body through its wrapper's SetTranslationAndRotation, its velocities set

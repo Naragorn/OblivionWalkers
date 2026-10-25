@@ -647,6 +647,12 @@ void StepSwapInFlight(float dt) {
 			std::snprintf(line, sizeof(line), "RemoveAllItems %08X", g_swap.zombieId);
 			moved = ConsoleOn(corpse, line);
 		}
+		Vec3 pelvis{};
+		Vec3 head{};
+		if (PelvisAndHead(zombie, &pelvis, &head)) {
+			g_log("Pose: shown - the walker's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", pelvis.x, pelvis.y,
+			      pelvis.z, head.x, head.y, head.z);
+		}
 		g_log("Swap: walker %08X lies at %.0f %.0f %.0f in the place of %08X - the corpse hidden (%d), the walker "
 		      "shown (%d), the items moved over (%d)",
 		      g_swap.zombieId, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
@@ -679,6 +685,12 @@ void StepSwapInFlight(float dt) {
 		if (fn < kTextStart || fn >= kTextEnd) {
 			g_log("Swap: walker %08X has no Resurrect at vtable+0x20C, left down", g_swap.zombieId);
 			return;
+		}
+		Vec3 pelvis{};
+		Vec3 head{};
+		if (PelvisAndHead(zombie, &pelvis, &head)) {
+			g_log("Pose: at the raise - the walker's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", pelvis.x,
+			      pelvis.y, pelvis.z, head.x, head.y, head.z);
 		}
 		const UInt32 has3D = Read(zombie + kRefNiNodeOffset) != 0 ? 1u : 0u;
 		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
