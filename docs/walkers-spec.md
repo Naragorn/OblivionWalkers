@@ -364,7 +364,9 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   s09 (the corpse) and s11 (the walker) show the same body in the same
   pose. The second run (18:49) FAILed before the world - the harness's
   script did not start within 240 s, as at 13:49; nothing of the plugin
-  ran. One run so far.
+  ran. Harness 19:05 and 19:07 PASS: shown 0 and 1 unit off the corpse's
+  pelvis, 2 units and 5 and 1 degrees off at the raise, the corpse not
+  moved. Three runs: holds.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the

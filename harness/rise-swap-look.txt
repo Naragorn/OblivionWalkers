@@ -25,6 +25,8 @@
 #   18:34, 18:35, 18:37 (MatchCorpse=1), 18:39, 18:40 (defaults) PASS with
 #   every body on the skeleton taken: the walker 0 to 1 unit and 0 to 2
 #   degrees off the corpse at the raise, the corpse not moved.
+#   18:47, 19:05, 19:07 PASS with SettleSeconds=0 (the default): 1 to 2 units
+#   and 1 to 5 degrees off at the raise (18:49 FAILed before the world).
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-swap-look.txt --headless \
