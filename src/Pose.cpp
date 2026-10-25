@@ -243,6 +243,42 @@ float MicrosecondsSince(const LARGE_INTEGER& start) {
 	           : 0.0f;
 }
 
+// The direction from `bone` to `child` in the bone's own axes (unit
+// length; zero when they do not read) - equal on two skeletons when their
+// bones' axes agree.
+Vec3 ChildDirectionInBone(UInt32 root, const char* bone, const char* child) {
+	const UInt32 b = NodeOf(root, bone);
+	const UInt32 c = NodeOf(root, child);
+	if (b == 0 || c == 0) {
+		return Vec3{0.0f, 0.0f, 0.0f};
+	}
+	const Mat3 r = RotationOf(b);
+	const Vec3 bp = PositionOf(b);
+	const Vec3 cp = PositionOf(c);
+	const Vec3 d{cp.x - bp.x, cp.y - bp.y, cp.z - bp.z};
+	// The rotation's transpose takes a world direction into the bone's axes.
+	const Vec3 local{r.m[0][0] * d.x + r.m[1][0] * d.y + r.m[2][0] * d.z,
+	                 r.m[0][1] * d.x + r.m[1][1] * d.y + r.m[2][1] * d.z,
+	                 r.m[0][2] * d.x + r.m[1][2] * d.y + r.m[2][2] * d.z};
+	const float length = std::sqrt(local.x * local.x + local.y * local.y + local.z * local.z);
+	return length > 0.0f ? Vec3{local.x / length, local.y / length, local.z / length} : Vec3{0.0f, 0.0f, 0.0f};
+}
+
+// Whether the walker's bones carry the human's axes: the child direction of
+// a few bones in their own axes, both skeletons, once a session.
+void LogBoneAxes(UInt32 walkerRoot, UInt32 corpseRoot, LogFn log) {
+	static const char* const kPairs[][2] = {
+		{"Bip01 Pelvis", "Bip01 Spine"},       {"Bip01 Spine", "Bip01 Spine1"},  {"Bip01 Spine2", "Bip01 Neck"},
+		{"Bip01 L UpperArm", "Bip01 L Forearm"}, {"Bip01 L Thigh", "Bip01 L Calf"}, {"Bip01 R Thigh", "Bip01 R Calf"},
+	};
+	for (const auto& pair : kPairs) {
+		const Vec3 w = ChildDirectionInBone(walkerRoot, pair[0], pair[1]);
+		const Vec3 c = ChildDirectionInBone(corpseRoot, pair[0], pair[1]);
+		log("Pose: %s to %s in its own axes - the walker's %.2f %.2f %.2f, the corpse's %.2f %.2f %.2f", pair[0] + 6,
+		    pair[1] + 6, w.x, w.y, w.z, c.x, c.y, c.z);
+	}
+}
+
 }  // namespace
 
 bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head) {
@@ -287,6 +323,9 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 		                 PositionOf(corpsePelvis), corpseHead != 0 ? PositionOf(corpseHead) : PositionOf(corpsePelvis));
 	}
 	report.planOk = plan.ok;
+	if (firstLog) {
+		LogBoneAxes(walkerRoot, corpseRoot, log);
+	}
 	if (walkerPelvis != 0 && corpsePelvis != 0) {
 		const Vec3 wp = PositionOf(walkerPelvis);
 		const Vec3 cp = PositionOf(corpsePelvis);
