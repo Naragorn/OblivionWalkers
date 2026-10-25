@@ -18,6 +18,7 @@
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
+ini Performance Enabled=0
 console-at ready player.placeatme 00069AD1 1
 console-at ready tgm
 console-at placed player.setangle z 0
