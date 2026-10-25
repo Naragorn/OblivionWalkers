@@ -215,6 +215,18 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   reach: lay the bones by the corpse's rotations along the walker's own bone
   lengths (forward kinematics from the pelvis - what retargeting does),
   small to medium. Not built.
+- MatchCorpse=2 rebuilt by retargeting (76cd42c: the corpse's bone turns
+  along the walker's own bone lengths, down from the pelvis), harness
+  2026-10-25 10:19 and 10:21: when shown the head lay on the corpse's again
+  (1 unit off), but by the raise the walker had turned 83 and 46 degrees off
+  the corpse's heading, its pelvis 26 and 12 units off. So the bone lengths
+  were not the cause, or not the only one. Next suspect (not proven): the
+  zombie skeleton's bone axes differ from the human's, so a human bone's
+  world turn put onto a zombie bone twists it against its joints. The
+  cheapest step that settles it: log, for a few bones, the direction to the
+  child bone in the bone's own axes on both skeletons - equal directions
+  mean equal axes. If they differ, retarget by bone directions (axis-free)
+  instead of turns.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
