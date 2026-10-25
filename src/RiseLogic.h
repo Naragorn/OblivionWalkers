@@ -50,8 +50,10 @@ struct RiseSettings {
 	// moved and turned onto the corpse's spot, 2 every bone in the corpse's
 	// pose, settled, then placed. Nadi, 2026-10-25: both, the pose by
 	// default; the place (1) by default while the pose alone did not hold;
-	// the settled pose (2) again once settle-then-place held (13:31).
-	UInt8 matchCorpse = 2;
+	// the settled pose (2) again once settle-then-place held (13:31); the
+	// place (1) again after the settling pose and the corpse pushed each
+	// other (13:48) - until the two ragdolls cannot collide.
+	UInt8 matchCorpse = 1;
 	// [Rise] SettleSeconds: with MatchCorpse=2, how long the walker lies
 	// unseen in the corpse's pose before it is moved onto the corpse's place.
 	float settleSeconds = 1.5f;

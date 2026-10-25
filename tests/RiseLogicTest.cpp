@@ -603,8 +603,9 @@ void TestZombieDefaults() {
 	      "HealthPercent=15 (Nadi, 2026-10-24 evening), AvoidChapels=1");
 	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=1.5 for MatchCorpse=2; the test switch HideCorpseAtPose off");
-	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
-	      "[Rise] MatchCorpse=2, the pose settled then placed (Nadi, 2026-10-25), LieSeconds=1");
+	Check(settings.matchCorpse == 1 && settings.lieSeconds == 1.0f,
+	      "[Rise] MatchCorpse=1, the place (Nadi, 2026-10-25: back to 1 while the settling pose and the corpse "
+	      "push each other), LieSeconds=1");
 }
 
 }  // namespace

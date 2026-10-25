@@ -188,7 +188,7 @@ MatchCorpse (built 2026-10-25, Nadi: "bau A und B, default in ini B"): one
 frame before the reveal the unseen walker's ragdoll bodies are laid into the
 corpse's place (src/Pose.cpp, PoseLogic.h): 1 moves the whole walker so its
 pelvis lies on the corpse's and turns it about the vertical to the corpse's
-pelvis-to-head heading; 2 (default) lays each body on a bone the corpse has
+pelvis-to-head heading; 2 (then the default) lays each body on a bone the corpse has
 too onto that bone's world transform, the rest as in 1. The Havok calls are
 OBVR's (the wrapper's SetTranslationAndRotation, vtable +0xA0, inside the
 Havok lock; velocities zeroed, the body woken) - the engine's own push
@@ -273,6 +273,10 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   the reveal. Unbuilt fix: keep the walker's bodies from colliding with the
   corpse's (Havok's collision filter, rb+0x30, the rule 0x008A7F70 - OBVR's
   GrabPhysics.h; whether two ragdolls can be kept apart by it is not read).
+- Default back to 1 (Nadi, 2026-10-25: "ja mach beides" - back to 1 and read
+  the filter): the place alone, 4 to 18 units and 4 to 46 degrees off in its
+  runs, against 2's 26 units and sitting on the corpse. Neither live INI
+  names MatchCorpse, so the DLL's default holds in both installs.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
