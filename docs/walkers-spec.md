@@ -253,6 +253,14 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   pose instead of at the reveal (a test switch; it shows a gap in the
   picture) - if the drift goes, the fix is to take the corpse's collision out
   while it stays seen.
+- HideCorpseAtPose runs (644f551, harness 2026-10-25 13:29 and 13:31): with
+  1, 4 units and 9 degrees off at the raise; with 2, the pose alone still
+  turned some 80 degrees while it settled - with no corpse to push it, so
+  the pose's own drift is not the collision - and the placement after it
+  ended 1 unit off the corpse's spine and head. So: the pose drifts by
+  itself (its joints), which the settle-then-place absorbs; the corpse's
+  collision spoils the placement by up to tens of units and degrees (the 46
+  of 13:00, the 9 of 12:59). Both measured, one run each.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
