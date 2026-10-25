@@ -237,6 +237,22 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   raise, the pelvis 10 units off - the body turned about its pelvis. So the
   axes are not the cause; left as suspects (not proven): the zombie's joint
   limits and its limbs meeting the floor at other lengths. Default stays 1.
+- "B dann A" built (fe9efd8, Nadi 2026-10-25): MatchCorpse=2 lays the pose,
+  leaves it unseen `SettleSeconds` (1.5), then moves and turns the settled
+  body onto the corpse's place, then shows it; the placement now goes by the
+  lowest spine bone (it carries a body; the pelvis lags). Harness 2026-10-25
+  12:59 (2) and 13:00 (1), one run each: with 2, 9 degrees and 9 units off
+  the corpse at the raise - holds; with 1, 46 degrees and 18 units off - did
+  not hold this time, where the run of 10:11 (pelvis-based) held at 4. So
+  the drift varies from run to run in every mode. New suspect, from how the
+  swap works (derived, not proven): the walker is moved onto the corpse and
+  laid into its place while the corpse still lies there - both ragdolls
+  collide, and the corpse's bodies push the walker's away as much as they
+  overlap. That would explain all three modes drifting by different amounts.
+  The cheapest step that settles it: one run with the corpse disabled at the
+  pose instead of at the reveal (a test switch; it shows a gap in the
+  picture) - if the drift goes, the fix is to take the corpse's collision out
+  while it stays seen.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
