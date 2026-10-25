@@ -181,8 +181,25 @@ DropSeconds later the two change places in one frame - the corpse disabled,
 the walker shown (SetActorAlpha 1), the man's items on it - and after
 `[Rise] LieSeconds` (1) it gets up. `rise-swap-look.txt` PASS 2026-10-25
 09:24. The walker lies in its own ragdoll pose, not the corpse's, up to a
-few dozen units off (58 in the run); copying the pose bone by bone (Havok)
-would be medium to large, not built.
+few dozen units off (58 in the run).
+
+MatchCorpse (built 2026-10-25, Nadi: "bau A und B, default in ini B"): one
+frame before the reveal the unseen walker's ragdoll bodies are laid into the
+corpse's place (src/Pose.cpp, PoseLogic.h): 1 moves the whole walker so its
+pelvis lies on the corpse's and turns it about the vertical to the corpse's
+pelvis-to-head heading; 2 (default) lays each body on a bone the corpse has
+too onto that bone's world transform, the rest as in 1. The Havok calls are
+OBVR's (the wrapper's SetTranslationAndRotation, vtable +0xA0, inside the
+Havok lock; velocities zeroed, the body woken) - the engine's own push
+0x0089EAE0 hands it the node's world transform, read with REA 2026-10-25.
+Harness 2026-10-25 09:49 (2) and 09:51 (1), both PASS: 13 and 16 bodies
+found (one walker model has no left arm), 214 and 108 microseconds. The
+pictures: with 2 the walker lies where the corpse lay and much like it
+(s11), a second later in another pose (s12) - its joints pull the copied
+pose, or the copy is off; with 1 its head seemed to point a quarter turn
+off the corpse's. Neither settled: the log now gives the pelvis and head of
+both before the pose, when shown and at the raise, for the next run. The
+headset is to judge it.
 
 ### 4.2 Walkers by name - `[Zombies] RenameToWalker=1`, `Name=Walker`
 
