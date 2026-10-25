@@ -14,7 +14,8 @@ up, cities get besieged, and every piece has a switch.
 
 It lives beside OBVR and does not need it. Two features need what only OBVR
 knows: headshots only (4.10) the hit's place on the body, and the end by a
-lost head (4.17) OBVR's cut; both are off without OBVR.
+lost head (4.17) OBVR's cut. Without OBVR, 4.10 is off and 4.17 takes a
+power attack's kill instead.
 
 Why a plugin and not a script mod: both predecessors ran on scripts, and the
 comment threads say what that cost. Zombie Walkers 2.6.3's resurrection
@@ -625,27 +626,39 @@ How (Proposed, nothing built):
    resurrect (4.5's share stays on the record).
 2. **The head.** OBVR cuts heads off (OBVR `docs/dismemberment-spec.md`,
    designed 2026-10-25, not built): on the blow that kills, with a blade or
-   an axe fast enough on the neck, and on a corpse's neck at any time. OBVR
-   tells other plugins of each cut through OBSE's plugin messaging (the
-   actor's reference and the part; the same channel 4.10 planned). A walker
-   whose head is off leaves the waiting list for good and is noted dead in
-   the co-save; the head stays off through OBVR's own co-save.
+   an axe fast enough on the neck, and on a corpse's neck at any time. A
+   killing blow to the head with a blunt weapon ends a walker too, as a
+   crushed head with nothing cut (decided by Nadi 2026-10-25, a). OBVR tells
+   other plugins of both through OBSE's plugin messaging (the actor's
+   reference and the part; the same channel 4.10 planned). A walker whose
+   head is off or crushed leaves the waiting list for good and is noted dead
+   in the co-save; a cut head stays off through OBVR's own co-save. Arrows
+   and spells only drop a walker: no part is known for them.
 3. **The way to end one**, follows from 1 and 2: down a walker with anything,
-   then take its head off before it gets up - or take it off with the
-   blow that downs it.
+   then take its head off before it gets up - or take it off, or crush it,
+   with the blow that downs it.
 4. **Order.** OBVR cuts once it sees the death, so its message comes after
    the death watch, and the rise is seconds later: the cut lands in time. A
    cut for a walker not on the list (already ended, or never a walker) is
    ignored.
-5. **Without a head cutter the feature stands down.** No OBVR, OBVR with
-   `Dismemberment=0`, or an OBVR that sends no cuts: walkers die as they do
-   today, and one log line says why. OBVR tells at its start (and after an
-   INI reload) whether it cuts. Proposed because default on would otherwise
-   make every walker immortal in flat play, and in VR until OBVR's cut
-   exists. Nadi decides (decision b).
+5. **Without a head cutter a power attack ends a walker** (decided by Nadi
+   2026-10-25, b). No OBVR, OBVR with `Dismemberment=0`, or an OBVR that
+   sends no cuts: a walker whose killing blow was a power attack (any melee
+   power attack, fists included) stays down; every other death rises again.
+   OBVR tells at its start (and after an INI reload) whether it cuts; with a
+   cutter the head rule of 2 applies instead, never both. How the plugin
+   knows the blow was a power attack (Proposed): xOBSE has `IsPowerAttacking`
+   and an `OnAttack` event at the start of every melee attack (deepwiki
+   llde/xOBSE, EventManager); the plugin notes the attacker's power attack
+   at OnAttack, clears it at OnRelease, and reads the killer's note at
+   OnDeath. Unverified: what `IsPowerAttacking` reads, whether the killer's
+   attack is still on at the death, and whether OBVR's power strike by a
+   fast swing counts (it hands the engine a power attack; the harness will
+   tell).
 6. **The others.**
    - 4.15 NoLoot: the corpse is set destroyed only at the end for good (the
-     cut), not at each fall; whether a destroyed reference can be raised is
+     cut, the crushed head, or without a cutter the power attack's kill),
+     not at each fall; whether a destroyed reference can be raised is
      not read, so the plugin never tries it.
    - 4.8 Fame: counts the ends, not the falls.
    - 4.10 HeadshotsOnly: a different rule (body hits do no harm); both can be
@@ -653,33 +666,29 @@ How (Proposed, nothing built):
    - Unloaded cells: a walker due while its cell is unloaded gets up when the
      cell loads, as 4.1's waiting list does.
 
-Decisions for Nadi:
-
-a. **Maces, hammers, arrows, spells never end a walker** (only an edge cuts).
-   Proposed: a killing blow to the head with a blunt weapon counts as an end
-   too (OBVR knows the part hit, `BodyPart` Head; a second kind of message,
-   "head destroyed", no cut shown) - cheap once the message exists. Arrows
-   and spells: no part is known, they only drop a walker.
-b. **Flat play:** stand down (5, recommended: no rule without a head), or a
-   flat stand-in (a power attack's kill ends it) that has nothing to do with
-   the head.
-c. **"Immer":** no cap on the rises (as said). A cap would be one number in
-   the co-save per walker.
+Decided by Nadi 2026-10-25: (a) a killing blunt blow to the head ends a
+walker; (b) without a cutter a power attack's kill ends it; (c) no cap on
+the rises - a walker gets up as often as it falls.
 
 Cost: **small** here - the death watch, the waiting list, the resurrect and
-the co-save are built; new are the message receiver, the stand-down check
-and the NoLoot and Fame ordering. The cut itself is OBVR's, **medium to
-large** and not built; the message in OBVR is cheap. Until then the feature
-stands down (5).
+the co-save are built; new are the message receiver, the power attack note
+(two events, one flag per attacker), the choice between the two rules and
+the NoLoot and Fame ordering. The cut itself is OBVR's, **medium to large**
+and not built; the messages in OBVR are cheap. Until the cut exists the
+power attack rule of 5 is the one in play, in VR too.
 
-Tests: pure - a walker's death goes on the list, a person's does not (4.1
-decides those); a cut takes it off, a late or foreign cut is ignored; no
-cutter: nothing goes on the list. Harness with a stand-in for OBVR's
-message (a debug console command on the plugin's opcode base 0x2B00 that
-hands the plugin a cut for a reference): a walker killed with `kill` gets
-up after the delay; killed again and given the cut, it stays down and
-cannot be looted; with the stand-in off it dies as before and the log says
-so. Then with OBVR: the corpse cut of OBVR's spec.
+Tests: pure - which rule is in play (a cutter or not); a walker's death
+goes on the list, a person's does not (4.1 decides those); with a cutter a
+cut or a crushed head takes it off, a late or foreign message is ignored, a
+power attack does not; without one a power attack's kill takes it off,
+a normal blow, an arrow or a spell does not; no cap - the tenth fall rises
+like the first. Harness with a stand-in for OBVR's message (a debug console
+command on the plugin's opcode base 0x2B00 that hands the plugin a cut for
+a reference): a walker killed with `kill` gets up after the delay, again
+and again; given the cut, it stays down and cannot be looted. Without the
+stand-in: the player kills a walker with a normal attack (it rises) and
+with a power attack (it stays down) - flat, and with OBVR's fast swing.
+Then with OBVR's cut: the corpse cut of OBVR's spec.
 
 ### Later (named by Nadi, not in the first build)
 
