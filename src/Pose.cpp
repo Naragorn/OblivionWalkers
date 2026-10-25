@@ -299,7 +299,8 @@ bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head) {
 	return true;
 }
 
-PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, bool firstLog, LogFn log) {
+PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, bool firstLog, LogFn log,
+                               const Vec3* pivotTarget, const Vec3* headTarget) {
 	PoseReport report;
 	LARGE_INTEGER start;
 	QueryPerformanceCounter(&start);
@@ -314,7 +315,8 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	}
 	const UInt32 walkerRoot = LooksLikeObject(walker) ? Read(walker + kRefNiNodeOffset) : 0;
 	const UInt32 corpseRoot = LooksLikeObject(corpse) ? Read(corpse + kRefNiNodeOffset) : 0;
-	if (!LooksLikeObject(walkerRoot) || !LooksLikeObject(corpseRoot)) {
+	const bool targetGiven = pivotTarget != nullptr && headTarget != nullptr && mode == MatchCorpse::Place;
+	if (!LooksLikeObject(walkerRoot) || (!targetGiven && !LooksLikeObject(corpseRoot))) {
 		log("Pose: %s has no model - the walker lies where it fell", LooksLikeObject(walkerRoot) ? "the corpse" : "the walker");
 		return report;
 	}
@@ -329,13 +331,19 @@ PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, b
 	// 2026-10-25: still the old spot a frame after the move).
 	const UInt32 walkerPivot = SpineOrPelvisOf(walkerRoot);
 	const UInt32 corpsePivot = SpineOrPelvisOf(corpseRoot);
+	if (corpsePivot != 0) {
+		report.corpseRead = true;
+		report.corpsePivot = PositionOf(corpsePivot);
+		report.corpseHead = corpseHead != 0 ? PositionOf(corpseHead) : report.corpsePivot;
+	}
 	PlacePlan plan = NoPlan();
-	if (walkerPivot != 0 && corpsePivot != 0) {
+	if (walkerPivot != 0 && (targetGiven || corpsePivot != 0)) {
 		plan = PlanPlace(PositionOf(walkerPivot), walkerHead != 0 ? PositionOf(walkerHead) : PositionOf(walkerPivot),
-		                 PositionOf(corpsePivot), corpseHead != 0 ? PositionOf(corpseHead) : PositionOf(corpsePivot));
+		                 targetGiven ? *pivotTarget : report.corpsePivot,
+		                 targetGiven ? *headTarget : report.corpseHead);
 	}
 	report.planOk = plan.ok;
-	if (firstLog) {
+	if (firstLog && LooksLikeObject(corpseRoot)) {
 		LogBoneAxes(walkerRoot, corpseRoot, log);
 	}
 	if (walkerPelvis != 0 && corpsePelvis != 0) {

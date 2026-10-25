@@ -17,6 +17,11 @@ struct PoseReport {
 	UInt32 left = 0;    // left where they fell
 	bool planOk = false;
 	float microseconds = 0.0f;  // the whole of it, for the log
+	// Where the corpse's lowest spine bone and head lay, when read - so a
+	// later placement can go there once the corpse is gone (HideCorpseAtPose).
+	bool corpseRead = false;
+	Vec3 corpsePivot{0.0f, 0.0f, 0.0f};
+	Vec3 corpseHead{0.0f, 0.0f, 0.0f};
 };
 
 // The pelvis's and the head's world positions of `ref` (game units); false
@@ -27,6 +32,9 @@ bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head);
 // both references must have their 3D. Inside the engine's Havok lock, each
 // body through its wrapper's SetTranslationAndRotation, its velocities set
 // to nothing and the body woken. `firstLog` lists the bones found once.
-PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, bool firstLog, LogFn log);
+// With `pivotTarget` and `headTarget` (Place only) the walker is placed
+// there and the corpse is not read - it may be gone.
+PoseReport MatchWalkerToCorpse(UInt32 walker, UInt32 corpse, MatchCorpse mode, bool firstLog, LogFn log,
+                               const Vec3* pivotTarget = nullptr, const Vec3* headTarget = nullptr);
 
 }  // namespace walkers

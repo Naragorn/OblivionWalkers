@@ -55,6 +55,11 @@ struct RiseSettings {
 	// [Rise] SettleSeconds: with MatchCorpse=2, how long the walker lies
 	// unseen in the corpse's pose before it is moved onto the corpse's place.
 	float settleSeconds = 1.5f;
+	// [Rise] HideCorpseAtPose: a test switch, off - the corpse disabled when
+	// the walker is laid into its place rather than at the reveal, so the two
+	// ragdolls cannot collide while the walker settles (the suspect for its
+	// drift, 2026-10-25). The picture then shows neither for a moment.
+	bool hideCorpseAtPose = false;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

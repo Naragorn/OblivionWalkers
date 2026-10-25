@@ -631,11 +631,30 @@ void StepSwapInFlight(float dt) {
 		// is moved and turned onto the corpse's place (kSwapPlace). The reveal
 		// waits a frame for the nodes to follow the bodies.
 		static bool s_logged = false;
+		// The corpse's spine and head at the pose: the settled walker's later
+		// placement goes there, whether the corpse still lies or not.
+		static Vec3 s_pivot{};
+		static Vec3 s_head{};
+		static bool s_target = false;
 		const MatchCorpse setting = MatchCorpseFrom(g_settings.matchCorpse);
 		const MatchCorpse mode = events == kSwapPlace ? MatchCorpse::Place : setting;
-		const PoseReport pose =
-			MatchWalkerToCorpse(LookupForm(g_swap.zombieId), LookupForm(g_swap.corpseId), mode, !s_logged, g_log);
+		const PoseReport pose = MatchWalkerToCorpse(LookupForm(g_swap.zombieId), LookupForm(g_swap.corpseId), mode,
+		                                            !s_logged, g_log, events == kSwapPlace && s_target ? &s_pivot : nullptr,
+		                                            events == kSwapPlace && s_target ? &s_head : nullptr);
 		s_logged = s_logged || pose.bodies > 0;
+		if (events == kSwapPose) {
+			s_target = pose.corpseRead;
+			s_pivot = pose.corpsePivot;
+			s_head = pose.corpseHead;
+			if (g_settings.hideCorpseAtPose) {
+				// The test switch: the corpse gone in the frame the walker is laid,
+				// before the next physics step - the two cannot collide.
+				const UInt32 corpse = LookupForm(g_swap.corpseId);
+				const bool hidden = LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable");
+				g_log("Swap: the corpse %08X hidden right after the walker was laid (HideCorpseAtPose, %d)",
+				      g_swap.corpseId, hidden ? 1 : 0);
+			}
+		}
 		g_log("Swap: walker %08X %s %08X (MatchCorpse=%u) - %u bodies: %u turned as the corpse's bones, %u carried "
 		      "along, %u moved and turned whole%s, %u left; %.0f us",
 		      g_swap.zombieId,
@@ -656,7 +675,7 @@ void StepSwapInFlight(float dt) {
 		// shown lying where it settled, the man's items on it.
 		const UInt32 corpse = LookupForm(g_swap.corpseId);
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
-		const bool hidden = LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable");
+		const bool hidden = g_settings.hideCorpseAtPose || (LooksLikeObject(corpse) && ConsoleOn(corpse, "Disable"));
 		const bool shown = LooksLikeObject(zombie) && ConsoleOn(zombie, "SetActorAlpha 1");
 		bool moved = false;
 		if (LooksLikeObject(corpse) && LooksLikeObject(zombie) && g_swap.corpseId != g_swap.zombieId) {
