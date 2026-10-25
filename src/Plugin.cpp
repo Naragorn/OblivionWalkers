@@ -98,6 +98,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	const int health = GetPrivateProfileIntA("Zombies", "HealthPercent", 15, path);
 	rise.healthPercent = health < 1 ? 1u : (health > 100 ? 100u : static_cast<UInt32>(health));
 	rise.noLoot = GetPrivateProfileIntA("Zombies", "NoLoot", 1, path) != 0;
+	rise.blockMooResurrect = GetPrivateProfileIntA("Zombies", "BlockMooResurrect", 1, path) != 0;
 	rise.speedMultiplier = IniFloat("Zombies", "SpeedMultiplier", 1.0f, path);
 	const int spread = GetPrivateProfileIntA("Zombies", "SpeedRandomPercent", 30, path);
 	rise.speedRandomPercent = spread < 0 ? 0u : (spread > 100 ? 100u : static_cast<UInt32>(spread));
@@ -143,13 +144,13 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d CloneBase=%d ZombieRace=%d "
-	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d; "
+	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d; "
 	    "[Replace] ExtraPercent=%u",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
 	    rise.dropSeconds, rise.lieSeconds, static_cast<UInt32>(rise.matchCorpse), rise.settleSeconds, rise.hideCorpseAtPose ? 1 : 0, rise.keepCorpseApart ? 1 : 0, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
 	    rise.walkOnly ? 1 : 0, rise.speedMultiplier, rise.speedRandomPercent, rise.famePerKills,
-	    rise.avoidChapels ? 1 : 0, rise.renameToWalker ? 1 : 0, rise.walkerName, rise.renameVanilla ? 1 : 0,
+	    rise.avoidChapels ? 1 : 0, rise.renameToWalker ? 1 : 0, rise.walkerName, rise.renameVanilla ? 1 : 0, rise.blockMooResurrect ? 1 : 0,
 	    replace.extraPercent);
 	return true;
 }

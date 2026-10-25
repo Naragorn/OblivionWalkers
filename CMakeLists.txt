@@ -43,6 +43,10 @@ add_executable(ApartLogicTest tests/ApartLogicTest.cpp)
 target_link_libraries(ApartLogicTest PRIVATE logic)
 add_test(NAME ApartLogicTest COMMAND ApartLogicTest)
 
+add_executable(MooLogicTest tests/MooLogicTest.cpp)
+target_link_libraries(MooLogicTest PRIVATE logic)
+add_test(NAME MooLogicTest COMMAND MooLogicTest)
+
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)
 add_test(NAME PluginEntryTest COMMAND PluginEntryTest)

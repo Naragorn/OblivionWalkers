@@ -86,6 +86,10 @@ struct RiseSettings {
 	// conversation, looting, or pick pocketing"). Never a risen one
 	// (BlocksLoot).
 	bool noLoot = true;
+	// [Zombies] BlockMooResurrect: a dead walker loses the token and the brain
+	// Maskar's Oblivion Overhaul gives zombies, so MOO does not raise it again
+	// (MooLogic.h) - MOO's own ini_zombie_resurrect can stay as it is.
+	bool blockMooResurrect = true;
 	// [Zombies] SpeedMultiplier and SpeedRandomPercent: the walkers' pace,
 	// spread over the four walker records (ReplaceLogic.h WalkerSpeed).
 	float speedMultiplier = 1.0f;

@@ -1,6 +1,7 @@
 #include "Rise.h"
 
 #include "Engine.h"
+#include "MooLogic.h"
 #include "Pose.h"
 #include "Replace.h"
 
@@ -91,6 +92,12 @@ UInt32 g_lootless[32] = {};
 UInt32 g_lootlessCount = 0;
 // The walkers risen from a corpse: lootable whatever NoLoot says.
 RisenSet g_risenSet;
+// BlockMooResurrect: MOO's token and brain at MOO's load index (0 without
+// MOO), looked up once a session, and the dead walkers still to strip.
+bool g_mooLooked = false;
+UInt32 g_mooToken = 0;
+UInt32 g_mooBrain = 0;
+MooStrip g_mooStrip;
 // Fame (4.8): the player's walker kills toward the next point, and the
 // points earned in the death path, handed to the engine at the next tick.
 FameCount g_fame;
@@ -179,6 +186,10 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	}
 	if (BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
+	}
+	if (StripsMoo(g_settings.blockMooResurrect, g_mooToken != 0, walker) && !NoteMooStrip(g_mooStrip, fallen.refId)) {
+		g_log("MOO: walker %08X dead, but %u wait to be stripped already - MOO may raise this one", fallen.refId,
+		      g_mooStrip.count);
 	}
 	if (FameKill(walker, FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId) &&
 	    g_settings.famePerKills > 0) {
@@ -357,6 +368,46 @@ void FindWalkers() {
 		}
 	}
 	g_log("Walkers: %s is mod %02X, %u walker creatures found", kPluginEsp, index, g_walkerCount);
+}
+
+// Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
+// forms at MOO's load index, each of the type its ESP gives it - or none.
+void FindMoo() {
+	if (g_mooLooked) {
+		return;
+	}
+	g_mooLooked = true;
+	g_mooToken = 0;
+	g_mooBrain = 0;
+	const UInt32 handler = Read(kDataHandlerPointer);
+	const UInt32 count = LooksLikeObject(handler) ? Read(handler + kDataHandlerModCountOffset) : 0;
+	UInt32 index = 0x100;
+	for (UInt32 i = 0; i < count && i < 0xFF; ++i) {
+		const char* name = ModNameAt(i);
+		if (name != nullptr && SameModName(name, kMooEsp)) {
+			index = i;
+			break;
+		}
+	}
+	if (index > 0xFF) {
+		g_log("MOO: %s is not loaded - nothing to keep off the walkers", kMooEsp);
+		return;
+	}
+	const UInt32 token = LookupForm(MooFormId(index, kMooTokenZombieLocalId));
+	const UInt32 brain = LookupForm(MooFormId(index, kMooZombieBrainLocalId));
+	const UInt32 tokenType = LooksLikeObject(token) ? Read8(token + kFormTypeOffset) : 0;
+	const UInt32 brainType = LooksLikeObject(brain) ? Read8(brain + kFormTypeOffset) : 0;
+	if (tokenType != kFormTypeClothing || brainType != kFormTypeIngredient) {
+		g_log("MOO: %s is mod %02X, but its zombie token %08X (type %02X) and brain %08X (type %02X) are not what "
+		      "this plugin read in MOO's ESP - a dead walker keeps them",
+		      kMooEsp, index, MooFormId(index, kMooTokenZombieLocalId), tokenType,
+		      MooFormId(index, kMooZombieBrainLocalId), brainType);
+		return;
+	}
+	g_mooToken = MooFormId(index, kMooTokenZombieLocalId);
+	g_mooBrain = MooFormId(index, kMooZombieBrainLocalId);
+	g_log("MOO: %s is mod %02X - a dead walker loses its token %08X and brain %08X (BlockMooResurrect=%d)", kMooEsp,
+	      index, g_mooToken, g_mooBrain, g_settings.blockMooResurrect ? 1 : 0);
 }
 
 // Every Creature reference of `base` on the process lists, with or without
@@ -940,6 +991,32 @@ void StepSpawns(float dt) {
 	}
 }
 
+// BlockMooResurrect: the dead walkers due a pass lose MOO's token and brain
+// (RemoveItem, the console's own; a count of 1 is what MOO gives).
+void StepMooStripping(float dt) {
+	UInt32 due[8];
+	UInt8 pass[8];
+	const UInt32 count = StepMooStrip(g_mooStrip, dt, due, 8, pass);
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 ref = LookupForm(due[i]);
+		if (!LooksLikeObject(ref) || !IsActor(ref)) {
+			continue;
+		}
+		char line[48];
+		std::snprintf(line, sizeof(line), "RemoveItem %08X 1", g_mooToken);
+		const bool token = ConsoleOn(ref, line);
+		std::snprintf(line, sizeof(line), "RemoveItem %08X 1", g_mooBrain);
+		const bool brain = ConsoleOn(ref, line);
+		if (pass[i] == 1) {
+			// RunScriptLine2's answer is no success flag (it reads 0 for a
+			// RemoveItem that took: moo-stay-down.txt, 2026-10-25 20:12).
+			g_log("MOO: walker %08X dead - MOO's token and brain taken, so MOO does not raise it (RemoveItem "
+			      "answered %d %d; again in %.0f s)",
+			      due[i], token ? 1 : 0, brain ? 1 : 0, kMooSecondPassSeconds);
+		}
+	}
+}
+
 // NoLoot: the engine's SetDestroyed on each walker that died since the last
 // frame - the CS wiki: on an actor it "prevents the actor from being
 // activated for conversation, looting, or pick pocketing".
@@ -976,6 +1053,8 @@ void Tick() {
 	{
 		const float frame = *reinterpret_cast<const float*>(kFrameSeconds);
 		FindWalkers();
+		FindMoo();
+		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepLootless();
@@ -1034,6 +1113,7 @@ void OnLoad(void*) {
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_lootlessCount = 0;
+	g_mooStrip = MooStrip{};
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -1086,6 +1166,7 @@ void OnNewGame(void*) {
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_lootlessCount = 0;
+	g_mooStrip = MooStrip{};
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -1115,6 +1196,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_swap = Swap{};
 	g_walkersLooked = false;
 	g_walkerCount = 0;
+	g_mooLooked = false;
+	g_mooStrip = MooStrip{};
 	if (xse.QueryInterface == nullptr) {
 		log("xOBSE offers no QueryInterface: no death watch");
 		return false;

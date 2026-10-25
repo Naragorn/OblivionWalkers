@@ -56,7 +56,9 @@ Own folder for now; it becomes its own repository later.
   carries one (MOOAddZombieBrainFunctionScript and MOOTokenZombieScript in
   its ESP). The walkers wear the zombie models, so MOO takes them for
   zombies - and with `[Zombies] NoLoot=1` nobody can take the brain from the
-  corpse. Until the walkers get a head script of their own: set
-  `set MOO.ini_zombie_resurrect to 0` in `Maskar's Oblivion Overhaul.ini`.
-  MOO's own zombies stay down then too, its mummies still get up. Walkers
-  that already carry a brain in a save keep getting up.
+  corpse. Handled since 2026-10-25: with `[Zombies] BlockMooResurrect=1`
+  (the default) a dead walker loses MOO's zombie token and brain right after
+  its death, so MOO leaves it down and MOO's INI can stay as it is - MOO's
+  own zombies keep MOO's behaviour. With `0`, set
+  `set MOO.ini_zombie_resurrect to 0` in `Maskar's Oblivion Overhaul.ini`
+  instead (MOO's own zombies stay down then too).

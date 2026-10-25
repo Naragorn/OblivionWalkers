@@ -1,0 +1,59 @@
+# MOO does not raise a dead walker (docs/walkers-spec.md 7a; Nadi,
+# 2026-10-25: "go" for taking MOO's brain and token off a dead walker): the
+# console sets MOO's zombie resurrect to every time and without the brain
+# (ini_zombie_brain 0, ini_zombie_resurrect 100 - so MOO's token alone
+# decides), places a walker (the ESP's 0x801) 300 units in front of the
+# player and kills it. MOO's death handler gives it the token, whose script
+# raises it 10.8 to 54 s after the death. The roster at the end mark tells:
+# with [Zombies] BlockMooResurrect=0 (the control) the walker stands again,
+# "0 dead"; with 1 (the default) it lies, "1 dead", and the plugin's log
+# reads "MOO: walker ... dead - MOO's token and brain taken".
+#
+# Results 2026-10-25 (artifacts/hand-script/moo-stay-down/):
+#   20:10 (20261025-201031) PASS, BlockMooResurrect=0: dead at the dead and
+#   t15 marks, up again at t30, then at the player (45 units).
+#   20:12 (20261025-201247) PASS, BlockMooResurrect=1: "MOO: walker FF000EE9
+#   dead - MOO's token and brain taken", dead at every mark to the end.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/moo-stay-down.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready set MOO.ini_zombie_brain to 0
+console-at ready set MOO.ini_zombie_resurrect to 100
+console-at ready tgm
+console-at ready player.placeatme 11000801 1
+console-at placed set MOO.ini_zombie_brain to 0
+console-at placed set MOO.ini_zombie_resurrect to 100
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 300 0
+console-at moved {actor}.kill
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 2
+mark moved
+wait 5
+mark dead
+wait 15
+mark t15
+wait 15
+mark t30
+wait 15
+mark t45
+wait 15
+mark t60
+wait 10
+mark end
+wait 1

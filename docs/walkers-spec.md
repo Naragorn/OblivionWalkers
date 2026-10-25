@@ -367,6 +367,14 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   ran. Harness 19:05 and 19:07 PASS: shown 0 and 1 unit off the corpse's
   pelvis, 2 units and 5 and 1 degrees off at the raise, the corpse not
   moved. Three runs: holds.
+- Harness 19:54 (rise-swap-look, the defaults, OblivionFrameFixes newly in
+  the plugin folder): shown 1 unit off the corpse, but 25 units and 26
+  degrees off at the raise - the freshly laid pose moved while it lay
+  seen for LieSeconds (3 s in the harness, 1 by default). So with
+  SettleSeconds=0, one run of four slid visibly; the settle (1.5 s, unseen)
+  absorbed that in both runs that had it. Derived: not FrameFixes (it
+  changes how scripts find their variables; the swap reads none). Open:
+  whether 0 stays the default - Nadi's call.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
@@ -882,6 +890,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
 | `rise-swap-look.txt` | the walker takes the corpse's place: it settles unseen, the two change places, it lies, it gets up (4.1) - PASS 2026-10-25 09:24, pictures a second apart | the plugin, the ESP active, timings by hand |
 | `rename.txt` | the walkers named Name, the game's zombies renamed with RenameVanilla=1 (4.2) - PASS 2026-10-24 21:31 | the plugin, the ESP active, RenameVanilla by hand |
+| `moo-stay-down.txt` | with MOO set to raise every dead zombie, a dead walker stays down (7a, BlockMooResurrect) - PASS 2026-10-25 20:10 (control, BlockMooResurrect=0: up again within 30 s) and 20:12 (=1: dead to the end) | the plugin, the ESP and MOO active |
 | `chapel-walker.txt` | a walker placed in a chapel is taken out of the world (4.7) - PASS 2026-10-24 21:21, 21:26 (made-there rule) |
 | `chapel-follow.txt` | a walker met outside and moved into a chapel stays (4.7) - PASS 2026-10-24 21:27 | the plugin, the ESP active | the plugin, the ESP active |
 | `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |
@@ -950,6 +959,21 @@ roster line's counts.
   walkers' own, later (Nadi) - or taking MOO's brain and token off a dead
   walker (small). Not seen in a log: the Windows log was not read (both NTFS
   volumes were dirty after the crash of 2026-10-24 21:40).
+  **FIXED 2026-10-25** (Nadi: "go" for taking them off, MooLogic.h,
+  `[Zombies] BlockMooResurrect=1`): read in MOO's ESP - its OnDeath handler
+  (SetEventHandler "OnDeath" MOOOnDeathByCreatureFunctionScript) gives a
+  dead "\Zombie\Skeleton.nif" the token MOOTokenZombie (CLOT, local
+  042C18), whose script raises it 10.8 to 54 s later (GetTimeDead past
+  0.003 * TimeScale * Rand(1, 5) hours) if it carries MOOZombieBrain (INGR,
+  local 0F8B6D) or at ini_zombie_resurrect percent. The plugin finds MOO by
+  name, checks the two forms' types (Clothing 0x16, Ingredient 0x19) and
+  removes both from a dead walker at the next tick and 2 s on (the
+  console's RemoveItem). `moo-stay-down.txt` 2026-10-25, MOO set to raise
+  every zombie without a brain: with BlockMooResurrect=0 the walker stood
+  again between 15 and 30 s after the kill and walked to the player
+  (20:10); with 1 it lay dead to the end, 70 s (20:12). MOO's INI in both
+  installs still has ini_zombie_resurrect 0 - back to MOO's 70 is Nadi's
+  call.
 
 - **RESOLVED 2026-10-24 07:12** - the walker a few metres from the corpse, the man up again, old walkers raised: three causes, all measured (`rise-creature.txt` runs 3 to 5): the finder's radius missed the placed walker and matched old ones (now identity: the references before the PlaceAtMe against those after); a kill handed to the walker before its model existed left a "dead" body sliding at 400 units/s (the kill now waits for the model and lands in its first frame); and the two seconds of walking before the old finder gave up were the "few metres". The walker now drops within 40 units of the spot. The original entry, for the record:
 - **The walker appears a few metres from the corpse in Nadi's game, not on it**

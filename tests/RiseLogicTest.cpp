@@ -618,6 +618,8 @@ void TestZombieDefaults() {
 	Check(settings.settleSeconds == 0.0f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=0 - the pose holds since every body is laid (Nadi, 2026-10-25: go); the test "
 	      "switch HideCorpseAtPose off");
+	Check(settings.blockMooResurrect,
+	      "[Zombies] BlockMooResurrect=1 - a dead walker loses MOO's token and brain (Nadi, 2026-10-25: go)");
 	Check(settings.keepCorpseApart,
 	      "[Rise] KeepCorpseApart=1 (Nadi, 2026-10-25: go after the runs of 18:04 to 18:09)");
 	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,
