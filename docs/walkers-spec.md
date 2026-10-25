@@ -1011,6 +1011,22 @@ roster line's counts.
   Overhaul and others). Cheapest step that settles it: one run with those
   mods off. A design choice follows either way - rise from a disabled
   corpse too (place the walker at its last position) or leave it down.
+  Status 2026-10-25 evening (looked at again on Nadi's "go"): that run was
+  already made - the narrowing above (2026-10-24 08:46, seven outdoor runs,
+  `rise-creature-outdoors-nomods.txt` among them): with and without
+  Ragdolls, MOO and both Enhanced Grabbing plugins only the bandit the
+  console placed goes disabled; the area's people and Nadi's own kills
+  rose. Left open: who disables a console-placed corpse outdoors - the
+  engine or one of the OBSE DLL plugins, which the ESP-off runs kept
+  (EngineBugFixes, AveSithisEngineFixes, BA_EngineFixes, GPEngineFixes,
+  Modern Engine Fixes, FriendlyCreatures and others; none of their INIs
+  names corpses or dead bodies). Whether it reaches actors other mods place
+  with PlaceAtMe (MOO's spawns are such) is not known. The decisive step: a
+  probe on the engine's reference disable that logs, for a waiting corpse,
+  the return address - inside Oblivion.exe or inside which DLL - small to
+  medium (the plugin hooks no engine code yet). Not read yet: the disable
+  routine's address - xOBSE's GameObjects.cpp names 0x004FBB30 (deepwiki),
+  but the bytes there read as a list insert (REA), so that is unverified.
 
 ## 8. Phases
 
