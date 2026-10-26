@@ -729,6 +729,24 @@ runs show it holds; HordeLogic.h decides, Horde.cpp carries it out):
 - On by default since then (Nadi's "go horde"; the spec's `Enabled=1`).
   Not judged yet: the feel in the headset, and the cost - the step reads
   some 80 walkers once a second and gives packages through the console.
+- **Fixed 2026-10-26 - the game froze** (`gate-guards.txt` 11:12 and 11:17,
+  near Anvil with some 60 walkers and the gate guards fighting them; both
+  times the main thread stopped right after a step that aimed group
+  follow packages, OBVR's watchdog: "no frame has ended for 10 seconds").
+  The summaries showed leaders running a follow package - their own
+  group's (group 03's leader on 11000819, group 03's own: following
+  itself once aimed) or another group's (leaders following each other
+  round). A follower promoted to leader (its leader in a fight) still ran
+  the follow package when the plugin aimed that package at it. Now
+  (`HordeLogic.h` SettleFollows): a group's follow package is aimed at its
+  leader by an order of its own (Aim), only once the leader runs no follow
+  package, before any follower is given it; until then the group's follows
+  wait. `HordeLogicTest` "A churning horde" (600 steps, 60 walkers dropping
+  out and back, packages taking three times in four): nobody follows
+  itself or round a ring - red before the fix. After it: 11:29, 11:33,
+  11:36 ran to the end (three of three; before, two of two froze). That
+  the self-follow was the freeze's cause is derived from the timing and
+  the summaries, not read in the engine.
 
 ### 4.11b Hordes at the gates - `[Horde] TowardCities=1`, `[Guards] Enabled=1`, `HealthFactor=5`, `ZombiesPerGuard=5`, `[Safeguard] Enabled=1`
 
@@ -788,7 +806,9 @@ How:
   `AfterSeconds` (15), its body loaded (3D) and no living walker within
   `Radius` (3000) of it in the same interior or worldspace, the engine's
   Resurrect raises it there with the get-up animation (its own AI then
-  takes it home). "Irgendwo sicher" is taken as "where it fell, once it is
+  takes it home). A death without any killer handed over (11:17: a named
+  woman died among the walkers with killer 00000000) is asked about at the
+  next frame: a living walker within 1000 units then counts as the killer. "Irgendwo sicher" is taken as "where it fell, once it is
   safe there". A body whose cell is unloaded waits for the player to come
   back: a raise without 3D is not read yet.
 
@@ -796,8 +816,18 @@ Cost: towards cities and the hold **small**; the guards **medium**; the
 safeguard **small**. Tests: `GuardLogicTest` (every flow of the pool: how
 many, out, replaced, raised, taken in, after a load, the spots, the gate
 table), `SafeguardLogicTest` (who is noted, when raised, the co-save).
-Harness: `gate-guards.txt`. Open: the guards' fight and the health read
-back in the game; the raise of an unloaded body.
+Harness: `gate-guards.txt`, `gate-guards-replace.txt`. Read in the game
+(2026-10-26, Tamriel -47,-7 by Anvil): two guards out for seven walkers,
+six for thirty (two a second); their health read back 60 of 60 (2 of 2
+with `HealthFactor=0.2` by hand) - the record's +0x84 holds for these
+auto-calc guards; they kill walkers (killer 11000840 in the death lines),
+go back in 30 s after the last walker. The safeguard raised a mod's horses
+the walkers killed (`Radius=300` by hand), noted a named woman. **Open:** a
+dead guard replaced or raised in the game (the one guard that fell, killed
+by another guard's swing, needed no replacement - the walkers were fewer
+by then; the flow is unit-tested only); a console kill of a pool guard
+does not take through the harness's console lines; the raise of an
+unloaded body; the feel and the cost in the headset.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 
@@ -1050,7 +1080,8 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
-| `gate-guards.txt` | seven walkers near Anvil's main gate: two guards out with 60 health, sent at the walkers; one killed, the next out; Thulsa Doom killed by walkers raised by the safeguard (4.11b) | the plugin, the ESP with the guard pool |
+| `gate-guards.txt` | seven walkers near Anvil's main gate: two guards out with 60 health, sent at the walkers, back in after the last; the walkers' victims raised by the safeguard (4.11b) - 11:12 and 11:17 froze (the horde's self-follow, fixed), 11:29 PASS (`[Safeguard] Radius=300` by hand: horses raised), 11:33 PASS (`HealthFactor=0.2`) | the plugin, the ESP with the guard pool |
+| `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 
 Each plugin scenario `expect`s the plugin's own `Walkers:` log lines and the

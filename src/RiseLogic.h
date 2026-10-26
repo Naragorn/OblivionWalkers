@@ -100,7 +100,7 @@ struct RiseSettings {
 	// walkers there - Nadi, 2026-10-26: no extra stats, HealthFactor times a
 	// walker's health, one for every ZombiesPerGuard walkers.
 	GuardSettings guards;
-	// [Safeguard] (4.11c, SafeguardLogic.h): whoever the walkers kill gets up
+	// [Safeguard] (4.11b, SafeguardLogic.h): whoever the walkers kill gets up
 	// again once it is safe - on by default (Nadi, 2026-10-26).
 	SafeguardSettings safeguard;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for

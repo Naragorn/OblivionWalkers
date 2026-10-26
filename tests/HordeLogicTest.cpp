@@ -212,7 +212,15 @@ void TestLeaderLost() {
 	run.Step(gone, 2);
 	Check(run.Of(HordeOrder::Lead, 3) == 1 && run.state.groups[g].leader == 3,
 	      "the leader gone (dead, unloaded): the follower of the highest rank leads the same group");
-	Check(run.Of(HordeOrder::Follow, 2) == 1, "the rest are given the follow again - it now goes after the new leader");
+	Check(run.Of(HordeOrder::Follow) == 0 && run.Of(HordeOrder::Aim) == 0,
+	      "the new leader still runs the group's follow package: nobody is aimed at it yet (it would follow itself)");
+	const HordeWalker led[] = {Walker(2, 300, 0, 4, kFollow + g), Walker(3, 600, 0, 7, kTravel + g)};
+	run.Step(led, 2);
+	const HordeOrder* aim = run.First(HordeOrder::Aim);
+	Check(aim != nullptr && aim->group == g && aim->walker == 3 && run.Of(HordeOrder::Follow) == 0,
+	      "its lead taken: the group's follow package aimed at it - the rest, on that package, now go after it");
+	run.Step(led, 2);
+	Check(run.Of(HordeOrder::Aim) == 0, "aimed once: not again while the leader stays");
 	const HordeWalker alone[] = {Walker(2, 300, 0, 4, 0, false), Walker(3, 600, 0, 7, kTravel + g, false)};
 	run.Step(alone, 2);
 	Check(!run.state.groups[g].used, "no one fit left: the group's slot is free again");
@@ -342,9 +350,104 @@ void TestGates() {
 	}
 }
 
+// A long run of a churning horde (2026-10-26, gate-guards.txt froze the
+// game twice right after a step that aimed a group's follow package at a
+// leader still running a follow package - one following itself, or leaders
+// following each other round): walkers dropping out (a fight) and back in at
+// random, the engine taking a package three times in four. A follow package
+// follows whom it was last aimed at (an Aim order, the plugin's write into
+// the package); never may a walker end up following itself, round a ring,
+// or be in two groups.
+void TestChurn() {
+	std::printf("A churning horde\n");
+	Run run;
+	constexpr UInt32 kN = 60;
+	HordeWalker walkers[kN];
+	UInt32 dice = 777;
+	auto roll = [&dice](UInt32 most) {
+		dice = dice * 1664525u + 1013904223u;
+		return (dice >> 8) % most;
+	};
+	for (UInt32 i = 0; i < kN; ++i) {
+		walkers[i] = Walker(0x100 + i, static_cast<float>(roll(3000)), static_cast<float>(roll(3000)), roll(100000));
+	}
+	UInt32 aimed[walkers::kHordeGroups] = {};
+	auto follows = [&](UInt32 id) -> UInt32 {
+		const HordeWalker* w = walkers::horde_detail::Find(walkers, kN, id);
+		if (w == nullptr || w->package < kFollow || w->package >= kFollow + walkers::kHordeGroups) {
+			return 0;
+		}
+		return aimed[w->package - kFollow];
+	};
+	bool once = true;
+	bool noRing = true;
+	bool aimedFirst = true;
+	UInt32 aims = 0;
+	UInt32 followed = 0;
+	for (int step = 0; step < 600; ++step) {
+		for (HordeWalker& w : walkers) {
+			if (roll(100) < 8) {
+				w.fit = !w.fit;
+			}
+		}
+		HordeOrder orders[256];
+		const UInt32 count = walkers::StepHorde(run.state, walkers, kN, run.settings, 1.0f, run.seed, orders, 256);
+		for (UInt32 o = 0; o < count; ++o) {
+			const HordeOrder& order = orders[o];
+			if (order.kind == HordeOrder::Aim) {
+				aimed[order.group] = order.walker;
+				++aims;
+				continue;
+			}
+			if (order.kind == HordeOrder::MoveMarker) {
+				continue;
+			}
+			if (order.kind == HordeOrder::Follow) {
+				aimedFirst = aimedFirst && aimed[order.group] == run.state.groups[order.group].leader;
+			}
+			if (roll(4) == 0) {
+				continue;
+			}
+			for (HordeWalker& w : walkers) {
+				if (w.id == order.walker) {
+					w.package = order.package;
+				}
+			}
+		}
+		for (UInt32 i = 0; i < kN; ++i) {
+			UInt32 in = 0;
+			for (const HordeGroup& g : run.state.groups) {
+				if (!g.used) {
+					continue;
+				}
+				in += g.leader == walkers[i].id ? 1u : 0u;
+				for (UInt32 f = 0; f < g.count; ++f) {
+					in += g.followers[f] == walkers[i].id ? 1u : 0u;
+				}
+			}
+			once = once && in <= 1;
+			// Follow the chain from this walker: it must end, never come back.
+			UInt32 at = walkers[i].id;
+			for (UInt32 hop = 0; hop <= kN && at != 0; ++hop) {
+				const UInt32 next = follows(at);
+				noRing = noRing && next != walkers[i].id;
+				at = next;
+				if (hop == kN) {
+					noRing = false;
+				}
+			}
+			followed += follows(walkers[i].id) != 0 ? 1u : 0u;
+		}
+	}
+	Check(once, "600 steps of walkers dropping out and back: never in two groups");
+	Check(aimedFirst, "a follow package given only once it is aimed at the group's leader");
+	Check(noRing && aims > 0 && followed > 0, "nobody follows itself, nobody follows round a ring (and following happens)");
+}
+
 int main() {
 	TestOff();
 	TestGates();
+	TestChurn();
 	TestLeadAndJoin();
 	TestKeepAlive();
 	TestMarker();

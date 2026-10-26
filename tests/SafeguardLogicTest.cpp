@@ -1,4 +1,4 @@
-// Every flow of the safeguard (docs/walkers-spec.md 4.11c): who the walkers
+// Every flow of the safeguard (docs/walkers-spec.md 4.11b): who the walkers
 // killed is noted - not the walkers, not the player, not the gate guards,
 // not those who rise as walkers - and raised once dead AfterSeconds with no
 // living walker within Radius; the list survives a save.
@@ -47,6 +47,32 @@ void TestTakes() {
 	Check(!walkers::SafeguardTakes(s, other), "one who rises as a walker: not");
 	s.enabled = false;
 	Check(!walkers::SafeguardTakes(s, v), "[Safeguard] Enabled=0: nobody");
+}
+
+void TestNoKiller() {
+	std::printf("Dead without a killer\n");
+	SafeguardSettings s;
+	Victim v;
+	v.killerUnknown = true;
+	Check(!walkers::SafeguardTakes(s, v) && walkers::SafeguardAsks(s, v),
+	      "no killer handed over (a bleed, a fall in a fight): asked about - a walker near then counts as the killer");
+	Victim known = v;
+	known.killerUnknown = false;
+	Check(!walkers::SafeguardAsks(s, known), "a killer handed over that is no walker: not asked about");
+	Victim other = v;
+	other.walker = true;
+	Check(!walkers::SafeguardAsks(s, other), "a walker: not");
+	other = v;
+	other.player = true;
+	Check(!walkers::SafeguardAsks(s, other), "the player: not");
+	other = v;
+	other.gateGuard = true;
+	Check(!walkers::SafeguardAsks(s, other), "a gate guard: not");
+	other = v;
+	other.rises = true;
+	Check(!walkers::SafeguardAsks(s, other), "one who rises: not");
+	s.enabled = false;
+	Check(!walkers::SafeguardAsks(s, v), "off: not");
 }
 
 void TestNote() {
@@ -144,6 +170,7 @@ void TestImage() {
 
 int main() {
 	TestTakes();
+	TestNoKiller();
 	TestNote();
 	TestStep();
 	TestImage();

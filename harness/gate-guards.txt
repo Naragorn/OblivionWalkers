@@ -5,11 +5,24 @@
 # generic, no script - the rise leaves him to the safeguard). The log reads
 # "Guards: on", two of Anvil's guards out at the main gate (seven walkers,
 # ZombiesPerGuard 5), each "ready" with health 60 of 60 (HealthFactor 5 of
-# a walker's 12) and sent at a walker; ten seconds in, the first guard
-# (pool slot 0, 1100083F) is killed by the console - the next waiting one
-# comes out. If the walkers kill Thulsa Doom, the safeguard notes him and
-# raises him once no walker is near. The player is in god mode (tgm), not
-# hidden: the walkers may come for him too.
+# a walker's 12) and sent at a walker; ClearSeconds after the last walker
+# near the gate is gone they go back in. If the walkers kill someone (Thulsa
+# Doom, a horse), the safeguard notes him and raises him once no walker is
+# near. The player is in god mode (tgm), not hidden: the walkers may come for
+# him too. A guard killed by the console does not take through the harness's
+# console lines ("1100083F.kill", "WalkersGuardPoolAnvil0.kill": nobody
+# died, 2026-10-26 11:17 and 11:29) - for the replacement, run with
+# [Guards] HealthFactor=0.2 in the deployed INI (2 health: the walkers kill
+# them); for the safeguard's raise within the run, [Safeguard] Radius=300.
+#
+# Results 2026-10-26 (artifacts/hand-script/gate-guards/): 11:12 and 11:17
+# froze the game (the horde aimed a follow package at a leader still running
+# one - fixed: HordeLogic.h SettleFollows); 11:29 PASS with Radius=300: two
+# guards out at 60 of 60, back in 30 s after the last walker; three horses
+# the walkers killed raised (six times - killed again, Radius 300), a named
+# woman noted. 11:33 PASS with
+# HealthFactor=0.2: 2 of 2, the seven walkers killed by the two and Anvil's
+# own guards before they could hit back.
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/gate-guards.txt --headless \
@@ -22,7 +35,6 @@ console-at ready tgm
 console-at ready cow Tamriel -47 -7
 console-at loaded player.placeatme 11000801 7
 console-at loaded player.placeatme 0002576B 1
-console-at t10 1100083F.kill
 
 expect HandScript: finished
 reject HandScript: WARNING

@@ -58,7 +58,7 @@ bool g_ready = false;
 // MoveTo notes).
 HordeOrder g_pending[kHordeGroups];
 UInt32 g_pendingCount = 0;
-UInt32 g_logsLeft = 400;
+UInt32 g_logsLeft = 1500;
 // A package given again is held back this long per walker: a walker whose
 // package something else keeps taking would otherwise get ours anew every
 // second, each time starting its path over (the run of 2026-10-26 08:33).
@@ -639,6 +639,12 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 				        57.29578f,
 				    line, done ? 1 : 0);
 			}
+		} else if (o.kind == HordeOrder::Aim) {
+			const bool aimed = AimFollow(o.group, o.walker);
+			if (g_logsLeft > 0) {
+				--g_logsLeft;
+				log("Horde: group %02u's follow package aimed at its leader %08X (%d)", o.group, o.walker, aimed ? 1 : 0);
+			}
 		} else if (o.again && HoldBack(o.walker)) {
 			continue;
 		} else if (o.kind == HordeOrder::Lead) {
@@ -654,12 +660,13 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 				    o.walker, had != nullptr ? had->package : 0u, o.package, given ? 1 : 0);
 			}
 		} else {
-			const bool aimed = AimFollow(o.group, g_state.groups[o.group].leader);
-			const bool given = aimed && GivePackage(o.walker, o.package, console);
+			// The package is aimed at the leader already (an Aim, this step or
+			// before - HordeLogic.h SettleFollows).
+			const bool given = GivePackage(o.walker, o.package, console);
 			if (g_logsLeft > 0) {
 				--g_logsLeft;
-				log("Horde: %08X follows group %02u's leader %08X (aimed %d, AddScriptPackage %08X answered %d)",
-				    o.walker, o.group, g_state.groups[o.group].leader, aimed ? 1 : 0, o.package, given ? 1 : 0);
+				log("Horde: %08X follows group %02u's leader %08X (AddScriptPackage %08X answered %d)", o.walker, o.group,
+				    g_state.groups[o.group].leader, o.package, given ? 1 : 0);
 			}
 		}
 	}

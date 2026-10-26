@@ -82,6 +82,7 @@ struct HordeGroup {
 	UInt32 count = 0;
 	int gate = -1;         // the gate it heads for, -1 none
 	bool holding = false;  // at its gate: the marker stays
+	UInt32 aimedAt = 0;    // whom its follow package was last aimed at (an Aim order)
 };
 
 struct HordeState {
@@ -89,10 +90,12 @@ struct HordeState {
 };
 
 struct HordeOrder {
-	enum Kind : UInt8 { MoveMarker, Lead, Follow };
+	// Aim: the group's follow package aimed at `walker`, its leader - before
+	// any Follow of the group that step.
+	enum Kind : UInt8 { MoveMarker, Lead, Follow, Aim };
 	Kind kind = MoveMarker;
 	UInt32 group = 0;
-	UInt32 walker = 0;   // Lead, Follow: who; MoveMarker: the leader it goes ahead of
+	UInt32 walker = 0;   // Lead, Follow: who; MoveMarker: the leader it goes ahead of; Aim: the leader
 	UInt32 package = 0;  // Lead, Follow: the package to give
 	float x = 0.0f;      // MoveMarker: where
 	float y = 0.0f;
@@ -203,6 +206,69 @@ inline void PlaceMarker(HordeGroup& g, const HordeWalker& leader, float heading,
 	g.targetY = leader.y + std::sin(heading) * s.leadUnits;
 	g.bestDistance = s.leadUnits;
 	g.sinceBetter = 0.0f;
+}
+
+inline bool IsFollowPackage(UInt32 package, const HordeSettings& s) {
+	return package >= s.followBase && package < s.followBase + kHordeGroups;
+}
+
+inline constexpr UInt32 kHordeOrdersMost = 288;
+
+// The follow packages, last (gate-guards.txt, 2026-10-26: the game froze
+// twice right after a step that aimed a group's follow package at a leader
+// still running a follow package - one following itself, or leaders
+// following each other round). A group's package is aimed at its leader
+// only once that leader runs no follow package of its own, and before any
+// of its followers is given it; until then the group's Follow orders wait
+// (its Lead is in the orders, or given again). The orders come out marker
+// moves first, then the aims, then the packages; past `most` the last ones
+// are left for the next step.
+inline UInt32 SettleFollows(HordeState& state, const HordeWalker* walkers, UInt32 n, const HordeSettings& s,
+                            HordeOrder* orders, UInt32 count, UInt32 most) {
+	bool ready[kHordeGroups] = {};
+	HordeOrder aims[kHordeGroups];
+	UInt32 aimCount = 0;
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		HordeGroup& g = state.groups[gi];
+		const HordeWalker* leader = g.used ? Find(walkers, n, g.leader) : nullptr;
+		ready[gi] = leader != nullptr && !IsFollowPackage(leader->package, s);
+		if (ready[gi] && g.aimedAt != g.leader) {
+			HordeOrder& a = aims[aimCount++];
+			a.kind = HordeOrder::Aim;
+			a.group = gi;
+			a.walker = g.leader;
+			g.aimedAt = g.leader;
+		}
+	}
+	static HordeOrder sorted[kHordeOrdersMost + kHordeGroups];
+	UInt32 total = 0;
+	const UInt32 seen = count < kHordeOrdersMost ? count : kHordeOrdersMost;
+	for (UInt32 i = 0; i < seen; ++i) {
+		if (orders[i].kind == HordeOrder::MoveMarker) {
+			sorted[total++] = orders[i];
+		}
+	}
+	for (UInt32 i = 0; i < aimCount; ++i) {
+		sorted[total++] = aims[i];
+	}
+	for (UInt32 i = 0; i < seen; ++i) {
+		const HordeOrder& o = orders[i];
+		if (o.kind == HordeOrder::MoveMarker || (o.kind == HordeOrder::Follow && !ready[o.group])) {
+			continue;
+		}
+		sorted[total++] = o;
+	}
+	const UInt32 kept = total < most ? total : most;
+	for (UInt32 i = 0; i < kept; ++i) {
+		orders[i] = sorted[i];
+	}
+	// An aim cut off past `most` is aimed again the next step.
+	for (UInt32 i = kept; i < total; ++i) {
+		if (sorted[i].kind == HordeOrder::Aim) {
+			state.groups[sorted[i].group].aimedAt = 0;
+		}
+	}
+	return kept;
 }
 
 inline bool InGroup(const HordeState& state, UInt32 id) {
@@ -404,7 +470,7 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			}
 		}
 	}
-	return out.count;
+	return SettleFollows(state, walkers, n, s, orders, out.count, most);
 }
 
 }  // namespace walkers

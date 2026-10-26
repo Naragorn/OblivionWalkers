@@ -1,0 +1,50 @@
+# The gate guards replaced (docs/walkers-spec.md 4.11b): as gate-guards.txt,
+# but thirty walkers at Tamriel -47,-7 and, by hand for the run,
+# [Guards] HealthFactor=0.2 in the deployed INI - guards of 2 health, whom
+# the walkers kill. The log reads six of Anvil's guards out (thirty walkers,
+# ZombiesPerGuard 5, the pool's six), "Death: gate guard ... fell" for those
+# killed, the waiting ones sent first and, with none waiting, the fallen
+# "raised" and sent out again; the safeguard never takes a gate guard.
+#
+# Result 2026-10-26 11:36 PASS (artifacts/hand-script/gate-guards-replace/):
+# six out two a second, 2 of 2 health each, all six back in 30 s after the
+# last walker; one guard fell (to another guard's swing) when fewer walkers
+# were left than five per standing guard - no replacement was due, so the
+# replacement and the raise are still unread in the game.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/gate-guards-replace.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready cow Tamriel -47 -7
+console-at loaded player.placeatme 11000801 30
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 20
+mark t20
+wait 20
+mark t40
+wait 20
+mark t60
+wait 20
+mark t80
+wait 20
+mark t100
+wait 20
+mark t120
+wait 1
+mark end
+wait 1

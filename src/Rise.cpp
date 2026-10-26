@@ -108,10 +108,13 @@ MooStrip g_mooStrip;
 FameCount g_fame;
 UInt32 g_famePending = 0;
 constexpr UInt32 kPlayerRefId = 0x14;
-// The safeguard (4.11c): whoever the walkers killed, raised once it is safe;
+// The safeguard (4.11b): whoever the walkers killed, raised once it is safe;
 // looked at once a second.
 SafeguardList g_safeguard;
 float g_safeguardClock = 0.0f;
+// The deaths without a killer the safeguard asks about at the next tick.
+UInt32 g_unclaimed[16] = {};
+UInt32 g_unclaimedCount = 0;
 
 UInt32 NextRandom() {
 	g_random ^= g_random << 13;
@@ -232,6 +235,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	const DeathVerdict verdict = NoteDeath(g_list, g_settings, fallen, roll, unit);
 	Victim victim;
 	victim.killedByWalker = IsWalkerRef(reinterpret_cast<UInt32>(arg1));
+	victim.killerUnknown = !LooksLikeObject(reinterpret_cast<UInt32>(arg1));
 	victim.walker = walker;
 	victim.player = fallen.refId == kPlayerRefId;
 	victim.rises = verdict == DeathVerdict::Waits;
@@ -240,6 +244,8 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		g_log("Safeguard: %08X killed by walker %08X - %s (%u on the list)", fallen.refId,
 		      FormIdOf(reinterpret_cast<UInt32>(arg1)),
 		      noted ? "gets up again once it is safe" : "the list is full, it stays dead", g_safeguard.count);
+	} else if (SafeguardAsks(g_settings.safeguard, victim) && g_unclaimedCount < 16) {
+		g_unclaimed[g_unclaimedCount++] = fallen.refId;
 	}
 	if (verdict == DeathVerdict::Waits) {
 		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X, cell %s owned by "
@@ -1183,6 +1189,21 @@ void StepFame() {
 // no living walker within Radius get up where they fell - the engine's own
 // raise, as RaiseAsSelf calls it, with the get-up animation.
 void StepSafeguardInGame(float dt) {
+	if (g_unclaimedCount > 0) {
+		static HordeCandidate around[128];  // not `near`: a Windows macro
+		const UInt32 aroundCount = HordeCandidates(around, 128);
+		for (UInt32 i = 0; i < g_unclaimedCount; ++i) {
+			const UInt32 ref = LookupForm(g_unclaimed[i]);
+			const bool walkersThere = LooksLikeObject(ref) && IsActor(ref) &&
+			                          WalkerWithin(ref, kSafeguardNearUnits, around, aroundCount);
+			const bool noted = walkersThere && NoteVictim(g_safeguard, g_unclaimed[i]);
+			g_log("Safeguard: %08X died without a killer - %s (%u on the list)", g_unclaimed[i],
+			      !walkersThere ? "no walker within 1000 units, not the walkers' doing"
+			                    : (noted ? "a walker near: gets up again once it is safe" : "the list is full, it stays dead"),
+			      g_safeguard.count);
+		}
+		g_unclaimedCount = 0;
+	}
 	g_safeguardClock += dt;
 	if (g_safeguardClock < 1.0f || g_safeguard.count == 0) {
 		return;
@@ -1305,6 +1326,7 @@ void OnLoad(void*) {
 	g_mooStrip = MooStrip{};
 	g_safeguard = SafeguardList{};
 	g_safeguardClock = 0.0f;
+	g_unclaimedCount = 0;
 	ResetHorde();
 	g_banished.clear();
 	if (g_replace.enabled) {
@@ -1373,6 +1395,7 @@ void OnNewGame(void*) {
 	g_mooStrip = MooStrip{};
 	g_safeguard = SafeguardList{};
 	g_safeguardClock = 0.0f;
+	g_unclaimedCount = 0;
 	ResetHorde();
 	g_banished.clear();
 	if (g_replace.enabled) {

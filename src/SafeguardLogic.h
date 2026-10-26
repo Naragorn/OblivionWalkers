@@ -1,6 +1,6 @@
 #pragma once
 
-// The safeguard, process-free (docs/walkers-spec.md 4.11c; Nadi,
+// The safeguard, process-free (docs/walkers-spec.md 4.11b; Nadi,
 // 2026-10-26: "als safeguard merkt sich die plugin wer alles gekilled wurde
 // von zombies und resurrected den dann irgendwo sicher (default an)"): the
 // walkers must lose in the end, or a quest may break - so whoever they kill
@@ -40,6 +40,10 @@ struct SafeguardList {
 // What the death path knows of one who died.
 struct Victim {
 	bool killedByWalker = false;
+	// No killer handed over at all (gate-guards.txt 2026-10-26: a named woman
+	// died among the walkers with killer 00000000 - a bleed, a fall, a
+	// script's damage).
+	bool killerUnknown = false;
 	bool walker = false;
 	bool player = false;
 	bool gateGuard = false;
@@ -48,6 +52,15 @@ struct Victim {
 
 inline bool SafeguardTakes(const SafeguardSettings& s, const Victim& v) {
 	return s.enabled && v.killedByWalker && !v.walker && !v.player && !v.gateGuard && !v.rises;
+}
+
+// A death without a killer that the safeguard asks about: it counts as the
+// walkers' when a living walker stands within kSafeguardNearUnits of the
+// body at the next frame (the caller looks - not inside the death path).
+inline constexpr float kSafeguardNearUnits = 1000.0f;
+
+inline bool SafeguardAsks(const SafeguardSettings& s, const Victim& v) {
+	return s.enabled && v.killerUnknown && !v.walker && !v.player && !v.gateGuard && !v.rises;
 }
 
 // Noted once; false when the list is full (the caller says so in the log).
