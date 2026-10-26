@@ -730,6 +730,46 @@ runs show it holds; HordeLogic.h decides, Horde.cpp carries it out):
   Not judged yet: the feel in the headset, and the cost - the step reads
   some 80 walkers once a second and gives packages through the console.
 
+### 4.11b Hordes at the gates - `[Horde] TowardCities=1`, `[Guards] Enabled=1`, `HealthFactor=5`, `ZombiesPerGuard=5`, `[Safeguard] Enabled=1`
+
+What (Nadi, 2026-10-26): the hordes drift at random but lean toward the
+cities; outside a city's gate they stop and mill about, and guards come out
+to fight them - "die zombies müssen aber immer verlieren sonst brechen vll
+quests usw." The guards are copies of the city guards, not essential and
+without boosted stats of their own: each has `HealthFactor` (5) times a
+walker's health (as `[Zombies] HealthPercent` makes it), and there is one
+for every `ZombiesPerGuard` (5) walkers at the gate; whenever one dies a new
+one comes out of the gate behind the line. As a safeguard the plugin keeps
+everyone the walkers killed (who does not rise as a walker) and raises them
+again once no walker is near (on by default).
+
+How:
+- The gates: the Tamriel-side load doors into the city worldspaces, read
+  from Oblivion.esm (persistent DOOR refs whose teleport leads into
+  AnvilWorld, BravilWorld, ...; 21 doors, the Imperial City's district
+  gates among them). A group in Tamriel picks the nearest gate within
+  `CityRange` when it forms; each new marker leans `CityPull` (0.5) of the
+  way toward it; within reach the marker goes to a point `GateHoldUnits`
+  (800) in front of the door on the side the group comes from, and stays.
+  The walkers never pass the door (the marker is never inside).
+- The guards: one ESP copy of a guard per city (its factions, gear and
+  face; its AI packages and script dropped, so it stands and fights where
+  it is placed). A gate with walkers within `Radius` gets
+  ceil(walkers / ZombiesPerGuard) guards, placed at the door (PlaceAtMe),
+  health set to HealthFactor x the walkers'; a dead guard is replaced the
+  same way; when no walker has been near for `ClearSeconds` the guards are
+  taken out of the world.
+- The safeguard: the death watch reads the killer; an actor a walker
+  killed that the rise does not take (not generic, or the rise is off) goes
+  on a list kept in the co-save; once dead `AfterSeconds` and no living
+  walker within `Radius` of the body, the engine's Resurrect raises it there
+  (its own AI then takes it on). "Irgendwo sicher" is taken as "where it
+  fell, once it is safe there" - see the open questions.
+
+Cost: towards cities and the hold **small**; the guards **medium**; the
+safeguard **small**. Open: whether a corpse whose cell is unloaded can be
+raised (the safeguard waits until it is loaded again until that is read).
+
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 
 What: an infested city has walkers in its streets; more come out of the
