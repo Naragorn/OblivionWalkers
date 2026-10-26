@@ -918,6 +918,14 @@ at the cell reset. Siege visuals (28 Days' rubble) are not planned.
 Cost: **medium.** The spawn is a known path; the population model is small;
 the test is the harness count line across a city cell.
 
+**Nadi, 2026-10-26: no walkers in the cities.** The street spawn above is
+dropped; a siege stays outside the walls. What a siege is without it -
+whether it exists while the player is elsewhere, what it does inside the
+city - is open (Nadi's to decide). Built towards it so far: 4.11b (hordes
+lean toward the cities and hold at a gate, the gate guards come out) and
+4.9 (the Courier reports the attack); a real siege goes into the Courier
+too (Nadi's note under 4.9).
+
 ### 4.13 Extra spawns - `[Replace] ExtraPercent=0`
 
 What: more walkers in the wilderness and dungeons than the replaced spawns
@@ -1197,6 +1205,17 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **Walkers can still be made in a city** (2026-10-26, Nadi: "walker in
+  städten will ich nicht"): the rise has no city rule - its filters are
+  generic, essential, playable race, human, chapel (`RiseLogic.h` Fallen),
+  so a person it takes who dies in a city's worldspace or in one of its
+  houses gets up there as a walker (derived from the code; no run). A
+  walker that follows the player through a gate stays in, as one that
+  follows into a chapel does (4.7). The chapel rule is the pattern: no rise
+  and no walker made there. Open for Nadi: the city worldspaces only, or
+  their houses and inns too (an interior has no worldspace - it needs a cell
+  to city table); and what happens to a walker that follows in.
+
 - **Dense dungeons cost frames** (Nadi's Windows headset run, 2026-10-26
   12:48-12:55): in Fort Urasek's Company Billets (FortUrasek02, 000CA58F)
   83 walkers stood on the process lists, 42 in high process; after the
@@ -1362,11 +1381,15 @@ roster line's counts.
    20:44) - done.
 2. **Core**: 4.6 replacement, 4.4 walk, 4.5 health, 4.2 name, 4.15 loot, 4.1
    rise. Harness green for each.
-3. **World**: 4.14 infection, 4.7 chapels, 4.8 fame, 4.13 extra spawns, 5
-   scenarios with OblivionCrisis, 4.9 Courier.
-4. **Feel**: 4.11 horde, 4.12 siege, 4.10 headshots with OBVR, 4.16 tempo,
-   4.3 no skill gain.
+3. **World**: 4.7 chapels, 4.8 fame, 4.13 extra spawns, 5 scenarios with
+   OblivionCrisis, 4.9 Courier (built 2026-10-26).
+4. **Feel**: 4.11 horde, 4.12 siege (outside the walls, Nadi 2026-10-26),
+   4.10 headshots with OBVR, 4.16 tempo, 4.3 no skill gain.
 5. Later list.
+6. **Last** (Nadi, 2026-10-26): 4.14 infection.
+
+4.17 waits for OBVR's decapitation (Nadi, 2026-10-26: "4.17 erst wenn obvr
+decapitation kann") - not even the power-attack rule before it.
 
 ## 9. Sources
 
