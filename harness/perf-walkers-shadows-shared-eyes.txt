@@ -1,0 +1,65 @@
+# Both eyes dumped at every mark (Debug.EyeDump) - the left eye drew the
+# shadow maps, the right eye kept them: the two pictures side by side say
+# whether the second eye shows the same shadows.
+#
+# The actor shadow maps drawn once for both eyes (OBVR [Render]
+# ShareActorShadows, render/ShadowShare.h; Nadi, 2026-10-26: "Schatten
+# zwischen den Augen teilen wie FNVVR"): perf-walkers-in-view.txt with the
+# second eye keeping the first eye's shadow maps. Run with
+# iActorShadowCountInt=10 in the Linux Oblivion.ini by hand, against the same
+# script with ShareActorShadows=0 (perf-walkers-in-view.txt, the same DLL).
+# What it should read: scene_pass with the eighteen walkers lower by about
+# the shadows' share of one pass (1.4 ms at ten casters, 15:02 against
+# 15:06); OBVR.log's "Shadows: actor shadow maps drawn N times, kept for the
+# second eye N times"; the bone lock's off-screen rows (the shadow
+# sub-passes) halved; the window's picture - the second eye - still showing
+# the walkers' shadows.
+#
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-walkers-shadows-shared.txt --headless \
+#       --run-timeout 420 --artifact-root ../OblivionWalkers/artifacts/hand-script
+#   python3 tools/perf-phases.py <run> prison empty-watched people-placed people-watched --events scene_pass
+
+ini Hands Enabled=1
+ini Hands ReachOpens=0
+ini Render Stereo=dual
+ini Render ShareActorShadows=1
+ini Debug EyeDump=1
+ini Performance Enabled=1
+ini Performance GpuTiming=0
+ini Performance StartAfterSeconds=60
+ini Performance CaptureSeconds=95
+ini Performance MaxRecords=262144
+console-at placed tgm
+console-at placed coc ImperialDungeon01
+console-at prison tcl
+console-at prison player.setrestrained 1
+console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
+console-at people player.placeatme 11000801 18
+console-at people-placed tai
+
+expect HandScript: finished
+expect Performance: capture armed, it starts in 60 seconds
+expect Performance: capture 1 started
+expect Performance: export
+reject menu Container
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 22
+mark placed
+wait 16
+mark prison
+wait 30
+mark empty-watched
+mark people
+wait 8
+mark people-placed
+wait 15
+mark people-15
+wait 15
+mark people-30
+wait 15
+mark people-watched
+wait 45
+mark done

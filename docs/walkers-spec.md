@@ -1162,7 +1162,12 @@ roster line's counts.
   iActorShadowCountInt 0 against 10, the walkers standing): 3.73 against
   5.15 ms a scene pass, frames over 20 ms 20.8 % against 75.4 % - ten
   shadow-casting walkers cost 2.8 ms a stereo frame, and Nadi's Windows INI
-  has iActorShadowCountInt=10, iActorShadowCountExt=10 (Linux 5 and 3). Options for Nadi: (A) keep
+  has iActorShadowCountInt=10, iActorShadowCountExt=10 (Linux 5 and 3).
+  Built in OBVR on Nadi's call (f53cf6d, `[Render] ShareActorShadows`,
+  default off until the headset): the second eye keeps the first eye's
+  shadow maps - with ten casters scene_pass 3.85 against 3.35 ms, frames
+  over 20 ms 6.7 % against 1.1 % (`perf-walkers-shadows-shared.txt`, the
+  eyes' dumps alike in `-eyes.txt`). Options for Nadi: (A) keep
   MaxCount 10 (his default since 2026-10-24); (B) a lower default, say 4;
   (C) a cap per cell. Not decided.
 
