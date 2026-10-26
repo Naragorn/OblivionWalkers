@@ -71,6 +71,45 @@ UInt32 g_steps = 0;
 UInt32 g_summariesLeft = 60;
 constexpr UInt32 kSummaryEverySteps = 5;
 
+// The gate guards (4.11b; tools/esp-write.py): one guard record per city,
+// six persistent references of it per city in the holding cell, initially
+// disabled, in CityGates.h's order.
+constexpr UInt32 kGuardNpcLocalId = 0x837;
+constexpr UInt32 kGuardPoolLocalId = 0x83F;
+constexpr UInt32 kRefBaseFormOffset = 0x1C;
+// TESActorBase's TESHealthForm (Replace.cpp ScaleWalkerHealth writes the
+// walkers' there).
+constexpr UInt32 kActorBaseHealthOffset = 0x84;
+// TESObjectREFR::kFlags_Disabled in the form flags (xOBSE GameObjects.h,
+// IsDisabled).
+constexpr UInt32 kRefFlagsOffset = 0x08;
+constexpr UInt32 kRefDisabled = 0x800;
+// Health now and base, as OBVR reads its enemies' (OBVR
+// src/game/EnemyHealth.cpp, in the game since 2026-10-13): GetActorValue_F
+// at the actor's vtable +0x288 and GetBaseActorValue 0x005F1910, both
+// thiscall (actor, value), Health the value 8.
+constexpr UInt32 kGetActorValueFSlot = 0x288;
+constexpr UInt32 kGetBaseActorValue = 0x005F1910;
+constexpr UInt32 kActorValueHealth = 8;
+constexpr UInt32 kGuardArrivalsMost = 16;
+
+GuardSettings g_guardSettings;
+GuardState g_guards;
+bool g_guardsReady = false;
+bool g_guardsRead = false;  // the pool read off the world since the last load
+struct GuardArrival {
+	UInt32 city = 0;
+	UInt32 slot = 0;
+	int gate = -1;
+	bool raise = false;
+	UInt32 health = 0;
+};
+// The guards sent out this frame, made ready the next: raised when dead,
+// healed to their (new) health.
+GuardArrival g_arrivals[kGuardArrivalsMost];
+UInt32 g_arrivalCount = 0;
+UInt32 g_guardLogsLeft = 400;
+
 UInt32 Slot(UInt32 object, UInt32 offset) {
 	const UInt32 vtable = LooksLikeObject(object) ? Read(object) : 0;
 	const UInt32 fn = LooksLikeObject(vtable) ? Read(vtable + offset) : 0;
@@ -169,6 +208,202 @@ bool GivePackage(UInt32 walkerId, UInt32 package, ConsoleFn console) {
 	return LooksLikeObject(walker) && console(walker, line);
 }
 
+// Whether a guard line is still logged (a few hundred a session).
+bool GuardLogDue() {
+	if (g_guardLogsLeft == 0) {
+		return false;
+	}
+	--g_guardLogsLeft;
+	return true;
+}
+
+UInt32 GuardRecordOf(UInt32 city) {
+	const UInt32 form = LookupForm(EspFormId(g_espIndex, kGuardNpcLocalId + city));
+	return LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeNpc ? form : 0;
+}
+
+// The pool guard's reference; 0 unless it is one of the city's guard.
+UInt32 PoolGuard(UInt32 city, UInt32 slot) {
+	const UInt32 ref = LookupForm(EspFormId(g_espIndex, kGuardPoolLocalId + city * kGuardPool + slot));
+	const UInt32 record = GuardRecordOf(city);
+	return LooksLikeObject(ref) && record != 0 && Read(ref + kRefBaseFormOffset) == record ? ref : 0;
+}
+
+bool HealthOf(UInt32 actor, float& now, float& base) {
+	const UInt32 fn = Slot(actor, kGetActorValueFSlot);
+	if (fn == 0) {
+		return false;
+	}
+	using GetFloatFn = float(__fastcall*)(void* actor, void* edx, UInt32 av);
+	using GetBaseFn = SInt32(__fastcall*)(void* actor, void* edx, UInt32 av);
+	now = reinterpret_cast<GetFloatFn>(fn)(reinterpret_cast<void*>(actor), nullptr, kActorValueHealth);
+	base = static_cast<float>(
+		reinterpret_cast<GetBaseFn>(kGetBaseActorValue)(reinterpret_cast<void*>(actor), nullptr, kActorValueHealth));
+	return true;
+}
+
+// After a load: who of the pool stands out at a gate (enabled), read off
+// the world.
+void ReadGuardsOffWorld(LogFn log) {
+	bool enabled[kGuardCities][kGuardPool] = {};
+	float xs[kGuardCities][kGuardPool] = {};
+	float ys[kGuardCities][kGuardPool] = {};
+	UInt32 out = 0;
+	for (UInt32 c = 0; c < kGuardCities; ++c) {
+		for (UInt32 i = 0; i < kGuardPool; ++i) {
+			const UInt32 guard = PoolGuard(c, i);
+			enabled[c][i] = guard != 0 && (Read(guard + kRefFlagsOffset) & kRefDisabled) == 0 && InTamriel(guard);
+			xs[c][i] = guard != 0 ? FloatAt(guard + kRefPositionOffset) : 0.0f;
+			ys[c][i] = guard != 0 ? FloatAt(guard + kRefPositionOffset + 4) : 0.0f;
+			out += enabled[c][i] ? 1u : 0u;
+		}
+	}
+	RecoverGuardState(g_guards, enabled, xs, ys, kCityGates, kCityGateCount);
+	log("Guards: the pool read off the world - %u out at a gate, the rest waiting", out);
+}
+
+// The nearest living walker in Tamriel within the gate's radius; 0 if none.
+UInt32 NearestWalker(const CityGate& gate, const HordeWalker* walkers, const bool* alive, UInt32 n) {
+	UInt32 best = 0;
+	float bestDistance = g_guardSettings.radius * g_guardSettings.radius;
+	for (UInt32 i = 0; i < n; ++i) {
+		const float dx = walkers[i].x - gate.x;
+		const float dy = walkers[i].y - gate.y;
+		const float d = dx * dx + dy * dy;
+		if (alive[i] && walkers[i].tamriel && d <= bestDistance) {
+			best = walkers[i].id;
+			bestDistance = d;
+		}
+	}
+	return best;
+}
+
+// The guards sent out last frame: raised when dead (without the get-up -
+// they come out standing), healed to their health.
+void ReadyArrivals(ConsoleFn console, DeadFn dead, LogFn log) {
+	for (UInt32 a = 0; a < g_arrivalCount; ++a) {
+		const GuardArrival& arrival = g_arrivals[a];
+		const UInt32 guard = PoolGuard(arrival.city, arrival.slot);
+		if (guard == 0) {
+			continue;
+		}
+		const bool wasDead = dead(guard);
+		const bool raised = wasDead && console(guard, "Resurrect 0");
+		const bool healed = console(guard, "ResetHealth");
+		float now = 0.0f;
+		float base = 0.0f;
+		const bool read = HealthOf(guard, now, base);
+		if (GuardLogDue()) {
+			log("Guards: %08X ready at %s (%.0f %.0f %.0f) - %s; health %.0f of %.0f (wanted %u%s; ResetHealth answered "
+			    "%d)",
+			    FormIdOf(guard), kCityGates[arrival.gate].name, FloatAt(guard + kRefPositionOffset),
+			    FloatAt(guard + kRefPositionOffset + 4), FloatAt(guard + kRefPositionOffset + 8),
+			    wasDead ? (raised ? "raised" : "dead, Resurrect refused") : "standing", read ? now : -1.0f,
+			    read ? base : -1.0f, arrival.health, read && base != static_cast<float>(arrival.health) ? " - WARNING: base differs" : "",
+			    healed ? 1 : 0);
+		}
+	}
+	g_arrivalCount = 0;
+}
+
+// One look at the gates: GuardLogic.h's orders carried out, the guards out
+// sent at the walkers.
+void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive, UInt32 n, UInt32 walkerHealth,
+                    ConsoleFn console, DeadFn dead, LogFn log) {
+	if (!g_guardsRead) {
+		ReadGuardsOffWorld(log);
+		g_guardsRead = true;
+	}
+	float xs[kCandidatesMost];
+	float ys[kCandidatesMost];
+	bool there[kCandidatesMost];
+	for (UInt32 i = 0; i < n; ++i) {
+		xs[i] = walkers[i].x;
+		ys[i] = walkers[i].y;
+		there[i] = alive[i] && walkers[i].tamriel;
+	}
+	UInt32 gateCity[kCityGateCount];
+	UInt32 zombies[kCityGateCount];
+	for (UInt32 g = 0; g < kCityGateCount; ++g) {
+		gateCity[g] = static_cast<UInt32>(kCityGates[g].city);
+		zombies[g] = WalkersNear(kCityGates[g].x, kCityGates[g].y, g_guardSettings.radius, xs, ys, there, n);
+	}
+	bool standing[kGuardCities][kGuardPool];
+	for (UInt32 c = 0; c < kGuardCities; ++c) {
+		for (UInt32 i = 0; i < kGuardPool; ++i) {
+			const UInt32 guard = PoolGuard(c, i);
+			standing[c][i] = guard == 0 || !dead(guard);
+		}
+	}
+	GuardOrder orders[kGuardArrivalsMost];
+	const UInt32 ordered = StepGuards(g_guards, g_guardSettings, gateCity, kCityGateCount, zombies, standing, elapsed,
+	                                  orders, kGuardArrivalsMost);
+	bool sent[kGuardCities][kGuardPool] = {};
+	for (UInt32 o = 0; o < ordered; ++o) {
+		const GuardOrder& order = orders[o];
+		const UInt32 guard = PoolGuard(order.city, order.slot);
+		const CityGate& gate = kCityGates[order.gate];
+		if (guard == 0) {
+			continue;
+		}
+		if (order.kind == GuardOrder::Recall) {
+			const bool gone = console(guard, "Disable");
+			if (GuardLogDue()) {
+				log("Guards: %08X back in from %s (no walker near for %.0f s; Disable answered %d)", FormIdOf(guard),
+				    gate.name, g_guardSettings.clearSeconds, gone ? 1 : 0);
+			}
+			continue;
+		}
+		const UInt32 health = GuardHealth(g_guardSettings.healthFactor, walkerHealth);
+		const UInt32 record = GuardRecordOf(order.city);
+		if (record != 0 && walkerHealth > 0) {
+			*reinterpret_cast<UInt32*>(record + kActorBaseHealthOffset) = health;
+		}
+		float x = 0.0f;
+		float y = 0.0f;
+		GuardSpot(gate, order.slot, x, y);
+		char line[96];
+		std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", gate.door, x - gate.x, y - gate.y,
+		              gate.outZ - gate.z);
+		const bool shown = console(guard, "Enable");
+		const bool moved = console(guard, line);
+		sent[order.city][order.slot] = true;
+		if (g_arrivalCount < kGuardArrivalsMost) {
+			g_arrivals[g_arrivalCount++] = GuardArrival{order.city, order.slot, order.gate, order.raise, health};
+		}
+		if (GuardLogDue()) {
+			log("Guards: %08X out at %s for %u walkers near (%s; health %u = %.2f x a walker's %u; Enable %d, %s "
+			    "answered %d)",
+			    FormIdOf(guard), gate.name, zombies[order.gate], order.raise ? "fallen there before, raised" : "waiting",
+			    health, g_guardSettings.healthFactor, walkerHealth, shown ? 1 : 0, line, moved ? 1 : 0);
+		}
+	}
+	// The guards out, standing and not fighting, sent at the nearest walker.
+	for (UInt32 c = 0; c < kGuardCities; ++c) {
+		for (UInt32 i = 0; i < kGuardPool; ++i) {
+			const GuardSlot& slot = g_guards.slots[c][i];
+			if (!slot.out || sent[c][i] || slot.gate < 0 || zombies[slot.gate] == 0) {
+				continue;
+			}
+			const UInt32 guard = PoolGuard(c, i);
+			if (guard == 0 || dead(guard) || Read(guard + kRefNiNodeOffset) == 0 || InCombat(guard)) {
+				continue;
+			}
+			const UInt32 target = NearestWalker(kCityGates[slot.gate], walkers, alive, n);
+			if (target == 0) {
+				continue;
+			}
+			char line[40];
+			std::snprintf(line, sizeof(line), "StartCombat %08X", target);
+			const bool fights = console(guard, line);
+			if (GuardLogDue()) {
+				log("Guards: %08X at %s sent at walker %08X (StartCombat answered %d)", FormIdOf(guard),
+				    kCityGates[slot.gate].name, target, fights ? 1 : 0);
+			}
+		}
+	}
+}
+
 }  // namespace
 
 void ConfigureHorde(const HordeSettings& settings, UInt32 espIndex, LogFn log) {
@@ -207,17 +442,82 @@ void ConfigureHorde(const HordeSettings& settings, UInt32 espIndex, LogFn log) {
 	    g_settings.gateHoldUnits);
 }
 
+void ConfigureGuards(const GuardSettings& settings, LogFn log) {
+	g_guardSettings = settings;
+	g_guardsReady = false;
+	if (!settings.enabled) {
+		return;
+	}
+	if (g_espIndex > 0xFF) {
+		log("Guards: no ESP - no guards come out");
+		return;
+	}
+	UInt32 missing = 0;
+	for (UInt32 c = 0; c < kGuardCities; ++c) {
+		for (UInt32 i = 0; i < kGuardPool; ++i) {
+			missing += PoolGuard(c, i) == 0 ? 1u : 0u;
+		}
+	}
+	if (missing != 0) {
+		log("Guards: %u of the ESP's %u pool guards are missing (an older OblivionWalkers.esp?) - no guards come out",
+		    missing, kGuardCities * kGuardPool);
+		return;
+	}
+	g_guardsReady = true;
+	log("Guards: on - %u cities, %u guards each, one for every %u walkers within %.0f units of a gate, %.2f times a "
+	    "walker's health, back in after %.0f s without one",
+	    kGuardCities, kGuardPool, settings.zombiesPerGuard, settings.radius, settings.healthFactor,
+	    settings.clearSeconds);
+}
+
+bool IsGateGuard(UInt32 refId) {
+	const UInt32 local = refId & 0x00FFFFFF;
+	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && local >= kGuardPoolLocalId &&
+	       local < kGuardPoolLocalId + kGuardCities * kGuardPool;
+}
+
 void ResetHorde() {
 	g_state = HordeState{};
 	g_pendingCount = 0;
 	g_clock = 0.0f;
 	g_againCount = 0;
+	g_guards = GuardState{};
+	g_guardsRead = false;
+	g_arrivalCount = 0;
 }
 
-void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn log) {
-	if (!g_ready) {
+bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UInt32 count) {
+	if (!LooksLikeObject(ref)) {
+		return false;
+	}
+	const UInt32 cell = Read(ref + kRefParentCellOffset);
+	const bool outside = Outdoors(ref);
+	const UInt32 world = outside && LooksLikeObject(cell) ? Read(cell + kCellWorldspaceOffset) : 0;
+	const float x = FloatAt(ref + kRefPositionOffset);
+	const float y = FloatAt(ref + kRefPositionOffset + 4);
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 walker = candidates[i].ref;
+		if (!candidates[i].alive || !LooksLikeObject(walker)) {
+			continue;
+		}
+		const UInt32 walkerCell = Read(walker + kRefParentCellOffset);
+		const bool samePlace = outside ? Outdoors(walker) && LooksLikeObject(walkerCell) &&
+		                                     Read(walkerCell + kCellWorldspaceOffset) == world
+		                               : walkerCell == cell;
+		const float dx = FloatAt(walker + kRefPositionOffset) - x;
+		const float dy = FloatAt(walker + kRefPositionOffset + 4) - y;
+		if (samePlace && dx * dx + dy * dy <= radius * radius) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn dead, LogFn log) {
+	if (!g_ready && !g_guardsReady) {
 		return;
 	}
+	ReadyArrivals(console, dead, log);
 	for (UInt32 i = 0; i < g_pendingCount; ++i) {
 		const bool given = GivePackage(g_pending[i].walker, g_pending[i].package, console);
 		if (g_logsLeft > 0) {
@@ -240,12 +540,18 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 	static HordeCandidate candidates[kCandidatesMost];
 	const UInt32 count = collect(candidates, kCandidatesMost);
 	HordeWalker walkers[kCandidatesMost];
+	bool alive[kCandidatesMost];
+	UInt32 walkerHealth = 0;
 	UInt32 n = 0;
 	for (UInt32 i = 0; i < count && n < kCandidatesMost; ++i) {
 		const UInt32 ref = candidates[i].ref;
 		if (!LooksLikeObject(ref)) {
 			continue;
 		}
+		const UInt32 base = Read(ref + kRefBaseFormOffset);
+		const UInt32 health = LooksLikeObject(base) ? Read(base + kActorBaseHealthOffset) : 0;
+		walkerHealth = health > walkerHealth && health < 100000 ? health : walkerHealth;
+		alive[n] = candidates[i].alive;
 		HordeWalker& w = walkers[n++];
 		w.id = FormIdOf(ref);
 		w.x = FloatAt(ref + kRefPositionOffset);
@@ -260,6 +566,12 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 		const bool othersPackage = (w.package >> 24) == 0xFF;
 		w.fit = candidates[i].alive && !candidates[i].busy && process != 0 && HighProcess(process) &&
 		        Read(ref + kRefNiNodeOffset) != 0 && Outdoors(ref) && !InCombat(ref) && !othersPackage;
+	}
+	if (g_guardsReady) {
+		StepGateGuards(elapsed, walkers, alive, n, walkerHealth, console, dead, log);
+	}
+	if (!g_ready) {
+		return;
 	}
 	HordeOrder orders[64];
 	const UInt32 ordered = StepHorde(g_state, walkers, n, g_settings, elapsed, g_seed, orders, 64);

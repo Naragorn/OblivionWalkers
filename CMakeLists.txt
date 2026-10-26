@@ -55,6 +55,14 @@ add_executable(HordeLogicTest tests/HordeLogicTest.cpp)
 target_link_libraries(HordeLogicTest PRIVATE logic)
 add_test(NAME HordeLogicTest COMMAND HordeLogicTest)
 
+add_executable(GuardLogicTest tests/GuardLogicTest.cpp)
+target_link_libraries(GuardLogicTest PRIVATE logic)
+add_test(NAME GuardLogicTest COMMAND GuardLogicTest)
+
+add_executable(SafeguardLogicTest tests/SafeguardLogicTest.cpp)
+target_link_libraries(SafeguardLogicTest PRIVATE logic)
+add_test(NAME SafeguardLogicTest COMMAND SafeguardLogicTest)
+
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)
 add_test(NAME PluginEntryTest COMMAND PluginEntryTest)

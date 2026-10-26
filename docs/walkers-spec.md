@@ -752,23 +752,52 @@ How:
   way toward it; within reach the marker goes to a point `GateHoldUnits`
   (800) in front of the door on the side the group comes from, and stays.
   The walkers never pass the door (the marker is never inside).
-- The guards: one ESP copy of a guard per city (its factions, gear and
-  face; its AI packages and script dropped, so it stands and fights where
-  it is placed). A gate with walkers within `Radius` gets
-  ceil(walkers / ZombiesPerGuard) guards, placed at the door (PlaceAtMe),
-  health set to HealthFactor x the walkers'; a dead guard is replaced the
-  same way; when no walker has been near for `ClearSeconds` the guards are
-  taken out of the world.
-- The safeguard: the death watch reads the killer; an actor a walker
-  killed that the rise does not take (not generic, or the rise is off) goes
-  on a list kept in the co-save; once dead `AfterSeconds` and no living
-  walker within `Radius` of the body, the engine's Resurrect raises it there
-  (its own AI then takes it on). "Irgendwo sicher" is taken as "where it
-  fell, once it is safe there" - see the open questions.
+- The guards (built 2026-10-26, `src/GuardLogic.h`, `src/Horde.cpp`): one
+  ESP copy of a guard per city (NPC_ 0x837..0x83E: its factions, gear,
+  face and level-scaled stats as the city's own; its AI packages and
+  script dropped, essential cleared - so it stands and fights where it is
+  put) and a pool of six persistent, initially disabled references of each
+  in the holding cell (ACHR 0x83F..0x86E). A gate with walkers within
+  `Radius` (4000) of its door gets ceil(walkers / `ZombiesPerGuard`)
+  guards, at most the city's six: a waiting one enabled and moved
+  (MoveTo the door with an offset) onto the spot the city's way out puts
+  the player (the city-side door's XTEL, `tools/city-gates.py`), the six
+  side by side across it - behind the walkers, who hold `GateHoldUnits`
+  farther out. The frame after: `Resurrect 0` when it lay dead,
+  `ResetHealth`, its health read back into the log. Each second a guard
+  out, standing and not fighting is sent at the nearest walker
+  (`StartCombat`). Health: the guard record's TESHealthForm (+0x84) set
+  to `HealthFactor` x the walker record's health before each sending
+  (5 x 12 = 60 with `HealthPercent` 15). One who dies is replaced by the
+  next waiting one; with none waiting, the dead are raised and sent out
+  again - the pool is all there is, so the supply never ends and no
+  reference is ever made at runtime. **Deviation from "spawnt eine neue",
+  named:** the "new" guard is one of the six again - a dead one raised
+  vanishes from where it fell. PlaceAtMe would make a truly new one, but
+  PlaceAtMe's actors stay in the save for good (the CS wiki's PlaceAtMe
+  page), and a supply that never ends would grow the save without bound.
+  `ClearSeconds` (30) without a walker near the gate: the guards there are
+  disabled (they vanish where they stand). After a load the pool is read
+  off the world (an enabled guard is out at its city's nearest gate).
+  A dead gate guard never rises as a walker and is not the safeguard's.
+- The safeguard (built 2026-10-26, `src/SafeguardLogic.h`, `Rise.cpp`):
+  the death watch reads the killer; an actor a walker killed - not a
+  walker, not the player, not a gate guard, not one the rise takes (its
+  verdict Waits: the generic people, whom no quest counts on) - goes on a
+  list of up to 128 kept in the co-save ('SAFE'); once dead
+  `AfterSeconds` (15), its body loaded (3D) and no living walker within
+  `Radius` (3000) of it in the same interior or worldspace, the engine's
+  Resurrect raises it there with the get-up animation (its own AI then
+  takes it home). "Irgendwo sicher" is taken as "where it fell, once it is
+  safe there". A body whose cell is unloaded waits for the player to come
+  back: a raise without 3D is not read yet.
 
 Cost: towards cities and the hold **small**; the guards **medium**; the
-safeguard **small**. Open: whether a corpse whose cell is unloaded can be
-raised (the safeguard waits until it is loaded again until that is read).
+safeguard **small**. Tests: `GuardLogicTest` (every flow of the pool: how
+many, out, replaced, raised, taken in, after a load, the spots, the gate
+table), `SafeguardLogicTest` (who is noted, when raised, the co-save).
+Harness: `gate-guards.txt`. Open: the guards' fight and the health read
+back in the game; the raise of an unloaded body.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 
@@ -1021,6 +1050,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `spawn-extra.txt` | ExtraPercent=50: walkers beside a list's own people (4.13) - PASS 2026-10-24 21:15 | the plugin, the ESP active, ExtraPercent by hand |
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
+| `gate-guards.txt` | seven walkers near Anvil's main gate: two guards out with 60 health, sent at the walkers; one killed, the next out; Thulsa Doom killed by walkers raised by the safeguard (4.11b) | the plugin, the ESP with the guard pool |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 
 Each plugin scenario `expect`s the plugin's own `Walkers:` log lines and the

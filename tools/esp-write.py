@@ -29,6 +29,16 @@ index at runtime):
          in that cell, as MarkSpellTestMarker4 (00040BB8): the plugin moves
          marker NN ahead of group NN's leader (MoveTo), and the leader's
          travel package goes there.
+  0x837..0x83E  NPC_ WalkersGuardAnvil..ImperialCity - one guard per city
+         (4.11b), a copy of a city guard (Anvil's stables post 0000A0AE and
+         the like) but EDID, its AI packages and its script, and never
+         essential (Nadi, 2026-10-26): it stands and fights where it is put.
+  0x83F..0x86E  ACHR WalkersGuardPoolCity_N - six persistent, initially
+         disabled references of each city's guard in the holding cell, as
+         an Oblivion.esm ACHR (000171CB: NAME and DATA): the plugin moves
+         them out to a gate and back - a guard that dies is raised and sent
+         out again, so no reference is ever made at runtime (PlaceAtMe's
+         actors stay in the save for good, the CS wiki's PlaceAtMe page).
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         --out OblivionWalkers.esp
@@ -75,6 +85,14 @@ FOLLOW_UNITS = 300
 PACKAGE_DEFENSIVE_COMBAT = 0x00400000
 RECORD_PERSISTENT = 0x400
 CELL_EDID = "WalkersHordeMarkers"
+CITIES = ["Anvil", "Bravil", "Bruma", "Cheydinhal", "Chorrol", "Leyawiin", "Skingrad", "ImperialCity"]  # CityGates.h City
+GUARD_TEMPLATES = [0x0000A0AE, 0x0000A0B0, 0x0000A0B2, 0x0000A0B4, 0x0000A0B6, 0x0003554B, 0x0000A0BA, 0x000752F2]
+LOCAL_GUARD_IDS = [0x837 + i for i in range(len(CITIES))]
+GUARD_POOL = 6  # GuardLogic.h kGuardPool
+ACBS_ESSENTIAL = 0x2
+LOCAL_POOL_IDS = [0x83F + i for i in range(len(CITIES) * GUARD_POOL)]
+ACHR_TEMPLATE = 0x000171CB
+RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
 LIST_EDID = "WalkersZombieVariant"
 AUTHOR = "Naragorn"
@@ -205,6 +223,40 @@ def build_marker(template: list[tuple[bytes, bytes]], edid: str, slot: int) -> b
     return out
 
 
+def guard_acbs(data: bytes) -> bytes:
+    """The guard's ACBS without the essential flag."""
+    flags = struct.unpack_from("<I", data, 0)[0] & ~ACBS_ESSENTIAL
+    return struct.pack("<I", flags) + data[4:]
+
+
+def build_guard(template: list[tuple[bytes, bytes]], edid: str) -> bytes:
+    """A city guard without its packages, its script and essential."""
+    out = b""
+    for kind, data in template:
+        if kind in (b"PKID", b"SCRI"):
+            continue
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"ACBS":
+            data = guard_acbs(data)
+        out += subrecord(kind, data)
+    return out
+
+
+def build_pool_ref(template: list[tuple[bytes, bytes]], edid: str, base: int, slot: int) -> bytes:
+    """A guard waiting in the holding cell, a row of them."""
+    out = subrecord(b"EDID", zstring(edid))
+    for kind, data in template:
+        if kind == b"NAME":
+            data = struct.pack("<I", base)
+        elif kind == b"DATA":
+            data = struct.pack("<6f", slot * 64.0, 512.0, 0.0, 0.0, 0.0, 0.0)
+        elif kind == b"EDID":
+            continue
+        out += subrecord(kind, data)
+    return out
+
+
 def typed_group(label: int, gtype: int, records: bytes) -> bytes:
     return b"GRUP" + struct.pack("<IIiI", 20 + len(records), label, gtype, 0) + records
 
@@ -275,12 +327,26 @@ def main() -> int:
     markers = b"".join(record(b"REFR", form, build_marker(marker_template, f"WalkersHordeMarker{i:02d}", i),
                               flags=RECORD_PERSISTENT)
                        for i, form in enumerate(marker_forms))
+    guard_forms = [index | local for local in LOCAL_GUARD_IDS]
+    guard_templates = [find_record(esm, buf, b"NPC_", t) for t in GUARD_TEMPLATES]
+    guards = b"".join(record(b"NPC_", form, build_guard(tpl, f"WalkersGuard{city}"))
+                      for form, tpl, city in zip(guard_forms, guard_templates, CITIES))
+    achr_template = find_record(esm, buf, b"ACHR", ACHR_TEMPLATE)
+    pool_forms = [index | local for local in LOCAL_POOL_IDS]
+    pool = b""
+    for c, city in enumerate(CITIES):
+        for n in range(GUARD_POOL):
+            form = pool_forms[c * GUARD_POOL + n]
+            pool += record(b"ACHR", form,
+                           build_pool_ref(achr_template, f"WalkersGuardPool{city}{n}", guard_forms[c], c * GUARD_POOL + n),
+                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
 
-    body = (group(b"RACE", races) + group(b"CREA", creatures) + group(b"LVLC", lists)
-            + cell_groups(cell_form, cell, markers) + group(b"PACK", packages))
-    groups = 3 + 5 + 1
-    records = 1 + len(walker_forms) + 1 + 1 + len(marker_forms) + len(travel_forms) + len(follow_forms)
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_MARKER_IDS[-1] + 1, masters=masters) + body
+    body = (group(b"RACE", races) + group(b"NPC_", guards) + group(b"CREA", creatures) + group(b"LVLC", lists)
+            + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
+    groups = 4 + 5 + 1
+    records = (1 + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms) + len(pool_forms)
+               + len(travel_forms) + len(follow_forms))
+    plugin = header(num_records=groups + records, next_object_id=LOCAL_POOL_IDS[-1] + 1, masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
 
@@ -323,11 +389,22 @@ def main() -> int:
         back = dict(find_record(esm, plugin, b"REFR", form))
         if struct.unpack("<I", back[b"NAME"])[0] != XMARKER:
             raise SystemExit(f"marker {i} is no XMarker")
+    for form, tpl, city in zip(guard_forms, guard_templates, CITIES):
+        back = find_record(esm, plugin, b"NPC_", form)
+        kept = [(k, d) for k, d in back if k != b"EDID"]
+        wanted = [(k, guard_acbs(d) if k == b"ACBS" else d) for k, d in tpl if k not in (b"EDID", b"PKID", b"SCRI")]
+        if kept != wanted:
+            raise SystemExit(f"the {city} guard differs from its template beyond EDID, packages, script and essential")
+    for i, form in enumerate(pool_forms):
+        back = dict(find_record(esm, plugin, b"ACHR", form))
+        if struct.unpack("<I", back[b"NAME"])[0] != guard_forms[i // GUARD_POOL]:
+            raise SystemExit(f"pool guard {i} has the wrong base")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
           + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four x{VARIANT_SLOTS}; "
           + f"PACK {travel_forms[0]:08X}.. travel and {follow_forms[0]:08X}.. follow x{HORDE_GROUPS}, CELL {cell_form:08X} "
-          + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X}; "
+          + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X} and {len(pool_forms)} pool guards "
+          + f"{pool_forms[0]:08X}..{pool_forms[-1]:08X} of NPC_ {guard_forms[0]:08X}..{guard_forms[-1]:08X}; "
           "every other subrecord as the originals'")
     return 0
 

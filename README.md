@@ -23,8 +23,11 @@ What exists:
 - `tools/esm-spawns.py` - lists the leveled creature lists and the spawn
   points of Oblivion.esm, so replacement targets are chosen from data.
 - `tools/esp-write.py` - writes `OblivionWalkers.esp` from Oblivion.esm's own
-  records: the Walker race for the risen. The ESP is deployed beside the DLL
-  and must be active in the game's plugin list.
+  records: the Walker race for the risen, the walkers, the horde's packages
+  and markers, and the gate guards with their pool. The ESP is deployed
+  beside the DLL and must be active in the game's plugin list.
+- `tools/city-gates.py` - reads where the city gates are and the spot in
+  front of each, the rows of `src/CityGates.h`.
 - `artifacts/` - what the tools and the runs wrote (not for a repository).
 
 Own folder for now; it becomes its own repository later.

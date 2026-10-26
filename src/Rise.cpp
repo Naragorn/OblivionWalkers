@@ -108,6 +108,10 @@ MooStrip g_mooStrip;
 FameCount g_fame;
 UInt32 g_famePending = 0;
 constexpr UInt32 kPlayerRefId = 0x14;
+// The safeguard (4.11c): whoever the walkers killed, raised once it is safe;
+// looked at once a second.
+SafeguardList g_safeguard;
+float g_safeguardClock = 0.0f;
 
 UInt32 NextRandom() {
 	g_random ^= g_random << 13;
@@ -151,6 +155,20 @@ bool IsDead(UInt32 actor) {
 	return (reinterpret_cast<DeadFn>(fn)(reinterpret_cast<void*>(actor), nullptr, 0) & 1) != 0;
 }
 
+// Whether `ref` is a walker: a creature of the ESP's walker bases.
+bool IsWalkerRef(UInt32 ref) {
+	if (!LooksLikeObject(ref) || Read(ref) != kVtblCreature) {
+		return false;
+	}
+	const UInt32 baseId = FormIdOf(Read(ref + kRefBaseFormOffset));
+	for (UInt32 w = 0; w < g_walkerCount; ++w) {
+		if (g_walkers[w] == baseId) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
 // the actor touched in this frame (Zombie Walkers' crash was there).
 void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
@@ -185,6 +203,11 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 			}
 		}
 	}
+	if (IsGateGuard(fallen.refId)) {
+		g_log("Death: gate guard %08X fell (killer %08X) - its pool sends the next and raises it when none is left",
+		      fallen.refId, FormIdOf(reinterpret_cast<UInt32>(arg1)));
+		return;
+	}
 	bool walker = false;
 	for (UInt32 w = 0; type == kFormTypeCreature && w < g_walkerCount; ++w) {
 		walker = walker || g_walkers[w] == fallen.baseId;
@@ -207,6 +230,17 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	const UInt32 roll = NextRandom() % 100;
 	const float unit = static_cast<float>(NextRandom() % 10001) / 10000.0f;
 	const DeathVerdict verdict = NoteDeath(g_list, g_settings, fallen, roll, unit);
+	Victim victim;
+	victim.killedByWalker = IsWalkerRef(reinterpret_cast<UInt32>(arg1));
+	victim.walker = walker;
+	victim.player = fallen.refId == kPlayerRefId;
+	victim.rises = verdict == DeathVerdict::Waits;
+	if (SafeguardTakes(g_settings.safeguard, victim)) {
+		const bool noted = NoteVictim(g_safeguard, fallen.refId);
+		g_log("Safeguard: %08X killed by walker %08X - %s (%u on the list)", fallen.refId,
+		      FormIdOf(reinterpret_cast<UInt32>(arg1)),
+		      noted ? "gets up again once it is safe" : "the list is full, it stays dead", g_safeguard.count);
+	}
 	if (verdict == DeathVerdict::Waits) {
 		g_log("Death: %08X (base %08X, type %02X, flags %08X, race %08X%s%s, killer %08X, this %08X, cell %s owned by "
 		      "%08X) %s, %.1f s; %u waiting",
@@ -374,6 +408,7 @@ void FindWalkers() {
 	}
 	g_log("Walkers: %s is mod %02X, %u walker creatures found", kPluginEsp, index, g_walkerCount);
 	ConfigureHorde(g_settings.horde, index, g_log);
+	ConfigureGuards(g_settings.guards, g_log);
 }
 
 // Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
@@ -1144,6 +1179,54 @@ void StepFame() {
 	g_famePending = 0;
 }
 
+// The safeguard: once a second, the victims dead AfterSeconds, loaded, with
+// no living walker within Radius get up where they fell - the engine's own
+// raise, as RaiseAsSelf calls it, with the get-up animation.
+void StepSafeguardInGame(float dt) {
+	g_safeguardClock += dt;
+	if (g_safeguardClock < 1.0f || g_safeguard.count == 0) {
+		return;
+	}
+	const float elapsed = g_safeguardClock;
+	g_safeguardClock = 0.0f;
+	static HordeCandidate walkers[128];
+	const UInt32 walkerCount = HordeCandidates(walkers, 128);
+	const float radius = g_settings.safeguard.radius;
+	UInt32 due[8];
+	const UInt32 count = StepSafeguard(
+		g_safeguard, g_settings.safeguard, elapsed,
+		[](UInt32 id) {
+			const UInt32 ref = LookupForm(id);
+			if (!LooksLikeObject(ref) || !IsActor(ref)) {
+				return VictimNow::Gone;
+			}
+			return IsDead(ref) ? VictimNow::Dead : VictimNow::Alive;
+		},
+		[&](UInt32 id) {
+			// Loaded (its 3D there): an unloaded body waits for the player to come
+			// back - a raise without 3D is not read yet (spec 4.11b).
+			const UInt32 ref = LookupForm(id);
+			return Read(ref + kRefNiNodeOffset) != 0 && !WalkerWithin(ref, radius, walkers, walkerCount);
+		},
+		due, 8);
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 ref = LookupForm(due[i]);
+		const UInt32 fn = Read(Read(ref) + kActorVtableResurrect);
+		if (fn < kTextStart || fn >= kTextEnd) {
+			g_log("Safeguard: %08X has no Resurrect at vtable+0x20C (%08X), left down", due[i], fn);
+			continue;
+		}
+		const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
+		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
+		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
+		g_log("Safeguard: %08X (base %08X) gets up again at %.0f %.0f %.0f, no walker within %.0f (3D %u, dead to the "
+		      "engine now: %d); %u still down",
+		      due[i], FormIdOf(Read(ref + kRefBaseFormOffset)), FloatAt(ref + kRefPositionOffset),
+		      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8), radius, has3D,
+		      IsDead(ref) ? 1 : 0, g_safeguard.count);
+	}
+}
+
 void Tick() {
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
@@ -1155,7 +1238,8 @@ void Tick() {
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, g_log);
+		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
+		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepLootless();
 		StepFame();
 	}
@@ -1196,6 +1280,12 @@ void OnSave(void*) {
 	const UInt32 fameLength = FameImage(g_fame, fame, sizeof(fame));
 	const bool fameWritten = g_serialization->OpenRecord(kFameRecordType, kFameRecordVersion) &&
 	                         g_serialization->WriteRecordData(fame, fameLength);
+	static UInt8 safe[kSafeguardImageMost];
+	const UInt32 safeLength = SafeguardImage(g_safeguard, safe, sizeof(safe));
+	const bool safeWritten = g_serialization->OpenRecord(kSafeguardRecordType, kSafeguardRecordVersion) &&
+	                         g_serialization->WriteRecordData(safe, safeLength);
+	g_log("Co-save: %u killed by walkers still to get up %s", g_safeguard.count,
+	      safeWritten ? "written" : "could not be written");
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -1213,6 +1303,8 @@ void OnLoad(void*) {
 	g_famePending = 0;
 	g_lootlessCount = 0;
 	g_mooStrip = MooStrip{};
+	g_safeguard = SafeguardList{};
+	g_safeguardClock = 0.0f;
 	ResetHorde();
 	g_banished.clear();
 	if (g_replace.enabled) {
@@ -1222,6 +1314,18 @@ void OnLoad(void*) {
 	UInt32 version = 0;
 	UInt32 length = 0;
 	while (g_serialization->GetNextRecordInfo(&type, &version, &length)) {
+		if (type == kSafeguardRecordType) {
+			if (version != kSafeguardRecordVersion || length > kSafeguardImageMost) {
+				g_log("Co-save: a safeguard list of version %u, %u bytes: not read", version, length);
+				continue;
+			}
+			static UInt8 safe[kSafeguardImageMost];
+			const UInt32 read = g_serialization->ReadRecordData(safe, length);
+			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved);
+			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
+			      whole ? "" : " (the record cut short)");
+			continue;
+		}
 		if (type == kFameRecordType) {
 			UInt8 fame[kFameImageBytes];
 			const UInt32 read =
@@ -1267,6 +1371,8 @@ void OnNewGame(void*) {
 	g_famePending = 0;
 	g_lootlessCount = 0;
 	g_mooStrip = MooStrip{};
+	g_safeguard = SafeguardList{};
+	g_safeguardClock = 0.0f;
 	ResetHorde();
 	g_banished.clear();
 	if (g_replace.enabled) {

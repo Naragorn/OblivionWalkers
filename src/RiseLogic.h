@@ -7,7 +7,10 @@
 
 #include <cstring>
 
+#include "Bytes.h"
+#include "GuardLogic.h"
 #include "HordeLogic.h"
+#include "SafeguardLogic.h"
 #include "Types.h"
 
 namespace walkers {
@@ -93,6 +96,13 @@ struct RiseSettings {
 		on.enabled = true;
 		return on;
 	}();
+	// [Guards] (4.11b, GuardLogic.h): guards out of a city's gate against the
+	// walkers there - Nadi, 2026-10-26: no extra stats, HealthFactor times a
+	// walker's health, one for every ZombiesPerGuard walkers.
+	GuardSettings guards;
+	// [Safeguard] (4.11c, SafeguardLogic.h): whoever the walkers kill gets up
+	// again once it is safe - on by default (Nadi, 2026-10-26).
+	SafeguardSettings safeguard;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
@@ -608,18 +618,6 @@ inline constexpr UInt32 kWaitingRecordType = 0x57414954;
 inline constexpr UInt32 kWaitingRecordVersion = 1;
 inline constexpr UInt32 kWaitingEntryBytes = 12;
 inline constexpr UInt32 kWaitingImageMost = 4 + kWaitingMost * kWaitingEntryBytes;
-
-inline void Put32(UInt8* out, UInt32 value) {
-	out[0] = static_cast<UInt8>(value & 0xFF);
-	out[1] = static_cast<UInt8>((value >> 8) & 0xFF);
-	out[2] = static_cast<UInt8>((value >> 16) & 0xFF);
-	out[3] = static_cast<UInt8>((value >> 24) & 0xFF);
-}
-
-inline UInt32 Get32(const UInt8* in) {
-	return static_cast<UInt32>(in[0]) | (static_cast<UInt32>(in[1]) << 8) | (static_cast<UInt32>(in[2]) << 16) |
-	       (static_cast<UInt32>(in[3]) << 24);
-}
 
 // Returns the bytes written, 0 when the image does not fit.
 inline UInt32 WaitingImage(const WaitingList& list, UInt8* out, UInt32 capacity) {

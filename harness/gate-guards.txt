@@ -1,0 +1,57 @@
+# The gate guards and the safeguard (docs/walkers-spec.md 4.11b; Nadi,
+# 2026-10-26): at Tamriel -47,-7, about 1400 units from Anvil's main gate,
+# seven walkers placed at the player (the ESP's 0x801) and Thulsa Doom
+# (0002576B, Oblivion.esm's level-1 test man: 10 health, not essential, not
+# generic, no script - the rise leaves him to the safeguard). The log reads
+# "Guards: on", two of Anvil's guards out at the main gate (seven walkers,
+# ZombiesPerGuard 5), each "ready" with health 60 of 60 (HealthFactor 5 of
+# a walker's 12) and sent at a walker; ten seconds in, the first guard
+# (pool slot 0, 1100083F) is killed by the console - the next waiting one
+# comes out. If the walkers kill Thulsa Doom, the safeguard notes him and
+# raises him once no walker is near. The player is in god mode (tgm), not
+# hidden: the walkers may come for him too.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/gate-guards.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready cow Tamriel -47 -7
+console-at loaded player.placeatme 11000801 7
+console-at loaded player.placeatme 0002576B 1
+console-at t10 1100083F.kill
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 10
+mark t10
+wait 10
+mark t20
+wait 10
+mark t30
+wait 10
+mark t40
+wait 10
+mark t50
+wait 10
+mark t60
+wait 20
+mark t80
+wait 20
+mark t100
+wait 20
+mark t120
+wait 1
+mark end
+wait 1
