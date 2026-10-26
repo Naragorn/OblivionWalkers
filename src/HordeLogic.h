@@ -32,6 +32,13 @@ inline constexpr float kHordePi = 3.14159265f;
 // A leader must come this much nearer its marker to count as progress.
 inline constexpr float kHordeProgressUnits = 50.0f;
 
+// A city gate as the horde knows it: the Tamriel-side door's position
+// (CityGates.h).
+struct HordeGate {
+	float x = 0.0f;
+	float y = 0.0f;
+};
+
 struct HordeSettings {
 	bool enabled = false;           // [Horde] Enabled
 	UInt32 travelBase = 0;          // group 0's travel package; NN is +NN
@@ -42,6 +49,15 @@ struct HordeSettings {
 	float staleSeconds = 30.0f;     // [Horde] StaleSeconds: no nearer for this long - a new heading
 	float turnDegrees = 60.0f;      // [Horde] TurnDegrees: the most a new marker turns from the last
 	UInt32 groupMost = 8;           // [Horde] GroupMost: followers per leader
+	// 4.11b: toward the cities. A group in Tamriel takes the nearest gate
+	// within CityRange; each marker leans CityPull of the way toward it; near
+	// it the marker goes GateHoldUnits in front of the door and stays.
+	bool towardCities = true;       // [Horde] TowardCities
+	float cityPull = 0.5f;          // [Horde] CityPull, 0 to 1
+	float cityRange = 40000.0f;     // [Horde] CityRange
+	float gateHoldUnits = 800.0f;   // [Horde] GateHoldUnits
+	const HordeGate* gates = nullptr;
+	UInt32 gateCount = 0;
 };
 
 struct HordeWalker {
@@ -51,6 +67,7 @@ struct HordeWalker {
 	UInt32 rank = 0;     // the caller's, stable per walker; ties go to the higher id
 	UInt32 package = 0;  // the package it runs now (form ID), 0 none
 	bool fit = false;
+	bool tamriel = false;  // in the Tamriel worldspace, where the gates are
 };
 
 struct HordeGroup {
@@ -63,6 +80,8 @@ struct HordeGroup {
 	float sinceBetter = 0.0f;
 	UInt32 followers[kHordeGroupMost] = {};
 	UInt32 count = 0;
+	int gate = -1;         // the gate it heads for, -1 none
+	bool holding = false;  // at its gate: the marker stays
 };
 
 struct HordeState {
@@ -140,8 +159,45 @@ struct Orders {
 	}
 };
 
-// A new marker LeadUnits ahead of the leader along `heading`.
+// The nearest gate within CityRange of the walker, -1 none.
+inline int NearestGate(const HordeWalker& w, const HordeSettings& s) {
+	if (!s.towardCities || !w.tamriel || s.gates == nullptr) {
+		return -1;
+	}
+	int best = -1;
+	float nearest = 0.0f;
+	for (UInt32 i = 0; i < s.gateCount; ++i) {
+		const float d = Distance(w.x, w.y, s.gates[i].x, s.gates[i].y);
+		if (d <= s.cityRange && (best < 0 || d < nearest)) {
+			best = static_cast<int>(i);
+			nearest = d;
+		}
+	}
+	return best;
+}
+
+// A new marker for the group: at its gate (GateHoldUnits in front of the
+// door, on the leader's side) once the next step would bring it that near;
+// else LeadUnits ahead along `heading`, leaned CityPull toward the gate.
 inline void PlaceMarker(HordeGroup& g, const HordeWalker& leader, float heading, const HordeSettings& s) {
+	if (g.gate >= 0 && static_cast<UInt32>(g.gate) < s.gateCount) {
+		const HordeGate& gate = s.gates[g.gate];
+		const float d = Distance(leader.x, leader.y, gate.x, gate.y);
+		const float toGate = std::atan2(gate.y - leader.y, gate.x - leader.x);
+		if (d - s.leadUnits <= s.gateHoldUnits) {
+			const float outward = d > 1.0f ? std::atan2(leader.y - gate.y, leader.x - gate.x) : heading;
+			g.heading = toGate;
+			g.targetX = gate.x + std::cos(outward) * s.gateHoldUnits;
+			g.targetY = gate.y + std::sin(outward) * s.gateHoldUnits;
+			g.holding = true;
+			g.bestDistance = Distance(leader.x, leader.y, g.targetX, g.targetY);
+			g.sinceBetter = 0.0f;
+			return;
+		}
+		const float vx = (1.0f - s.cityPull) * std::cos(heading) + s.cityPull * std::cos(toGate);
+		const float vy = (1.0f - s.cityPull) * std::sin(heading) + s.cityPull * std::sin(toGate);
+		heading = vx * vx + vy * vy > 1e-6f ? std::atan2(vy, vx) : toGate;
+	}
 	g.heading = heading;
 	g.targetX = leader.x + std::cos(heading) * s.leadUnits;
 	g.targetY = leader.y + std::sin(heading) * s.leadUnits;
@@ -289,6 +345,7 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			g = HordeGroup{};
 			g.used = true;
 			g.leader = w.id;
+			g.gate = NearestGate(w, s);
 			PlaceMarker(g, w, Random01(seed) * 2.0f * kHordePi, s);
 			fresh[gi] = true;
 			out.Add(HordeOrder::MoveMarker, gi, w.id, 0, g.targetX, g.targetY);
@@ -311,6 +368,23 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			g.sinceBetter = 0.0f;
 		} else {
 			g.sinceBetter += dt;
+		}
+		if (g.holding) {
+			// At the gate: the marker stays; only a leader drawn far off it (a
+			// fight) is sent back.
+			if (d > s.leadUnits) {
+				out.Add(HordeOrder::MoveMarker, gi, g.leader, 0, g.targetX, g.targetY);
+				out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
+			} else if (leader->package != s.travelBase + gi && !out.Given(g.leader)) {
+				out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi, 0.0f, 0.0f, true);
+			}
+			for (UInt32 i = 0; i < g.count; ++i) {
+				const HordeWalker* w = Find(walkers, n, g.followers[i]);
+				if (w->package != s.followBase + gi && !out.Given(w->id)) {
+					out.Add(HordeOrder::Follow, gi, w->id, s.followBase + gi, 0.0f, 0.0f, true);
+				}
+			}
+			continue;
 		}
 		const bool reached = d <= s.reachUnits;
 		if (reached || g.sinceBetter >= s.staleSeconds) {

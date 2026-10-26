@@ -1,5 +1,6 @@
 #include "Horde.h"
 
+#include "CityGates.h"
 #include "Engine.h"
 
 #include <cmath>
@@ -31,6 +32,8 @@ constexpr UInt32 kActorIsInCombatSlot = 0x334;
 constexpr UInt32 kPackageTargetOffset = 0x28;
 constexpr UInt32 kRefParentCellOffset = 0x40;
 constexpr UInt32 kCellFlagsOffset = 0x24;
+// An exterior cell's worldspace at +0x50 (0x004C9CF0).
+constexpr UInt32 kCellWorldspaceOffset = 0x50;
 constexpr UInt32 kRefPositionOffset = 0x2C;
 constexpr UInt32 kRefNiNodeOffset = 0x3C;
 constexpr UInt32 kTextStart = 0x00401000;
@@ -103,6 +106,16 @@ bool Outdoors(UInt32 ref) {
 	return LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0;
 }
 
+// Outdoors in Tamriel itself, where the city gates are.
+bool InTamriel(UInt32 ref) {
+	const UInt32 cell = Read(ref + kRefParentCellOffset);
+	if (!LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0) {
+		return false;
+	}
+	const UInt32 world = Read(cell + kCellWorldspaceOffset);
+	return LooksLikeObject(world) && FormIdOf(world) == kTamrielWorldspace;
+}
+
 // A rank of its own per walker that stays the same across frames and loads.
 UInt32 RankOf(UInt32 id) {
 	UInt32 h = id * 2654435761u;
@@ -169,6 +182,8 @@ void ConfigureHorde(const HordeSettings& settings, UInt32 espIndex, LogFn log) {
 		log("Horde: no ESP - the walkers keep their own AI");
 		return;
 	}
+	g_settings.gates = HordeGates();
+	g_settings.gateCount = kCityGateCount;
 	g_settings.travelBase = EspFormId(espIndex, kTravelLocalId);
 	g_settings.followBase = EspFormId(espIndex, kFollowLocalId);
 	UInt32 missing = 0;
@@ -185,8 +200,11 @@ void ConfigureHorde(const HordeSettings& settings, UInt32 espIndex, LogFn log) {
 	}
 	g_ready = true;
 	log("Horde: on - %u groups, a walker joins a leader within %.0f units, the marker %.0f ahead, %u followers at "
-	    "most, a new heading after %.0f s without progress",
-	    kHordeGroups, g_settings.joinRadius, g_settings.leadUnits, g_settings.groupMost, g_settings.staleSeconds);
+	    "most, a new heading after %.0f s without progress; toward the cities %d (%u gates, pull %.2f, within %.0f, "
+	    "holding %.0f in front of the door)",
+	    kHordeGroups, g_settings.joinRadius, g_settings.leadUnits, g_settings.groupMost, g_settings.staleSeconds,
+	    g_settings.towardCities ? 1 : 0, g_settings.gateCount, g_settings.cityPull, g_settings.cityRange,
+	    g_settings.gateHoldUnits);
 }
 
 void ResetHorde() {
@@ -233,6 +251,7 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 		w.x = FloatAt(ref + kRefPositionOffset);
 		w.y = FloatAt(ref + kRefPositionOffset + 4);
 		w.rank = RankOf(w.id);
+		w.tamriel = InTamriel(ref);
 		const UInt32 process = ProcessOf(ref);
 		w.package = process != 0 ? CurrentPackageId(process) : 0;
 		// A package made at runtime (an FF form: the engine's own for an alarm
@@ -275,11 +294,12 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 			}
 			if (used <= 6) {
 				log("Horde: group %02u - leader %08X at %.0f %.0f, %.0f to its marker, runs %08X (its own: %d); %u "
-				    "following (%u on their package), %.0f units from it on average, %.0f at most",
+				    "following (%u on their package), %.0f units from it on average, %.0f at most; gate %s%s",
 				    gi, g.leader, leader->x, leader->y,
 				    horde_detail::Distance(leader->x, leader->y, g.targetX, g.targetY), leader->package,
 				    leader->package == g_settings.travelBase + gi ? 1 : 0, g.count, running,
-				    g.count > 0 ? sum / static_cast<float>(g.count) : 0.0f, most);
+				    g.count > 0 ? sum / static_cast<float>(g.count) : 0.0f, most,
+				    g.gate >= 0 ? kCityGates[g.gate].name : "none", g.holding ? ", holding there" : "");
 			}
 		}
 		log("Horde: %u walkers here, %u fit, %u groups", n, fit, used);

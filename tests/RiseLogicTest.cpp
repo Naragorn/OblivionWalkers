@@ -622,6 +622,9 @@ void TestZombieDefaults() {
 	          settings.horde.staleSeconds == 30.0f && settings.horde.turnDegrees == 60.0f && settings.horde.groupMost == 8,
 	      "[Horde] Enabled=1 (the runs of 2026-10-26 09:24 and 09:28 hold), JoinRadius=1500, LeadUnits=2000, StaleSeconds=30, TurnDegrees=60, "
 	      "GroupMost=8");
+	Check(settings.horde.towardCities && settings.horde.cityPull == 0.5f && settings.horde.cityRange == 40000.0f &&
+	          settings.horde.gateHoldUnits == 800.0f,
+	      "[Horde] TowardCities=1, CityPull=0.5, CityRange=40000, GateHoldUnits=800 (4.11b)");
 	Check(settings.holdDeathSound, "[Rise] HoldDeathSound=1 - the unseen kill's death sound held back (a test switch)");
 	Check(settings.soundAtGetUpPercent == 60,
 	      "[Rise] SoundAtGetUpPercent=60 - the death sound held back at the unseen kill plays as the walker gets up "

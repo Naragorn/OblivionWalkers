@@ -19,6 +19,7 @@ void Check(bool condition, const char* what) {
 	}
 }
 
+using walkers::HordeGroup;
 using walkers::HordeOrder;
 using walkers::HordeSettings;
 using walkers::HordeState;
@@ -27,8 +28,10 @@ using walkers::HordeWalker;
 constexpr UInt32 kTravel = 0x11000806;
 constexpr UInt32 kFollow = 0x11000816;
 
-HordeWalker Walker(UInt32 id, float x, float y, UInt32 rank, UInt32 package = 0, bool fit = true) {
+HordeWalker Walker(UInt32 id, float x, float y, UInt32 rank, UInt32 package = 0, bool fit = true,
+                   bool tamriel = true) {
 	HordeWalker w;
+	w.tamriel = tamriel;
 	w.id = id;
 	w.x = x;
 	w.y = y;
@@ -244,8 +247,104 @@ void TestSlots() {
 
 }  // namespace
 
+float HeadingTo(float fromX, float fromY, float toX, float toY) { return std::atan2(toY - fromY, toX - fromX); }
+
+float AngleBetween(float a, float b) { return std::fabs(std::remainder(a - b, 6.2831853f)); }
+
+void TestGates() {
+	std::printf("Toward the cities\n");
+	const walkers::HordeGate gates[] = {{20000.0f, 0.0f}, {-90000.0f, 0.0f}};
+	{
+		Run run;
+		run.settings.gates = gates;
+		run.settings.gateCount = 2;
+		run.settings.cityPull = 1.0f;
+		const HordeWalker w[] = {Walker(1, 0, 0, 9)};
+		run.Step(w, 1);
+		const UInt32 g = run.First(HordeOrder::Lead)->group;
+		Check(run.state.groups[g].gate == 0 && AngleBetween(run.state.groups[g].heading, 0.0f) < 0.01f,
+		      "CityPull=1: the first marker straight toward the nearest gate within CityRange");
+	}
+	{
+		Run run;
+		run.settings.gates = gates;
+		run.settings.gateCount = 2;
+		run.settings.cityPull = 0.5f;
+		UInt32 within = 0;
+		for (UInt32 seed = 1; seed <= 40; ++seed) {
+			run = Run();
+			run.settings.gates = gates;
+			run.settings.gateCount = 2;
+			run.settings.cityPull = 0.5f;
+			run.seed = seed * 7919u;
+			const HordeWalker w[] = {Walker(1, 0, 0, 9)};
+			run.Step(w, 1);
+			const UInt32 g = run.First(HordeOrder::Lead)->group;
+			within += AngleBetween(run.state.groups[g].heading, 0.0f) <= 3.14159265f * 0.5f + 0.001f ? 1u : 0u;
+		}
+		Check(within == 40, "CityPull=0.5: whatever the dice say, the heading leans toward the gate (within 90 degrees)");
+	}
+	{
+		Run run;
+		run.settings.gates = gates;
+		run.settings.gateCount = 2;
+		run.settings.cityRange = 10000.0f;
+		const HordeWalker w[] = {Walker(1, 0, 0, 9)};
+		run.Step(w, 1);
+		Check(run.state.groups[run.First(HordeOrder::Lead)->group].gate == -1,
+		      "no gate within CityRange: the group drifts at random, as before");
+	}
+	{
+		Run run;
+		run.settings.gates = gates;
+		run.settings.gateCount = 2;
+		const HordeWalker w[] = {Walker(1, 0, 0, 9, 0, true, false)};
+		run.Step(w, 1);
+		Check(run.state.groups[run.First(HordeOrder::Lead)->group].gate == -1,
+		      "a leader outside Tamriel (the Shivering Isles, a city's own worldspace): no gate");
+	}
+	{
+		Run run;
+		run.settings.gates = gates;
+		run.settings.gateCount = 2;
+		run.settings.cityPull = 1.0f;
+		run.settings.leadUnits = 2000.0f;
+		run.settings.gateHoldUnits = 800.0f;
+		const HordeWalker start[] = {Walker(1, 16400, 2700, 9)};
+		run.Step(start, 1);
+		const UInt32 g = run.First(HordeOrder::Lead)->group;
+		const HordeGroup& group = run.state.groups[g];
+		const float tx = group.targetX;
+		const float ty = group.targetY;
+		const HordeWalker near[] = {Walker(1, tx, ty, 9, kTravel + g)};
+		run.Step(near, 1);
+		const HordeOrder* move = run.First(HordeOrder::MoveMarker);
+		const float holdDistance = move != nullptr ? std::sqrt((move->x - 20000.0f) * (move->x - 20000.0f) +
+		                                                       move->y * move->y)
+		                                           : 0.0f;
+		Check(move != nullptr && group.holding && std::fabs(holdDistance - 800.0f) < 1.0f,
+		      "near the gate: the marker goes GateHoldUnits in front of the door, and the group holds there");
+		Check(move != nullptr && AngleBetween(HeadingTo(20000.0f, 0.0f, move->x, move->y),
+		                                      HeadingTo(20000.0f, 0.0f, tx, ty)) < 0.01f,
+		      "in front means on the side the group comes from - never past the door");
+		const HordeWalker there[] = {Walker(1, move != nullptr ? move->x : 0.0f, move != nullptr ? move->y : 0.0f, 9,
+		                                    kTravel + g)};
+		UInt32 moves = 0;
+		for (int t = 0; t < 60; ++t) {
+			run.Step(there, 1, 1.0f);
+			moves += run.Of(HordeOrder::MoveMarker);
+		}
+		Check(moves == 0, "holding: reached, a minute on - the marker stays at the gate, no new heading");
+		const HordeWalker lost[] = {Walker(1, move != nullptr ? move->x : 0.0f, move != nullptr ? move->y : 0.0f, 9, 0)};
+		run.Step(lost, 1);
+		Check(run.Of(HordeOrder::Lead, 1) == 1 && run.Of(HordeOrder::MoveMarker) == 0,
+		      "holding, the package lost: given again, the marker left at the gate");
+	}
+}
+
 int main() {
 	TestOff();
+	TestGates();
 	TestLeadAndJoin();
 	TestKeepAlive();
 	TestMarker();
