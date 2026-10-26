@@ -55,7 +55,10 @@ bool g_ready = false;
 // MoveTo notes).
 HordeOrder g_pending[kHordeGroups];
 UInt32 g_pendingCount = 0;
-UInt32 g_logsLeft = 200;
+UInt32 g_logsLeft = 400;
+UInt32 g_steps = 0;
+UInt32 g_summariesLeft = 60;
+constexpr UInt32 kSummaryEverySteps = 5;
 
 UInt32 Slot(UInt32 object, UInt32 offset) {
 	const UInt32 vtable = LooksLikeObject(object) ? Read(object) : 0;
@@ -205,6 +208,46 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 	}
 	HordeOrder orders[64];
 	const UInt32 ordered = StepHorde(g_state, walkers, n, g_settings, elapsed, g_seed, orders, 64);
+	// Every few seconds, how the groups stand: the leader's way to its
+	// marker, whether it runs its package, how near its followers keep.
+	if (++g_steps % kSummaryEverySteps == 0 && g_summariesLeft > 0) {
+		--g_summariesLeft;
+		UInt32 used = 0;
+		UInt32 fit = 0;
+		for (UInt32 i = 0; i < n; ++i) {
+			fit += walkers[i].fit ? 1u : 0u;
+		}
+		for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+			const HordeGroup& g = g_state.groups[gi];
+			const HordeWalker* leader = g.used ? horde_detail::Find(walkers, n, g.leader) : nullptr;
+			if (leader == nullptr) {
+				continue;
+			}
+			++used;
+			float sum = 0.0f;
+			float most = 0.0f;
+			UInt32 running = 0;
+			for (UInt32 i = 0; i < g.count; ++i) {
+				const HordeWalker* f = horde_detail::Find(walkers, n, g.followers[i]);
+				if (f == nullptr) {
+					continue;
+				}
+				const float d = horde_detail::Distance(f->x, f->y, leader->x, leader->y);
+				sum += d;
+				most = d > most ? d : most;
+				running += f->package == g_settings.followBase + gi ? 1u : 0u;
+			}
+			if (used <= 6) {
+				log("Horde: group %02u - leader %08X at %.0f %.0f, %.0f to its marker, runs %08X (its own: %d); %u "
+				    "following (%u on their package), %.0f units from it on average, %.0f at most",
+				    gi, g.leader, leader->x, leader->y,
+				    horde_detail::Distance(leader->x, leader->y, g.targetX, g.targetY), leader->package,
+				    leader->package == g_settings.travelBase + gi ? 1 : 0, g.count, running,
+				    g.count > 0 ? sum / static_cast<float>(g.count) : 0.0f, most);
+			}
+		}
+		log("Horde: %u walkers here, %u fit, %u groups", n, fit, used);
+	}
 	bool moved[kHordeGroups] = {};
 	for (UInt32 i = 0; i < ordered; ++i) {
 		const HordeOrder& o = orders[i];
@@ -233,11 +276,12 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 				g_pending[g_pendingCount++] = o;
 				continue;
 			}
+			const HordeWalker* had = horde_detail::Find(walkers, n, o.walker);
 			const bool given = GivePackage(o.walker, o.package, console);
 			if (g_logsLeft > 0) {
 				--g_logsLeft;
-				log("Horde: group %02u led by %08X (AddScriptPackage %08X, answered %d)", o.group, o.walker, o.package,
-				    given ? 1 : 0);
+				log("Horde: group %02u led by %08X (it ran %08X; AddScriptPackage %08X, answered %d)", o.group,
+				    o.walker, had != nullptr ? had->package : 0u, o.package, given ? 1 : 0);
 			}
 		} else {
 			const bool aimed = AimFollow(o.group, g_state.groups[o.group].leader);

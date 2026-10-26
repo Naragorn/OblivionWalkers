@@ -680,6 +680,42 @@ Cost: **medium to large.** The packages are vanilla AI; the plugin's part is
 the target bookkeeping and the staleness watch (a walker stuck on a rock).
 The feel needs the headset.
 
+Built 2026-10-26 (Nadi: "go horde"; dd5761f, `[Horde] Enabled=0` until the
+runs show it holds; HordeLogic.h decides, Horde.cpp carries it out):
+- The ESP (tools/esp-write.py) carries 16 groups' records: WalkersHordeTravelNN
+  (Travel to WalkersHordeMarkerNN, must reach it, 256 near - a copy of
+  SE32HlovalReturnStart), WalkersHordeFollowNN (Follow, must complete, 300
+  behind - FollowPlayer without its defensive combat, so a follower still
+  attacks), and the 16 markers, persistent XMarkers in the interior holding
+  cell WalkersHordeMarkers.
+- Once a second the walkers on the process lists are read: fit is alive, a
+  high process, its model there, outdoors (the cell's flags +0x24 bit 0,
+  0x004C9CF0), not fighting (vtable +0x334) and not in a swap; their
+  package now (the process's vtable +0x184) - the reads OBVR's leading by
+  the hand uses (OBVR src/game/Lead.cpp).
+- A fit walker in no group joins the nearest leader within JoinRadius
+  (1500) with room (GroupMost 8), highest rank first; else it leads a group
+  of its own: its marker LeadUnits (2000) ahead along a random heading
+  (MoveTo the marker with an offset from the leader), its travel package
+  given a frame later (AddScriptPackage). Followers get the group's follow
+  package, its target set to the leader (TESPackage +0x28, as xOBSE's
+  SetPackageTarget). Reached (within 300) the marker moves on, at most
+  TurnDegrees (60) off the last heading; no nearer for StaleSeconds (30), a
+  new heading anywhere. A lost leader is replaced by the follower of the
+  highest rank; leaders within half JoinRadius merge into the higher rank's
+  group. Packages lost (after a fight) are given again.
+- Two choices against the text above: "sees another" is taken as "within
+  JoinRadius" (no line of sight is read); dungeon walkers are left alone by
+  leaving every interior alone.
+- First run, harness 2026-10-26 08:33 (horde-walk.txt, Tamriel -29,5, 79
+  walkers loaded there by the spawn replacement): "Horde: on", 14 groups
+  formed, 55 follow orders; the placed walker nearest the player walked off
+  at about 27 units a second (124, 339, 600, 871, 1158 units away at the
+  ten-second marks). Open: two leaders were given their travel package again
+  every second (30 and 16 times in the log's first 200 lines) - they do not
+  read as running it; the summary lines added after (leader's way to its
+  marker, its package, the followers' distance) are for the next run.
+
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 
 What: an infested city has walkers in its streets; more come out of the
