@@ -392,13 +392,24 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   (CreatureZombie's, through its sound base); the swap kills the walker
   unseen through the console's Kill, so the groan came from an invisible
   body (derived - the recording that would prove it is still to be made).
-  Built (`[Rise] SoundAtGetUp=1`): for that one Kill the death list's head
-  is emptied and put back, so no sound is drawn; the sound it would have
-  drawn is drawn just before and played with the console's PlaySound3D on
-  the walker when it gets up. Not yet run: SteamVR was down on 2026-10-26
-  morning. The check: the harness with the game's own audio stream
-  recorded (parec --monitor-stream on its sink input) - no sound burst at
-  the unseen kill, one at the raise.
+  Built (bd94d82, then `[Rise] SoundAtGetUpPercent=60` on Nadi's word,
+  621e75a): for that one Kill the death list's head is emptied and put
+  back, so no sound is drawn; the sound it would have drawn is drawn just
+  before and, at 60 in 100, played with the console's PlaySound3D on the
+  walker when it gets up. `[Rise] HoldDeathSound=0` is the test switch
+  that leaves the death sound to the engine (d82ff3d).
+  Harness 2026-10-26 07:21, 07:36, 07:37 (held) and 07:41 (HoldDeathSound=0),
+  all PASS: the log reads the walker's sound lists and the drawn sound
+  000A655C each time, "its death list held back for the kill" and the
+  PlaySound3D at the raise - so the data path is the read one (measured).
+  Not heard: the game's audio recording (parec on its stream, aligned by the
+  QPC ticks now in the swap's lines) stayed at the noise floor in every run,
+  the bandit's death included - WirePlumber restores the stream
+  "TES4: Oblivion" muted (`~/.local/state/wireplumber/stream-properties`,
+  "mute":true), so a muted stream is all a recording gets. Whether the
+  groan is gone at the unseen kill and comes at the raise is for an ear in
+  the game (Nadi, Windows) - or a recording with the stream unmuted and
+  routed to a null sink, which changes WirePlumber's saved state.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
