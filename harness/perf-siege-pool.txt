@@ -15,6 +15,16 @@
 # OblivionWalkers.log's "Walk: N walkers on the process lists" lines tell
 # whether the disabled pool is on the lists.
 #
+# Result 2026-10-26 20:47 and 20:51 (artifacts/hand-script/perf-siege-pool/,
+# Linux, the Beyond at 75 Hz, dual pass, one run each): no cost seen.
+# Deployed ESP - frames 13.35-13.39 ms mean, scene_pass 0.90-0.93 ms,
+# poses_wait 7.87-7.91 ms, 0.1-0.4 % over 20 ms; with the 240 disabled
+# walkers - frames 13.36 ms, scene_pass 0.87-0.90 ms, poses_wait 8.04-8.13
+# ms, 0.1-0.2 % over 20 ms. "Walk: 0 walkers on the process lists" in both:
+# the disabled pool is not on them. The ESP loaded in both (its walkers,
+# guards and editions found); the 240 references themselves were not looked
+# up, and what they cost on a cell change or a load is not measured.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-siege-pool.txt --headless \
 #       --run-timeout 420 --artifact-root ../OblivionWalkers/artifacts/hand-script

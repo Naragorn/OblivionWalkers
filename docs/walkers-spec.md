@@ -951,7 +951,12 @@ Proposed, for Nadi to decide (none of it set):
   siege leaves the gate locked (the plugin's Enabled=0 should unlock it).
 
 Measured first: what a pool of disabled walker references costs
-(`perf-siege-pool.txt`, `tools/esp-write.py --test-walker-pool N`).
+(`perf-siege-pool.txt`, `tools/esp-write.py --test-walker-pool 30`,
+2026-10-26 20:47/20:51, one run each): **nothing seen** - 240 disabled
+walkers in the holding cell, frames 13.36 against 13.35-13.39 ms, the scene
+pass 0.87-0.90 against 0.90-0.93 ms, and none of them on the process lists.
+Not measured: their cost on a cell change or a load. The cost of a siege is
+the walkers in view, not the pool.
 
 Cost: **medium to large** - the state and its tests small to medium (the
 co-save and the clock are 4.9's), the pool and bringing it out medium (the
