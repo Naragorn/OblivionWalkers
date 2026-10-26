@@ -869,7 +869,12 @@ How:
   woman died among the walkers with killer 00000000) is asked about at the
   next frame: a living walker within 1000 units then counts as the killer. "Irgendwo sicher" is taken as "where it fell, once it is
   safe there". A body whose cell is unloaded waits for the player to come
-  back: a raise without 3D is not read yet.
+  back: a raise without 3D is not read yet. Decided by Nadi, 2026-10-26:
+  creatures are raised too (as built), and the safeguard stays on by
+  default - the INI says that off is more realistic but may break quests.
+  The fallen pool guards get no loot block (Nadi, 2026-10-26): what the
+  player takes from one stays taken when it is raised and sent out again
+  (derived from Resurrect keeping the inventory as it is; not run).
 
 Cost: towards cities and the hold **small**; the guards **medium**; the
 safeguard **small**. Tests: `GuardLogicTest` (every flow of the pool: how
@@ -1223,7 +1228,8 @@ roster line's counts.
   over 20 ms 6.7 % against 1.1 % (`perf-walkers-shadows-shared.txt`, the
   eyes' dumps alike in `-eyes.txt`). Options for Nadi: (A) keep
   MaxCount 10 (his default since 2026-10-24); (B) a lower default, say 4;
-  (C) a cap per cell. Not decided.
+  (C) a cap per cell. **Decided A** (Nadi, 2026-10-26: "maxcount bleibt
+  10").
 
 - **Walk-only reaches only 16 walkers of each kind** (found 2026-10-26
   reading the code for the pool of 21): `Rise.cpp` StepWalkers collects at
