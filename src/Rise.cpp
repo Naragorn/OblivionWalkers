@@ -2,6 +2,7 @@
 
 #include "Engine.h"
 #include "MooLogic.h"
+#include "SoundLogic.h"
 #include "Pose.h"
 #include "Replace.h"
 
@@ -78,6 +79,9 @@ Swap g_swap;
 // KeepCorpseApart: the walker whose corpse was moved out of its way, and the
 // one whose refusal was logged (once a swap).
 UInt32 g_apartWalker = 0;
+// The death sound the walker would have made at its unseen kill, drawn
+// beforehand and played as it gets up (SoundAtGetUp); 0: none.
+UInt32 g_getUpSound = 0;
 UInt32 g_apartRefusedFor = 0;
 UInt32 g_walkers[4] = {};
 UInt32 g_walkerCount = 0;
@@ -664,6 +668,34 @@ void RevealSwap() {
 	      hidden ? 1 : 0, shown ? 1 : 0, moved ? 1 : 0);
 }
 
+// The sound lists the walker's death sound is drawn from (SoundLogic.h); 0
+// when its base is no creature or the engine's GetSound is not the game's own.
+constexpr UInt32 kCreatureGetSound = 0x0051CEC0;  // thiscall(creature, type), ret 4
+constexpr UInt8 kCreatureGetSoundBytes[8] = {0x8B, 0x41, 0x28, 0xC1, 0xE8, 0x08, 0xA8, 0x01};
+
+bool GetSoundIsTheGames() {
+	return std::memcmp(reinterpret_cast<const void*>(kCreatureGetSound), kCreatureGetSoundBytes,
+	                   sizeof(kCreatureGetSoundBytes)) == 0;
+}
+
+UInt32 DeathSoundListsOf(UInt32 actor) {
+	const UInt32 base = LooksLikeObject(actor) ? Read(actor + kRefBaseFormOffset) : 0;
+	if (!LooksLikeObject(base) || Read8(base + kFormTypeOffset) != kFormTypeCreature || !GetSoundIsTheGames()) {
+		return 0;
+	}
+	const UInt32 lists = SoundListsOf(base, [](UInt32 address) { return LooksLikeObject(address & ~3u) ? Read(address) : 0u; });
+	return LooksLikeObject(lists) ? lists : 0;
+}
+
+// The sound of `type` the engine would draw for the actor now - its own
+// GetSound, the dice included; 0 when it draws none or it is no SOUN.
+UInt32 DrawnSoundId(UInt32 actor, UInt32 type) {
+	const UInt32 base = Read(actor + kRefBaseFormOffset);
+	using GetSoundFn = UInt32(__fastcall*)(void* creature, void* edx, UInt32 type);
+	const UInt32 sound = reinterpret_cast<GetSoundFn>(kCreatureGetSound)(reinterpret_cast<void*>(base), nullptr, type);
+	return LooksLikeObject(sound) && Read8(sound + kFormTypeOffset) == kFormTypeSound ? FormIdOf(sound) : 0;
+}
+
 // The swap in flight, one frame: the walker's reference is made unseen and
 // killed the moment its model exists (before its AI takes a step); its
 // ragdoll settles unseen where the man lies, DropSeconds later the two
@@ -724,7 +756,23 @@ void StepSwapInFlight(float dt) {
 		const bool movedOnto = LooksLikeObject(zombie) && ConsoleOn(zombie, moveLine);
 		g_log("Swap: walker %08X placed at %.0f %.0f, the corpse at %.0f %.0f - unseen (%d), moved onto it (%d)",
 		      g_swap.zombieId, bx, by, g_swap.x, g_swap.y, unseen ? 1 : 0, movedOnto ? 1 : 0);
+		// Its death unheard (SoundLogic.h): the sound it would make drawn now
+		// for its get-up, its death list emptied for this one Kill and put
+		// back - the engine's death plays a creature's sound inside the call.
+		const UInt32 lists = DeathSoundListsOf(zombie);
+		const UInt32 slot = DeathListSlot(lists);
+		g_getUpSound = slot != 0 ? DrawnSoundId(zombie, kCreatureSoundDeath) : 0;
+		const UInt32 heldList = slot != 0 ? Read(slot) : 0;
+		if (slot != 0) {
+			*reinterpret_cast<UInt32*>(slot) = 0;
+		}
 		const bool killed = LooksLikeObject(zombie) && ConsoleOn(zombie, "Kill");
+		if (slot != 0) {
+			*reinterpret_cast<UInt32*>(slot) = heldList;
+		}
+		g_log("Swap: walker %08X dies unheard - %s; its sound for the get-up: %08X", g_swap.zombieId,
+		      slot != 0 ? "its death list held back for the kill" : "no sound lists found, so none held back",
+		      g_getUpSound);
 		g_log("Swap: walker %08X's model is there after %.1f s at %.0f %.0f %.0f - killed (%d), dead now %d, the "
 		      "corpse %08X still lying",
 		      g_swap.zombieId, g_swap.seconds, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
@@ -829,6 +877,14 @@ void StepSwapInFlight(float dt) {
 		g_risenWatching = true;
 		g_log("Swap: walker %08X gets up at %.0f %.0f %.0f where %08X lay", g_swap.zombieId, g_risen.x, g_risen.y,
 		      g_risen.z, g_swap.corpseId);
+		if (GetUpSoundDue(g_settings.soundAtGetUp, g_getUpSound)) {
+			char line[48];
+			std::snprintf(line, sizeof(line), "PlaySound3D %08X", g_getUpSound);
+			const bool played = ConsoleOn(zombie, line);
+			g_log("Swap: walker %08X makes the sound held back at its death as it gets up (%s, answered %d)",
+			      g_swap.zombieId, line, played ? 1 : 0);
+		}
+		g_getUpSound = 0;
 	}
 }
 

@@ -47,6 +47,10 @@ add_executable(MooLogicTest tests/MooLogicTest.cpp)
 target_link_libraries(MooLogicTest PRIVATE logic)
 add_test(NAME MooLogicTest COMMAND MooLogicTest)
 
+add_executable(SoundLogicTest tests/SoundLogicTest.cpp)
+target_link_libraries(SoundLogicTest PRIVATE logic)
+add_test(NAME SoundLogicTest COMMAND SoundLogicTest)
+
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)
 add_test(NAME PluginEntryTest COMMAND PluginEntryTest)

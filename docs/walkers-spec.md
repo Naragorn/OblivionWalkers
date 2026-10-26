@@ -383,6 +383,22 @@ The numbers (harness 2026-10-25 10:10 and 10:11, the log's pelvis and head):
   The harness's pictures are a second apart, so that one frame is read in
   the code, not seen. Harness 20:24 PASS: 1 unit and 1 degree off at the
   raise, the corpse not moved.
+- **Open bug, fix built 2026-10-26, not yet heard** - "die walker machen
+  bereits einen sound wenn sie unsichtbar spawenne das stört. der sound kann
+  kommen aber erst wenn sie daliegen und aufstehen" (Nadi, Windows,
+  2026-10-25 evening). Read with REA (SoundLogic.h has the addresses): the
+  engine's death 0x006005F0 plays a creature's Death sound inside the call,
+  drawn by TESCreature::GetSound 0x0051CEC0 from the walker's sound lists
+  (CreatureZombie's, through its sound base); the swap kills the walker
+  unseen through the console's Kill, so the groan came from an invisible
+  body (derived - the recording that would prove it is still to be made).
+  Built (`[Rise] SoundAtGetUp=1`): for that one Kill the death list's head
+  is emptied and put back, so no sound is drawn; the sound it would have
+  drawn is drawn just before and played with the console's PlaySound3D on
+  the walker when it gets up. Not yet run: SteamVR was down on 2026-10-26
+  morning. The check: the harness with the game's own audio stream
+  recorded (parec --monitor-stream on its sink input) - no sound burst at
+  the unseen kill, one at the raise.
 - Both: the pelvis node and the reference's position stay where the walker
   fell for a frame or more after the bodies moved (the pelvis carries no
   body on these skeletons); by the raise they have followed. Whether the
