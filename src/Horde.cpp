@@ -72,10 +72,9 @@ UInt32 g_summariesLeft = 60;
 constexpr UInt32 kSummaryEverySteps = 5;
 
 // The gate guards (4.11b; tools/esp-write.py): one guard record per city,
-// six persistent references of it per city in the holding cell, initially
-// disabled, in CityGates.h's order.
+// twelve persistent references of it per city in the holding cell,
+// initially disabled, in CityGates.h's order (GuardLogic.h PoolLocalId).
 constexpr UInt32 kGuardNpcLocalId = 0x837;
-constexpr UInt32 kGuardPoolLocalId = 0x83F;
 constexpr UInt32 kRefBaseFormOffset = 0x1C;
 // TESActorBase's TESHealthForm (Replace.cpp ScaleWalkerHealth writes the
 // walkers' there).
@@ -224,7 +223,7 @@ UInt32 GuardRecordOf(UInt32 city) {
 
 // The pool guard's reference; 0 unless it is one of the city's guard.
 UInt32 PoolGuard(UInt32 city, UInt32 slot) {
-	const UInt32 ref = LookupForm(EspFormId(g_espIndex, kGuardPoolLocalId + city * kGuardPool + slot));
+	const UInt32 ref = LookupForm(EspFormId(g_espIndex, PoolLocalId(city, slot)));
 	const UInt32 record = GuardRecordOf(city);
 	return LooksLikeObject(ref) && record != 0 && Read(ref + kRefBaseFormOffset) == record ? ref : 0;
 }
@@ -480,8 +479,8 @@ void ConfigureGuards(const GuardSettings& settings, LogFn log) {
 
 bool IsGateGuard(UInt32 refId) {
 	const UInt32 local = refId & 0x00FFFFFF;
-	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && local >= kGuardPoolLocalId &&
-	       local < kGuardPoolLocalId + kGuardCities * kGuardPool;
+	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && local >= kGuardPoolFirstLocalId &&
+	       local < kGuardPoolFirstLocalId + kGuardCities * kGuardPool;
 }
 
 void ResetHorde() {

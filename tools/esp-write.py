@@ -33,12 +33,15 @@ index at runtime):
          (4.11b), a copy of a city guard (Anvil's stables post 0000A0AE and
          the like) but EDID, its AI packages and its script, and never
          essential (Nadi, 2026-10-26): it stands and fights where it is put.
-  0x83F..0x86E  ACHR WalkersGuardPoolCity_N - six persistent, initially
+  0x83F..0x89E  ACHR WalkersGuardPoolCityN - twelve persistent, initially
          disabled references of each city's guard in the holding cell, as
-         an Oblivion.esm ACHR (000171CB: NAME and DATA): the plugin moves
-         them out to a gate and back - a guard that dies is raised and sent
-         out again, so no reference is ever made at runtime (PlaceAtMe's
-         actors stay in the save for good, the CS wiki's PlaceAtMe page).
+         an Oblivion.esm ACHR (000171CB: NAME and DATA), in banks of six
+         per city (GuardLogic.h PoolLocalId: slots 0-5 at 0x83F + city x 6,
+         where the six-pool had them, slots 6-11 at 0x86F + city x 6): the
+         plugin moves them out to a gate and back - a guard that dies is
+         raised and sent out again, so no reference is ever made at runtime
+         (PlaceAtMe's actors stay in the save for good, the CS wiki's
+         PlaceAtMe page).
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         --out OblivionWalkers.esp
@@ -88,9 +91,18 @@ CELL_EDID = "WalkersHordeMarkers"
 CITIES = ["Anvil", "Bravil", "Bruma", "Cheydinhal", "Chorrol", "Leyawiin", "Skingrad", "ImperialCity"]  # CityGates.h City
 GUARD_TEMPLATES = [0x0000A0AE, 0x0000A0B0, 0x0000A0B2, 0x0000A0B4, 0x0000A0B6, 0x0003554B, 0x0000A0BA, 0x000752F2]
 LOCAL_GUARD_IDS = [0x837 + i for i in range(len(CITIES))]
-GUARD_POOL = 6  # GuardLogic.h kGuardPool
+GUARD_POOL = 12  # GuardLogic.h kGuardPool
+GUARD_BANK = 6  # GuardLogic.h kGuardBank
 ACBS_ESSENTIAL = 0x2
-LOCAL_POOL_IDS = [0x83F + i for i in range(len(CITIES) * GUARD_POOL)]
+POOL_FIRST_ID = 0x83F  # GuardLogic.h kGuardPoolFirstLocalId
+
+
+def pool_local_id(city: int, slot: int) -> int:
+    """GuardLogic.h PoolLocalId."""
+    return POOL_FIRST_ID + (slot // GUARD_BANK) * len(CITIES) * GUARD_BANK + city * GUARD_BANK + slot % GUARD_BANK
+
+
+LOCAL_POOL_IDS = sorted(pool_local_id(c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL))
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
@@ -333,13 +345,15 @@ def main() -> int:
                       for form, tpl, city in zip(guard_forms, guard_templates, CITIES))
     achr_template = find_record(esm, buf, b"ACHR", ACHR_TEMPLATE)
     pool_forms = [index | local for local in LOCAL_POOL_IDS]
+    pool_bases = {}
     pool = b""
-    for c, city in enumerate(CITIES):
-        for n in range(GUARD_POOL):
-            form = pool_forms[c * GUARD_POOL + n]
-            pool += record(b"ACHR", form,
-                           build_pool_ref(achr_template, f"WalkersGuardPool{city}{n}", guard_forms[c], c * GUARD_POOL + n),
-                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    for local in LOCAL_POOL_IDS:
+        c, n = next((c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL) if pool_local_id(c, n) == local)
+        pool_bases[index | local] = guard_forms[c]
+        pool += record(b"ACHR", index | local,
+                       build_pool_ref(achr_template, f"WalkersGuardPool{CITIES[c]}{n}", guard_forms[c],
+                                      local - POOL_FIRST_ID),
+                       flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
 
     body = (group(b"RACE", races) + group(b"NPC_", guards) + group(b"CREA", creatures) + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
@@ -395,10 +409,12 @@ def main() -> int:
         wanted = [(k, guard_acbs(d) if k == b"ACBS" else d) for k, d in tpl if k not in (b"EDID", b"PKID", b"SCRI")]
         if kept != wanted:
             raise SystemExit(f"the {city} guard differs from its template beyond EDID, packages, script and essential")
-    for i, form in enumerate(pool_forms):
+    for form in pool_forms:
         back = dict(find_record(esm, plugin, b"ACHR", form))
-        if struct.unpack("<I", back[b"NAME"])[0] != guard_forms[i // GUARD_POOL]:
-            raise SystemExit(f"pool guard {i} has the wrong base")
+        if struct.unpack("<I", back[b"NAME"])[0] != pool_bases[form]:
+            raise SystemExit(f"pool guard {form:08X} has the wrong base")
+    if pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F:
+        raise SystemExit("the pool's first bank moved: a save made with the six-pool would lose its guards")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
           + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four x{VARIANT_SLOTS}; "

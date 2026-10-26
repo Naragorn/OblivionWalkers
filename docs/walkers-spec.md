@@ -774,14 +774,18 @@ How:
   ESP copy of a guard per city (NPC_ 0x837..0x83E: its factions, gear,
   face and level-scaled stats as the city's own; its AI packages and
   script dropped, essential cleared - so it stands and fights where it is
-  put) and a pool of six persistent, initially disabled references of each
-  in the holding cell (ACHR 0x83F..0x86E). A gate with walkers within
+  put) and a pool of twelve persistent, initially disabled references of
+  each in the holding cell (ACHR 0x83F..0x89E, in banks of six per city:
+  slots 0-5 at 0x83F + city x 6 as in the six-pool of the morning, slots
+  6-11 at 0x86F + city x 6 - `GuardLogic.h` PoolLocalId; a save made with
+  the six-pool keeps its guards; twelve since Nadi's "größerer Pool, 12
+  pro Stadt", 2026-10-26). A gate with walkers within
   `Radius` (4000) of its door gets ceil(walkers / `ZombiesPerGuard`)
-  guards, at most the city's six: a waiting one enabled and moved
+  guards, at most the city's twelve: a waiting one enabled and moved
   (MoveTo the door with an offset) onto the spot the city's way out puts
-  the player (the city-side door's XTEL, `tools/city-gates.py`), the six
-  side by side across it - behind the walkers, who hold `GateHoldUnits`
-  farther out. The frame after: `Resurrect 0` when it lay dead,
+  the player (the city-side door's XTEL, `tools/city-gates.py`), in rows
+  of six side by side across it, the second row 70 units farther out -
+  behind the walkers, who hold `GateHoldUnits` farther out. The frame after: `Resurrect 0` when it lay dead,
   `ResetHealth`, its health read back into the log. Each second a guard
   out, standing and not fighting is sent at the nearest walker
   (`StartCombat`). Health: the guard record's TESHealthForm (+0x84) set
@@ -790,7 +794,7 @@ How:
   next waiting one; with none waiting, the dead are raised and sent out
   again - the pool is all there is, so the supply never ends and no
   reference is ever made at runtime. **Deviation from "spawnt eine neue",
-  named:** the "new" guard is one of the six again - a dead one raised
+  named:** the "new" guard is one of the twelve again - a dead one raised
   vanishes from where it fell. PlaceAtMe would make a truly new one, but
   PlaceAtMe's actors stay in the save for good (the CS wiki's PlaceAtMe
   page), and a supply that never ends would grow the save without bound.
@@ -1091,6 +1095,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
 | `gate-guards.txt` | seven walkers near Anvil's main gate: two guards out with 60 health, sent at the walkers, back in after the last; the walkers' victims raised by the safeguard (4.11b) - 11:12 and 11:17 froze (the horde's self-follow, fixed), 11:29 PASS (`[Safeguard] Radius=300` by hand: horses raised), 11:33 PASS (`HealthFactor=0.2`) | the plugin, the ESP with the guard pool |
+| `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |

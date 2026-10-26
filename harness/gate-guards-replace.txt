@@ -6,7 +6,8 @@
 # killed, the waiting ones sent first and, with none waiting, the fallen
 # "raised" and sent out again; the safeguard never takes a gate guard.
 #
-# Result 2026-10-26 11:36 PASS (artifacts/hand-script/gate-guards-replace/):
+# Result 2026-10-26 11:36 PASS (artifacts/hand-script/gate-guards-replace/,
+# still the pool of six then):
 # six out two a second, 2 of 2 health each, all six back in 30 s after the
 # last walker; one guard fell (to another guard's swing) when fewer walkers
 # were left than five per standing guard - no replacement was due, so the

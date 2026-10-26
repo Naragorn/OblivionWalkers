@@ -77,7 +77,8 @@ void TestCount() {
 	Check(walkers::GuardsWanted(0, 5) == 0 && walkers::GuardsWanted(1, 5) == 1 && walkers::GuardsWanted(5, 5) == 1 &&
 	          walkers::GuardsWanted(6, 5) == 2 && walkers::GuardsWanted(11, 5) == 3,
 	      "one for every ZombiesPerGuard walkers, the rest rounded up: 1->1, 5->1, 6->2, 11->3");
-	Check(walkers::GuardsWanted(40, 5) == kGuardPool, "never more than the city's pool (six)");
+	Check(kGuardPool == 12 && walkers::GuardsWanted(56, 5) == 12 && walkers::GuardsWanted(200, 5) == kGuardPool,
+	      "never more than the city's pool (twelve, Nadi 2026-10-26): full from 56 walkers on");
 	Check(walkers::GuardsWanted(3, 0) == 3, "ZombiesPerGuard 0 read as 1: one guard for each walker");
 }
 
@@ -121,13 +122,14 @@ void TestReplace() {
 	Check(run.Of(GuardOrder::Deploy, 0) == 2 && run.orders[0].raise && run.orders[1].raise &&
 	          run.orders[0].slot != run.orders[1].slot,
 	      "none waiting, all dead: two of the dead raised and sent out again (the pool is all there is)");
-	run.zombies[0] = 40;
+	run.zombies[0] = 80;
 	for (UInt32 s = 0; s < kGuardPool; ++s) {
 		run.alive[kAnvil][s] = true;
 	}
-	run.Step();
-	run.Step();
-	Check(run.Out(0) == kGuardPool, "forty walkers: the whole pool out, no more");
+	for (int t = 0; t < 8; ++t) {
+		run.Step();
+	}
+	Check(run.Out(0) == kGuardPool, "eighty walkers: the whole pool out, two a second, no more");
 }
 
 void TestIn() {
@@ -248,21 +250,51 @@ void TestTable() {
 
 void TestSpot() {
 	std::printf("Where a guard comes out\n");
+	// The door at 0,0, the way out along +y to the spot at 0,100.
 	walkers::CityGate gate{walkers::City::Anvil, 1, 0.0f, 0.0f, 200.0f, 0.0f, 100.0f, 0.0f, "test"};
 	float x[kGuardPool];
 	float y[kGuardPool];
 	for (UInt32 s = 0; s < kGuardPool; ++s) {
 		walkers::GuardSpot(gate, s, x[s], y[s]);
 	}
-	bool inLine = true;
+	bool rows = true;
 	bool apart = true;
 	for (UInt32 s = 0; s < kGuardPool; ++s) {
-		inLine = inLine && std::fabs(y[s] - 100.0f) < 0.01f && std::fabs(x[s]) <= 200.0f;
+		const float row = static_cast<float>(s / walkers::kGuardsPerRow);
+		rows = rows && std::fabs(y[s] - (100.0f + row * walkers::kGuardSpacing)) < 0.01f && std::fabs(x[s]) <= 200.0f;
 		for (UInt32 t = s + 1; t < kGuardPool; ++t) {
-			apart = apart && std::fabs(x[s] - x[t]) >= walkers::kGuardSpacing - 0.01f;
+			apart = apart && std::hypot(x[s] - x[t], y[s] - y[t]) >= walkers::kGuardSpacing - 0.01f;
 		}
 	}
-	Check(inLine && apart, "the six side by side across the way out, kGuardSpacing apart, around the spot");
+	Check(rows && apart,
+	      "rows of six across the way out, the first on the spot, the next kGuardSpacing farther out; none nearer "
+	      "than kGuardSpacing to another");
+}
+
+void TestPoolIds() {
+	std::printf("The pool's form IDs\n");
+	Check(walkers::PoolLocalId(0, 0) == 0x83F && walkers::PoolLocalId(1, 0) == 0x845 &&
+	          walkers::PoolLocalId(7, 5) == 0x86E,
+	      "the first six of each city where the six-pool had them (0x83F + city x 6): a save made with it keeps "
+	      "its guards");
+	Check(walkers::PoolLocalId(0, 6) == 0x86F && walkers::PoolLocalId(7, 11) == 0x89E,
+	      "the next six of each city after them (0x86F + city x 6)");
+	bool unique = true;
+	for (UInt32 a = 0; a < walkers::kGuardCities * kGuardPool; ++a) {
+		for (UInt32 b = a + 1; b < walkers::kGuardCities * kGuardPool; ++b) {
+			unique = unique && walkers::PoolLocalId(a / kGuardPool, a % kGuardPool) !=
+			                       walkers::PoolLocalId(b / kGuardPool, b % kGuardPool);
+		}
+	}
+	bool inRange = true;
+	for (UInt32 c = 0; c < walkers::kGuardCities; ++c) {
+		for (UInt32 i = 0; i < kGuardPool; ++i) {
+			const UInt32 id = walkers::PoolLocalId(c, i);
+			inRange = inRange && id >= walkers::kGuardPoolFirstLocalId &&
+			          id < walkers::kGuardPoolFirstLocalId + walkers::kGuardCities * kGuardPool;
+		}
+	}
+	Check(unique && inRange, "96 IDs, none twice, all in one run from 0x83F");
 }
 
 void TestRecover() {
@@ -299,6 +331,7 @@ int main() {
 	TestHealth();
 	TestTable();
 	TestSpot();
+	TestPoolIds();
 	TestRecover();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

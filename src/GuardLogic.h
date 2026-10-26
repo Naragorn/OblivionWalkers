@@ -6,14 +6,15 @@
 // walker's health; whenever one dies a new one comes out behind the line,
 // so the walkers always lose in the end.
 //
-// The guards are each city's pool of six persistent, initially disabled
+// The guards are each city's pool of twelve persistent, initially disabled
 // references in the ESP's holding cell (tools/esp-write.py): sent out to a
 // gate (moved there, enabled, raised when dead), taken in once no walker has
 // been near for ClearSeconds (disabled). No reference is made at runtime -
 // actors made with PlaceAtMe stay in the save for good (the CS wiki's
 // PlaceAtMe page), and a guard that never stops coming back would make one
-// every time. The pool is all there is: at most six per city out at once,
-// a dead one raised and sent out again.
+// every time. The pool is all there is: at most twelve per city out at
+// once (Nadi, 2026-10-26: "größerer Pool, 12 pro Stadt"), a dead one raised
+// and sent out again.
 
 #include "CityGates.h"
 #include "Types.h"
@@ -23,10 +24,16 @@
 namespace walkers {
 
 inline constexpr UInt32 kGuardCities = static_cast<UInt32>(City::Count);
-inline constexpr UInt32 kGuardPool = 6;  // tools/esp-write.py GUARD_POOL
+inline constexpr UInt32 kGuardPool = 12;  // tools/esp-write.py GUARD_POOL
+// The pool's references come in banks of six per city: the first bank where
+// the six-pool of 2026-10-26 morning had them (0x83F + city x 6), the next
+// after it - a save made with the six-pool keeps its guards.
+inline constexpr UInt32 kGuardBank = 6;
+inline constexpr UInt32 kGuardPoolFirstLocalId = 0x83F;
 inline constexpr UInt32 kGuardGatesMost = 32;
 inline constexpr UInt32 kGuardsOutPerStep = 2;  // per gate and step, so they come out one after another
 inline constexpr float kGuardSpacing = 70.0f;   // between two guards side by side at the way out
+inline constexpr UInt32 kGuardsPerRow = 6;      // a row across the way out; the next row farther out
 
 struct GuardSettings {
 	bool enabled = true;           // [Guards] Enabled
@@ -71,6 +78,13 @@ inline UInt32 GuardsWanted(UInt32 zombies, UInt32 zombiesPerGuard) {
 	return wanted < kGuardPool ? wanted : kGuardPool;
 }
 
+// The ESP's local form ID of pool guard `slot` of `city` (tools/esp-write.py
+// writes them so).
+inline constexpr UInt32 PoolLocalId(UInt32 city, UInt32 slot) {
+	return kGuardPoolFirstLocalId + (slot / kGuardBank) * kGuardCities * kGuardBank + city * kGuardBank +
+	       slot % kGuardBank;
+}
+
 // A guard's health: HealthFactor times a walker's, rounded, at least 1.
 inline UInt32 GuardHealth(float factor, UInt32 walkerHealth) {
 	const float health = std::floor(factor * static_cast<float>(walkerHealth) + 0.5f);
@@ -78,18 +92,22 @@ inline UInt32 GuardHealth(float factor, UInt32 walkerHealth) {
 }
 
 // Where guard `slot` comes out at `gate`: on the spot its way back out of
-// the city puts one, the six side by side across that way, kGuardSpacing
-// apart - behind the walkers, who hold farther out (HordeSettings
-// gateHoldUnits).
+// the city puts one, in rows of kGuardsPerRow side by side across that way,
+// kGuardSpacing apart, each row kGuardSpacing farther out than the last -
+// still behind the walkers, who hold farther out (HordeSettings
+// gateHoldUnits, 800).
 inline void GuardSpot(const CityGate& gate, UInt32 slot, float& x, float& y) {
 	float ax = gate.outX - gate.x;
 	float ay = gate.outY - gate.y;
 	const float length = std::sqrt(ax * ax + ay * ay);
 	ax = length > 0.01f ? ax / length : 1.0f;
 	ay = length > 0.01f ? ay / length : 0.0f;
-	const float side = (static_cast<float>(slot) - (static_cast<float>(kGuardPool) - 1.0f) * 0.5f) * kGuardSpacing;
-	x = gate.outX - ay * side;
-	y = gate.outY + ax * side;
+	const float place = static_cast<float>(slot % kGuardsPerRow);
+	const float row = static_cast<float>(slot / kGuardsPerRow);
+	const float side = (place - (static_cast<float>(kGuardsPerRow) - 1.0f) * 0.5f) * kGuardSpacing;
+	const float ahead = row * kGuardSpacing;
+	x = gate.outX - ay * side + ax * ahead;
+	y = gate.outY + ax * side + ay * ahead;
 }
 
 // After a load the pool is read off the world: an enabled guard is out, at
