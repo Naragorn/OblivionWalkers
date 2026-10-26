@@ -7,6 +7,11 @@
 # following its leader; the roster's nearest distance and the log's
 # positions show the group moving off together over the minute.
 #
+# Results 2026-10-26 (artifacts/hand-script/horde-walk/): 08:33, 09:24 and
+# 09:28 PASS - 79 to 85 walkers there (the spawn replacement), 13 to 15
+# groups; leaders 1360 to 3400 units on in 95 s, followers 300 to 520 units
+# behind (docs/walkers-spec.md 4.11 has the numbers).
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/horde-walk.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

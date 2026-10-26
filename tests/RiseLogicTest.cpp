@@ -618,9 +618,9 @@ void TestZombieDefaults() {
 	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=1.5 - the pose settles unseen while the corpse still lies, never a gap (Nadi, "
 	      "2026-10-25: \"keine Luecke\", after 0 slid seen once in four runs); the test switch HideCorpseAtPose off");
-	Check(!settings.horde.enabled && settings.horde.joinRadius == 1500.0f && settings.horde.leadUnits == 2000.0f &&
+	Check(settings.horde.enabled && settings.horde.joinRadius == 1500.0f && settings.horde.leadUnits == 2000.0f &&
 	          settings.horde.staleSeconds == 30.0f && settings.horde.turnDegrees == 60.0f && settings.horde.groupMost == 8,
-	      "[Horde] Enabled=0 until the runs show it, JoinRadius=1500, LeadUnits=2000, StaleSeconds=30, TurnDegrees=60, "
+	      "[Horde] Enabled=1 (the runs of 2026-10-26 09:24 and 09:28 hold), JoinRadius=1500, LeadUnits=2000, StaleSeconds=30, TurnDegrees=60, "
 	      "GroupMost=8");
 	Check(settings.holdDeathSound, "[Rise] HoldDeathSound=1 - the unseen kill's death sound held back (a test switch)");
 	Check(settings.soundAtGetUpPercent == 60,

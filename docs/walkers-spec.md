@@ -715,6 +715,20 @@ runs show it holds; HordeLogic.h decides, Horde.cpp carries it out):
   every second (30 and 16 times in the log's first 200 lines) - they do not
   read as running it; the summary lines added after (leader's way to its
   marker, its package, the followers' distance) are for the next run.
+- Harness 09:24 (the summaries, every 5 s for 95 s; six groups summed up):
+  the leaders ran their travel package in 18 of 19 summaries and walked
+  1360 to 3010 units, their way to the marker down from 2000 to 455-1507;
+  every follower ran its follow package, on average 350 to 520 units from
+  its leader. The two leaders given their package every second ran packages
+  made at runtime (FF000F41, FF000F42 - the engine's or a script's) that
+  took ours back each time. Fixed (3887371): a walker on a runtime package
+  is left alone until it runs its own or ours again, and a package given
+  again is held back 5 s per walker. Harness 09:28: given again at most 7
+  times per group in the run (was 29), followers on their package 100 %,
+  leaders 14 to 18 of 19, the same distances.
+- On by default since then (Nadi's "go horde"; the spec's `Enabled=1`).
+  Not judged yet: the feel in the headset, and the cost - the step reads
+  some 80 walkers once a second and gives packages through the console.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 

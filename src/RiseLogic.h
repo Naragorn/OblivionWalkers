@@ -87,8 +87,12 @@ struct RiseSettings {
 	// (the control of the sound recording).
 	bool holdDeathSound = true;
 	// [Horde] (4.11, HordeLogic.h): the walkers out of combat drift in
-	// groups. Off until the runs show it holds.
-	HordeSettings horde;
+	// groups. On since the runs of 2026-10-26 09:24 and 09:28 held.
+	HordeSettings horde = [] {
+		HordeSettings on;
+		on.enabled = true;
+		return on;
+	}();
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

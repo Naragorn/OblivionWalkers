@@ -133,7 +133,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.hideCorpseAtPose = GetPrivateProfileIntA("Rise", "HideCorpseAtPose", 0, path) != 0;
 	rise.keepCorpseApart = GetPrivateProfileIntA("Rise", "KeepCorpseApart", 1, path) != 0;
 	rise.holdDeathSound = GetPrivateProfileIntA("Rise", "HoldDeathSound", 1, path) != 0;
-	rise.horde.enabled = GetPrivateProfileIntA("Horde", "Enabled", 0, path) != 0;
+	rise.horde.enabled = GetPrivateProfileIntA("Horde", "Enabled", 1, path) != 0;
 	rise.horde.joinRadius = IniFloat("Horde", "JoinRadius", 1500.0f, path);
 	rise.horde.leadUnits = IniFloat("Horde", "LeadUnits", 2000.0f, path);
 	rise.horde.staleSeconds = IniFloat("Horde", "StaleSeconds", 30.0f, path);
