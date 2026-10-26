@@ -59,9 +59,12 @@ void TestDeathSlot() {
 
 void TestGetUpSound() {
 	std::printf("The sound at the get-up\n");
-	Check(walkers::GetUpSoundDue(true, 0x0001A2B3), "held back at the unseen death, played as it gets up");
-	Check(!walkers::GetUpSoundDue(false, 0x0001A2B3), "[Rise] SoundAtGetUp=0: it gets up silent");
-	Check(!walkers::GetUpSoundDue(true, 0), "no sound was drawn (the lists' chances gave none): none to play");
+	Check(walkers::GetUpSoundDue(60, 0x0001A2B3, 59) && !walkers::GetUpSoundDue(60, 0x0001A2B3, 60),
+	      "SoundAtGetUpPercent=60: a roll of 0 to 59 of 100 plays it, 60 and up do not");
+	Check(!walkers::GetUpSoundDue(0, 0x0001A2B3, 0), "0: it always gets up silent");
+	Check(walkers::GetUpSoundDue(100, 0x0001A2B3, 99) && walkers::GetUpSoundDue(250, 0x0001A2B3, 99),
+	      "100 (or more): every time");
+	Check(!walkers::GetUpSoundDue(100, 0, 0), "no sound was drawn (the lists' chances gave none): none to play");
 }
 
 }  // namespace

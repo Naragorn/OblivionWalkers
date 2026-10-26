@@ -56,7 +56,9 @@ UInt32 SoundListsOf(UInt32 base, const ReadFn& read) {
 // The address of the Death list's head in `lists`; 0 without lists.
 inline UInt32 DeathListSlot(UInt32 lists) { return lists != 0 ? lists + kCreatureSoundDeath * 4 : 0u; }
 
-// [Rise] SoundAtGetUp: the sound held back is played as the walker gets up.
-inline bool GetUpSoundDue(bool setting, UInt32 soundId) { return setting && soundId != 0; }
+// [Rise] SoundAtGetUpPercent: the sound held back is played as the walker
+// gets up when the roll (0 to 99) falls under the percent (Nadi,
+// 2026-10-26: 60); never without a sound drawn.
+inline bool GetUpSoundDue(UInt32 percent, UInt32 soundId, UInt32 roll) { return soundId != 0 && roll < percent; }
 
 }  // namespace walkers

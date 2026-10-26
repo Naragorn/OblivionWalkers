@@ -618,9 +618,9 @@ void TestZombieDefaults() {
 	Check(settings.settleSeconds == 1.5f && !settings.hideCorpseAtPose,
 	      "[Rise] SettleSeconds=1.5 - the pose settles unseen while the corpse still lies, never a gap (Nadi, "
 	      "2026-10-25: \"keine Luecke\", after 0 slid seen once in four runs); the test switch HideCorpseAtPose off");
-	Check(settings.soundAtGetUp,
-	      "[Rise] SoundAtGetUp=1 - the death sound held back at the unseen kill plays as the walker gets up "
-	      "(Nadi, 2026-10-26)");
+	Check(settings.soundAtGetUpPercent == 60,
+	      "[Rise] SoundAtGetUpPercent=60 - the death sound held back at the unseen kill plays as the walker gets up "
+	      "60 times in 100 (Nadi, 2026-10-26: \"percentage chance fuer den sound 60\")");
 	Check(settings.blockMooResurrect,
 	      "[Zombies] BlockMooResurrect=1 - a dead walker loses MOO's token and brain (Nadi, 2026-10-25: go)");
 	Check(settings.keepCorpseApart,

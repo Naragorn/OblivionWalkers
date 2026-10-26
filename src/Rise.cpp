@@ -635,6 +635,8 @@ bool TryRegisterDeath() {
 
 // The two change places in one frame: the corpse hidden, the walker shown
 // lying where it was laid, the man's items on it.
+unsigned long long QpcNow();
+
 void RevealSwap() {
 	const UInt32 corpse = LookupForm(g_swap.corpseId);
 	const UInt32 zombie = LookupForm(g_swap.zombieId);
@@ -661,11 +663,20 @@ void RevealSwap() {
 		      pelvis.z, head.x, head.y, head.z);
 	}
 	g_log("Swap: walker %08X lies at %.0f %.0f %.0f in the place of %08X - the corpse hidden (%d), the walker "
-	      "shown (%d), the items moved over (%d)",
+	      "shown (%d), the items moved over (%d) [tick %llu]",
 	      g_swap.zombieId, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
 	      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 4) : 0.0f,
 	      LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset + 8) : 0.0f, g_swap.corpseId,
-	      hidden ? 1 : 0, shown ? 1 : 0, moved ? 1 : 0);
+	      hidden ? 1 : 0, shown ? 1 : 0, moved ? 1 : 0, QpcNow());
+}
+
+// The QueryPerformanceCounter now, for the swap's log lines: the harness's
+// marks carry the same clock ("tick"), so a recording of the game's sound
+// lines up with the swap (Wine's QPC is CLOCK_MONOTONIC in 100 ns units).
+unsigned long long QpcNow() {
+	LARGE_INTEGER now;
+	QueryPerformanceCounter(&now);
+	return static_cast<unsigned long long>(now.QuadPart);
 }
 
 // The sound lists the walker's death sound is drawn from (SoundLogic.h); 0
@@ -736,8 +747,9 @@ void StepSwapInFlight(float dt) {
 	}
 	if (events == kSwapFound) {
 		const UInt32 zombie = LookupForm(g_swap.zombieId);
-		g_log("Swap: walker %08X exists on %08X (model %s) - waiting for its model before the kill", g_swap.zombieId,
-		      g_swap.corpseId, LooksLikeObject(zombie) && Read(zombie + kRefNiNodeOffset) != 0 ? "there" : "loading");
+		g_log("Swap: walker %08X exists on %08X (model %s) - waiting for its model before the kill [tick %llu]",
+		      g_swap.zombieId, g_swap.corpseId,
+		      LooksLikeObject(zombie) && Read(zombie + kRefNiNodeOffset) != 0 ? "there" : "loading", QpcNow());
 	} else if (events == kSwapDropUnseen) {
 		// Killed in the frame its model appears: a kill before that left a
 		// "dead" walker sliding at walking speed (the trace of 2026-10-24
@@ -770,9 +782,9 @@ void StepSwapInFlight(float dt) {
 		if (slot != 0) {
 			*reinterpret_cast<UInt32*>(slot) = heldList;
 		}
-		g_log("Swap: walker %08X dies unheard - %s; its sound for the get-up: %08X", g_swap.zombieId,
+		g_log("Swap: walker %08X dies unheard - %s; its sound for the get-up: %08X [tick %llu]", g_swap.zombieId,
 		      slot != 0 ? "its death list held back for the kill" : "no sound lists found, so none held back",
-		      g_getUpSound);
+		      g_getUpSound, QpcNow());
 		g_log("Swap: walker %08X's model is there after %.1f s at %.0f %.0f %.0f - killed (%d), dead now %d, the "
 		      "corpse %08X still lying",
 		      g_swap.zombieId, g_swap.seconds, LooksLikeObject(zombie) ? FloatAt(zombie + kRefPositionOffset) : 0.0f,
@@ -811,12 +823,12 @@ void StepSwapInFlight(float dt) {
 			}
 		}
 		g_log("Swap: walker %08X %s %08X (MatchCorpse=%u) - %u bodies: %u turned as the corpse's bones, %u carried "
-		      "along, %u moved and turned whole%s, %u left; %.0f us",
+		      "along, %u moved and turned whole%s, %u left; %.0f us [tick %llu]",
 		      g_swap.zombieId,
 		      events == kSwapPlace ? "settled, now moved onto the place of"
 		                           : (mode == MatchCorpse::Pose ? "laid into the pose of" : "laid into the place of"),
 		      g_swap.corpseId, static_cast<UInt32>(g_settings.matchCorpse), pose.bodies, pose.copied, pose.carried,
-		      pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds);
+		      pose.placed, pose.planOk ? "" : " (no pelvis to go by)", pose.left, pose.microseconds, QpcNow());
 		if (events == kSwapPlace || mode != MatchCorpse::Pose) {
 			Vec3 pelvis{};
 			Vec3 head{};
@@ -877,12 +889,17 @@ void StepSwapInFlight(float dt) {
 		g_risenWatching = true;
 		g_log("Swap: walker %08X gets up at %.0f %.0f %.0f where %08X lay", g_swap.zombieId, g_risen.x, g_risen.y,
 		      g_risen.z, g_swap.corpseId);
-		if (GetUpSoundDue(g_settings.soundAtGetUp, g_getUpSound)) {
+		const UInt32 soundRoll = NextRandom() % 100;
+		if (GetUpSoundDue(g_settings.soundAtGetUpPercent, g_getUpSound, soundRoll)) {
 			char line[48];
 			std::snprintf(line, sizeof(line), "PlaySound3D %08X", g_getUpSound);
 			const bool played = ConsoleOn(zombie, line);
-			g_log("Swap: walker %08X makes the sound held back at its death as it gets up (%s, answered %d)",
-			      g_swap.zombieId, line, played ? 1 : 0);
+			g_log("Swap: walker %08X makes the sound held back at its death as it gets up (%s, answered %d; roll %u "
+			      "under %u) [tick %llu]",
+			      g_swap.zombieId, line, played ? 1 : 0, soundRoll, g_settings.soundAtGetUpPercent, QpcNow());
+		} else if (g_getUpSound != 0) {
+			g_log("Swap: walker %08X gets up silent this time (roll %u, SoundAtGetUpPercent=%u)", g_swap.zombieId,
+			      soundRoll, g_settings.soundAtGetUpPercent);
 		}
 		g_getUpSound = 0;
 	}

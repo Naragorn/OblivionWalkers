@@ -75,11 +75,12 @@ struct RiseSettings {
 	// pushed off it (ApartLogic.h). On since the runs of 2026-10-25 18:04 to
 	// 18:09 (Nadi: go).
 	bool keepCorpseApart = true;
-	// [Rise] SoundAtGetUp: the walker dies unseen without its death sound
-	// (SoundLogic.h); with this the sound it would have made plays as it gets
-	// up (Nadi, 2026-10-26: "der sound kann kommen aber erst wenn sie daliegen
-	// und aufstehen"). Off: it gets up silent.
-	bool soundAtGetUp = true;
+	// [Rise] SoundAtGetUpPercent: the walker dies unseen without its death
+	// sound (SoundLogic.h); this often in 100 the sound it would have made
+	// plays as it gets up (Nadi, 2026-10-26: "der sound kann kommen aber erst
+	// wenn sie daliegen und aufstehen", then "percentage chance ... 60").
+	// 0: it always gets up silent.
+	UInt32 soundAtGetUpPercent = 60;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;
