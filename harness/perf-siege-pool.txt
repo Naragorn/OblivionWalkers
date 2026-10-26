@@ -1,0 +1,56 @@
+# What a pool of siege walkers costs before one is built (4.12; Nadi,
+# 2026-10-26: a siege also while the player is elsewhere, at the gate, the
+# gate shut until it is over - "1. ja"). A siege the player comes to would
+# take its walkers from a pool in the ESP, like the gate guards, since
+# PlaceAtMe's actors stay in the save for good. The pool's references are
+# persistent and initially disabled; what so many of them cost the game, and
+# whether the engine puts them on its process lists (where the plugin's walk
+# of the walkers would meet them), is not known. Two runs of this scenario,
+# the same save and the same path: the deployed ESP, then one written with
+# `tools/esp-write.py --test-walker-pool 30` (30 a city, 240 walker
+# references in the holding cell). The game's prison (ImperialDungeon01),
+# the player held and in god mode, watched for 90 s with OBVR's profiler on;
+# OBVR's tools/perf-phases.py cuts the capture by the marks:
+#   python3 tools/perf-phases.py <run> prison p30 p60 p90 --events scene_pass
+# OblivionWalkers.log's "Walk: N walkers on the process lists" lines tell
+# whether the disabled pool is on the lists.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-siege-pool.txt --headless \
+#       --run-timeout 420 --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands ReachOpens=0
+ini Render Stereo=dual
+ini Performance Enabled=1
+ini Performance GpuTiming=0
+ini Performance StartAfterSeconds=60
+ini Performance CaptureSeconds=95
+ini Performance MaxRecords=262144
+console-at placed tgm
+console-at placed coc ImperialDungeon01
+console-at prison tcl
+console-at prison player.setrestrained 1
+console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
+
+expect HandScript: finished
+expect Performance: capture armed, it starts in 60 seconds
+expect Performance: capture 1 started
+expect Performance: export
+reject menu Container
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 22
+mark placed
+wait 16
+mark prison
+wait 30
+mark p30
+wait 30
+mark p60
+wait 30
+mark p90
+wait 20
+mark done

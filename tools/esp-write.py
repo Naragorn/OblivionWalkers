@@ -339,6 +339,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("esm", help="Oblivion.esm")
     parser.add_argument("--out", default=str(HERE.parent / "OblivionWalkers.esp"))
+    parser.add_argument("--test-walker-pool", type=int, default=0, metavar="N",
+                        help="a measurement only (4.12, 2026-10-26): N persistent, initially disabled walker "
+                             "references per city in the holding cell, from 0x90E on - what such a pool "
+                             "costs the game before one is built; never for a deployed ESP")
     args = parser.parse_args()
     esm = load_esm_module()
     buf = Path(args.esm).read_bytes()
@@ -387,6 +391,15 @@ def main() -> int:
                        build_pool_ref(achr_template, f"WalkersGuardPool{CITIES[c]}{n}", guard_forms[c],
                                       local - POOL_FIRST_ID),
                        flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    test_pool = 0
+    for c in range(len(CITIES)):
+        for n in range(args.test_walker_pool):
+            local = LOCAL_EDITION_IDS[-1] + 1 + test_pool
+            pool += record(b"ACRE", index | local,
+                           build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
+                                          test_pool),
+                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+            test_pool += 1
 
     edition_texts = load_editions_module().editions()
     if len(edition_texts) != EDITION_COUNT:
@@ -400,8 +413,9 @@ def main() -> int:
             + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
     groups = 5 + 5 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + len(travel_forms) + len(follow_forms))
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_EDITION_IDS[-1] + 1, masters=masters) + body
+               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms))
+    plugin = header(num_records=groups + records, next_object_id=LOCAL_EDITION_IDS[-1] + 1 + test_pool,
+                    masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
 

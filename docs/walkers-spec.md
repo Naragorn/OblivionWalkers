@@ -903,28 +903,61 @@ whole 90 s (11:54, the status lines) - the rule waits for that, and so it
 stays (Nadi chose to wait, 7a). **Open:** the raise of an unloaded body;
 the feel and the cost in the headset.
 
-### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
+### 4.12 City siege - `[Siege] Enabled=1` (designed 2026-10-26, not built)
 
-What: an infested city has walkers in its streets; more come out of the
-doors while you are there until the city's population is spent. Guards fight
-them. Zombie Walkers' settlement attacks, 28 Days' hordes.
+What (Nadi, 2026-10-26): a siege is a horde of walkers before one of a
+city's gates, outside the walls only ("belagerung ist nur vor der stadt am
+tor. erstmal"). It happens whether the player is there or not ("1. ja").
+While it lasts the gate is shut ("tor zu bis vorbei"); the walkers do not
+come into the city - those that follow the player in may (no city rule,
+Nadi: "keine stadt regel"; with the gate shut none do). The first plan's
+walkers in the streets are dropped ("walker in städten will ich nicht").
 
-How: the scenario (section 5) keeps a population per city in the co-save.
-In a city cell the plugin spawns walkers from the cell's door references at
-the rate the population allows (the engine's own placement function, the
-plugin's references), the cap `MostAliveInCell`. Dead siege walkers are cut
-at the cell reset. Siege visuals (28 Days' rubble) are not planned.
+Built towards it: 4.11b - hordes near the player lean toward the cities and
+hold at a gate, the gate guards come out, fight and go back in; 4.9 - the
+Courier reports a gate attacked. What is missing, as designed:
 
-Cost: **medium.** The spawn is a known path; the population model is small;
-the test is the harness count line across a city cell.
+1. **The siege as a city's state** (pure logic, `SiegeLogic.h`, co-save):
+   when it begins, how many walkers stand before which gate, how many the
+   guards cut down as the game hours pass, when it ends (none left). It
+   runs on game time, so it goes on while the player is anywhere else.
+2. **The siege seen**: when the player comes near the besieged gate, the
+   plugin brings out walkers before it - a pool of walker references in the
+   ESP like the gate guards' (PlaceAtMe's actors stay in the save for
+   good), enabled and moved to the gate, the guards (4.11b) coming out to
+   them. A walker killed there counts off the siege.
+3. **The gate shut**: the besieged gate's two doors (the Tamriel side and
+   the city side) locked with the engine's Lock at level 100, "needs a key"
+   (the CS wiki's Lock page: 100 = Needs a key; the player cannot pick it),
+   unlocked at the end; what the plugin locked kept in the co-save, a door
+   that was locked before left as it was.
+4. **The Courier**: siege editions, the same pipeline as 4.9 (Nadi's note
+   under 4.9).
 
-**Nadi, 2026-10-26: no walkers in the cities.** The street spawn above is
-dropped; a siege stays outside the walls. What a siege is without it -
-whether it exists while the player is elsewhere, what it does inside the
-city - is open (Nadi's to decide). Built towards it so far: 4.11b (hordes
-lean toward the cities and hold at a gate, the gate guards come out) and
-4.9 (the Courier reports the attack); a real siege goes into the Courier
-too (Nadi's note under 4.9).
+Proposed, for Nadi to decide (none of it set):
+
+- How a siege begins while the player is elsewhere - a chance a game day
+  per city, or only from a horde the player saw hold at a gate, or both;
+  how many walkers; a pause per city after one.
+- How many walkers stand before the gate at once. Measured 2026-10-26
+  (`perf-walkers-in-view.txt`): some 0.18 ms of CPU a walker in view and
+  scene pass, two passes a frame in VR - 30 at once would cost some 11 ms a
+  frame (derived), which halves the rate on its own. Proposed: a few at a
+  time (say 12) from a larger count, the next coming as one falls.
+- Which gates: only the besieged one (the player leaves by another, or by
+  fast travel), or all of the city's.
+- Unverified: whether the game's people who travel between cities (merchants,
+  quest people) wait at a locked gate or go round; a mod removed during a
+  siege leaves the gate locked (the plugin's Enabled=0 should unlock it).
+
+Measured first: what a pool of disabled walker references costs
+(`perf-siege-pool.txt`, `tools/esp-write.py --test-walker-pool N`).
+
+Cost: **medium to large** - the state and its tests small to medium (the
+co-save and the clock are 4.9's), the pool and bringing it out medium (the
+guards' pool is the pattern), the lock small, the editions small; the risk
+is the cost of the walkers in view and how the game's travellers take a
+locked gate.
 
 ### 4.13 Extra spawns - `[Replace] ExtraPercent=0`
 
@@ -1205,16 +1238,11 @@ roster line's counts.
 
 ## 7a. Open bugs
 
-- **Walkers can still be made in a city** (2026-10-26, Nadi: "walker in
-  städten will ich nicht"): the rise has no city rule - its filters are
-  generic, essential, playable race, human, chapel (`RiseLogic.h` Fallen),
-  so a person it takes who dies in a city's worldspace or in one of its
-  houses gets up there as a walker (derived from the code; no run). A
-  walker that follows the player through a gate stays in, as one that
-  follows into a chapel does (4.7). The chapel rule is the pattern: no rise
-  and no walker made there. Open for Nadi: the city worldspaces only, or
-  their houses and inns too (an interior has no worldspace - it needs a cell
-  to city table); and what happens to a walker that follows in.
+- **Walkers can still be made in a city** (2026-10-26): the rise has no
+  city rule - a person it takes who dies in a city gets up there as a
+  walker (derived from the code; no run). **Decided: no city rule** (Nadi,
+  2026-10-26: "keine stadt regel") - not a bug, as meant; a walker that
+  follows the player in may stay.
 
 - **Dense dungeons cost frames** (Nadi's Windows headset run, 2026-10-26
   12:48-12:55): in Fort Urasek's Company Billets (FortUrasek02, 000CA58F)
