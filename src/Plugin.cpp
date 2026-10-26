@@ -133,6 +133,13 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.hideCorpseAtPose = GetPrivateProfileIntA("Rise", "HideCorpseAtPose", 0, path) != 0;
 	rise.keepCorpseApart = GetPrivateProfileIntA("Rise", "KeepCorpseApart", 1, path) != 0;
 	rise.holdDeathSound = GetPrivateProfileIntA("Rise", "HoldDeathSound", 1, path) != 0;
+	rise.horde.enabled = GetPrivateProfileIntA("Horde", "Enabled", 0, path) != 0;
+	rise.horde.joinRadius = IniFloat("Horde", "JoinRadius", 1500.0f, path);
+	rise.horde.leadUnits = IniFloat("Horde", "LeadUnits", 2000.0f, path);
+	rise.horde.staleSeconds = IniFloat("Horde", "StaleSeconds", 30.0f, path);
+	rise.horde.turnDegrees = IniFloat("Horde", "TurnDegrees", 60.0f, path);
+	const int groupMost = GetPrivateProfileIntA("Horde", "GroupMost", 8, path);
+	rise.horde.groupMost = groupMost < 0 ? 0u : static_cast<UInt32>(groupMost);
 	const int getUpSound = GetPrivateProfileIntA("Rise", "SoundAtGetUpPercent", 60, path);
 	rise.soundAtGetUpPercent = getUpSound < 0 ? 0u : static_cast<UInt32>(getUpSound);
 	rise.lieSeconds = IniFloat("Rise", "LieSeconds", 1.0f, path);
@@ -148,13 +155,14 @@ bool ReadSettings(walkers::Settings* settings) {
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d SoundAtGetUpPercent=%u HoldDeathSound=%d CloneBase=%d ZombieRace=%d "
 	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d; "
-	    "[Replace] ExtraPercent=%u",
+	    "[Replace] ExtraPercent=%u; [Horde] Enabled=%d JoinRadius=%.0f LeadUnits=%.0f StaleSeconds=%.0f TurnDegrees=%.0f GroupMost=%u",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
 	    rise.dropSeconds, rise.lieSeconds, static_cast<UInt32>(rise.matchCorpse), rise.settleSeconds, rise.hideCorpseAtPose ? 1 : 0, rise.keepCorpseApart ? 1 : 0, rise.soundAtGetUpPercent, rise.holdDeathSound ? 1 : 0, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
 	    rise.walkOnly ? 1 : 0, rise.speedMultiplier, rise.speedRandomPercent, rise.famePerKills,
 	    rise.avoidChapels ? 1 : 0, rise.renameToWalker ? 1 : 0, rise.walkerName, rise.renameVanilla ? 1 : 0, rise.blockMooResurrect ? 1 : 0,
-	    replace.extraPercent);
+	    replace.extraPercent, rise.horde.enabled ? 1 : 0, rise.horde.joinRadius, rise.horde.leadUnits,
+	    rise.horde.staleSeconds, rise.horde.turnDegrees, rise.horde.groupMost);
 	return true;
 }
 

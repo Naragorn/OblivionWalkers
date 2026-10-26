@@ -16,6 +16,19 @@ index at runtime):
          (counts 1, 2, 3, which the plugin rewrites from [Replace] MinCount
          and MaxCount at the start), no chance none, flags 0, like
          LL0ZombieVariant (00034095): what 4.6 puts in place of a creature.
+  0x806..0x815  PACK WalkersHordeTravel00..15 - the horde's leaders (4.11):
+         Travel to marker NN, must reach it, 256 units near; a copy of
+         SE32HlovalReturnStart (0009718B) but EDID and the location.
+  0x816..0x825  PACK WalkersHordeFollow00..15 - the horde's followers: Follow,
+         must complete, 300 units behind; a copy of FollowPlayer (0009828A)
+         but EDID, flags (its defensive combat dropped - a walker attacks)
+         and the distance. The plugin sets the target, the group's leader.
+  0x826  CELL WalkersHordeMarkers - an interior holding cell, as TestCave04
+         (000183F0): EDID and DATA (interior).
+  0x827..0x836  REFR WalkersHordeMarker00..15 - persistent XMarkers (0000003B)
+         in that cell, as MarkSpellTestMarker4 (00040BB8): the plugin moves
+         marker NN ahead of group NN's leader (MoveTo), and the leader's
+         travel package goes there.
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         --out OblivionWalkers.esp
@@ -47,6 +60,21 @@ WALKER_NAME = "Walker"
 ZOMBIE_SOURCES = [0x00025E6E, 0x00025E5E, 0x00025E55, 0x00025E4F]  # CreatureZombie1..4
 LOCAL_WALKER_IDS = [0x801, 0x802, 0x803, 0x804]
 LOCAL_LIST_ID = 0x805
+HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
+LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
+LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
+LOCAL_CELL_ID = 0x826
+LOCAL_MARKER_IDS = [0x827 + i for i in range(HORDE_GROUPS)]
+TRAVEL_TEMPLATE = 0x0009718B  # SE32HlovalReturnStart: Travel, near a reference, must reach
+FOLLOW_TEMPLATE = 0x0009828A  # FollowPlayer: Follow the player, must complete
+CELL_TEMPLATE = 0x000183F0    # TestCave04: an interior cell, EDID and DATA only
+MARKER_TEMPLATE = 0x00040BB8  # MarkSpellTestMarker4: a persistent XMarker
+XMARKER = 0x0000003B
+TRAVEL_RADIUS = 256
+FOLLOW_UNITS = 300
+PACKAGE_DEFENSIVE_COMBAT = 0x00400000
+RECORD_PERSISTENT = 0x400
+CELL_EDID = "WalkersHordeMarkers"
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
 LIST_EDID = "WalkersZombieVariant"
 AUTHOR = "Naragorn"
@@ -127,6 +155,72 @@ def build_walker(template: list[tuple[bytes, bytes]], edid: str) -> bytes:
     return out
 
 
+def build_travel(template: list[tuple[bytes, bytes]], edid: str, marker: int) -> bytes:
+    """A leader's package: the template's, its location near `marker`."""
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"PLDT":
+            data = struct.pack("<iIi", 0, marker, TRAVEL_RADIUS)
+        out += subrecord(kind, data)
+    return out
+
+
+def build_follow(template: list[tuple[bytes, bytes]], edid: str) -> bytes:
+    """A follower's package: FollowPlayer's without defensive combat, its
+    distance FOLLOW_UNITS; the target (the player) the plugin replaces."""
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"PKDT":
+            flags = struct.unpack_from("<I", data, 0)[0] & ~PACKAGE_DEFENSIVE_COMBAT
+            data = struct.pack("<I", flags) + data[4:]
+        elif kind == b"PTDT":
+            target_type, target = struct.unpack_from("<iI", data, 0)
+            data = struct.pack("<iIi", target_type, target, FOLLOW_UNITS)
+        out += subrecord(kind, data)
+    return out
+
+
+def build_cell(template: list[tuple[bytes, bytes]]) -> bytes:
+    out = b""
+    for kind, data in template:
+        out += subrecord(kind, zstring(CELL_EDID) if kind == b"EDID" else data)
+    return out
+
+
+def build_marker(template: list[tuple[bytes, bytes]], edid: str, slot: int) -> bytes:
+    """An XMarker in the holding cell, a row of them 64 units apart."""
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"NAME":
+            data = struct.pack("<I", XMARKER)
+        elif kind == b"DATA":
+            data = struct.pack("<6f", slot * 64.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        out += subrecord(kind, data)
+    return out
+
+
+def typed_group(label: int, gtype: int, records: bytes) -> bytes:
+    return b"GRUP" + struct.pack("<IIiI", 20 + len(records), label, gtype, 0) + records
+
+
+def cell_groups(cell_form: int, cell: bytes, markers: bytes) -> bytes:
+    """The top CELL group: interior block (the form ID's last decimal digit)
+    and sub-block (the one before it), the CELL record, then its children
+    group (6) with the persistent children (8) - the nesting Oblivion.esm
+    has (TestCave04: block 2, sub-block 1)."""
+    block = cell_form % 10
+    sub_block = (cell_form // 10) % 10
+    children = typed_group(cell_form, 6, typed_group(cell_form, 8, markers))
+    inner = typed_group(sub_block, 3, cell + children)
+    return group(b"CELL", typed_group(block, 2, inner))
+
+
 def variant_entries(walkers: list[int]) -> list[tuple[int, int]]:
     """Every walker VARIANT_SLOTS times, with the counts 1..VARIANT_SLOTS."""
     return [(form, slot + 1) for form in walkers for slot in range(VARIANT_SLOTS)]
@@ -166,10 +260,27 @@ def main() -> int:
     list_form = index | LOCAL_LIST_ID
     lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms)))
 
-    body = group(b"RACE", races) + group(b"CREA", creatures) + group(b"LVLC", lists)
-    groups = 3
-    records = 1 + len(walker_forms) + 1
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_LIST_ID + 1, masters=masters) + body
+    travel_template = find_record(esm, buf, b"PACK", TRAVEL_TEMPLATE)
+    follow_template = find_record(esm, buf, b"PACK", FOLLOW_TEMPLATE)
+    marker_forms = [index | local for local in LOCAL_MARKER_IDS]
+    travel_forms = [index | local for local in LOCAL_TRAVEL_IDS]
+    follow_forms = [index | local for local in LOCAL_FOLLOW_IDS]
+    packages = b"".join(record(b"PACK", form, build_travel(travel_template, f"WalkersHordeTravel{i:02d}", marker))
+                        for i, (form, marker) in enumerate(zip(travel_forms, marker_forms)))
+    packages += b"".join(record(b"PACK", form, build_follow(follow_template, f"WalkersHordeFollow{i:02d}"))
+                         for i, form in enumerate(follow_forms))
+    cell_form = index | LOCAL_CELL_ID
+    cell = record(b"CELL", cell_form, build_cell(find_record(esm, buf, b"CELL", CELL_TEMPLATE)))
+    marker_template = find_record(esm, buf, b"REFR", MARKER_TEMPLATE)
+    markers = b"".join(record(b"REFR", form, build_marker(marker_template, f"WalkersHordeMarker{i:02d}", i),
+                              flags=RECORD_PERSISTENT)
+                       for i, form in enumerate(marker_forms))
+
+    body = (group(b"RACE", races) + group(b"CREA", creatures) + group(b"LVLC", lists)
+            + cell_groups(cell_form, cell, markers) + group(b"PACK", packages))
+    groups = 3 + 5 + 1
+    records = 1 + len(walker_forms) + 1 + 1 + len(marker_forms) + len(travel_forms) + len(follow_forms)
+    plugin = header(num_records=groups + records, next_object_id=LOCAL_MARKER_IDS[-1] + 1, masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
 
@@ -195,9 +306,28 @@ def main() -> int:
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
     if [(e[2], e[3]) for e in entries] != variant_entries(walker_forms) or any(e[0] != 1 for e in entries):
         raise SystemExit(f"the list's entries are off: {[(f'{e[2]:08X}', e[3]) for e in entries]}")
+    for i, (form, marker) in enumerate(zip(travel_forms, marker_forms)):
+        back = dict(find_record(esm, plugin, b"PACK", form))
+        if struct.unpack("<iIi", back[b"PLDT"]) != (0, marker, TRAVEL_RADIUS) or back[b"PKDT"] != dict(travel_template)[b"PKDT"]:
+            raise SystemExit(f"travel package {i} is off")
+    for i, form in enumerate(follow_forms):
+        back = dict(find_record(esm, plugin, b"PACK", form))
+        if struct.unpack_from("<I", back[b"PKDT"], 0)[0] & PACKAGE_DEFENSIVE_COMBAT or back[b"PKDT"][4] != 1:
+            raise SystemExit(f"follow package {i} is off")
+        if struct.unpack("<iIi", back[b"PTDT"])[2] != FOLLOW_UNITS:
+            raise SystemExit(f"follow package {i}'s distance is off")
+    back_cell = dict(find_record(esm, plugin, b"CELL", cell_form))
+    if back_cell[b"EDID"].rstrip(b"\0").decode() != CELL_EDID or back_cell[b"DATA"][0] & 1 == 0:
+        raise SystemExit("the holding cell is off")
+    for i, form in enumerate(marker_forms):
+        back = dict(find_record(esm, plugin, b"REFR", form))
+        if struct.unpack("<I", back[b"NAME"])[0] != XMARKER:
+            raise SystemExit(f"marker {i} is no XMarker")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
           + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four x{VARIANT_SLOTS}; "
+          + f"PACK {travel_forms[0]:08X}.. travel and {follow_forms[0]:08X}.. follow x{HORDE_GROUPS}, CELL {cell_form:08X} "
+          + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X}; "
           "every other subrecord as the originals'")
     return 0
 

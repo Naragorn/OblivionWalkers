@@ -1,0 +1,46 @@
+# The horde (docs/walkers-spec.md 4.11; Nadi, 2026-10-26: "go horde"):
+# outdoors at Tamriel -29,5 (as rise-creature-outdoors.txt), the player out
+# of the AI's sight (tdetect) so no walker fights, three walkers placed at
+# the player (the ESP's 0x801). With [Horde] Enabled=1 in the deployed INI
+# (set by hand for the run) the plugin's log reads "Horde: on", one group
+# led ("group NN's marker to ...", "group NN led by ..."), the other two
+# following its leader; the roster's nearest distance and the log's
+# positions show the group moving off together over the minute.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/horde-walk.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready cow Tamriel -29 5
+console-at loaded player.placeatme 11000801 3
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 10
+mark t10
+wait 10
+mark t20
+wait 10
+mark t30
+wait 10
+mark t40
+wait 10
+mark t50
+wait 10
+mark t60
+wait 1
+mark end
+wait 1

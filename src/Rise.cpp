@@ -1,6 +1,7 @@
 #include "Rise.h"
 
 #include "Engine.h"
+#include "Horde.h"
 #include "MooLogic.h"
 #include "SoundLogic.h"
 #include "Pose.h"
@@ -372,6 +373,7 @@ void FindWalkers() {
 		}
 	}
 	g_log("Walkers: %s is mod %02X, %u walker creatures found", kPluginEsp, index, g_walkerCount);
+	ConfigureHorde(g_settings.horde, index, g_log);
 }
 
 // Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
@@ -1092,6 +1094,27 @@ void StepMooStripping(float dt) {
 	}
 }
 
+// The horde's candidates (Horde.h): every walker reference of the ESP's
+// bases on the process lists, alive or not, the one in a swap marked busy.
+UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
+	UInt32 count = 0;
+	UInt32 ids[128];
+	for (UInt32 w = 0; w < g_walkerCount && count < most; ++w) {
+		const UInt32 found = CollectWalkerRefs(g_walkers[w], ids, 128);
+		for (UInt32 i = 0; i < found && count < most; ++i) {
+			const UInt32 ref = LookupForm(ids[i]);
+			if (!LooksLikeObject(ref) || !IsActor(ref)) {
+				continue;
+			}
+			HordeCandidate& c = out[count++];
+			c.ref = ref;
+			c.alive = !IsDead(ref);
+			c.busy = g_swap.active && ids[i] == g_swap.zombieId;
+		}
+	}
+	return count;
+}
+
 // NoLoot: the engine's SetDestroyed on each walker that died since the last
 // frame - the CS wiki: on an actor it "prevents the actor from being
 // activated for conversation, looting, or pick pocketing".
@@ -1132,6 +1155,7 @@ void Tick() {
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, g_log);
 		StepLootless();
 		StepFame();
 	}
@@ -1189,6 +1213,7 @@ void OnLoad(void*) {
 	g_famePending = 0;
 	g_lootlessCount = 0;
 	g_mooStrip = MooStrip{};
+	ResetHorde();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -1242,6 +1267,7 @@ void OnNewGame(void*) {
 	g_famePending = 0;
 	g_lootlessCount = 0;
 	g_mooStrip = MooStrip{};
+	ResetHorde();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;

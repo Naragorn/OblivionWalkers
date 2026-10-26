@@ -19,7 +19,7 @@ target_include_directories(logic INTERFACE src)
 add_library(plugin_entry STATIC src/PluginEntry.cpp)
 target_include_directories(plugin_entry PUBLIC src)
 
-add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp)
+add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp)
 target_include_directories(rise PUBLIC src)
 
 add_library(OblivionWalkers SHARED src/Plugin.cpp)
@@ -50,6 +50,10 @@ add_test(NAME MooLogicTest COMMAND MooLogicTest)
 add_executable(SoundLogicTest tests/SoundLogicTest.cpp)
 target_link_libraries(SoundLogicTest PRIVATE logic)
 add_test(NAME SoundLogicTest COMMAND SoundLogicTest)
+
+add_executable(HordeLogicTest tests/HordeLogicTest.cpp)
+target_link_libraries(HordeLogicTest PRIVATE logic)
+add_test(NAME HordeLogicTest COMMAND HordeLogicTest)
 
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)
