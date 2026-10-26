@@ -822,12 +822,22 @@ six for thirty (two a second); their health read back 60 of 60 (2 of 2
 with `HealthFactor=0.2` by hand) - the record's +0x84 holds for these
 auto-calc guards; they kill walkers (killer 11000840 in the death lines),
 go back in 30 s after the last walker. The safeguard raised a mod's horses
-the walkers killed (`Radius=300` by hand), noted a named woman. **Open:** a
-dead guard replaced or raised in the game (the one guard that fell, killed
-by another guard's swing, needed no replacement - the walkers were fewer
-by then; the flow is unit-tested only); a console kill of a pool guard
-does not take through the harness's console lines; the raise of an
-unloaded body; the feel and the cost in the headset.
+the walkers killed (`Radius=300` by hand), noted a named woman.
+Fallen guards (`gate-guards-dead.txt`, 11:51, `[Guards] TestKillSeconds=4`
+by hand - a test switch, off by default, since a console kill of a pool
+guard does not take through the harness's console lines): 42 guards
+killed in 100 s; each death read "Death: gate guard ... fell" and nothing
+else - no rise, no waiting list, no swap, no MOO strip, no loot block, no
+safeguard line for a pool guard (the death path returns before them); the
+three waiting ones sent in their place, then the fallen raised ("raised;
+health 60 of 60") and sent out again, 36 times. The safeguard with its
+default Radius 3000 raised a White Horse (0004E9A8) 66 s after the walkers
+killed it, once the last walker near it was gone. The named woman (Maeva
+the Buxom, 00185FE7, Whitmond) the walkers killed in 4 of 7 runs stayed
+down to the end of each: a walker stood 51 to 95 units off her body the
+whole 90 s (11:54, the status lines) - the rule waits for that. **Open:** a
+body walkers camp at stays down as long as they do (options in 7a); the
+raise of an unloaded body; the feel and the cost in the headset.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 
@@ -1081,6 +1091,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `spawn-replace-person.txt` | five people set to 1 by hand become walkers in a list of people (4.6) - PASS 2026-10-24 20:49 | the plugin, the ESP active, the INI lines set by hand |
 | `spawn-replace-outdoors.txt` | the engine's own spawn points at Tamriel -29,5 yield walkers, the deer and the people stay (4.6) - PASS 2026-10-24 11:17 | the plugin, the ESP active |
 | `gate-guards.txt` | seven walkers near Anvil's main gate: two guards out with 60 health, sent at the walkers, back in after the last; the walkers' victims raised by the safeguard (4.11b) - 11:12 and 11:17 froze (the horde's self-follow, fixed), 11:29 PASS (`[Safeguard] Radius=300` by hand: horses raised), 11:33 PASS (`HealthFactor=0.2`) | the plugin, the ESP with the guard pool |
+| `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 
@@ -1118,6 +1129,15 @@ roster line's counts.
    path.
 
 ## 7a. Open bugs
+
+- **A victim stays down while walkers camp at the body** (2026-10-26,
+  `gate-guards.txt` 11:54): the safeguard noted Maeva the Buxom, killed by
+  a walker at Whitmond, and a walker stood 51 to 95 units off her body for
+  the 90 s to the end of the run - the rule (no walker within Radius) keeps
+  her down as long as they stay. Options for Nadi: (A) keep waiting, as
+  now; (B) after a limit (say 120 s) raise her at the nearest city gate's
+  spot, where the guards are - "irgendwo sicher" - her AI walks her home;
+  (C) after the limit raise her where she lies, among them. Not decided.
 
 - **RESOLVED 2026-10-25 09:24 (1883c49) - "Zombies ersetzen nicht die leiche
   am boden sondern schweben fallend auf den boden ganz runter und stehen dann

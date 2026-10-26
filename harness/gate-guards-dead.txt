@@ -1,0 +1,53 @@
+# What happens to a fallen gate guard (docs/walkers-spec.md 4.11b; Nadi,
+# 2026-10-26: "würde gerne getestet haben was mit toten wachen passiert.
+# kollidiert das mit unseren aufsteh code?"): fifteen walkers at Tamriel
+# -47,-7 by Anvil's main gate (three guards wanted) and, by hand for the run,
+# [Guards] TestKillSeconds=4 in the deployed INI - every guard is killed 4 s
+# after it comes out. The log reads "Guards: TEST - ... killed", then
+# "Death: gate guard ... fell" (the death path leaves it to the pool: no
+# "Rise:", no "Waiting:", no swap, no safeguard line for 1100083F..1100086E),
+# the waiting ones sent in their place, and once the six are used up, the
+# fallen "raised" and sent out again with their health.
+#
+# Result 2026-10-26 11:51 PASS (artifacts/hand-script/gate-guards-dead/):
+# 42 guards killed in 100 s, each death "gate guard ... fell" and no line of
+# the rise, the waiting list, the swap, MOO, loot or the safeguard for any of
+# them; 0842..0844 sent while waiting, then 083F..0841 raised and sent out
+# again 36 times, health 60 of 60 each time.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/gate-guards-dead.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready cow Tamriel -47 -7
+console-at loaded player.placeatme 11000801 15
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 15
+mark t15
+wait 15
+mark t30
+wait 15
+mark t45
+wait 15
+mark t60
+wait 20
+mark t80
+wait 20
+mark t100
+wait 1
+mark end
+wait 1

@@ -34,11 +34,17 @@ struct GuardSettings {
 	UInt32 zombiesPerGuard = 5;    // [Guards] ZombiesPerGuard
 	float radius = 4000.0f;        // [Guards] Radius: walkers this near a gate's door count
 	float clearSeconds = 30.0f;    // [Guards] ClearSeconds: no walker near this long - the guards go in
+	// [Guards] TestKillSeconds: a test switch, off (0) - a guard out this
+	// long is killed where it stands, so the harness sees the fallen
+	// replaced and raised (a console kill of a pool guard does not take
+	// through the harness's console lines).
+	float testKillSeconds = 0.0f;
 };
 
 struct GuardSlot {
 	bool out = false;
 	int gate = -1;
+	float outFor = 0.0f;  // standing out this long (TestKillSeconds)
 };
 
 struct GuardState {
@@ -47,7 +53,7 @@ struct GuardState {
 };
 
 struct GuardOrder {
-	enum Kind : UInt8 { Deploy, Recall };
+	enum Kind : UInt8 { Deploy, Recall, Kill };  // Kill: TestKillSeconds only
 	Kind kind = Deploy;
 	UInt32 city = 0;
 	UInt32 slot = 0;
@@ -138,6 +144,23 @@ inline UInt32 StepGuards(GuardState& state, const GuardSettings& s, const UInt32
 		return 0;
 	}
 	UInt32 count = 0;
+	for (UInt32 c = 0; c < kGuardCities; ++c) {
+		for (UInt32 i = 0; i < kGuardPool; ++i) {
+			GuardSlot& slot = state.slots[c][i];
+			if (!slot.out || !alive[c][i]) {
+				continue;
+			}
+			slot.outFor += dt;
+			if (s.testKillSeconds > 0.0f && slot.outFor >= s.testKillSeconds && count < most) {
+				GuardOrder& o = orders[count++];
+				o.kind = GuardOrder::Kill;
+				o.city = c;
+				o.slot = i;
+				o.gate = slot.gate;
+				slot.outFor = 0.0f;
+			}
+		}
+	}
 	const UInt32 gates = gateCount < kGuardGatesMost ? gateCount : kGuardGatesMost;
 	for (UInt32 g = 0; g < gates; ++g) {
 		const UInt32 city = gateCity[g];
@@ -173,6 +196,7 @@ inline UInt32 StepGuards(GuardState& state, const GuardSettings& s, const UInt32
 				o.raise = !alive[city][pick];
 				pool[pick].out = true;
 				pool[pick].gate = static_cast<int>(g);
+				pool[pick].outFor = 0.0f;
 				sentNow[pick] = true;
 				++have;
 			}

@@ -115,6 +115,9 @@ float g_safeguardClock = 0.0f;
 // The deaths without a killer the safeguard asks about at the next tick.
 UInt32 g_unclaimed[16] = {};
 UInt32 g_unclaimedCount = 0;
+// Every 10 s, how the ones still down stand (a few dozen lines a session).
+float g_safeguardStatusClock = 0.0f;
+UInt32 g_safeguardStatusLeft = 60;
 
 UInt32 NextRandom() {
 	g_random ^= g_random << 13;
@@ -1213,6 +1216,20 @@ void StepSafeguardInGame(float dt) {
 	static HordeCandidate walkers[128];
 	const UInt32 walkerCount = HordeCandidates(walkers, 128);
 	const float radius = g_settings.safeguard.radius;
+	g_safeguardStatusClock += elapsed;
+	if (g_safeguardStatusClock >= 10.0f && g_safeguardStatusLeft > 0) {
+		g_safeguardStatusClock = 0.0f;
+		for (UInt32 i = 0; i < g_safeguard.count && i < 8 && g_safeguardStatusLeft > 0; ++i, --g_safeguardStatusLeft) {
+			const SafeguardEntry& entry = g_safeguard.entries[i];
+			const UInt32 ref = LookupForm(entry.refId);
+			const bool loaded = LooksLikeObject(ref) && Read(ref + kRefNiNodeOffset) != 0;
+			const float nearest = LooksLikeObject(ref) ? NearestWalkerDistance(ref, walkers, walkerCount) : -1.0f;
+			g_log("Safeguard: %08X still down - dead %.0f s, %s, the nearest living walker %.0f units off (-1 none; "
+			      "up once %.0f s and beyond %.0f)",
+			      entry.refId, entry.seconds, loaded ? "loaded" : "not loaded", nearest, g_settings.safeguard.afterSeconds,
+			      radius);
+		}
+	}
 	UInt32 due[8];
 	const UInt32 count = StepSafeguard(
 		g_safeguard, g_settings.safeguard, elapsed,

@@ -44,10 +44,12 @@ struct Run {
 	}
 	UInt32 Step(float dt = 1.0f) {
 		count = walkers::StepGuards(state, settings, gateCity, 3, zombies, alive, dt, orders, 32);
-		// What the engine does with the orders: out and alive, or in.
+		// What the engine does with the orders: out and alive, killed, or in.
 		for (UInt32 i = 0; i < count; ++i) {
 			if (orders[i].kind == GuardOrder::Deploy) {
 				alive[orders[i].city][orders[i].slot] = true;
+			} else if (orders[i].kind == GuardOrder::Kill) {
+				alive[orders[i].city][orders[i].slot] = false;
 			}
 		}
 		return count;
@@ -168,6 +170,46 @@ void TestOff() {
 	Check(run.Step() == 0, "[Guards] Enabled=0: nobody comes out");
 }
 
+void TestKill() {
+	std::printf("The test switch TestKillSeconds\n");
+	Run run;
+	run.zombies[0] = 7;
+	run.Step();
+	UInt32 kills = 0;
+	for (int t = 0; t < 20; ++t) {
+		run.Step();
+		kills += run.Of(GuardOrder::Kill);
+	}
+	Check(kills == 0, "0 (the default): nobody is killed");
+	Run test;
+	test.settings.testKillSeconds = 3.0f;
+	test.zombies[0] = 7;
+	test.Step();
+	test.Step();
+	test.Step();
+	Check(test.Of(GuardOrder::Kill) == 0, "2 s out: still standing");
+	test.Step();
+	bool both = test.Of(GuardOrder::Kill) == 2;
+	for (UInt32 i = 0; i < test.count; ++i) {
+		both = both && (test.orders[i].kind != GuardOrder::Kill || test.orders[i].gate == 0);
+	}
+	Check(both, "3 s out: both killed, where they stand");
+	test.Step();
+	Check(test.Of(GuardOrder::Deploy, 0) == 2 && !test.orders[0].raise, "the next step: two waiting ones out in their place");
+	UInt32 raised = 0;
+	UInt32 deployed = 0;
+	for (int t = 0; t < 30; ++t) {
+		test.Step();
+		for (UInt32 i = 0; i < test.count; ++i) {
+			if (test.orders[i].kind == GuardOrder::Deploy) {
+				++deployed;
+				raised += test.orders[i].raise ? 1u : 0u;
+			}
+		}
+	}
+	Check(raised > 0 && deployed > raised, "the waiting used up: the fallen raised and sent out again, over and over");
+}
+
 void TestNearGate() {
 	std::printf("Walkers near a gate\n");
 	const float xs[] = {100.0f, 3900.0f, 4100.0f, -2000.0f};
@@ -253,6 +295,7 @@ int main() {
 	TestIn();
 	TestOff();
 	TestNearGate();
+	TestKill();
 	TestHealth();
 	TestTable();
 	TestSpot();

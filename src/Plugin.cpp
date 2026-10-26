@@ -152,6 +152,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.guards.zombiesPerGuard = perGuard < 1 ? 1u : static_cast<UInt32>(perGuard);
 	rise.guards.radius = IniFloat("Guards", "Radius", 4000.0f, path);
 	rise.guards.clearSeconds = IniFloat("Guards", "ClearSeconds", 30.0f, path);
+	rise.guards.testKillSeconds = IniFloat("Guards", "TestKillSeconds", 0.0f, path);
 	rise.safeguard.enabled = GetPrivateProfileIntA("Safeguard", "Enabled", 1, path) != 0;
 	rise.safeguard.afterSeconds = IniFloat("Safeguard", "AfterSeconds", 15.0f, path);
 	rise.safeguard.afterSeconds = rise.safeguard.afterSeconds < 0.0f ? 0.0f : rise.safeguard.afterSeconds;
@@ -172,7 +173,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d SoundAtGetUpPercent=%u HoldDeathSound=%d CloneBase=%d ZombieRace=%d "
 	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d; "
 	    "[Replace] ExtraPercent=%u; [Horde] Enabled=%d JoinRadius=%.0f LeadUnits=%.0f StaleSeconds=%.0f TurnDegrees=%.0f GroupMost=%u TowardCities=%d CityPull=%.2f CityRange=%.0f GateHoldUnits=%.0f; "
-	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f; [Safeguard] Enabled=%d "
+	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f TestKillSeconds=%.0f; [Safeguard] Enabled=%d "
 	    "AfterSeconds=%.0f Radius=%.0f",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
@@ -183,6 +184,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    rise.horde.staleSeconds, rise.horde.turnDegrees, rise.horde.groupMost, rise.horde.towardCities ? 1 : 0,
 	    rise.horde.cityPull, rise.horde.cityRange, rise.horde.gateHoldUnits, rise.guards.enabled ? 1 : 0,
 	    rise.guards.healthFactor, rise.guards.zombiesPerGuard, rise.guards.radius, rise.guards.clearSeconds,
+	    rise.guards.testKillSeconds,
 	    rise.safeguard.enabled ? 1 : 0, rise.safeguard.afterSeconds, rise.safeguard.radius);
 	return true;
 }

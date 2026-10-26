@@ -346,6 +346,14 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 		if (guard == 0) {
 			continue;
 		}
+		if (order.kind == GuardOrder::Kill) {
+			const bool killed = console(guard, "Kill");
+			if (GuardLogDue()) {
+				log("Guards: TEST - %08X killed after %.0f s out at %s (TestKillSeconds; Kill answered %d)",
+				    FormIdOf(guard), g_guardSettings.testKillSeconds, gate.name, killed ? 1 : 0);
+			}
+			continue;
+		}
 		if (order.kind == GuardOrder::Recall) {
 			const bool gone = console(guard, "Disable");
 			if (GuardLogDue()) {
@@ -487,14 +495,20 @@ void ResetHorde() {
 }
 
 bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UInt32 count) {
+	const float d = NearestWalkerDistance(ref, candidates, count);
+	return d >= 0.0f && d <= radius;
+}
+
+float NearestWalkerDistance(UInt32 ref, const HordeCandidate* candidates, UInt32 count) {
 	if (!LooksLikeObject(ref)) {
-		return false;
+		return -1.0f;
 	}
 	const UInt32 cell = Read(ref + kRefParentCellOffset);
 	const bool outside = Outdoors(ref);
 	const UInt32 world = outside && LooksLikeObject(cell) ? Read(cell + kCellWorldspaceOffset) : 0;
 	const float x = FloatAt(ref + kRefPositionOffset);
 	const float y = FloatAt(ref + kRefPositionOffset + 4);
+	float nearest = -1.0f;
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 walker = candidates[i].ref;
 		if (!candidates[i].alive || !LooksLikeObject(walker)) {
@@ -506,11 +520,12 @@ bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UI
 		                               : walkerCell == cell;
 		const float dx = FloatAt(walker + kRefPositionOffset) - x;
 		const float dy = FloatAt(walker + kRefPositionOffset + 4) - y;
-		if (samePlace && dx * dx + dy * dy <= radius * radius) {
-			return true;
+		const float d = std::sqrt(dx * dx + dy * dy);
+		if (samePlace && (nearest < 0.0f || d < nearest)) {
+			nearest = d;
 		}
 	}
-	return false;
+	return nearest;
 }
 
 void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn dead, LogFn log) {
