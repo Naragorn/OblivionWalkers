@@ -1,0 +1,70 @@
+# What drawing walkers costs the CPU (Nadi's Windows headset run of
+# 2026-10-26: 18 walkers in view in Fort Urasek's Company Billets, frames of
+# 22-23 ms for 13 s; perf-fort-urasek.txt measured only the walkers' AI -
+# 11 and 0 of them came near). OBVR's perf-dungeon-dual.txt with walkers for
+# its three Blades: the game's prison (ImperialDungeon01) watched empty for
+# 30 s, then eighteen walkers placed at the player (the ESP's 0x801),
+# their AI off 8 s later (tai) so they stand around him, watched for 45 s.
+# The player is held (tcl, setrestrained) and in god mode. OBVR's profiler
+# is armed with the game and starts 60 s later; OBVR's tools/perf-phases.py
+# cuts the capture by the marks:
+#   python3 tools/perf-phases.py <run> prison empty-watched people-placed people-watched \
+#       --events scene_pass
+# The Pimax's GPU side (4028x3380, MSAA 4) is not measured on Linux.
+#
+# Result 2026-10-26 14:15 (artifacts/hand-script/perf-walkers-in-view/,
+# Linux, the Beyond at 75 Hz, dual pass): the prison empty - frames 13.36 ms
+# mean, scene_pass 0.89 / 1.08 ms (mean / p95), 0.2 % over 20 ms; eighteen
+# walkers standing round the player - frames 16.23 ms mean (median 13.74,
+# p95 26.69), 21.7 % over 20 ms, scene_pass 4.17 / 5.69 ms: 3.3 ms more a
+# pass, some 0.18 ms a walker and pass, poses_wait down from 8.10 to 2.32
+# ms. Derived, not measured: on the same CPU under Windows (90 Hz, an
+# 11.1 ms frame) 6.6 ms more a stereo frame is enough for the half rate
+# Nadi saw with 18 walkers in view.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-walkers-in-view.txt --headless \
+#       --run-timeout 420 --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands ReachOpens=0
+ini Render Stereo=dual
+ini Performance Enabled=1
+ini Performance GpuTiming=0
+ini Performance StartAfterSeconds=60
+ini Performance CaptureSeconds=95
+ini Performance MaxRecords=262144
+console-at placed tgm
+console-at placed coc ImperialDungeon01
+console-at prison tcl
+console-at prison player.setrestrained 1
+console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
+console-at people player.placeatme 11000801 18
+console-at people-placed tai
+
+expect HandScript: finished
+expect Performance: capture armed, it starts in 60 seconds
+expect Performance: capture 1 started
+expect Performance: export
+reject menu Container
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 22
+mark placed
+wait 16
+mark prison
+wait 30
+mark empty-watched
+mark people
+wait 8
+mark people-placed
+wait 15
+mark people-15
+wait 15
+mark people-30
+wait 15
+mark people-watched
+wait 45
+mark done

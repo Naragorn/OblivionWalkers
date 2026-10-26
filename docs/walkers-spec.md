@@ -1151,7 +1151,14 @@ roster line's counts.
   walkers' AI, not their drawing (11 and 0 walkers came near the player,
   no capture ran). Whether the Windows frames are CPU or GPU is not
   measured; the CPU side wants walkers placed around the player with
-  OBVR's performance capture on, the Pimax's GPU side a Windows run. Options for Nadi: (A) keep
+  OBVR's performance capture on, the Pimax's GPU side a Windows run.
+  The CPU side, measured 14:15 (`perf-walkers-in-view.txt`, Linux, 75 Hz,
+  dual pass): eighteen walkers standing in view cost 3.3 ms of CPU a scene
+  pass (0.89 -> 4.17 ms mean), some 0.18 ms a walker and pass; frames over
+  20 ms went from 0.2 % to 21.7 %. Derived: on the same CPU at 90 Hz
+  (11.1 ms) that alone explains Nadi's half rate with 18 in view - the
+  number of walkers in view is the cost, so the number made per spawn
+  (MaxCount) is the mod's lever. Options for Nadi: (A) keep
   MaxCount 10 (his default since 2026-10-24); (B) a lower default, say 4;
   (C) a cap per cell. Not decided.
 
