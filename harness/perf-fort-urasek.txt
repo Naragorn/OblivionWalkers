@@ -1,0 +1,51 @@
+# What the walkers' number costs in a dungeon (Nadi's Windows session of
+# 2026-10-26: in FortUrasek02 83 walkers stood on the process lists, 42 of
+# them in high process, and 9 of the session's 11 half-rate episodes fell
+# there). The player comes into FortUrasek02 (coc), in god mode, and stands
+# for 100 s while its spawn points' walkers come at him - some twelve
+# creature spawn points (goblin lists, a rat), each 1 to MaxCount walkers.
+# Run once as deployed ([Replace] MaxCount=10) and once with MaxCount=3 by
+# hand; compare SteamVR's reprojected share and the "Walk: N walkers on the
+# process lists, M of them in high process" lines.
+#
+# Results 2026-10-26 (artifacts/hand-script/perf-fort-urasek/), one run each,
+# the spread not measured: 14:02 MaxCount=10 - 47-48 walkers on the lists,
+# 46-47 in high process, SteamVR reprojected 3.7 % (443 of 11880 frames);
+# 14:06 MaxCount=3 - 19 walkers, 12-15 in high process, 1.4 % (169 of
+# 11865). Headless on Linux; Nadi's Windows run in the same cell had 22-23
+# ms frames for 13 s with 18 walkers in view - not reproduced here.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-fort-urasek.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready coc FortUrasek02
+console-at loaded SetNumericINISetting "fAutoVanityModeDelay:Camera" 100000
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 20
+mark t20
+wait 20
+mark t40
+wait 20
+mark t60
+wait 20
+mark t80
+wait 20
+mark t100
+wait 1
+mark end
+wait 1

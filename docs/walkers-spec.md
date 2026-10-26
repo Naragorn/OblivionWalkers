@@ -1138,6 +1138,20 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **Dense dungeons cost frames** (Nadi's Windows headset run, 2026-10-26
+  12:48-12:55): in Fort Urasek's Company Billets (FortUrasek02, 000CA58F)
+  83 walkers stood on the process lists, 42 in high process; after the
+  load into it 18 walkers were in view and the frames ran 22-23 ms for
+  13 s (SteamVR half rate - 931 of the session's 974 half-rate frames,
+  from the performance session's reading of OBVR.log), up to the crash
+  (left aside, Nadi). The cell has some twelve creature spawn points, each
+  1 to MaxCount (10) walkers. Linux harness, headless
+  (`perf-fort-urasek.txt`): MaxCount=10 - 47 walkers, 3.7 % reprojected;
+  MaxCount=3 - 19 walkers, 1.4 % - one run each. Whether the Windows
+  frames are CPU or GPU is not measured. Options for Nadi: (A) keep
+  MaxCount 10 (his default since 2026-10-24); (B) a lower default, say 4;
+  (C) a cap per cell. Not decided.
+
 - **Walk-only reaches only 16 walkers of each kind** (found 2026-10-26
   reading the code for the pool of 21): `Rise.cpp` StepWalkers collects at
   most 16 references per walker base each frame (`refs[16]`), so with more
