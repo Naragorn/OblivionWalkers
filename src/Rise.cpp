@@ -1142,9 +1142,9 @@ void StepMooStripping(float dt) {
 // bases on the process lists, alive or not, the one in a swap marked busy.
 UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 	UInt32 count = 0;
-	UInt32 ids[128];
+	static UInt32 ids[kHordeCandidatesMost];
 	for (UInt32 w = 0; w < g_walkerCount && count < most; ++w) {
-		const UInt32 found = CollectWalkerRefs(g_walkers[w], ids, 128);
+		const UInt32 found = CollectWalkerRefs(g_walkers[w], ids, kHordeCandidatesMost);
 		for (UInt32 i = 0; i < found && count < most; ++i) {
 			const UInt32 ref = LookupForm(ids[i]);
 			if (!LooksLikeObject(ref) || !IsActor(ref)) {
@@ -1193,8 +1193,8 @@ void StepFame() {
 // raise, as RaiseAsSelf calls it, with the get-up animation.
 void StepSafeguardInGame(float dt) {
 	if (g_unclaimedCount > 0) {
-		static HordeCandidate around[128];  // not `near`: a Windows macro
-		const UInt32 aroundCount = HordeCandidates(around, 128);
+		static HordeCandidate around[kHordeCandidatesMost];  // not `near`: a Windows macro
+		const UInt32 aroundCount = HordeCandidates(around, kHordeCandidatesMost);
 		for (UInt32 i = 0; i < g_unclaimedCount; ++i) {
 			const UInt32 ref = LookupForm(g_unclaimed[i]);
 			const bool walkersThere = LooksLikeObject(ref) && IsActor(ref) &&
@@ -1213,8 +1213,8 @@ void StepSafeguardInGame(float dt) {
 	}
 	const float elapsed = g_safeguardClock;
 	g_safeguardClock = 0.0f;
-	static HordeCandidate walkers[128];
-	const UInt32 walkerCount = HordeCandidates(walkers, 128);
+	static HordeCandidate walkers[kHordeCandidatesMost];
+	const UInt32 walkerCount = HordeCandidates(walkers, kHordeCandidatesMost);
 	const float radius = g_settings.safeguard.radius;
 	g_safeguardStatusClock += elapsed;
 	if (g_safeguardStatusClock >= 10.0f && g_safeguardStatusLeft > 0) {

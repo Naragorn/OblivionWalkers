@@ -1,0 +1,53 @@
+# The pool of 21 (docs/walkers-spec.md 4.11b; Nadi, 2026-10-26: "ach komm
+# lass mal 21 wachen machen"): 105 walkers at Tamriel -47,-7 by Anvil's main
+# gate, the deployed INI as it is. The log reads 21 of Anvil's guards out
+# (105 walkers, ZombiesPerGuard 5), two a second, each "ready" with 60 of 60
+# health, in four rows (6, 6, 6, 3) in front of the gate - the third and
+# fourth banks (0x89F.., 0x8CF..) among them - and all back in 30 s after
+# the last walker near the gate. The frame numbers say what so many cost.
+#
+# Result 2026-10-26 12:15 PASS (artifacts/hand-script/gate-guards-21/): all
+# 21 out in eleven steps, the third and fourth banks among them (089F..08A4,
+# 08CF..08D1), each 60 of 60; they killed 93 walkers in two minutes, 6 of
+# them fell; the walkers were fewer than five per standing guard by then, so
+# none was raised (the raise is read in gate-guards-dead.txt). Some 190
+# walkers were loaded (the spawn replacement's and the 105); SteamVR
+# reprojected 71.5 % of the frames, headless - the 15-walker run had 2 %.
+# Not back in by the end: walkers still stood near the gate.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/gate-guards-21.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready cow Tamriel -47 -7
+console-at loaded player.placeatme 11000801 105
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 20
+mark t20
+wait 20
+mark t40
+wait 20
+mark t60
+wait 20
+mark t80
+wait 20
+mark t100
+wait 20
+mark t120
+wait 1
+mark end
+wait 1

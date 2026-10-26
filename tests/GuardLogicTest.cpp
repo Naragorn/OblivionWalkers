@@ -77,8 +77,9 @@ void TestCount() {
 	Check(walkers::GuardsWanted(0, 5) == 0 && walkers::GuardsWanted(1, 5) == 1 && walkers::GuardsWanted(5, 5) == 1 &&
 	          walkers::GuardsWanted(6, 5) == 2 && walkers::GuardsWanted(11, 5) == 3,
 	      "one for every ZombiesPerGuard walkers, the rest rounded up: 1->1, 5->1, 6->2, 11->3");
-	Check(kGuardPool == 12 && walkers::GuardsWanted(56, 5) == 12 && walkers::GuardsWanted(200, 5) == kGuardPool,
-	      "never more than the city's pool (twelve, Nadi 2026-10-26): full from 56 walkers on");
+	Check(kGuardPool == 21 && walkers::GuardsWanted(100, 5) == 20 && walkers::GuardsWanted(101, 5) == 21 &&
+	          walkers::GuardsWanted(400, 5) == kGuardPool,
+	      "never more than the city's pool (21, Nadi 2026-10-26): full from 101 walkers on");
 	Check(walkers::GuardsWanted(3, 0) == 3, "ZombiesPerGuard 0 read as 1: one guard for each walker");
 }
 
@@ -122,14 +123,14 @@ void TestReplace() {
 	Check(run.Of(GuardOrder::Deploy, 0) == 2 && run.orders[0].raise && run.orders[1].raise &&
 	          run.orders[0].slot != run.orders[1].slot,
 	      "none waiting, all dead: two of the dead raised and sent out again (the pool is all there is)");
-	run.zombies[0] = 80;
+	run.zombies[0] = 150;
 	for (UInt32 s = 0; s < kGuardPool; ++s) {
 		run.alive[kAnvil][s] = true;
 	}
-	for (int t = 0; t < 8; ++t) {
+	for (int t = 0; t < 12; ++t) {
 		run.Step();
 	}
-	Check(run.Out(0) == kGuardPool, "eighty walkers: the whole pool out, two a second, no more");
+	Check(run.Out(0) == kGuardPool, "150 walkers: the whole pool out, two a second, no more");
 }
 
 void TestIn() {
@@ -200,7 +201,9 @@ void TestKill() {
 	Check(test.Of(GuardOrder::Deploy, 0) == 2 && !test.orders[0].raise, "the next step: two waiting ones out in their place");
 	UInt32 raised = 0;
 	UInt32 deployed = 0;
-	for (int t = 0; t < 30; ++t) {
+	// Two out at a time, killed every 4 s: the 21 waiting are used up in
+	// some 45 s.
+	for (int t = 0; t < 80; ++t) {
 		test.Step();
 		for (UInt32 i = 0; i < test.count; ++i) {
 			if (test.orders[i].kind == GuardOrder::Deploy) {
@@ -278,23 +281,27 @@ void TestPoolIds() {
 	      "the first six of each city where the six-pool had them (0x83F + city x 6): a save made with it keeps "
 	      "its guards");
 	Check(walkers::PoolLocalId(0, 6) == 0x86F && walkers::PoolLocalId(7, 11) == 0x89E,
-	      "the next six of each city after them (0x86F + city x 6)");
+	      "the next six where the pool of twelve had them (0x86F + city x 6)");
+	Check(walkers::PoolLocalId(0, 12) == 0x89F && walkers::PoolLocalId(0, 18) == 0x8CF &&
+	          walkers::PoolLocalId(7, 20) == 0x8FB,
+	      "then a third bank of six (0x89F + city x 6) and a fourth of three (0x8CF + city x 6)");
 	bool unique = true;
+	bool back = true;
 	for (UInt32 a = 0; a < walkers::kGuardCities * kGuardPool; ++a) {
+		const UInt32 id = walkers::PoolLocalId(a / kGuardPool, a % kGuardPool);
 		for (UInt32 b = a + 1; b < walkers::kGuardCities * kGuardPool; ++b) {
-			unique = unique && walkers::PoolLocalId(a / kGuardPool, a % kGuardPool) !=
-			                       walkers::PoolLocalId(b / kGuardPool, b % kGuardPool);
+			unique = unique && id != walkers::PoolLocalId(b / kGuardPool, b % kGuardPool);
 		}
+		UInt32 city = 99;
+		UInt32 slot = 99;
+		back = back && walkers::PoolSlotOf(id, city, slot) && city == a / kGuardPool && slot == a % kGuardPool;
 	}
-	bool inRange = true;
-	for (UInt32 c = 0; c < walkers::kGuardCities; ++c) {
-		for (UInt32 i = 0; i < kGuardPool; ++i) {
-			const UInt32 id = walkers::PoolLocalId(c, i);
-			inRange = inRange && id >= walkers::kGuardPoolFirstLocalId &&
-			          id < walkers::kGuardPoolFirstLocalId + walkers::kGuardCities * kGuardPool;
-		}
-	}
-	Check(unique && inRange, "96 IDs, none twice, all in one run from 0x83F");
+	Check(unique && back, "168 IDs, none twice, each read back to its city and slot");
+	UInt32 city = 0;
+	UInt32 slot = 0;
+	Check(!walkers::PoolSlotOf(0x83E, city, slot) && !walkers::PoolSlotOf(0x8CF + 3, city, slot) &&
+	          !walkers::PoolSlotOf(0x8FE, city, slot) && !walkers::PoolSlotOf(0x900, city, slot),
+	      "no pool guard: before the first, in the fourth bank's gaps (slots 21-23), past the last");
 }
 
 void TestRecover() {

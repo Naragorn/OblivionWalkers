@@ -44,7 +44,7 @@ constexpr UInt32 kTravelLocalId = 0x806;
 constexpr UInt32 kFollowLocalId = 0x816;
 constexpr UInt32 kMarkerLocalId = 0x827;
 constexpr UInt32 kFormTypePackage = 0x3D;
-constexpr UInt32 kCandidatesMost = 128;
+constexpr UInt32 kCandidatesMost = kHordeCandidatesMost;
 constexpr float kStepSeconds = 1.0f;
 
 HordeSettings g_settings;
@@ -72,8 +72,8 @@ UInt32 g_summariesLeft = 60;
 constexpr UInt32 kSummaryEverySteps = 5;
 
 // The gate guards (4.11b; tools/esp-write.py): one guard record per city,
-// twelve persistent references of it per city in the holding cell,
-// initially disabled, in CityGates.h's order (GuardLogic.h PoolLocalId).
+// 21 persistent references of it per city in the holding cell, initially
+// disabled, in CityGates.h's order (GuardLogic.h PoolLocalId).
 constexpr UInt32 kGuardNpcLocalId = 0x837;
 constexpr UInt32 kRefBaseFormOffset = 0x1C;
 // TESActorBase's TESHealthForm (Replace.cpp ScaleWalkerHealth writes the
@@ -478,9 +478,9 @@ void ConfigureGuards(const GuardSettings& settings, LogFn log) {
 }
 
 bool IsGateGuard(UInt32 refId) {
-	const UInt32 local = refId & 0x00FFFFFF;
-	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && local >= kGuardPoolFirstLocalId &&
-	       local < kGuardPoolFirstLocalId + kGuardCities * kGuardPool;
+	UInt32 city = 0;
+	UInt32 slot = 0;
+	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && PoolSlotOf(refId & 0x00FFFFFF, city, slot);
 }
 
 void ResetHorde() {

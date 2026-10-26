@@ -12,9 +12,9 @@
 // been near for ClearSeconds (disabled). No reference is made at runtime -
 // actors made with PlaceAtMe stay in the save for good (the CS wiki's
 // PlaceAtMe page), and a guard that never stops coming back would make one
-// every time. The pool is all there is: at most twelve per city out at
-// once (Nadi, 2026-10-26: "größerer Pool, 12 pro Stadt"), a dead one raised
-// and sent out again.
+// every time. The pool is all there is: at most 21 per city out at once
+// (Nadi, 2026-10-26: "größerer Pool, 12 pro Stadt", then "lass mal 21
+// wachen machen"), a dead one raised and sent out again.
 
 #include "CityGates.h"
 #include "Types.h"
@@ -24,10 +24,11 @@
 namespace walkers {
 
 inline constexpr UInt32 kGuardCities = static_cast<UInt32>(City::Count);
-inline constexpr UInt32 kGuardPool = 12;  // tools/esp-write.py GUARD_POOL
-// The pool's references come in banks of six per city: the first bank where
-// the six-pool of 2026-10-26 morning had them (0x83F + city x 6), the next
-// after it - a save made with the six-pool keeps its guards.
+inline constexpr UInt32 kGuardPool = 21;  // tools/esp-write.py GUARD_POOL
+// The pool's references come in banks of six per city, each bank after the
+// last: the first where the six-pool of 2026-10-26 morning had them
+// (0x83F + city x 6), the second where the pool of twelve had them - a save
+// made with a smaller pool keeps its guards. The fourth bank holds three.
 inline constexpr UInt32 kGuardBank = 6;
 inline constexpr UInt32 kGuardPoolFirstLocalId = 0x83F;
 inline constexpr UInt32 kGuardGatesMost = 32;
@@ -83,6 +84,18 @@ inline UInt32 GuardsWanted(UInt32 zombies, UInt32 zombiesPerGuard) {
 inline constexpr UInt32 PoolLocalId(UInt32 city, UInt32 slot) {
 	return kGuardPoolFirstLocalId + (slot / kGuardBank) * kGuardCities * kGuardBank + city * kGuardBank +
 	       slot % kGuardBank;
+}
+
+// The city and slot of a pool guard's local form ID; false for any other.
+inline bool PoolSlotOf(UInt32 localId, UInt32& city, UInt32& slot) {
+	if (localId < kGuardPoolFirstLocalId) {
+		return false;
+	}
+	const UInt32 at = localId - kGuardPoolFirstLocalId;
+	const UInt32 bank = at / (kGuardCities * kGuardBank);
+	city = (at % (kGuardCities * kGuardBank)) / kGuardBank;
+	slot = bank * kGuardBank + at % kGuardBank;
+	return slot < kGuardPool;
 }
 
 // A guard's health: HealthFactor times a walker's, rounded, at least 1.

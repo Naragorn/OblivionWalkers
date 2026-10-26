@@ -33,11 +33,13 @@ index at runtime):
          (4.11b), a copy of a city guard (Anvil's stables post 0000A0AE and
          the like) but EDID, its AI packages and its script, and never
          essential (Nadi, 2026-10-26): it stands and fights where it is put.
-  0x83F..0x89E  ACHR WalkersGuardPoolCityN - twelve persistent, initially
+  0x83F..0x8FB  ACHR WalkersGuardPoolCityN - 21 persistent, initially
          disabled references of each city's guard in the holding cell, as
          an Oblivion.esm ACHR (000171CB: NAME and DATA), in banks of six
          per city (GuardLogic.h PoolLocalId: slots 0-5 at 0x83F + city x 6,
-         where the six-pool had them, slots 6-11 at 0x86F + city x 6): the
+         where the six-pool had them, 6-11 at 0x86F + city x 6, where the
+         pool of twelve had them, 12-17 at 0x89F + city x 6, 18-20 at
+         0x8CF + city x 6): the
          plugin moves them out to a gate and back - a guard that dies is
          raised and sent out again, so no reference is ever made at runtime
          (PlaceAtMe's actors stay in the save for good, the CS wiki's
@@ -91,7 +93,7 @@ CELL_EDID = "WalkersHordeMarkers"
 CITIES = ["Anvil", "Bravil", "Bruma", "Cheydinhal", "Chorrol", "Leyawiin", "Skingrad", "ImperialCity"]  # CityGates.h City
 GUARD_TEMPLATES = [0x0000A0AE, 0x0000A0B0, 0x0000A0B2, 0x0000A0B4, 0x0000A0B6, 0x0003554B, 0x0000A0BA, 0x000752F2]
 LOCAL_GUARD_IDS = [0x837 + i for i in range(len(CITIES))]
-GUARD_POOL = 12  # GuardLogic.h kGuardPool
+GUARD_POOL = 21  # GuardLogic.h kGuardPool
 GUARD_BANK = 6  # GuardLogic.h kGuardBank
 ACBS_ESSENTIAL = 0x2
 POOL_FIRST_ID = 0x83F  # GuardLogic.h kGuardPoolFirstLocalId
@@ -413,8 +415,9 @@ def main() -> int:
         back = dict(find_record(esm, plugin, b"ACHR", form))
         if struct.unpack("<I", back[b"NAME"])[0] != pool_bases[form]:
             raise SystemExit(f"pool guard {form:08X} has the wrong base")
-    if pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F:
-        raise SystemExit("the pool's first bank moved: a save made with the six-pool would lose its guards")
+    if (pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F
+            or pool_local_id(7, 11) != 0x89E):
+        raise SystemExit("the pool's first banks moved: a save made with a smaller pool would lose its guards")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
           + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four x{VARIANT_SLOTS}; "

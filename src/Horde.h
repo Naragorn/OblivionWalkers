@@ -12,6 +12,10 @@
 
 namespace walkers {
 
+// The most walker references looked at once: 21 guards at a gate take 101
+// walkers near it (ZombiesPerGuard 5), and more may stand elsewhere.
+inline constexpr UInt32 kHordeCandidatesMost = 256;
+
 // A walker reference the rise found on the process lists.
 struct HordeCandidate {
 	UInt32 ref = 0;      // the reference
