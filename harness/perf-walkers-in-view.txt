@@ -22,6 +22,19 @@
 # 11.1 ms frame) 6.6 ms more a stereo frame is enough for the half rate
 # Nadi saw with 18 walkers in view.
 #
+# Actor shadows (Nadi, 2026-10-26: "was bringt obvr das: FNVVR die
+# Schattenkarten zwischen den Augen" - "go messen"): the same run with
+# iActorShadowCountInt in the Linux Oblivion.ini set by hand (5 as it
+# stands; Nadi's Windows INI has 10), one run each. 15:02 with 0 - scene_pass
+# 3.73 / 5.65 ms with the walkers, frames 16.19 ms mean, 20.8 % over 20 ms,
+# no bone rows to off-screen targets; 15:06 with 10 - scene_pass 5.15 / 6.97
+# ms, frames 23.36 ms mean (median 25.32), 75.4 % over 20 ms, 1926 bone rows
+# a log window to off-screen targets. Ten actor shadows: 1.4 ms a scene
+# pass, 2.8 ms a stereo frame; drawn once for both eyes (FNVVR's sharing)
+# they would cost 1.4 ms. The empty prison read the same in both (0.92 and
+# 0.91 ms). OBVR.dll 2ae7574398902f1e still with the old bone-lock cost,
+# the same in both runs (the performance session).
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-walkers-in-view.txt --headless \
 #       --run-timeout 420 --artifact-root ../OblivionWalkers/artifacts/hand-script

@@ -1158,7 +1158,11 @@ roster line's counts.
   20 ms went from 0.2 % to 21.7 %. Derived: on the same CPU at 90 Hz
   (11.1 ms) that alone explains Nadi's half rate with 18 in view - the
   number of walkers in view is the cost, so the number made per spawn
-  (MaxCount) is the mod's lever. Options for Nadi: (A) keep
+  (MaxCount) is the mod's lever. Actor shadows on top (15:02 and 15:06,
+  iActorShadowCountInt 0 against 10, the walkers standing): 3.73 against
+  5.15 ms a scene pass, frames over 20 ms 20.8 % against 75.4 % - ten
+  shadow-casting walkers cost 2.8 ms a stereo frame, and Nadi's Windows INI
+  has iActorShadowCountInt=10, iActorShadowCountExt=10 (Linux 5 and 3). Options for Nadi: (A) keep
   MaxCount 10 (his default since 2026-10-24); (B) a lower default, say 4;
   (C) a cap per cell. Not decided.
 
