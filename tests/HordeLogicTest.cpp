@@ -131,6 +131,19 @@ void TestKeepAlive() {
 	run.Step(lost, 2);
 	Check(run.Of(HordeOrder::Lead, 1) == 1 && run.Of(HordeOrder::Follow, 2) == 1 && run.Of(HordeOrder::MoveMarker) == 0,
 	      "a package lost (after a fight, an interrupt): given again, the marker left where it is");
+	bool again = true;
+	for (UInt32 i = 0; i < run.count; ++i) {
+		again = again && run.orders[i].again;
+	}
+	Check(run.count == 2 && again, "those are marked as given again - the engine may hold them back a while");
+	Run fresh;
+	const HordeWalker two[] = {Walker(1, 0, 0, 9), Walker(2, 300, 0, 1)};
+	fresh.Step(two, 2);
+	bool none = true;
+	for (UInt32 i = 0; i < fresh.count; ++i) {
+		none = none && !fresh.orders[i].again;
+	}
+	Check(none, "a group's first orders are not");
 }
 
 void TestMarker() {

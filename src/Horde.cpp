@@ -56,6 +56,14 @@ bool g_ready = false;
 HordeOrder g_pending[kHordeGroups];
 UInt32 g_pendingCount = 0;
 UInt32 g_logsLeft = 400;
+// A package given again is held back this long per walker: a walker whose
+// package something else keeps taking would otherwise get ours anew every
+// second, each time starting its path over (the run of 2026-10-26 08:33).
+constexpr float kAgainSeconds = 5.0f;
+constexpr UInt32 kAgainMost = 128;
+UInt32 g_againIds[kAgainMost] = {};
+float g_againAge[kAgainMost] = {};
+UInt32 g_againCount = 0;
 UInt32 g_steps = 0;
 UInt32 g_summariesLeft = 60;
 constexpr UInt32 kSummaryEverySteps = 5;
@@ -121,6 +129,26 @@ bool AimFollow(UInt32 group, UInt32 leaderId) {
 	return true;
 }
 
+// Whether a package given again to `walkerId` is held back now; when not,
+// the clock starts anew.
+bool HoldBack(UInt32 walkerId) {
+	UInt32 oldest = 0;
+	for (UInt32 i = 0; i < g_againCount; ++i) {
+		if (g_againIds[i] == walkerId) {
+			if (g_againAge[i] < kAgainSeconds) {
+				return true;
+			}
+			g_againAge[i] = 0.0f;
+			return false;
+		}
+		oldest = g_againAge[i] > g_againAge[oldest] ? i : oldest;
+	}
+	const UInt32 slot = g_againCount < kAgainMost ? g_againCount++ : oldest;
+	g_againIds[slot] = walkerId;
+	g_againAge[slot] = 0.0f;
+	return false;
+}
+
 bool GivePackage(UInt32 walkerId, UInt32 package, ConsoleFn console) {
 	const UInt32 walker = LookupForm(walkerId);
 	char line[48];
@@ -165,6 +193,7 @@ void ResetHorde() {
 	g_state = HordeState{};
 	g_pendingCount = 0;
 	g_clock = 0.0f;
+	g_againCount = 0;
 }
 
 void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn log) {
@@ -186,6 +215,9 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 	}
 	const float elapsed = g_clock;
 	g_clock = 0.0f;
+	for (UInt32 i = 0; i < g_againCount; ++i) {
+		g_againAge[i] += elapsed;
+	}
 
 	static HordeCandidate candidates[kCandidatesMost];
 	const UInt32 count = collect(candidates, kCandidatesMost);
@@ -203,8 +235,12 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 		w.rank = RankOf(w.id);
 		const UInt32 process = ProcessOf(ref);
 		w.package = process != 0 ? CurrentPackageId(process) : 0;
+		// A package made at runtime (an FF form: the engine's own for an alarm
+		// or a flight, or a script's) is something else's business: such a
+		// walker is left alone until it runs its own or ours again.
+		const bool othersPackage = (w.package >> 24) == 0xFF;
 		w.fit = candidates[i].alive && !candidates[i].busy && process != 0 && HighProcess(process) &&
-		        Read(ref + kRefNiNodeOffset) != 0 && Outdoors(ref) && !InCombat(ref);
+		        Read(ref + kRefNiNodeOffset) != 0 && Outdoors(ref) && !InCombat(ref) && !othersPackage;
 	}
 	HordeOrder orders[64];
 	const UInt32 ordered = StepHorde(g_state, walkers, n, g_settings, elapsed, g_seed, orders, 64);
@@ -271,6 +307,8 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, LogFn lo
 				        57.29578f,
 				    line, done ? 1 : 0);
 			}
+		} else if (o.again && HoldBack(o.walker)) {
+			continue;
 		} else if (o.kind == HordeOrder::Lead) {
 			if (moved[o.group] && g_pendingCount < kHordeGroups) {
 				g_pending[g_pendingCount++] = o;

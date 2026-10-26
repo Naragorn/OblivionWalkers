@@ -77,6 +77,7 @@ struct HordeOrder {
 	UInt32 package = 0;  // Lead, Follow: the package to give
 	float x = 0.0f;      // MoveMarker: where
 	float y = 0.0f;
+	bool again = false;  // Lead, Follow: a package lost and given again (the engine may hold these back a while)
 };
 
 namespace horde_detail {
@@ -120,7 +121,8 @@ struct Orders {
 		}
 		return false;
 	}
-	void Add(HordeOrder::Kind kind, UInt32 group, UInt32 walker, UInt32 package, float x = 0.0f, float y = 0.0f) {
+	void Add(HordeOrder::Kind kind, UInt32 group, UInt32 walker, UInt32 package, float x = 0.0f, float y = 0.0f,
+	         bool again = false) {
 		if (count >= most) {
 			return;
 		}
@@ -131,6 +133,7 @@ struct Orders {
 		o.package = package;
 		o.x = x;
 		o.y = y;
+		o.again = again;
 		if (kind != HordeOrder::MoveMarker && givenCount < 128) {
 			given[givenCount++] = walker;
 		}
@@ -318,12 +321,12 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			out.Add(HordeOrder::MoveMarker, gi, g.leader, 0, g.targetX, g.targetY);
 			out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
 		} else if (leader->package != s.travelBase + gi && !out.Given(g.leader)) {
-			out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
+			out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi, 0.0f, 0.0f, true);
 		}
 		for (UInt32 i = 0; i < g.count; ++i) {
 			const HordeWalker* w = Find(walkers, n, g.followers[i]);
 			if (w->package != s.followBase + gi && !out.Given(w->id)) {
-				out.Add(HordeOrder::Follow, gi, w->id, s.followBase + gi);
+				out.Add(HordeOrder::Follow, gi, w->id, s.followBase + gi, 0.0f, 0.0f, true);
 			}
 		}
 	}
