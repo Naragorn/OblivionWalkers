@@ -13,7 +13,14 @@
 # 46-47 in high process, SteamVR reprojected 3.7 % (443 of 11880 frames);
 # 14:06 MaxCount=3 - 19 walkers, 12-15 in high process, 1.4 % (169 of
 # 11865). Headless on Linux; Nadi's Windows run in the same cell had 22-23
-# ms frames for 13 s with 18 walkers in view - not reproduced here.
+# ms frames for 13 s with 18 walkers in view - not reproduced here. What
+# these two runs measure is the walkers' AI, not their drawing: only 11 and
+# 0 walkers came near enough for OBVR's exceptions lines (the performance
+# session's reading), and no performance capture ran. For the drawing: the
+# walkers placed around the player (placeatme) and OBVR's capture on
+# (ini Performance Enabled=1, StartAfterSeconds=30, CaptureSeconds=60 -
+# cpu_events.csv, scene_pass per pass); the Pimax's GPU side (4028x3380,
+# MSAA 4) is not measured on Linux.
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-fort-urasek.txt --headless \

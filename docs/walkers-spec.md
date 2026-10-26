@@ -1147,8 +1147,11 @@ roster line's counts.
   (left aside, Nadi). The cell has some twelve creature spawn points, each
   1 to MaxCount (10) walkers. Linux harness, headless
   (`perf-fort-urasek.txt`): MaxCount=10 - 47 walkers, 3.7 % reprojected;
-  MaxCount=3 - 19 walkers, 1.4 % - one run each. Whether the Windows
-  frames are CPU or GPU is not measured. Options for Nadi: (A) keep
+  MaxCount=3 - 19 walkers, 1.4 % - one run each; those runs measure the
+  walkers' AI, not their drawing (11 and 0 walkers came near the player,
+  no capture ran). Whether the Windows frames are CPU or GPU is not
+  measured; the CPU side wants walkers placed around the player with
+  OBVR's performance capture on, the Pimax's GPU side a Windows run. Options for Nadi: (A) keep
   MaxCount 10 (his default since 2026-10-24); (B) a lower default, say 4;
   (C) a cap per cell. Not decided.
 
