@@ -835,9 +835,9 @@ default Radius 3000 raised a White Horse (0004E9A8) 66 s after the walkers
 killed it, once the last walker near it was gone. The named woman (Maeva
 the Buxom, 00185FE7, Whitmond) the walkers killed in 4 of 7 runs stayed
 down to the end of each: a walker stood 51 to 95 units off her body the
-whole 90 s (11:54, the status lines) - the rule waits for that. **Open:** a
-body walkers camp at stays down as long as they do (options in 7a); the
-raise of an unloaded body; the feel and the cost in the headset.
+whole 90 s (11:54, the status lines) - the rule waits for that, and so it
+stays (Nadi chose to wait, 7a). **Open:** the raise of an unloaded body;
+the feel and the cost in the headset.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `ZombiesPerCity=20`, `FromDoors=1`
 
@@ -1137,7 +1137,9 @@ roster line's counts.
   her down as long as they stay. Options for Nadi: (A) keep waiting, as
   now; (B) after a limit (say 120 s) raise her at the nearest city gate's
   spot, where the guards are - "irgendwo sicher" - her AI walks her home;
-  (C) after the limit raise her where she lies, among them. Not decided.
+  (C) after the limit raise her where she lies, among them. **Decided A**
+  (Nadi, 2026-10-26: "A"): the safeguard waits until no walker is within
+  Radius, however long - not a bug, the rule as meant.
 
 - **RESOLVED 2026-10-25 09:24 (1883c49) - "Zombies ersetzen nicht die leiche
   am boden sondern schweben fallend auf den boden ganz runter und stehen dann
