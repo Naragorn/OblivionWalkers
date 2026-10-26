@@ -1142,10 +1142,16 @@ roster line's counts.
   reading the code for the pool of 21): `Rise.cpp` StepWalkers collects at
   most 16 references per walker base each frame (`refs[16]`), so with more
   than 64 walkers loaded (four bases) the rest keep running when their AI
-  asks for it - `[Zombies] Walk=1` does not hold for them. Not fixed:
-  raising it walks more of the process lists every frame (the dedupe in
-  CollectWalkerRefs is quadratic); the fix wants one walk a frame shared by
-  all bases. Small; not measured yet whether the extra walkers run.
+  asks for it - `[Zombies] Walk=1` does not hold for them; AvoidChapels
+  missed them the same way. **FIXED 2026-10-26** (Nadi: "ja"): one walk of
+  the process lists a frame for every walker kind (`Rise.cpp`
+  CollectAllWalkers, `RiseLogic.h` KeepWalkers - sorted, each once, up to
+  256), used by StepWalkers and the horde; a summary line every 2 s.
+  `gate-guards-21.txt` 12:23: "111 walkers on the process lists, 111 of
+  them in high process kept walking", up to 2056 runs turned to walks in
+  2 s (the AI asks again every frame). The cost of the walk itself is not
+  measured apart (the run reprojected 69 %, headless, 111 walkers and 21
+  guards).
 
 - **A victim stays down while walkers camp at the body** (2026-10-26,
   `gate-guards.txt` 11:54): the safeguard noted Maeva the Buxom, killed by

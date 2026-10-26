@@ -640,6 +640,44 @@ void TestZombieDefaults() {
 
 }  // namespace
 
+// Every walker of every kind from one walk of the process lists (found
+// 2026-10-26: StepWalkers took at most 16 of each kind a frame, so Walk=1
+// and AvoidChapels missed the rest of a horde).
+void TestKeepWalkers() {
+	std::printf("KeepWalkers\n");
+	const UInt32 bases[] = {0x801, 0x802, 0x803, 0x804};
+	UInt32 ids[300];
+	UInt32 baseOf[300];
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < 100; ++i) {  // a hundred of one kind
+		ids[n] = 0xFF000100 + i;
+		baseOf[n++] = 0x801;
+	}
+	for (UInt32 i = 0; i < 30; ++i) {  // thirty of another, and their doubles
+		ids[n] = 0xFF000300 + i;
+		baseOf[n++] = 0x803;
+		ids[n] = 0xFF000300 + i;
+		baseOf[n++] = 0x803;
+	}
+	for (UInt32 i = 0; i < 20; ++i) {  // others' creatures
+		ids[n] = 0xFF000500 + i;
+		baseOf[n++] = 0x0002E9F1;
+	}
+	UInt32 out[256];
+	const UInt32 kept = walkers::KeepWalkers(ids, baseOf, n, bases, 4, out, 256);
+	bool ours = true;
+	bool once = true;
+	for (UInt32 i = 0; i < kept; ++i) {
+		ours = ours && (out[i] - 0xFF000100 < 100 || out[i] - 0xFF000300 < 30);
+		for (UInt32 j = i + 1; j < kept; ++j) {
+			once = once && out[i] != out[j];
+		}
+	}
+	Check(kept == 130 && ours && once, "a hundred of one kind and thirty of another: all 130, each once, no stranger");
+	Check(walkers::KeepWalkers(ids, baseOf, n, bases, 4, out, 64) == 64, "never more than asked for");
+	Check(walkers::KeepWalkers(ids, baseOf, n, bases, 0, out, 256) == 0, "no walker kinds: none");
+}
+
 int main() {
 	TestVerdicts();
 	TestTick();
@@ -654,6 +692,7 @@ int main() {
 	TestChapels();
 	TestApartDue();
 	TestZombieDefaults();
+	TestKeepWalkers();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

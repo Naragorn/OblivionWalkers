@@ -5,6 +5,7 @@
 // the list (docs/walkers-spec.md, 4.1). Rise.cpp reads the engine and calls
 // in here; the tests run every flow without a game.
 
+#include <algorithm>
 #include <cstring>
 
 #include "Bytes.h"
@@ -185,6 +186,33 @@ struct Swap {
 };
 
 inline constexpr UInt32 kSwapKnownMost = 16;
+
+// The walkers among the actors of one walk of the process lists: those whose
+// base is one of `bases`, each once (an actor may stand on two lists), at
+// most `most`, in reference order. Every kind at once - a walk of its own per
+// kind, 16 each, missed the rest of a horde (2026-10-26).
+inline constexpr UInt32 kKeepWalkersMost = 1024;
+
+inline UInt32 KeepWalkers(const UInt32* ids, const UInt32* baseIds, UInt32 n, const UInt32* bases, UInt32 baseCount,
+                          UInt32* out, UInt32 most) {
+	UInt32 found[kKeepWalkersMost];
+	UInt32 count = 0;
+	for (UInt32 i = 0; i < n && count < kKeepWalkersMost; ++i) {
+		for (UInt32 b = 0; b < baseCount; ++b) {
+			if (baseIds[i] == bases[b]) {
+				found[count++] = ids[i];
+				break;
+			}
+		}
+	}
+	std::sort(found, found + count);
+	const UInt32 unique = static_cast<UInt32>(std::unique(found, found + count) - found);
+	const UInt32 kept = unique < most ? unique : most;
+	for (UInt32 i = 0; i < kept; ++i) {
+		out[i] = found[i];
+	}
+	return kept;
+}
 
 inline void NoteKnownWalkers(Swap& swap, const UInt32* refs, UInt32 count) {
 	swap.knownCount = 0;

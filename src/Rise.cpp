@@ -506,6 +506,36 @@ UInt32 FindNewWalker(const Swap& swap) {
 	return NewWalkerAmong(swap, refs, count);
 }
 
+// Every walker of every one of the ESP's bases on the process lists, in one
+// walk of them (RiseLogic.h KeepWalkers).
+UInt32 CollectAllWalkers(UInt32* out, UInt32 most) {
+	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
+	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
+	struct Node {
+		void* data;
+		Node* next;
+	};
+	static UInt32 ids[kKeepWalkersMost];
+	static UInt32 bases[kKeepWalkersMost];
+	UInt32 n = 0;
+	for (UInt32 level = 0; level < 4 && n < kKeepWalkersMost; ++level) {
+		auto* node = static_cast<Node*>(reinterpret_cast<ListFn>(kActorListByLevel)(manager, nullptr, level));
+		for (UInt32 visited = 0; node != nullptr && visited < 1024 && n < kKeepWalkersMost; ++visited) {
+			if (!LooksLikeObject(reinterpret_cast<UInt32>(node))) {
+				break;
+			}
+			const UInt32 actor = reinterpret_cast<UInt32>(node->data);
+			node = node->next;
+			if (!LooksLikeObject(actor) || Read(actor) != kVtblCreature) {
+				continue;
+			}
+			ids[n] = Read(actor + kFormIdOffset);
+			bases[n++] = FormIdOf(Read(actor + kRefBaseFormOffset));
+		}
+	}
+	return KeepWalkers(ids, bases, n, g_walkers, g_walkerCount, out, most);
+}
+
 // A console line run by xOBSE with the reference as "this" (the proof of
 // 2026-10-23, rise-creature-proof.txt: PlaceAtMe, Disable, Kill,
 // RemoveAllItems all vanilla).
@@ -976,6 +1006,10 @@ struct WalkerSeen {
 };
 WalkerSeen g_seen[16];
 float g_walkLogSeconds = 0.0f;
+// All walkers' runs turned to walks since the last summary, and the
+// summaries still to log this session.
+UInt32 g_walkTurned = 0;
+UInt32 g_walkSummariesLeft = 300;
 // The walkers met outside a chapel this session, and those taken out of
 // one (AvoidChapels, SpawnedInChapel).
 std::unordered_set<UInt32> g_seenOutside;
@@ -1024,63 +1058,71 @@ void StepWalkers(float dt) {
 	if (logNow) {
 		g_walkLogSeconds = 0.0f;
 	}
-	for (UInt32 w = 0; w < g_walkerCount; ++w) {
-		UInt32 refs[16];
-		const UInt32 count = CollectWalkerRefs(g_walkers[w], refs, 16);
-		for (UInt32 i = 0; i < count; ++i) {
-			const UInt32 actor = LookupForm(refs[i]);
-			if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
-				continue;
+	static UInt32 refs[kHordeCandidatesMost];
+	const UInt32 count = CollectAllWalkers(refs, kHordeCandidatesMost);
+	UInt32 high = 0;
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 actor = LookupForm(refs[i]);
+		if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
+			continue;
+		}
+		if (StepChapel(actor, refs[i])) {
+			continue;
+		}
+		const UInt32 process = HighProcessOf(actor);
+		if (process == 0) {
+			continue;
+		}
+		++high;
+		UInt16* const flags = reinterpret_cast<UInt16*>(process + kMovementFlagsOffset);
+		const UInt16 before = *flags;
+		if (g_settings.walkOnly) {
+			*flags = WalkInsteadOfRun(before);
+		}
+		g_walkTurned += before != *flags ? 1u : 0u;
+		WalkerSeen* seen = nullptr;
+		for (WalkerSeen& s : g_seen) {
+			if (s.refId == refs[i]) {
+				seen = &s;
+				break;
 			}
-			if (StepChapel(actor, refs[i])) {
-				continue;
-			}
-			const UInt32 process = HighProcessOf(actor);
-			if (process == 0) {
-				continue;
-			}
-			UInt16* const flags = reinterpret_cast<UInt16*>(process + kMovementFlagsOffset);
-			const UInt16 before = *flags;
-			if (g_settings.walkOnly) {
-				*flags = WalkInsteadOfRun(before);
-			}
-			WalkerSeen* seen = nullptr;
+		}
+		if (seen == nullptr) {
 			for (WalkerSeen& s : g_seen) {
-				if (s.refId == refs[i]) {
+				if (s.refId == 0) {
+					s = WalkerSeen{};
+					s.refId = refs[i];
 					seen = &s;
 					break;
 				}
 			}
-			if (seen == nullptr) {
-				for (WalkerSeen& s : g_seen) {
-					if (s.refId == 0) {
-						s = WalkerSeen{};
-						s.refId = refs[i];
-						seen = &s;
-						break;
-					}
-				}
-			}
-			if (seen == nullptr) {
-				continue;
-			}
-			if (before != *flags) {
-				++seen->turned;
-			}
-			const float x = FloatAt(actor + kRefPositionOffset);
-			const float y = FloatAt(actor + kRefPositionOffset + 4);
-			if (seen->have && dt > 0.0f) {
-				const float moved = std::sqrt((x - seen->x) * (x - seen->x) + (y - seen->y) * (y - seen->y));
-				seen->speed = seen->speed * 0.9f + (moved / dt) * 0.1f;
-			}
-			seen->x = x;
-			seen->y = y;
-			seen->have = true;
-			if (logNow) {
-				g_log("Walk: walker %08X flags %04X, %.0f units/s, %u runs turned to walks", refs[i], *flags,
-				      seen->speed, seen->turned);
-			}
 		}
+		if (seen == nullptr) {
+			continue;
+		}
+		if (before != *flags) {
+			++seen->turned;
+		}
+		const float x = FloatAt(actor + kRefPositionOffset);
+		const float y = FloatAt(actor + kRefPositionOffset + 4);
+		if (seen->have && dt > 0.0f) {
+			const float moved = std::sqrt((x - seen->x) * (x - seen->x) + (y - seen->y) * (y - seen->y));
+			seen->speed = seen->speed * 0.9f + (moved / dt) * 0.1f;
+		}
+		seen->x = x;
+		seen->y = y;
+		seen->have = true;
+		if (logNow) {
+			g_log("Walk: walker %08X flags %04X, %.0f units/s, %u runs turned to walks", refs[i], *flags,
+			      seen->speed, seen->turned);
+		}
+	}
+	if (logNow && g_walkSummariesLeft > 0) {
+		--g_walkSummariesLeft;
+		g_log("Walk: %u walkers on the process lists, %u of them in high process kept walking; %u runs turned to "
+		      "walks in the last 2 s, all walkers",
+		      count, high, g_walkTurned);
+		g_walkTurned = 0;
 	}
 }
 
@@ -1143,18 +1185,16 @@ void StepMooStripping(float dt) {
 UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 	UInt32 count = 0;
 	static UInt32 ids[kHordeCandidatesMost];
-	for (UInt32 w = 0; w < g_walkerCount && count < most; ++w) {
-		const UInt32 found = CollectWalkerRefs(g_walkers[w], ids, kHordeCandidatesMost);
-		for (UInt32 i = 0; i < found && count < most; ++i) {
-			const UInt32 ref = LookupForm(ids[i]);
-			if (!LooksLikeObject(ref) || !IsActor(ref)) {
-				continue;
-			}
-			HordeCandidate& c = out[count++];
-			c.ref = ref;
-			c.alive = !IsDead(ref);
-			c.busy = g_swap.active && ids[i] == g_swap.zombieId;
+	const UInt32 found = CollectAllWalkers(ids, most < kHordeCandidatesMost ? most : kHordeCandidatesMost);
+	for (UInt32 i = 0; i < found; ++i) {
+		const UInt32 ref = LookupForm(ids[i]);
+		if (!LooksLikeObject(ref) || !IsActor(ref)) {
+			continue;
 		}
+		HordeCandidate& c = out[count++];
+		c.ref = ref;
+		c.alive = !IsDead(ref);
+		c.busy = g_swap.active && ids[i] == g_swap.zombieId;
 	}
 	return count;
 }
