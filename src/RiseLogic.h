@@ -81,6 +81,10 @@ struct RiseSettings {
 	// wenn sie daliegen und aufstehen", then "percentage chance ... 60").
 	// 0: it always gets up silent.
 	UInt32 soundAtGetUpPercent = 60;
+	// [Rise] HoldDeathSound: a test switch, on - the unseen kill's death sound
+	// held back (SoundLogic.h). Off: the engine plays it, as before 2026-10-26
+	// (the control of the sound recording).
+	bool holdDeathSound = true;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

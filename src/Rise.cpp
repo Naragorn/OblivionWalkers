@@ -772,7 +772,7 @@ void StepSwapInFlight(float dt) {
 		// for its get-up, its death list emptied for this one Kill and put
 		// back - the engine's death plays a creature's sound inside the call.
 		const UInt32 lists = DeathSoundListsOf(zombie);
-		const UInt32 slot = DeathListSlot(lists);
+		const UInt32 slot = g_settings.holdDeathSound ? DeathListSlot(lists) : 0;
 		g_getUpSound = slot != 0 ? DrawnSoundId(zombie, kCreatureSoundDeath) : 0;
 		const UInt32 heldList = slot != 0 ? Read(slot) : 0;
 		if (slot != 0) {
@@ -783,7 +783,9 @@ void StepSwapInFlight(float dt) {
 			*reinterpret_cast<UInt32*>(slot) = heldList;
 		}
 		g_log("Swap: walker %08X dies unheard - %s; its sound for the get-up: %08X [tick %llu]", g_swap.zombieId,
-		      slot != 0 ? "its death list held back for the kill" : "no sound lists found, so none held back",
+		      slot != 0                       ? "its death list held back for the kill"
+		      : !g_settings.holdDeathSound    ? "the death sound left to the engine (HoldDeathSound=0)"
+		                                      : "no sound lists found, so none held back",
 		      g_getUpSound, QpcNow());
 		g_log("Swap: walker %08X's model is there after %.1f s at %.0f %.0f %.0f - killed (%d), dead now %d, the "
 		      "corpse %08X still lying",
