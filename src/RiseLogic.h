@@ -11,6 +11,7 @@
 #include "Bytes.h"
 #include "GuardLogic.h"
 #include "HordeLogic.h"
+#include "NewsLogic.h"
 #include "SafeguardLogic.h"
 #include "Types.h"
 
@@ -104,6 +105,11 @@ struct RiseSettings {
 	// [Safeguard] (4.11b, SafeguardLogic.h): whoever the walkers kill gets up
 	// again once it is safe - on by default (Nadi, 2026-10-26).
 	SafeguardSettings safeguard;
+	// [News] (4.9, NewsLogic.h): the Black Horse Courier's broadsheets in the
+	// inns and the Courier's office carry the walkers' news - Nadi,
+	// 2026-10-26: the vanilla broadsheets only, "attacked" = guards out at
+	// the gate.
+	NewsSettings news;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

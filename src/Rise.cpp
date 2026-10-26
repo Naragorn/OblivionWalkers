@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Horde.h"
 #include "MooLogic.h"
+#include "News.h"
 #include "SoundLogic.h"
 #include "Pose.h"
 #include "Replace.h"
@@ -418,6 +419,7 @@ void FindWalkers() {
 	g_log("Walkers: %s is mod %02X, %u walker creatures found", kPluginEsp, index, g_walkerCount);
 	ConfigureHorde(g_settings.horde, index, g_log);
 	ConfigureGuards(g_settings.guards, g_log);
+	ConfigureNews(g_settings.news, index, g_log);
 }
 
 // Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
@@ -1318,6 +1320,7 @@ void Tick() {
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
 		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
 		StepLootless();
 		StepFame();
 	}
@@ -1364,6 +1367,13 @@ void OnSave(void*) {
 	                         g_serialization->WriteRecordData(safe, safeLength);
 	g_log("Co-save: %u killed by walkers still to get up %s", g_safeguard.count,
 	      safeWritten ? "written" : "could not be written");
+	UInt8 news[kNewsImageBytes];
+	const UInt32 newsLength = NewsImage(CurrentNews(), news, sizeof(news));
+	const bool newsWritten = g_serialization->OpenRecord(kNewsRecordType, kNewsRecordVersion) &&
+	                         g_serialization->WriteRecordData(news, newsLength);
+	if (!newsWritten) {
+		g_log("Co-save: the cities' attacks for the news could not be written");
+	}
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -1385,6 +1395,7 @@ void OnLoad(void*) {
 	g_safeguardClock = 0.0f;
 	g_unclaimedCount = 0;
 	ResetHorde();
+	CurrentNews() = NewsState{};
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -1403,6 +1414,19 @@ void OnLoad(void*) {
 			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved);
 			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
 			      whole ? "" : " (the record cut short)");
+			continue;
+		}
+		if (type == kNewsRecordType) {
+			UInt8 news[kNewsImageBytes];
+			const UInt32 read =
+				version == kNewsRecordVersion && length <= sizeof(news) ? g_serialization->ReadRecordData(news, length) : 0;
+			const bool whole = ReadNewsImage(CurrentNews(), news, read);
+			UInt32 attacked = 0;
+			for (float days : CurrentNews().lastAttackDays) {
+				attacked += days >= 0.0f ? 1u : 0u;
+			}
+			g_log("Co-save: %u cities' last attack for the news read%s", attacked,
+			      whole ? "" : " (version or length off: none)");
 			continue;
 		}
 		if (type == kFameRecordType) {
@@ -1454,6 +1478,7 @@ void OnNewGame(void*) {
 	g_safeguardClock = 0.0f;
 	g_unclaimedCount = 0;
 	ResetHorde();
+	CurrentNews() = NewsState{};
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;

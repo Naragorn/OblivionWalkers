@@ -327,7 +327,25 @@ void TestRecover() {
 
 }  // namespace
 
+void TestAttacked() {
+	std::printf("A city attacked (the news, 4.9)\n");
+	walkers::GuardState state;
+	UInt32 zombies[3] = {0, 4, 0};
+	Check(!walkers::CityAttacked(state, 0, zombies, 3), "no guard out: not attacked, walkers near or not");
+	state.slots[0][3].out = true;
+	state.slots[0][3].gate = 1;
+	Check(walkers::CityAttacked(state, 0, zombies, 3), "a guard out at a gate with walkers near: attacked");
+	Check(!walkers::CityAttacked(state, 1, zombies, 3), "another city's guard out: not this one");
+	zombies[1] = 0;
+	Check(!walkers::CityAttacked(state, 0, zombies, 3), "the guard still out, the walkers gone: no longer");
+	state.slots[0][3].gate = 7;
+	zombies[1] = 4;
+	Check(!walkers::CityAttacked(state, 0, zombies, 3) && !walkers::CityAttacked(state, 99, zombies, 3),
+	      "a gate or a city out of range: not attacked");
+}
+
 int main() {
+	TestAttacked();
 	TestCount();
 	TestOut();
 	TestReplace();

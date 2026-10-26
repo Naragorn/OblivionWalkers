@@ -636,18 +636,62 @@ reads no console output - `player.GetPCFame` in the console settles it.
 
 Cost: **cheap.**
 
-### 4.9 Black Horse Courier - `[News] Courier=1`
+### 4.9 Black Horse Courier - `[News] Courier=1`, `RecentDays=3`
 
-What: an edition in every inn and tavern with the latest from the outbreak:
-which cities are infested, where the horde is heading, what the Legion asks.
+What: the broadsheets in the inns and taverns, and in the Courier's own
+office in the Imperial City, carry the latest from the outbreak: the outbreak
+in general, a horde heading for a city, walkers at a city's gates, or several
+cities at once - each with what the Legion asks of the citizens.
 
-How: the ESP ships pre-written editions (one per city state and horde state,
-written once); the plugin swaps the placed edition reference's base for the
-edition that fits the scenario's state when the player enters the inn.
-Dynamic text in a book needs OBSE string work the engine fights; the
-pre-written set is what 28 Days did and it reads well.
+Built 2026-10-26 (Nadi's choices: the vanilla places, "attacked" = walkers at
+the gate and its guards out):
 
-Cost: **small** (writing the editions is most of it).
+- The ESP ships 18 pre-written editions, BOOK records 0x8FC..0x90D
+  (`tools/courier-editions.py`, written by `tools/esp-write.py` as copies of
+  Broadsheet01VampireNest's record with their own text, so the same
+  `Clutter\Books\Broadsheet01.NIF`): the outbreak 0, a horde heading for
+  each city 1-8, each city's gates attacked 9-16, several cities 17, the
+  cities in `CityGates.h`'s order. What the Legion asks matches what the
+  walkers do in the game (they walk, the chapels are safe, what they carried
+  is spoiled, the guard comes out of the gates).
+- The places are Oblivion.esm's own broadsheets in 15 inns and taverns and
+  the Courier's office and its upstairs, 47 references
+  (`tools/courier-refs.py` writes `src/CourierRefs.h`); no cell of the ESP is
+  edited, the broadsheets in people's houses keep the old news.
+- Once a second (`src/News.cpp`), each of those references the engine has,
+  whose base is still its Oblivion.esm broadsheet or one of the editions, is
+  set to the edition `NewsLogic.h` chooses; a reference another mod gave a
+  different base is left alone. The base is the plugin's, not the save's: a
+  load brings the Oblivion.esm broadsheet back and the plugin sets it again
+  within a second.
+- The choice (`ChooseEdition`): two or more cities attacked within the last
+  `RecentDays` game days - several; one - that city's attack; else the city
+  the biggest group of walkers near the player heads for (`HordeLogic.h`
+  `HordeHeadingGate`) - a horde heading there; else the outbreak in general.
+- "Attacked" is what the plugin knows (`GuardLogic.h` `CityAttacked`): one of
+  the city's pool guards out at a gate with walkers near it (4.11b). The last
+  attack's game day per city (GameDaysPassed, GLOB 0x39) goes into the
+  co-save, record `NEWS` version 1.
+
+Deviations from the first plan, and why:
+
+- **Not on entering the inn, but once a second while loaded.** Entering a
+  cell has no callback the plugin holds; the one-second look costs 47 form
+  lookups and is the same to the reader.
+- **Where a horde heads is known only near the player.** The horde's groups
+  are the walkers on the process lists (4.11); a horde far away is not
+  simulated, so "a horde heading for" reports the groups the player could
+  meet.
+- **No siege yet.** Once real sieges exist (4.12, not built), a city under
+  siege belongs in the Courier too - its own editions or the attack edition
+  counting a siege as an attack (Nadi, 2026-10-26: "das müssen wir aber noch
+  ändern dann wenn wir echte belagerungen haben").
+
+Test: `tests/NewsLogicTest.cpp` (every choice, the RecentDays edge, the
+co-save image), `CityAttacked` in `GuardLogicTest.cpp`, `HordeHeadingGate`
+in `HordeLogicTest.cpp`; harness `news-courier.txt`.
+
+Cost: **small** (writing the editions was most of it).
 
 ### 4.10 Headshots only - `[Zombies] HeadshotsOnly=0`
 
@@ -1101,6 +1145,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
+| `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak, then, after seven walkers at Anvil's main gate brought its guards out, "Walkers at the Gates of Anvil!" (4.9) | the plugin, the ESP with the editions |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 
 Each plugin scenario `expect`s the plugin's own `Walkers:` log lines and the

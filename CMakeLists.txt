@@ -19,7 +19,7 @@ target_include_directories(logic INTERFACE src)
 add_library(plugin_entry STATIC src/PluginEntry.cpp)
 target_include_directories(plugin_entry PUBLIC src)
 
-add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp)
+add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp src/News.cpp)
 target_include_directories(rise PUBLIC src)
 
 add_library(OblivionWalkers SHARED src/Plugin.cpp)
@@ -62,6 +62,10 @@ add_test(NAME GuardLogicTest COMMAND GuardLogicTest)
 add_executable(SafeguardLogicTest tests/SafeguardLogicTest.cpp)
 target_link_libraries(SafeguardLogicTest PRIVATE logic)
 add_test(NAME SafeguardLogicTest COMMAND SafeguardLogicTest)
+
+add_executable(NewsLogicTest tests/NewsLogicTest.cpp)
+target_link_libraries(NewsLogicTest PRIVATE logic)
+add_test(NAME NewsLogicTest COMMAND NewsLogicTest)
 
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)

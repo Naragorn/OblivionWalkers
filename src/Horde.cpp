@@ -2,6 +2,7 @@
 
 #include "CityGates.h"
 #include "Engine.h"
+#include "News.h"
 
 #include <cmath>
 #include <cstdio>
@@ -334,6 +335,13 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 			standing[c][i] = guard == 0 || !dead(guard);
 		}
 	}
+	// The news (4.9): a city whose guards are out at a gate with walkers
+	// near it is attacked, now.
+	for (UInt32 c = 0; c < kGuardCities; ++c) {
+		if (CityAttacked(g_guards, c, zombies, kCityGateCount)) {
+			NoteGateAttack(c);
+		}
+	}
 	GuardOrder orders[kGuardArrivalsMost];
 	const UInt32 ordered = StepGuards(g_guards, g_guardSettings, gateCity, kCityGateCount, zombies, standing, elapsed,
 	                                  orders, kGuardArrivalsMost);
@@ -481,6 +489,11 @@ bool IsGateGuard(UInt32 refId) {
 	UInt32 city = 0;
 	UInt32 slot = 0;
 	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && PoolSlotOf(refId & 0x00FFFFFF, city, slot);
+}
+
+int HordeHeadingCity() {
+	const int gate = g_ready ? HordeHeadingGate(g_state) : -1;
+	return gate >= 0 && static_cast<UInt32>(gate) < kCityGateCount ? static_cast<int>(kCityGates[gate].city) : -1;
 }
 
 void ResetHorde() {

@@ -290,6 +290,20 @@ inline bool InGroup(const HordeState& state, UInt32 id) {
 
 }  // namespace horde_detail
 
+// The gate the biggest group heads for (the news, docs/walkers-spec.md 4.9),
+// the first group's of two as big; -1 when no group heads for one.
+inline int HordeHeadingGate(const HordeState& state) {
+	int gate = -1;
+	UInt32 most = 0;
+	for (const HordeGroup& g : state.groups) {
+		if (g.used && g.gate >= 0 && g.count + 1 > most) {
+			most = g.count + 1;
+			gate = g.gate;
+		}
+	}
+	return gate;
+}
+
 // One step: the groups kept up to date with the walkers as they are, the
 // orders for the engine (marker moves first, then the packages) into
 // `orders`. Returns how many orders.

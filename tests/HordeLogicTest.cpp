@@ -444,7 +444,27 @@ void TestChurn() {
 	Check(noRing && aims > 0 && followed > 0, "nobody follows itself, nobody follows round a ring (and following happens)");
 }
 
+void TestHeading() {
+	std::printf("Where the hordes head (the news, 4.9)\n");
+	HordeState state;
+	Check(walkers::HordeHeadingGate(state) == -1, "no group: no gate");
+	state.groups[2].used = true;
+	state.groups[2].count = 3;
+	Check(walkers::HordeHeadingGate(state) == -1, "a group heading for no gate: none");
+	state.groups[2].gate = 5;
+	state.groups[4].used = true;
+	state.groups[4].count = 9;
+	state.groups[4].gate = 1;
+	Check(walkers::HordeHeadingGate(state) == 1, "two groups at two gates: the bigger one's");
+	state.groups[2].count = 9;
+	Check(walkers::HordeHeadingGate(state) == 5, "as big as each other: the first group's");
+	state.groups[2].used = false;
+	state.groups[4].used = false;
+	Check(walkers::HordeHeadingGate(state) == -1, "groups gone (their gate left behind): none");
+}
+
 int main() {
+	TestHeading();
 	TestOff();
 	TestGates();
 	TestChurn();

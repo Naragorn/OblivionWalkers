@@ -42,6 +42,10 @@ void ConfigureGuards(const GuardSettings& settings, LogFn log);
 // leaves them to their pool).
 bool IsGateGuard(UInt32 refId);
 
+// The city the biggest group of walkers near the player heads for, -1 none
+// (the news, 4.9).
+int HordeHeadingCity();
+
 // Forgets every group (a load, a new game): they form again from the
 // walkers as they stand; the guards are read off the world anew.
 void ResetHorde();

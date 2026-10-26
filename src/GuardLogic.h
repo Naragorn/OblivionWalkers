@@ -165,6 +165,21 @@ inline UInt32 WalkersNear(float x, float y, float radius, const float* xs, const
 	return count;
 }
 
+// Whether `city` is attacked now (the news, docs/walkers-spec.md 4.9): one
+// of its guards out at a gate with walkers near it. `zombies` as StepGuards
+// takes it.
+inline bool CityAttacked(const GuardState& state, UInt32 city, const UInt32* zombies, UInt32 gateCount) {
+	if (city >= kGuardCities) {
+		return false;
+	}
+	for (const GuardSlot& slot : state.slots[city]) {
+		if (slot.out && slot.gate >= 0 && static_cast<UInt32>(slot.gate) < gateCount && zombies[slot.gate] > 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // One step: guards out where walkers stand at a gate, in where none have
 // for ClearSeconds. `gateCity` gives each gate's city, `zombies` the
 // walkers near each, `alive` each pool guard's state. Returns the orders.

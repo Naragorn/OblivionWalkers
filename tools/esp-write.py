@@ -44,6 +44,13 @@ index at runtime):
          raised and sent out again, so no reference is ever made at runtime
          (PlaceAtMe's actors stay in the save for good, the CS wiki's
          PlaceAtMe page).
+  0x8FC..0x90D  BOOK WalkersCourier* - the walkers' news (4.9), 18 editions of
+         the Black Horse Courier in NewsLogic.h EditionIndex order
+         (tools/courier-editions.py), each a copy of Broadsheet01VampireNest
+         (0006D6F3) but EDID, FULL and DESC: the plugin puts the edition that
+         fits on the vanilla broadsheets of the inns and the Courier's office
+         (src/CourierRefs.h). 0x8FC is past the last pool guard and no pool
+         slot (GuardLogic.h PoolSlotOf: bank 3, slot 21).
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         --out OblivionWalkers.esp
@@ -105,12 +112,22 @@ def pool_local_id(city: int, slot: int) -> int:
 
 
 LOCAL_POOL_IDS = sorted(pool_local_id(c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL))
+BROADSHEET_TEMPLATE = 0x0006D6F3  # Broadsheet01VampireNest
+EDITION_COUNT = 18  # NewsLogic.h kEditionCount
+LOCAL_EDITION_IDS = [0x8FC + i for i in range(EDITION_COUNT)]
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
 LIST_EDID = "WalkersZombieVariant"
 AUTHOR = "Naragorn"
 DESCRIPTION = "Oblivion Walkers - the records the plugin needs: the Walker race for the risen."
+
+
+def load_editions_module():
+    spec = importlib.util.spec_from_file_location("courier_editions", HERE / "courier-editions.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_esm_module():
@@ -271,6 +288,20 @@ def build_pool_ref(template: list[tuple[bytes, bytes]], edid: str, base: int, sl
     return out
 
 
+def build_edition(template: list[tuple[bytes, bytes]], edid: str, title: str, text: str) -> bytes:
+    """A broadsheet with the walkers' news."""
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"FULL":
+            data = zstring(title)
+        elif kind == b"DESC":
+            data = text.encode("latin-1") + b"\0"
+        out += subrecord(kind, data)
+    return out
+
+
 def typed_group(label: int, gtype: int, records: bytes) -> bytes:
     return b"GRUP" + struct.pack("<IIiI", 20 + len(records), label, gtype, 0) + records
 
@@ -357,12 +388,20 @@ def main() -> int:
                                       local - POOL_FIRST_ID),
                        flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
 
-    body = (group(b"RACE", races) + group(b"NPC_", guards) + group(b"CREA", creatures) + group(b"LVLC", lists)
+    edition_texts = load_editions_module().editions()
+    if len(edition_texts) != EDITION_COUNT:
+        raise SystemExit(f"{len(edition_texts)} editions, NewsLogic.h has {EDITION_COUNT}")
+    broadsheet = find_record(esm, buf, b"BOOK", BROADSHEET_TEMPLATE)
+    edition_forms = [index | local for local in LOCAL_EDITION_IDS]
+    books = b"".join(record(b"BOOK", form, build_edition(broadsheet, edid, title, text))
+                     for form, (edid, title, text) in zip(edition_forms, edition_texts))
+    body = (group(b"RACE", races) + group(b"BOOK", books) + group(b"NPC_", guards) + group(b"CREA", creatures)
+            + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
-    groups = 4 + 5 + 1
-    records = (1 + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms) + len(pool_forms)
-               + len(travel_forms) + len(follow_forms))
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_POOL_IDS[-1] + 1, masters=masters) + body
+    groups = 5 + 5 + 1
+    records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
+               + len(pool_forms) + len(travel_forms) + len(follow_forms))
+    plugin = header(num_records=groups + records, next_object_id=LOCAL_EDITION_IDS[-1] + 1, masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
 
@@ -415,6 +454,12 @@ def main() -> int:
         back = dict(find_record(esm, plugin, b"ACHR", form))
         if struct.unpack("<I", back[b"NAME"])[0] != pool_bases[form]:
             raise SystemExit(f"pool guard {form:08X} has the wrong base")
+    for form, (edid, title, text) in zip(edition_forms, edition_texts):
+        back = dict(find_record(esm, plugin, b"BOOK", form))
+        if back[b"FULL"].rstrip(b"\0").decode("latin-1") != title or back[b"MODL"] != dict(broadsheet)[b"MODL"]:
+            raise SystemExit(f"edition {edid} reads back wrong")
+    if LOCAL_EDITION_IDS[0] <= LOCAL_POOL_IDS[-1]:
+        raise SystemExit("the editions overlap the guard pool")
     if (pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F
             or pool_local_id(7, 11) != 0x89E):
         raise SystemExit("the pool's first banks moved: a save made with a smaller pool would lose its guards")
