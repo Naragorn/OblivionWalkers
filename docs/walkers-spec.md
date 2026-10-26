@@ -661,17 +661,20 @@ the gate and its guards out):
 - Once a second (`src/News.cpp`), each of those references the engine has,
   whose base is still its Oblivion.esm broadsheet or one of the editions, is
   set to the edition `NewsLogic.h` chooses; a reference another mod gave a
-  different base is left alone. The base is the plugin's, not the save's: a
-  load brings the Oblivion.esm broadsheet back and the plugin sets it again
-  within a second.
+  different base is left alone. Whether a save keeps the base set is not
+  measured; either way the plugin sets it again within a second of a load.
 - The choice (`ChooseEdition`): two or more cities attacked within the last
   `RecentDays` game days - several; one - that city's attack; else the city
   the biggest group of walkers near the player heads for (`HordeLogic.h`
   `HordeHeadingGate`) - a horde heading there; else the outbreak in general.
 - "Attacked" is what the plugin knows (`GuardLogic.h` `CityAttacked`): one of
   the city's pool guards out at a gate with walkers near it (4.11b). The last
-  attack's game day per city (GameDaysPassed, GLOB 0x39) goes into the
-  co-save, record `NEWS` version 1.
+  attack's game time per city goes into the co-save, record `NEWS` version 1.
+- The game time is GameDaysPassed's whole days plus GameHour / 24 (GLOBs
+  0x39 and 0x38, `NewsLogic.h` `GameTimeDays`): GameDaysPassed counts whole
+  days only - the harness read 1.000 while GameHour ran from 12.927 to
+  13.503 (2026-10-26 20:03 and 20:10), so it alone would let an attack stay
+  news up to a day too long or too short.
 
 Deviations from the first plan, and why:
 
@@ -688,8 +691,14 @@ Deviations from the first plan, and why:
   ändern dann wenn wir echte belagerungen haben").
 
 Test: `tests/NewsLogicTest.cpp` (every choice, the RecentDays edge, the
-co-save image), `CityAttacked` in `GuardLogicTest.cpp`, `HordeHeadingGate`
-in `HordeLogicTest.cpp`; harness `news-courier.txt`.
+game clock, the co-save image), `CityAttacked` in `GuardLogicTest.cpp`,
+`HordeHeadingGate` in `HordeLogicTest.cpp`; harness `news-courier.txt` -
+PASS 2026-10-26 20:10: the outbreak in the Count's Arms, a horde heading
+for Anvil, then walkers at Anvil's gates; in the Courier's office the
+broadsheet opens on "Walkers at the Gates of Anvil!" with the Courier's
+header (artifacts/hand-script/news-courier/20261026-201034, shot 08). Of the
+47 references 6 are persistent (the engine has them from the start, set
+even in the main menu), the other 41 come with their cell.
 
 Cost: **small** (writing the editions was most of it).
 
@@ -1145,7 +1154,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
-| `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak, then, after seven walkers at Anvil's main gate brought its guards out, "Walkers at the Gates of Anvil!" (4.9) | the plugin, the ESP with the editions |
+| `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak; seven walkers at Anvil's main gate bring its guards out; the Courier's office broadsheet opens on "Walkers at the Gates of Anvil!" (4.9) - 19:59 and 20:03 PASS on the log, the book not opened (the console's activate opens none); 20:07 PASS, the name in the HUD; 20:10 PASS, opened with the hand's A, the text in the picture | the plugin, the ESP with the editions |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 
 Each plugin scenario `expect`s the plugin's own `Walkers:` log lines and the

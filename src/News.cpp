@@ -10,8 +10,10 @@ using namespace engine;
 
 namespace {
 
-// GameDaysPassed, the GLOB 0x39 of Oblivion.esm; a TESGlobal's float at
-// +0x24 (xOBSE GameForms.h: name 018, type 020, data 024).
+// GameHour and GameDaysPassed, the GLOBs 0x38 and 0x39 of Oblivion.esm
+// (read 2026-10-26); a TESGlobal's float at +0x24 (xOBSE GameForms.h: name
+// 018, type 020, data 024).
+constexpr UInt32 kGameHourId = 0x00000038;
 constexpr UInt32 kGameDaysPassedId = 0x00000039;
 constexpr UInt32 kGlobalValueOffset = 0x24;
 constexpr UInt8 kFormTypeGlobal = 0x04;
@@ -31,13 +33,15 @@ float g_clock = 0.0f;
 UInt32 g_lastEdition = kEditionCount;
 UInt32 g_lastSet = 0;
 
-float GameDaysPassed() {
-	const UInt32 global = LookupForm(kGameDaysPassedId);
+float GlobalValue(UInt32 id) {
+	const UInt32 global = LookupForm(id);
 	if (!LooksLikeObject(global) || Read8(global + kFormTypeOffset) != kFormTypeGlobal) {
 		return -1.0f;
 	}
 	return FloatAt(global + kGlobalValueOffset);
 }
+
+float GameTime() { return GameTimeDays(GlobalValue(kGameDaysPassedId), GlobalValue(kGameHourId)); }
 
 // CityGates.h City order.
 constexpr const char* kCityNames[kNewsCities] = {"Anvil",   "Bravil",   "Bruma",    "Cheydinhal",
@@ -88,7 +92,7 @@ void ConfigureNews(const NewsSettings& settings, UInt32 espIndex, LogFn log) {
 }
 
 void NoteGateAttack(UInt32 city) {
-	const float now = GameDaysPassed();
+	const float now = GameTime();
 	if (now >= 0.0f) {
 		NoteCityAttack(g_news, city, now);
 	}
@@ -105,7 +109,7 @@ void StepNewsInGame(float dt, int headingCity, LogFn log) {
 		return;
 	}
 	g_clock = 0.0f;
-	const float now = GameDaysPassed();
+	const float now = GameTime();
 	if (now < 0.0f) {
 		return;
 	}
@@ -137,8 +141,11 @@ void StepNewsInGame(float dt, int headingCity, LogFn log) {
 	}
 	if (set > 0 && (index != g_lastEdition || set != g_lastSet)) {
 		const bool named = edition.city >= 0 && edition.city < static_cast<int>(kNewsCities);
-		log("News: %u broadsheet%s set to edition %u (%s%s%s) - %u loaded, game day %.2f", set, set == 1 ? "" : "s",
-		    index, EditionText(edition), named ? " " : "", named ? kCityNames[edition.city] : "", loaded, now);
+		log("News: %u broadsheet%s set to edition %u (%s%s%s) - %u loaded; game day %.3f (GameDaysPassed %.3f, "
+		    "GameHour %.3f)",
+		    set, set == 1 ? "" : "s", index, EditionText(edition), named ? " " : "",
+		    named ? kCityNames[edition.city] : "", loaded, now, GlobalValue(kGameDaysPassedId),
+		    GlobalValue(kGameHourId));
 	}
 	if (set > 0) {
 		g_lastEdition = index;

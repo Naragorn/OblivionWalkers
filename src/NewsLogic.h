@@ -92,6 +92,18 @@ inline Edition ChooseEdition(const NewsState& news, float now, float recentDays,
 	return Edition{EditionKind::General, -1};
 }
 
+// The game's clock in days: GameDaysPassed's whole days plus GameHour. The
+// harness run of 2026-10-26 19:59 read GameDaysPassed 1.00 for 100 s of
+// play at TimeScale 30 (0.03 days), so it may count whole days only; the
+// whole days and the hour are right either way. Below 0: no clock.
+inline float GameTimeDays(float daysPassed, float hour) {
+	if (daysPassed < 0.0f) {
+		return -1.0f;
+	}
+	const float day = static_cast<float>(static_cast<UInt32>(daysPassed));
+	return hour >= 0.0f && hour < 24.0f ? day + hour / 24.0f : day;
+}
+
 // The co-save record: type "NEWS", version 1 - the last attack's game day
 // per city.
 inline constexpr UInt32 kNewsRecordType = 0x4E455753;  // 'NEWS'

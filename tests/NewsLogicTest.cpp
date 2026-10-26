@@ -5,6 +5,7 @@
 
 #include "NewsLogic.h"
 
+#include <cmath>
 #include <cstdio>
 
 namespace {
@@ -102,6 +103,17 @@ void TestIndex() {
 	      "the numbers tools/esp-write.py writes the books in");
 }
 
+void TestGameTime() {
+	std::printf("The game's clock\n");
+	Check(walkers::GameTimeDays(1.0f, 12.0f) == 1.5f,
+	      "GameDaysPassed in whole days plus GameHour: day 1, noon = 1.5");
+	Check(std::fabs(walkers::GameTimeDays(1.75f, 18.0f) - 1.75f) < 1e-4f,
+	      "GameDaysPassed with its fraction: the fraction not counted twice");
+	Check(walkers::GameTimeDays(3.0f, -2.0f) == 3.0f && walkers::GameTimeDays(3.0f, 30.0f) == 3.0f,
+	      "an hour off the clock (below 0, 24 or more): the day alone");
+	Check(walkers::GameTimeDays(-1.0f, 5.0f) < 0.0f, "no clock (no global): below 0");
+}
+
 void TestImage() {
 	std::printf("In the co-save\n");
 	NewsState news;
@@ -125,6 +137,7 @@ int main() {
 	TestChoose();
 	TestNote();
 	TestIndex();
+	TestGameTime();
 	TestImage();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

@@ -1,14 +1,19 @@
 # The walkers' news (docs/walkers-spec.md 4.9; Nadi, 2026-10-26): the
-# broadsheet in Anvil's Count's Arms (000564A5, Oblivion.esm's
-# Broadsheet01Doomstones) carries the walkers' news. First into the inn
-# with no attack noted: OblivionWalkers.log reads "News: 1 broadsheet set to
-# edition 0 (the outbreak)" (or 1-8, "a horde heading for", if a group near
-# the player heads for a gate). Then out to Tamriel -47,-7, about 1400 units
-# from Anvil's main gate, seven walkers placed at the player as in
-# gate-guards.txt: Anvil's guards come out, so Anvil is attacked. Back in the
-# inn: "edition 9 (walkers at the gates of Anvil)", and the broadsheet,
-# activated, opens on "Walkers at the Gates of Anvil!" (the shot at "book").
-# The expect lines below are OBVR.log's; the news lines are read from
+# broadsheets of the inns and the Courier's office carry the walkers' news.
+# First into Anvil's Count's Arms with no attack noted: OblivionWalkers.log
+# reads "News: 1 broadsheet set to edition 0 (the outbreak)" for its
+# broadsheet (000564A5, not persistent: found only with its cell), beside
+# the six persistent ones set at the start. Then out to Tamriel -47,-7,
+# about 1400 units from Anvil's main gate, seven walkers placed at the
+# player as in gate-guards.txt: "a horde heading for Anvil" while they walk,
+# Anvil's guards come out, so Anvil is attacked: "edition 9 (walkers at the
+# gates of Anvil)". Then into the Courier's office: its 18 broadsheets that
+# are not persistent are set as the cell comes in, the one the coc marker
+# faces reads "Walkers at the Gates of Anvil!" in the HUD (20:07), and the
+# right hand's A opens it (the shot at "book"). The console's activate
+# opened no book, neither on 000564A5 ("000564A5.activate player", or
+# "prid" first) nor on the persistent 000738E4 (19:59, 20:03, 20:07). The
+# expect lines below are OBVR.log's; the news lines are read from
 # OblivionWalkers.log after the run.
 #
 # Runs on OBVR's harness, from the OBVR folder:
@@ -22,8 +27,7 @@ console-at ready tgm
 console-at ready coc AnvilTheCountsArms
 console-at inn cow Tamriel -47 -7
 console-at outside player.placeatme 11000801 7
-console-at attacked coc AnvilTheCountsArms
-console-at inn-after 000564A5.activate player
+console-at attacked coc ICMarketDistrictBlackHorseCourier
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -43,7 +47,11 @@ wait 20
 mark attacked
 wait 12
 mark inn-after
-wait 4
+wait 1
+right a 1
+wait 0.3
+right a 0
+wait 3
 mark book
 wait 1
 mark end
