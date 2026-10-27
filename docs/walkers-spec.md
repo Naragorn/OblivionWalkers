@@ -524,6 +524,31 @@ entry point is the unknown, the veto a few lines, the test a harness scenario
 that reads the player's skill-use counters before and after blows on a
 walker and on a bandit. Not in the first build (section 8, phase 4).
 
+Read with REA 2026-10-27 (Nadi: "go A", then "auch klären ob VR Schläge
+überhaupt skill üben"): the player's skill use is PlayerCharacter's virtual
+at vtable+0x39C (0x00668C30: experience 0x00668B30, the raise 0x00668070),
+read at 19 call sites. Those of a fight:
+- **Armor of the hit** - in AttackHandling 0x005FEBF0 at 0x005FFC90: the
+  hit actor (ESI, the target since 0x005FF005) uses Light (0x1B) or Heavy
+  Armor (0x12); the attacker is EDI.
+- **Block** - 0x005F5B70 (0x0F, "%.20s blocks %.0f%% of %.20s's blow!").
+- **The weapon skill** - not in AttackHandling but in the attack update
+  0x005FCAB0 at 0x005FD83C: `UseSkill(weapon skill via +0x21C, 0)`, EBX
+  times. OBVR's hand-tracked strikes call AttackHandling directly
+  (OBVR GameAddresses.h kAttackHandling), not the attack update - so,
+  derived, **a VR swing trains no weapon skill at all**, only the armor of
+  the one hit. `blade-body.txt` 16:50 fits: a swing went into the beggar and
+  no Blade use came (the hook installed and logging blow skills) - one run;
+  `skill-hits.txt` (an NPC's blows on the player) is to show the hook seeing
+  uses at all.
+- **Acrobatics** 0x005EFAE0, **magic** 0x00671620 and others.
+xOBSE's OnHit comes through the engine's MarkEventList (its kMarkEvent
+hook), which AttackHandling calls on the target's script events - likely
+only for actors with a script (derived from xOBSE's EventManager via
+deepwiki; no OnHit line came in four runs). So the hook reads the context
+from the registers of the call site instead where it can (EDI at 0x005FFC90).
+
+
 ### 4.3b No Ultimate Leveling experience from walkers - `[Zombies] NoLevelingXP=1`
 
 What (Nadi, 2026-10-27: "da ich ultimate leveling by maskar nutze: füge
