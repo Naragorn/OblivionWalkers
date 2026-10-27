@@ -26,6 +26,10 @@ constexpr UInt32 kMapEntryFormOffset = 0x08;
 // inline at +4 of that; ListData {level, pad, form, count} (xOBSE
 // GameForms.h).
 constexpr UInt32 kLevCreatureListOffset = 0x28;
+// The list's flags byte (LVLF), at the TESLeveledList's +0xD - as
+// CalcElement and CalcItemForContainer read it (0x0046CC70, 0x0046CDE0;
+// the list component at +0x24, its entries at +0x28).
+constexpr UInt32 kLevCreatureFlagsOffset = 0x24 + 0x0D;
 constexpr UInt32 kListDataFormOffset = 0x04;
 constexpr UInt32 kListDataCountOffset = 0x08;
 // TESCreature in 1.2 (xOBSE GameForms.h): TESActorBaseData flags +0x28,
@@ -57,14 +61,15 @@ constexpr UInt32 kFormHeapAllocate = 0x00401F00;
 constexpr UInt32 kListDataBytes = 12;   // {level, pad, form, count}
 constexpr UInt32 kListEntryBytes = 8;   // {data, next}
 
-// Without MOO the variant list ends before its first MOO walker
+// Without MOO the any-walker list ends before its first MOO walker
 // (WalkerLooks.h VariantKeeps): their meshes are not there. The MOO looks
 // follow the vanilla ones, and the list's first entry is a vanilla walker,
 // so the cut is one link. Returns the entries kept.
-UInt32 TrimVariantForMoo(UInt32 variant, bool mooLoaded, LogFn log) {
+UInt32 TrimAnyWalkerForMoo(UInt32 anyWalker, bool mooLoaded, LogFn log) {
 	UInt32 kept = 0;
+	UInt32 headless = 0;
 	UInt32 previous = 0;
-	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && kept < kVariantEntriesMost;
+	for (UInt32 node = anyWalker + kLevCreatureListOffset; LooksLikeObject(node) && kept < kAnyWalkerEntriesMost;
 	     node = Read(node + 4)) {
 		const UInt32 data = Read(node);
 		if (!LooksLikeObject(data)) {
@@ -75,70 +80,47 @@ UInt32 TrimVariantForMoo(UInt32 variant, bool mooLoaded, LogFn log) {
 		const bool walker = FamilyOfLocal(FormIdOf(form) & 0x00FFFFFF, family);
 		if (walker && !VariantKeeps(family, mooLoaded) && previous != 0) {
 			*reinterpret_cast<UInt32*>(previous + 4) = 0;
-			log("Spawns: WalkersZombieVariant cut after %u entries - MOO is not loaded, its looks are left out",
-			    kept);
+			log("Spawns: WalkersAnyWalker cut after %u entries - MOO is not loaded, its looks are left out", kept);
 			return kept;
 		}
 		previous = node;
 		++kept;
 	}
+	log("Spawns: WalkersAnyWalker %08X - %u entries, a walker with a head twice, a headless one once%s",
+	    FormIdOf(anyWalker), kept, mooLoaded ? "" : " (no MOO entry met)");
 	return kept;
 }
 
-// The variant list's counts per walker slot (ReplaceLogic.h SpreadCount),
-// spread over the entries each walker has (VariantSlotsFor: ten, a headless
-// one five).
-void WriteVariantCounts(UInt32 variant, const ReplaceSettings& settings, LogFn log) {
-	UInt32 seen[kWalkerCount] = {};
-	UInt32 total[kWalkerCount] = {};
-	UInt32 times[kWalkerCount] = {};
-	UInt32 kinds = 0;
-	auto kindOf = [&](UInt32 form, bool add) {
-		UInt32 k = 0;
-		for (; k < kinds && seen[k] != form; ++k) {
+// The variant list's counts per slot (ReplaceLogic.h SpreadCount), and the
+// any-walker list's flag - drawn anew for each of the count - read back.
+void WriteVariantCounts(UInt32 variant, UInt32 anyWalker, const ReplaceSettings& settings, LogFn log) {
+	UInt32 slots = 0;
+	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && slots < kVariantEntriesMost;
+	     node = Read(node + 4)) {
+		if (!LooksLikeObject(Read(node))) {
+			break;
 		}
-		if (k == kinds && add && kinds < kWalkerCount) {
-			seen[kinds++] = form;
-		}
-		return k;
-	};
-	for (int pass = 0; pass < 2; ++pass) {
-		UInt32 entries = 0;
-		char counts[128] = {};
-		UInt32 written = 0;
-		for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && entries < kVariantEntriesMost;
-		     node = Read(node + 4)) {
-			const UInt32 data = Read(node);
-			if (!LooksLikeObject(data)) {
-				break;
-			}
-			const UInt32 k = kindOf(Read(data + kListDataFormOffset), pass == 0);
-			++entries;
-			if (k >= kWalkerCount) {
-				continue;
-			}
-			if (pass == 0) {
-				++total[k];
-				continue;
-			}
-			const UInt16 count =
-				static_cast<UInt16>(SpreadCount(settings.minCount, settings.maxCount, times[k]++, total[k]));
-			*reinterpret_cast<UInt16*>(data + kListDataCountOffset) = count;
-			if (written + 4 < sizeof(counts)) {
-				written += static_cast<UInt32>(std::snprintf(counts + written, sizeof(counts) - written, "%s%u",
-				                                              entries == 1 ? "" : " ", count));
-			}
-		}
-		if (pass == 1) {
-			UInt32 halved = 0;
-			for (UInt32 k = 0; k < kinds; ++k) {
-				halved += total[k] < kVariantSlots ? 1u : 0u;
-			}
-			log("Spawns: WalkersZombieVariant %08X - %u entries over %u walkers (%u of them headless, half as "
-			    "often), counts %s",
-			    FormIdOf(variant), entries, kinds, halved, counts);
-		}
+		++slots;
 	}
+	UInt32 slot = 0;
+	UInt32 other = 0;
+	char counts[64] = {};
+	UInt32 written = 0;
+	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && slot < slots; node = Read(node + 4)) {
+		const UInt32 data = Read(node);
+		if (Read(data + kListDataFormOffset) != anyWalker) {
+			++other;
+		}
+		const UInt16 count = static_cast<UInt16>(SpreadCount(settings.minCount, settings.maxCount, slot, slots));
+		*reinterpret_cast<UInt16*>(data + kListDataCountOffset) = count;
+		written += static_cast<UInt32>(
+			std::snprintf(counts + written, sizeof(counts) - written, "%s%u", slot == 0 ? "" : " ", count));
+		++slot;
+	}
+	const UInt8 flags = Read8(anyWalker + kLevCreatureFlagsOffset);
+	log("Spawns: WalkersZombieVariant %08X - %u count slots, counts %s%s; the any-walker list's flags %02X (%s)",
+	    FormIdOf(variant), slots, counts, other == 0 ? "" : " - some slots not the any-walker list (an older ESP)",
+	    flags, (flags & kListCalcEach) != 0 ? "drawn anew for each walker" : "one draw copied - an older ESP");
 }
 
 CreatureFacts FactsOf(UInt32 creature, UInt32 espIndex) {
@@ -305,8 +287,14 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 	static bool s_countsWritten = false;
 	if (!s_countsWritten) {
 		s_countsWritten = true;
-		TrimVariantForMoo(variant, mooLoaded, log);
-		WriteVariantCounts(variant, settings, log);
+		const UInt32 anyWalker = LookupForm(EspFormId(espIndex, kAnyWalkerLocalId));
+		if (LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
+			TrimAnyWalkerForMoo(anyWalker, mooLoaded, log);
+			WriteVariantCounts(variant, anyWalker, settings, log);
+		} else {
+			log("Spawns: %08X is no leveled creature list (an older ESP) - the variant list's counts as written",
+			    EspFormId(espIndex, kAnyWalkerLocalId));
+		}
 	}
 	std::vector<char> section(kSectionBytes, '\0');
 	if (iniPath != nullptr && iniPath[0] != '\0') {

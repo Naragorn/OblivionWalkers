@@ -388,7 +388,8 @@ void TestSettings() {
 	Check(settings.enabled && settings.minCount == 1 && settings.maxCount == 10 && settings.extraPercent == 0,
 	      "[Replace] Enabled=1, MinCount=1, MaxCount=10 (Nadi, 2026-10-24 evening), ExtraPercent=0");
 	Check(walkers::kVariantSlots == 10 && walkers::kWalkersPerSpawnMost == 10,
-	      "ten count slots per walker in the ESP's list, ten walkers the most");
+	      "ten count slots in the ESP's variant list, ten walkers the most");
+	Check(walkers::kListCalcEach == 0x02, "LVLF bit 2: the any-walker list drawn anew for each of the count");
 }
 
 }  // namespace

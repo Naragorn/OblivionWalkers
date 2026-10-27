@@ -317,18 +317,25 @@ inline UInt32 InsertSectionLines(const char* text, UInt32 length, const char* se
 	return fits ? used : 0;
 }
 
-// The ESP's WalkersZombieVariant holds every walker kVariantSlots times
-// (tools/esp-write.py); the plugin writes each slot's count from MinCount
-// and MaxCount, so the engine's own pick among the entries gives the spread.
-// Ten slots: MinCount=1, MaxCount=10 gives every count from 1 to 10 once.
+// The ESP's WalkersZombieVariant (tools/esp-write.py) holds kVariantSlots
+// entries, each the any-walker list at a count the plugin writes from
+// MinCount and MaxCount, so the engine's own pick among them gives the
+// spread. Ten slots: MinCount=1, MaxCount=10 gives every count from 1 to 10
+// once. The any-walker list carries LVLF bit 2 ("calculate for each item in
+// count"): TESLeveledList's CalcItemForContainer (0x0046CDE0, read with REA
+// 2026-10-27) draws it anew for each of the count, so ten walkers at once
+// are ten looks - without it one draw was copied count times (Nadi,
+// 2026-10-27; spawn-mixed.txt 14:41 against 15:37).
 inline constexpr UInt32 kVariantSlots = 10;
-inline constexpr UInt32 kVariantEntriesMost = kWalkerCount * kVariantSlots;
+inline constexpr UInt32 kVariantEntriesMost = kVariantSlots;
+inline constexpr UInt8 kListCalcEach = 0x02;
+inline constexpr UInt32 kAnyWalkerLocalId = 0x94A;
+inline constexpr UInt32 kAnyWalkerEntriesMost = 2 * kWalkerCount;
 
-// A walker's entries in the variant list: ten, a headless one five - half
+// A walker's entries in the any-walker list: two, a headless one one - half
 // as often among the spawns (Nadi, 2026-10-27: "ja" to the headless ones
-// less often; 25 of the 64 looks have no head). The counts spread over the
-// entries a walker has (SpreadCount), 1 to 10 either way.
-inline UInt32 VariantSlotsFor(bool headless) { return headless ? kVariantSlots / 2 : kVariantSlots; }
+// less often; 25 of the 64 looks have no head).
+inline UInt32 AnyWalkerTimes(bool headless) { return headless ? 1u : 2u; }
 inline constexpr UInt32 kWalkersPerSpawnMost = 10;
 
 inline UInt32 SpreadCount(UInt32 minCount, UInt32 maxCount, UInt32 slot, UInt32 slots) {

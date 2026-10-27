@@ -12,11 +12,16 @@ index at runtime):
          but EDID and FULL: the walkers the risen become (4.1, the creature
          path decided 2026-10-23) and the spawns turn into (4.6); their own
          animation folder (4.4) comes later on these records.
-  0x805  LVLC WalkersZombieVariant - each walker VARIANT_SLOTS times at level
-         1, a headless one half as often (counts 1..10, which the plugin
-         rewrites from [Replace] MinCount
-         and MaxCount at the start), no chance none, flags 0, like
-         LL0ZombieVariant (00034095): what 4.6 puts in place of a creature.
+  0x805  LVLC WalkersZombieVariant - VARIANT_SLOTS entries at level 1, each
+         the any-walker list (0x94A) at counts 1..10, which the plugin
+         rewrites from [Replace] MinCount and MaxCount at the start; no
+         chance none, flags 0, like LL0ZombieVariant (00034095): what 4.6
+         puts in place of a creature.
+  0x94A  LVLC WalkersAnyWalker - every walker at level 1, count 1, twice, a
+         headless one once (half as often), the vanilla looks first; flags
+         2, "calculate for each item in count", so the engine draws it anew
+         for each walker of a count (Nadi, 2026-10-27: ten at once were one
+         look; spawn-mixed.txt).
   0x806..0x815  PACK WalkersHordeTravel00..15 - the horde's leaders (4.11):
          Travel to marker NN, must reach it, 256 units near; a copy of
          SE32HlovalReturnStart (0009718B) but EDID and the location.
@@ -136,6 +141,7 @@ ACBS_NO_HEAD = 0x8000
 ACBS_NO_RIGHT_ARM = 0x10000
 ACBS_NO_LEFT_ARM = 0x20000
 LOCAL_LIST_ID = 0x805
+LOCAL_ANY_WALKER_ID = 0x94A  # ReplaceLogic.h kAnyWalkerLocalId: right after the last walker
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -172,7 +178,12 @@ LOCAL_EDITION_IDS = [0x8FC + i for i in range(EDITION_COUNT)]
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
+# LVLF bit 2, "calculate for each item in count": TESLeveledList's
+# CalcItemForContainer (0x0046CDE0) draws such a list once per count, read
+# with REA 2026-10-27; without it one draw is copied count times.
+LIST_CALC_EACH = 0x02
 LIST_EDID = "WalkersZombieVariant"
+ANY_WALKER_EDID = "WalkersAnyWalker"
 AUTHOR = "Naragorn"
 DESCRIPTION = "Oblivion Walkers - the records the plugin needs: the Walker race for the risen."
 
@@ -415,21 +426,26 @@ def cell_groups(cell_form: int, cell: bytes, markers: bytes) -> bytes:
     return group(b"CELL", typed_group(block, 2, inner))
 
 
-def variant_entries(walkers: list[int], no_heads: list[bool]) -> list[tuple[int, int]]:
-    """Every walker VARIANT_SLOTS times, a headless one half as many
-    (ReplaceLogic.h VariantSlotsFor; Nadi, 2026-10-27), with the counts
+def variant_entries(any_walker: int) -> list[tuple[int, int]]:
+    """VARIANT_SLOTS entries, each the any-walker list, at the counts
     1..slots - the plugin writes them anew from MinCount and MaxCount."""
-    return [(form, slot + 1) for form, no_head in zip(walkers, no_heads)
-            for slot in range(VARIANT_SLOTS // 2 if no_head else VARIANT_SLOTS)]
+    return [(any_walker, slot + 1) for slot in range(VARIANT_SLOTS)]
 
 
-def build_list(entries: list[tuple[int, int]], edid: str = "") -> bytes:
+def any_walker_entries(walkers: list[int], no_heads: list[bool]) -> list[tuple[int, int]]:
+    """Every walker at count 1, twice, a headless one once (ReplaceLogic.h
+    AnyWalkerTimes; Nadi, 2026-10-27: half as often), in the walkers' order -
+    the vanilla looks first, so the plugin cuts the MOO ones with one link."""
+    return [(form, 1) for form, no_head in zip(walkers, no_heads) for _ in range(1 if no_head else 2)]
+
+
+def build_list(entries: list[tuple[int, int]], edid: str = "", flags: int = 0) -> bytes:
     """A leveled creature list of the (form, count) entries at level 1: EDID,
     LVLD (chance none), LVLF (flags), then LVLO level(2) pad(2) form(4)
     count(2) pad(2)."""
     out = subrecord(b"EDID", zstring(edid or LIST_EDID))
     out += subrecord(b"LVLD", bytes([0]))
-    out += subrecord(b"LVLF", bytes([0]))
+    out += subrecord(b"LVLF", bytes([flags]))
     for form, count in entries:
         out += subrecord(b"LVLO", struct.pack("<HHIHH", 1, 0, form, count, 0))
     return out
@@ -444,10 +460,6 @@ def main() -> int:
                         help="a measurement only (4.12, 2026-10-26): N persistent, initially disabled walker "
                              "references per city in the holding cell, after the last walker - what such a pool "
                              "costs the game before one is built; never for a deployed ESP")
-    parser.add_argument("--test-nested-variant", action="store_true",
-                        help="a measurement only (2026-10-27, Nadi: ten walkers at once are one look): the variant "
-                             "list's entries point at a second list holding every walker once, at counts 1..10 - "
-                             "whether the engine draws that list anew for each of the count; never deployed")
     args = parser.parse_args()
     esm = load_esm_module()
     buf = Path(args.esm).read_bytes()
@@ -486,12 +498,10 @@ def main() -> int:
         raise SystemExit("two walkers wear the same parts")
     list_form = index | LOCAL_LIST_ID
     walker_no_heads = [headless(list(p)) for _, p in all_parts]
-    lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms, walker_no_heads)))
-    nested_list = 0
-    if args.test_nested_variant:
-        nested_list = index | (LOCAL_MOO_WALKER_IDS[-1] + 1 + args.test_walker_pool * len(CITIES))
-        lists = (record(b"LVLC", list_form, build_list([(nested_list, c) for c in range(1, VARIANT_SLOTS + 1)]))
-                 + record(b"LVLC", nested_list, build_list([(f, 1) for f in walker_forms], "WalkersTestAnyWalker")))
+    any_walker_form = index | LOCAL_ANY_WALKER_ID
+    lists = (record(b"LVLC", list_form, build_list(variant_entries(any_walker_form)))
+             + record(b"LVLC", any_walker_form,
+                      build_list(any_walker_entries(walker_forms, walker_no_heads), ANY_WALKER_EDID, LIST_CALC_EACH)))
 
     travel_template = find_record(esm, buf, b"PACK", TRAVEL_TEMPLATE)
     follow_template = find_record(esm, buf, b"PACK", FOLLOW_TEMPLATE)
@@ -526,7 +536,7 @@ def main() -> int:
     test_pool = 0
     for c in range(len(CITIES)):
         for n in range(args.test_walker_pool):
-            local = LOCAL_MOO_WALKER_IDS[-1] + 1 + test_pool
+            local = LOCAL_ANY_WALKER_ID + 1 + test_pool
             pool += record(b"ACRE", index | local,
                            build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
                                           test_pool),
@@ -545,9 +555,9 @@ def main() -> int:
             + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
     groups = 5 + 5 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + (1 if nested_list else 0))
+               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1)
     plugin = header(num_records=groups + records,
-                    next_object_id=LOCAL_MOO_WALKER_IDS[-1] + 1 + test_pool + (1 if nested_list else 0),
+                    next_object_id=LOCAL_ANY_WALKER_ID + 1 + test_pool,
                     masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
@@ -589,10 +599,15 @@ def main() -> int:
         raise SystemExit("the new walkers overlap the editions")
     back_list = find_record(esm, plugin, b"LVLC", list_form)
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
-    want_entries = ([(nested_list, c) for c in range(1, VARIANT_SLOTS + 1)] if nested_list
-                    else variant_entries(walker_forms, walker_no_heads))
-    if [(e[2], e[3]) for e in entries] != want_entries or any(e[0] != 1 for e in entries):
+    if [(e[2], e[3]) for e in entries] != variant_entries(any_walker_form) or any(e[0] != 1 for e in entries):
         raise SystemExit(f"the list's entries are off: {[(f'{e[2]:08X}', e[3]) for e in entries]}")
+    if LOCAL_ANY_WALKER_ID != LOCAL_MOO_WALKER_IDS[-1] + 1:
+        raise SystemExit("the any-walker list is not right after the last walker")
+    back_any = find_record(esm, plugin, b"LVLC", any_walker_form)
+    any_entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_any if k == b"LVLO"]
+    if [(e[2], e[3]) for e in any_entries] != any_walker_entries(walker_forms, walker_no_heads) \
+            or any(e[0] != 1 for e in any_entries) or dict(back_any)[b"LVLF"] != bytes([LIST_CALC_EACH]):
+        raise SystemExit("the any-walker list's entries or flags are off")
     for i, (form, marker) in enumerate(zip(travel_forms, marker_forms)):
         back = dict(find_record(esm, plugin, b"PACK", form))
         if struct.unpack("<iIi", back[b"PLDT"]) != (0, marker, TRAVEL_RADIUS) or back[b"PKDT"] != dict(travel_template)[b"PKDT"]:
@@ -633,7 +648,8 @@ def main() -> int:
           + ", ".join(f"{f:08X}" for f in walker_forms)
           + f" WalkersZombie1..{len(walker_forms)} '{WALKER_NAME}' ({len(MOO_DONORS)} of MOO's looks, "
           + f"{sum(1 for _, p in all_parts if headless(list(p)))} headless), "
-          + f"LVLC {list_form:08X} {LIST_EDID} with each x{VARIANT_SLOTS}; "
+          + f"LVLC {list_form:08X} {LIST_EDID} - {VARIANT_SLOTS} counts of LVLC {any_walker_form:08X} "
+          + f"{ANY_WALKER_EDID} ({len(any_walker_entries(walker_forms, walker_no_heads))} entries, drawn per walker); "
           + f"PACK {travel_forms[0]:08X}.. travel and {follow_forms[0]:08X}.. follow x{HORDE_GROUPS}, CELL {cell_form:08X} "
           + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X} and {len(pool_forms)} pool guards "
           + f"{pool_forms[0]:08X}..{pool_forms[-1]:08X} of NPC_ {guard_forms[0]:08X}..{guard_forms[-1]:08X}; "

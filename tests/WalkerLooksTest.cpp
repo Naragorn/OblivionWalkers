@@ -60,8 +60,11 @@ void TestTable() {
 	          CountOf(LookFamily::HighElf) == 8 && CountOf(LookFamily::DarkElf) == 8 && walkers::kWalkerCount == 64,
 	      "20 vanilla, 8 MOO default, 10 Argonian, 10 Orc, 8 High Elf, 8 Dark Elf: 64");
 	Check(walkers::kWalkerLooks[63].localId == 0x949, "the last at 0x949");
-	Check(walkers::kVariantEntriesMost == 64 * walkers::kVariantSlots,
-	      "the variant list holds at most every walker ten times: 640 entries");
+	Check(walkers::kVariantEntriesMost == walkers::kVariantSlots && walkers::kAnyWalkerEntriesMost == 2 * 64,
+	      "the variant list holds ten count slots, the any-walker list every walker at most twice: 128 entries");
+	LookFamily none = LookFamily::Vanilla;
+	Check(walkers::kAnyWalkerLocalId == 0x94A && !walkers::FamilyOfLocal(walkers::kAnyWalkerLocalId, none),
+	      "the any-walker list right after the last walker, at 0x94A - no walker's ID");
 }
 
 void TestRaces() {
@@ -157,8 +160,11 @@ void TestVariant() {
 	      "without MOO the list is cut at the first MOO entry");
 	Check(walkers::VariantKeeps(LookFamily::Argonian, true) && walkers::VariantKeeps(LookFamily::MooDefault, true),
 	      "with MOO all entries kept");
-	Check(walkers::VariantSlotsFor(false) == 10 && walkers::VariantSlotsFor(true) == 5,
-	      "a walker with a head ten entries, a headless one five: half as often");
+	// Nadi, 2026-10-27: ten walkers at once were one look - one draw copied
+	// count times; spawn-mixed.txt 15:37 with the any-walker list drawn per
+	// copy (LVLF 2) gave four placements of all different looks.
+	Check(walkers::AnyWalkerTimes(false) == 2 && walkers::AnyWalkerTimes(true) == 1,
+	      "in the any-walker list a walker with a head twice, a headless one once: half as often");
 	LookFamily family = LookFamily::Vanilla;
 	Check(walkers::FamilyOfLocal(0x801, family) && family == LookFamily::Vanilla &&
 	          walkers::FamilyOfLocal(0x926, family) && family == LookFamily::Argonian &&

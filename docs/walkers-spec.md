@@ -153,20 +153,27 @@ uses them only with MOO's ESP in the load order (`FindMoo`):
   default eight. Without MOO, or none of a race's looks found: the vanilla
   ones. The rise's log line names the race, the walker and how many looks
   it was drawn from.
-- **The spawns** draw from all 64: the variant list holds the vanilla twenty
-  first, then MOO's 44, each ten times, a headless one five (515 entries).
-  Without MOO the plugin cuts the list before its first MOO entry
-  (`TrimVariantForMoo`, one link), so it is the 175 vanilla entries.
+- **The spawns** draw from all 64, each walker of a spawn on its own
+  (since 2026-10-27, Nadi: "wenn 10 walker auf einmal spawnen dann ist es
+  immer der selbe typ ... es sollten 10 unterschiedliche sein"): the variant
+  list holds ten count slots, each the any-walker list WalkersAnyWalker
+  (0x94A) at a count 1..10; that list holds the vanilla twenty first, then
+  MOO's 44, a walker with a head twice, a headless one once (103 entries),
+  and carries LVLF bit 2, "calculate for each item in count", so the engine
+  draws it anew for each walker of the count (CalcItemForContainer
+  0x0046CDE0, read with REA; `spawn-mixed.txt` 15:37: four placements of
+  4, 4, 6, 3 walkers, all different looks - before, 14:41, one look each).
+  Without MOO the plugin cuts the any-walker list before its first MOO entry
+  (`TrimAnyWalkerForMoo`, one link), so it is the 35 vanilla entries.
 - **Pace** spreads over the families (`SpeedSlot`: record i takes slot
   i x 37 mod 64), so no race is all fast or all slow.
 - **Headless half as often** (Nadi, 2026-10-27: "ja"): 25 of the 64 have no
   head (5 vanilla, 20 of MOO's "Zombie2" and "SummonZombie2" sets), which
-  alike would have made two spawns in five headless. A headless walker has
-  five entries in the variant list instead of ten (`VariantSlotsFor`; the
-  counts 1 to 10 spread over its five: 1, 3, 6, 8, 10), and among the
-  risen's candidates a look with a head stands twice, a headless one once
-  (`RiseCandidates`). With MOO 125 of 515 entries are headless (about one
-  spawn in four), without it 25 of 175 (one in seven). 4.17's rule (no
+  alike would have made two spawns in five headless. A headless walker
+  stands once in the any-walker list, one with a head twice
+  (`AnyWalkerTimes`), and among the risen's candidates the same
+  (`RiseCandidates`). With MOO 25 of 103 entries are headless (about one
+  walker in four), without it 5 of 35 (one in seven). 4.17's rule (no
   headless with DieOnlyBeheaded) reads the same flag.
 - **Does MOO replace the vanilla zombies?** No (read 2026-10-27): MOO's ESP
   overrides none of Oblivion.esm's zombie records, and its archives hold no
@@ -1381,7 +1388,7 @@ roster line's counts.
 
 ## 7a. Open bugs
 
-- **Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
+- **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
   pool, aber es sollten 10 unterschiedliche sein"). Seen in his log too:
   MemorialCave's dead FF001548..FF001550 all base 2500093B. Cause, read in
@@ -1392,8 +1399,13 @@ roster line's counts.
   placements of the list gave one base each (3, 8, 3, 2) - and with the
   count moved onto an entry pointing at a second list of every walker once,
   still one base each (2, 9, 9, 3): the engine draws a nested list once and
-  copies it count times. So no ESP layout fixes it; the fix is in where the
-  engine expands the count, or after it. Options for Nadi, not built.
+  copies it count times - with the list's flags 0. Read with REA after it
+  (Nadi: "go A", the engine side): creatures from a leveled list go through
+  TESLeveledList's CalcItemForContainer (0x0046CDE0; the summon effect
+  0x006A5C60 casts to TESLevCreature and calls it), which draws a list with
+  LVLF bit 2 once for each of the count. The probe with that flag on the
+  nested list (15:37): 4, 4, 6, 3 walkers, every one a different look. Built
+  so (the any-walker list, 4.1 "The spawns"); no engine hook needed.
 
 - **Crash on loading a save inside a dungeon** (Nadi, Windows, 2026-10-27
   13:54, CrashLogger.2026-10-27-12-54-52.log): access violation in
