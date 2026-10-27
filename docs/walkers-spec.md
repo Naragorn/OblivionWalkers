@@ -560,8 +560,7 @@ AttackHandling directly and no skill use (read in OBVR src/game/MeleeHits.cpp:
 `AttackHandlingFn(kAttackHandling)(player, ..., actor)`, no call of the
 skill slot) - so a VR strike trains no weapon skill at all (derived from
 that and the engine's reading above; blade-body.txt 16:50, a swing in the
-beggar, no Blade use). OnHit does not come for an unscripted target (none
-in the runs where the player's blade went into the beggar or the walker).
+beggar, no Blade use).
 
 Since 2026-10-27 evening (Nadi: "OBVR bekommt: VR-Schläge sollen Waffenskill
 trainieren mit einer Möglichkeit, Records zu übergeben, die dies nicht tun
@@ -579,15 +578,26 @@ trainieren mit einer Möglichkeit, Records zu übergeben, die dies nicht tun
   player's vtable slot 0x210 (0x00A73C1C, the engine's 0x0066B0D0) holds a
   stub that notes ESI: the call returning to 0x005FF54D with a walker there
   is not passed on - the hit is not counted, no weapon skill for it, flat
-  and VR alike. Every other call (the resets) passes through. Built; not
-  yet seen: the harness's right trigger made no attack without hands
-  (21:44, "0 attack actions begun"), and the VR swings of blade-body and
-  skill-walker did not connect at 21:47/21:49 - OBVR's StrikesTrainSkills
-  runs are to show the lines.
+  and VR alike. Every other call (the resets) passes through. Seen in
+  OBVR's runs of its `StrikesTrainSkills` (d776f25, OBVR-wt-holster
+  artifacts/hand-script/skill-train/20261027-215211 and
+  skill-train-walker/20261027-215327, this plugin's log read there): the
+  beggar - "landed hit on FF000EE5 counted to 1 - counted", then "skill 0E
+  use 0 ... - trained", four strikes; the walker 0x801 - "landed hit on
+  FF000EE0 ... NOT COUNTED (a walker)", no Blade use. The flat attack (the
+  attack update reading the same count) is not run: the harness's right
+  trigger made no attack without hands (21:44, "0 attack actions
+  begun"); it rests on the same counting site (read). The VR swings of
+  blade-body and skill-walker no longer report "a swing went into someone"
+  since OBVR's StrikeAtContact (they strike at the touch; OBVR's session).
 - **OBVR's exceptions**: Walkers sends OBVR (xOBSE messaging, receiver
   "OBVR", type 0x58454B53) its 64 walker bases with NoSkillGain on, an empty
-  list with it off, again on a LINK change. At 21:44 "dispatched: 0" - OBVR's
-  listener not deployed yet.
+  list with it off, again on a LINK change. With OBVR d776f25 (its
+  listener): "64 walker bases sent ... dispatched: 1", OBVR "Skill
+  exceptions: 64 base(s) from OblivionWalkers".
+- Corrected: OnHit does come for an unscripted target - the beggar's
+  lines in skill-train read "the frame's hit this frame: FF000EE5 by
+  00000014"; the earlier runs without OnHit lines landed no hit at all.
 
 
 ### 4.3b No Ultimate Leveling experience from walkers - `[Zombies] NoLevelingXP=1`
