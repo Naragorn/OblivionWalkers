@@ -9,9 +9,11 @@
 #include "SoundLogic.h"
 #include "Pose.h"
 #include "QuestVars.h"
+#include "SkillLogic.h"
 #include "Replace.h"
 
 #include <windows.h>
+#include <intrin.h>
 
 #include <cmath>
 #include <cstdio>
@@ -221,6 +223,74 @@ bool IsWalkerRef(UInt32 ref) {
 }
 
 bool ConsoleOn(UInt32 ref, const char* line);
+
+// NoSkillGain (SkillLogic.h): the frame's last hit, from xOBSE's OnHit, and
+// the player's skill use behind it.
+UInt32 g_frame = 0;
+struct LastHit {
+	UInt32 frame = 0xFFFFFFFF;
+	UInt32 target = 0;
+	UInt32 attacker = 0;
+};
+LastHit g_lastHit;
+UInt32 g_skillLinesLeft = 24;
+UInt32 g_originalSkillUse = 0;
+bool g_hitWatchOn = false;
+
+// xOBSE's OnHit: the hit actor and who hit it, noted for the skill use of the
+// same frame.
+void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
+	g_lastHit.frame = g_frame;
+	g_lastHit.target = reinterpret_cast<UInt32>(arg0);
+	g_lastHit.attacker = reinterpret_cast<UInt32>(arg1);
+	(void)thisObj;
+}
+
+// PlayerCharacter's skill use, in its vtable slot: held back when the
+// frame's hit was between the player and a walker and the skill is a blow's.
+void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, float times) {
+	SkillHit hit{};
+	hit.thisFrame = g_lastHit.frame == g_frame;
+	if (hit.thisFrame) {
+		hit.targetWalker = IsWalkerRef(g_lastHit.target);
+		hit.attackerWalker = IsWalkerRef(g_lastHit.attacker);
+		hit.targetPlayer = FormIdOf(g_lastHit.target) == 0x14;
+		hit.attackerPlayer = FormIdOf(g_lastHit.attacker) == 0x14;
+	}
+	const bool hold = HoldsSkillUse(g_settings.noSkillGain, skill, hit);
+	if (IsBlowSkill(skill) && g_skillLinesLeft > 0) {
+		--g_skillLinesLeft;
+		g_log("Skills: the player's skill %02X use %u x%.2f (from %08X) - %s; the frame's hit %s: %08X by %08X",
+		      skill, use, times, reinterpret_cast<UInt32>(_ReturnAddress()), hold ? "HELD BACK" : "trained",
+		      hit.thisFrame ? "this frame" : "none", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker));
+	}
+	if (hold) {
+		return;
+	}
+	using SkillUseFn = void(__fastcall*)(void* self, void* edx, UInt32 skill, UInt32 use, float times);
+	reinterpret_cast<SkillUseFn>(g_originalSkillUse)(self, edx, skill, use, times);
+}
+
+// The slot is swapped once a session, if it still holds the engine's own
+// function (another plugin's hook there: left alone, logged).
+void InstallSkillHook() {
+	auto* const slot = reinterpret_cast<UInt32*>(kPlayerSkillUseSlot);
+	if (*slot != kPlayerSkillUse) {
+		g_log("Skills: the player's skill use slot holds %08X, not the engine's %08X - left alone, NoSkillGain off",
+		      *slot, kPlayerSkillUse);
+		return;
+	}
+	DWORD old = 0;
+	if (!VirtualProtect(slot, 4, PAGE_EXECUTE_READWRITE, &old)) {
+		g_log("Skills: the vtable slot could not be written - NoSkillGain off");
+		return;
+	}
+	g_originalSkillUse = *slot;
+	*slot = reinterpret_cast<UInt32>(&SkillUseHook);
+	VirtualProtect(slot, 4, old, &old);
+	g_log("Skills: the player's skill use (vtable slot %08X) watched - NoSkillGain=%d", kPlayerSkillUseSlot,
+	      g_settings.noSkillGain ? 1 : 0);
+}
 
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
 // the actor touched in this frame (Zombie Walkers' crash was there) - with
@@ -857,6 +927,11 @@ bool TryRegisterDeath() {
 	}
 	g_deathWatchOn = true;
 	g_log("Death watch on (the OnDeath handler taken at try %u)", g_registerTries);
+	g_hitWatchOn = g_events->RegisterEvent("OnHit", &OnHit, nullptr, nullptr, nullptr);
+	g_log("Hit watch %s (the OnHit handler, for NoSkillGain)", g_hitWatchOn ? "on" : "REFUSED");
+	if (g_hitWatchOn) {
+		InstallSkillHook();
+	}
 	return true;
 }
 
@@ -1605,6 +1680,7 @@ void StepSafeguardInGame(float dt) {
 }
 
 void Tick() {
+	++g_frame;
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
 	}

@@ -43,7 +43,7 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 27, "27 settings: the 26 agreed and NoLevelingXP");
+	Check(kLinkSettingCount == 28, "28 settings: the 26 agreed, NoLevelingXP and NoSkillGain");
 	Check(unique && prefixed && ranged, "each its own variable, named ini_..., a range from low to high");
 	Check(std::strcmp(walkers::kLinkQuestEditorId, "Walkers") == 0 && walkers::kLinkQuestLocalId == 0x94B &&
 	          walkers::kLinkScriptLocalId == 0x94C,
@@ -107,7 +107,9 @@ void TestEffects() {
 	          kLinkSettings[IndexOf("ini_guards_enabled")].effect == LinkEffect::Horde &&
 	          kLinkSettings[IndexOf("ini_courier")].effect == LinkEffect::Horde,
 	      "horde, guards and news: configured anew");
-	Check(kLinkSettings[IndexOf("ini_rise_enabled")].effect == LinkEffect::Live, "the rise: read at every death");
+	Check(kLinkSettings[IndexOf("ini_rise_enabled")].effect == LinkEffect::Live &&
+	          kLinkSettings[IndexOf("ini_no_skill_gain")].effect == LinkEffect::Live,
+	      "the rise and the skills: read where they are used");
 }
 
 void TestStart() {
@@ -133,7 +135,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 1\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 2\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

@@ -132,6 +132,9 @@ struct RiseSettings {
 	// [Zombies] NoLevelingXP: a walker's death gives Maskar's Ultimate
 	// Leveling no experience (LevelingLogic.h).
 	bool noLevelingXp = true;
+	// [Zombies] NoSkillGain: blows on and from walkers train no skill
+	// (SkillLogic.h, 4.3) - on by default (Nadi, 2026-10-23).
+	bool noSkillGain = true;
 	// [Zombies] SpeedMultiplier and SpeedRandomPercent: the walkers' pace,
 	// spread over the walker records (ReplaceLogic.h WalkerSpeed).
 	float speedMultiplier = 1.0f;
