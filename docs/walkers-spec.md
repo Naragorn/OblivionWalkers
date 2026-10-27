@@ -546,10 +546,12 @@ Leveling's handlers touch the dead in that event too (a token given, one
 removed). It rests on the plugin's handler running first: xOBSE calls an
 event's handlers in the order they were set (deepwiki on llde/xOBSE,
 EventManager's CallbackList), and the plugin sets its own at the main menu,
-before Ultimate Leveling's at the game load - derived, not yet seen. Not
-run: Ultimate Leveling is installed on Windows only; the first look is
-Nadi's (the log's "Leveling: walker ... Confidence and Aggression to 0"
-lines, and no experience text on a walker kill).
+before Ultimate Leveling's at the game load - seen since. Harness
+`leveling-no-xp.txt` 2026-10-27 16:23 PASS (Ultimate Leveling 1.9.5.2 from
+Nadi's Windows install, activated in the Linux load order for the run
+only): the walker killed by the player "Ultimate Leveling's XP 0 before, 0
+after", the bandit "0 before, 38 after" - ULVL.XP read off its quest a
+second after each kill (`QuestVars.cpp`).
 
 ### 4.4 Walkers walk - `[Zombies] Walk=1`, `SpeedMultiplier=1.0`, `SpeedRandomPercent=30`
 
@@ -1341,7 +1343,15 @@ built) - the menu's description says so.
 Test: `LinkLogicTest` (the table, the values both ways and their ranges,
 the effects, the load's decision, both files), `QuestVarLogicTest` (a
 variable by name). Harness `link-settings.txt` (LINK in the Linux install,
-three variables set by the console). The menu itself: Nadi's.
+three variables set by the console): 2026-10-27 16:22 PASS (LINK 1.4 from
+Nadi's Windows install, for the run only) - "LINK: loaded, the save had
+none of this version - the plugin INI's values written into the quest's 27
+of 27 variables", then within a second of the console's sets "ini_health_
+percent now 40" with the 64 walkers' health written anew (32 of 80),
+"ini_max_count now 4" with the counts "1 1 2 2 2 3 3 3 4 4", "ini_courier
+now 0". Seen too: the first write comes before the save's quest data is
+read and is done again after it (two such lines) - harmless. Not run: the
+menu itself (Nadi's, Windows).
 
 ### Later (named by Nadi, not in the first build)
 

@@ -9,6 +9,13 @@
 # second after each kill, "Ultimate Leveling's XP <before> before, <after>
 # after": the walker's unchanged, the bandit's grown.
 #
+# Result 2026-10-27 16:23 (20261027-162346) PASS: "Leveling: walker FF000F84
+# dead - Confidence and Aggression to 0", "FF000F84 (a walker) ... XP 0
+# before, 0 after", "FF000F86 (not a walker) ... XP 0 before, 38 after". The
+# run of 16:21 placed 11000801 with LINK and Ultimate Leveling loaded BEFORE
+# the Walkers ESP (their newer file dates moved it to 13): no walker; their
+# ESPs are now dated after it.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/leveling-no-xp.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

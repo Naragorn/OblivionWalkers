@@ -11,6 +11,10 @@
 # anew, "ini_courier now 0". OblivionWalkers.log copied into the run's
 # folder by hand. The menu itself is not opened here.
 #
+# Result 2026-10-27 16:22 (20261027-162224) PASS: the 27 variables written,
+# then "ini_health_percent now 40" (health 32 of 80 on all 64), "ini_max_count
+# now 4" (counts 1 1 2 2 2 3 3 3 4 4), "ini_courier now 0".
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/link-settings.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
