@@ -976,8 +976,20 @@ killed it, once the last walker near it was gone. The named woman (Maeva
 the Buxom, 00185FE7, Whitmond) the walkers killed in 4 of 7 runs stayed
 down to the end of each: a walker stood 51 to 95 units off her body the
 whole 90 s (11:54, the status lines) - the rule waits for that, and so it
-stays (Nadi chose to wait, 7a). **Open:** the raise of an unloaded body;
-the feel and the cost in the headset.
+stays (Nadi chose to wait, 7a). The raise of an unloaded body (Nadi,
+2026-10-27: "go A", "a 1 go"; `rise-after-away.txt`): a waiting body - the
+rise's and the safeguard's - is present only in the cells the game runs
+around the player (an interior: the player's own cell; outside: the same
+worldspace within uGridsToLoad / 2 cells, the setting read at 0x00B06A2C),
+since a left interior keeps its 3D in the cell buffer (run 1: the swap came
+in the left hall, a walker in T-pose beside the corpse). A reference the
+game freed with its cell is kept as missing, its clock standing, for three
+game days (`MissingLogic.h`; run 2 had dropped it, and the same reference
+lay there dead again at the return); co-save WAIT and SAFE version 2 carry
+the day it went missing. Run 3 PASS: missing, present again, risen 20 s
+after the return. **Open:** the three days are from memory (about the
+game's cell reset), not read; the player leaving within a swap's two
+seconds; the feel and the cost in the headset.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, not built)
 

@@ -32,6 +32,13 @@
 # in the hall the same reference FF000EE6 lies there dead again (the roster)
 # and never rises: "gone" is not "deleted" - the next gap.
 #
+# Run 3, 2026-10-27 13:03 (20261027-130326), PASS: kept while missing - "now
+# absent" at the first coc, "now missing (not held by the game - kept, its
+# clock standing)" at the fourth; back in the hall "now present", 20 s later
+# the swap ("walker FF000FC8 ... gets up at 201 -1492 -249 where FF000EE3
+# lay"). The three game days until a missing one is forgotten are covered by
+# the unit tests only.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-after-away.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
