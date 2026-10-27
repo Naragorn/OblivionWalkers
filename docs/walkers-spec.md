@@ -1125,7 +1125,19 @@ How (Proposed, nothing built):
    the death watch, and the rise is seconds later: the cut lands in time. A
    cut for a walker not on the list (already ended, or never a walker) is
    ignored.
-5. **Without a head cutter a power attack ends a walker** (decided by Nadi
+5. **No headless walkers while it is on** (Nadi, 2026-10-27: "die kopflosen
+   müssen dann nicht verwendet werden wenn wir später death only by
+   decapitation gebaut haben und dieser toggle an ist"): a walker without a
+   head could never be ended. With `DieOnlyBeheaded=1` the spawns' variant
+   list and the rise leave out the five headless walkers (ACBS No Head,
+   0x8000: local 0x90E, 0x913, 0x914, 0x915, 0x91A - read off the ESP of
+   2026-10-27); the plugin reads the flag off the records at the start, so
+   no list is kept by hand. The variant list's headless entries get count 0
+   or are unlinked (to be measured which the engine takes), the rise's
+   PickWalker draws from the fifteen with a head. Walkers already headless
+   in a save (made with the toggle off) stay as they are: proposed, they end
+   as before 4.17 (killed once). Cost small, built with 4.17.
+6. **Without a head cutter a power attack ends a walker** (decided by Nadi
    2026-10-25, b). No OBVR, OBVR with `Dismemberment=0`, or an OBVR that
    sends no cuts: a walker whose killing blow was a power attack (any melee
    power attack, fists included) stays down; every other death rises again.
@@ -1139,7 +1151,7 @@ How (Proposed, nothing built):
    attack is still on at the death, and whether OBVR's power strike by a
    fast swing counts (it hands the engine a power attack; the harness will
    tell).
-6. **The others.**
+7. **The others.**
    - 4.15 NoLoot: the corpse is set destroyed only at the end for good (the
      cut, the crushed head, or without a cutter the power attack's kill),
      not at each fall; whether a destroyed reference can be raised is
@@ -1238,7 +1250,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
-| `walker-variety.txt` | the twenty walkers placed in the prison, ten and ten, their AI off: the parts in the pictures, "20 walker creatures found" and "200 entries over 20 walkers" in OblivionWalkers.log | the plugin, the ESP with the twenty walkers |
+| `walker-variety.txt` | the twenty walkers placed in the prison, ten and ten, their AI off: the parts in the pictures, "20 walker creatures found" and "200 entries over 20 walkers" in OblivionWalkers.log - 2026-10-27 07:13 PASS headless, both log lines there, twenty mixed walkers in shots 08 and 12 | the plugin, the ESP with the twenty walkers |
 | `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak; seven walkers at Anvil's main gate bring its guards out; the Courier's office broadsheet opens on "Walkers at the Gates of Anvil!" (4.9) - 19:59 and 20:03 PASS on the log, the book not opened (the console's activate opens none); 20:07 PASS, the name in the HUD; 20:10 PASS, opened with the hand's A, the text in the picture; 2026-10-27 06:48 PASS with HeadingHoldDays 0.5 (outbreak, heading for Anvil, then the attack; the hold itself is not reached here, the attack outranks it) | the plugin, the ESP with the editions |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 
