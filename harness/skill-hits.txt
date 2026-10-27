@@ -10,6 +10,10 @@
 # "Skills: the player's skill 12 use ..." lines (does the hook see the armor
 # use, and what does it decide).
 #
+# The walker comes FIRST since 2026-10-27 20:50 (the marks keep their names
+# "bandit"/"walker" for the first and second attacker): the log's lines are
+# few per session, and the run of 20:47 spent them all on the bandit.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/skill-hits.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
@@ -19,10 +23,10 @@ ini Debug GripTrace=0
 console-at ready player.additem 0001C6D1 1
 console-at ready player.equipitem 0001C6D1
 console-at ready player.setav health 5000
-console-at bandit player.placeatme 00069AD1 1 100 0
+console-at bandit player.placeatme 11000801 1 100 0
 console-at bandit-placed {actor}.startcombat player
 console-at bandit-done {actor}.kill
-console-at walker player.placeatme 11000801 1 100 0
+console-at walker player.placeatme 00069AD1 1 100 0
 console-at walker-placed {actor}.startcombat player
 console-at walker-done {actor}.kill
 

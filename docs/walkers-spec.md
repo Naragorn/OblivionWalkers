@@ -548,6 +548,23 @@ only for actors with a script (derived from xOBSE's EventManager via
 deepwiki; no OnHit line came in four runs). So the hook reads the context
 from the registers of the call site instead where it can (EDI at 0x005FFC90).
 
+Built and run 2026-10-27 (`SkillLogic.h`, the naked `SkillUseStub` in the
+player's vtable slot 0x00A73DA8 notes the caller's EDI): `skill-hits.txt`
+20:47 - a bandit's blows on the armored player: "skill 12 use 0 (from
+005FFCA4, the armor of a hit, the attacker FF000EDF) - trained", twelve
+times; 20:51 - a walker's: "the attacker FF000EEA - HELD BACK", every time.
+So the walker's hits on the player train no Heavy Armor, anyone else's do
+(measured). OnHit came for the player as the hit actor (the "Hit:" lines,
+with the same attacker as EDI). OBVR's hand-tracked strike calls
+AttackHandling directly and no skill use (read in OBVR src/game/MeleeHits.cpp:
+`AttackHandlingFn(kAttackHandling)(player, ..., actor)`, no call of the
+skill slot) - so a VR strike trains no weapon skill at all (derived from
+that and the engine's reading above; blade-body.txt 16:50, a swing in the
+beggar, no Blade use). Open: Block (0x005F5B70) and the vanilla weapon skill
+(0x005FD846) - neither has the other actor in a register read yet; OnHit does
+not come for an unscripted target (none in the runs where the player's
+blade went into the beggar or the walker).
+
 
 ### 4.3b No Ultimate Leveling experience from walkers - `[Zombies] NoLevelingXP=1`
 
