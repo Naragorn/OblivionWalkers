@@ -1,0 +1,63 @@
+# MOO's looks (Nadi, 2026-10-27: "go" for option B - its race zombies and
+# its default set in the one ESP, used with MOO loaded, the risen by race):
+# five generic people of five races placed by an untouchable player (tgm) and
+# killed by the console - an Argonian marauder (00035FD4
+# MarauderMissileMale3B), an Orc (00069AD7 MarauderMeleeFemale4B), a High
+# Elf (00069ADD NecromancerMaleHighElf4), a Dark Elf (00069AD3
+# BanditMissileMale4B) and a Nord (00069AD8 MarauderMeleeMale4B), read off
+# Oblivion.esm on 2026-10-27 (flags 00100290/1: generic, not essential).
+# Within 20 to 30 s each gets up as a walker; OblivionWalkers.log (copied
+# into the run's folder by hand) names the race and the walker per rise:
+# the Argonian one of 0x926..0x92F, the Orc 0x930..0x939, the High Elf
+# 0x93A..0x941, the Dark Elf 0x942..0x949, the Nord one of the vanilla
+# twenty or MOO's default eight ("one of 28 looks for him (MOO 1)"). The
+# pictures after the rise show the risen; then one of each MOO family is
+# placed for a closer look (the ESP at 11, MOO at 0D in the Linux load
+# order of 2026-10-27).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-moo-races.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00035FD4 1
+console-at ready player.placeatme 00069AD7 1
+console-at ready player.placeatme 00069ADD 1
+console-at ready player.placeatme 00069AD3 1
+console-at ready player.placeatme 00069AD8 1
+console-at ready tgm
+console-at placed killall
+console-at looks player.placeatme 1100091E 1 250 0
+console-at looks player.placeatme 11000926 1 250 0
+console-at looks player.placeatme 11000930 1 250 0
+console-at looks player.placeatme 1100093B 1 250 0
+console-at looks player.placeatme 11000945 1 250 0
+console-at looks-placed tai
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 6
+mark dead
+wait 35
+mark risen
+wait 3
+mark risen-2
+wait 2
+mark looks
+wait 3
+mark looks-placed
+wait 3
+mark looks-seen
+wait 2
+mark looks-seen-2
+wait 1
+mark end

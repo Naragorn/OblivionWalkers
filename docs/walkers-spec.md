@@ -131,13 +131,43 @@ No Head (ACBS 0x8000, UESP Tes4Mod:Mod_File_Format/CREA) where no head is
 among them; five are headless. The stats stay one; the spawns' variant list
 holds each walker ten times (200 entries), the risen draw one of the twenty,
 the speed spreads over twenty paces. 0x801..0x804 stay where they were, so a
-save's walkers keep their base. Still the vanilla skin: other races and
-looks are option B, next and not built - an optional second ESP with MOO as
-its master, walkers from MOO's race zombies (Argonian, Orc, High Elf, Dark
-Elf; normal, headless, dread), its burning ones, maybe its draugr, ghouls
-and mummies, and the risen drawn by the corpse's race (cost medium). Option
-C, the s6o6t zombie overhaul on Nexus (55729), Nadi turned down
-(2026-10-27: "C ist schlecht").
+save's walkers keep their base. Option C, the s6o6t zombie overhaul on
+Nexus (55729), Nadi turned down (2026-10-27: "C ist schlecht").
+
+**MOO's looks** (option B, Nadi 2026-10-27: "go"; one ESP, the race
+zombies and MOO's default set, the risen by race): Maskar's Oblivion
+Overhaul has its own zombie skeleton (MOO\zombie\skeleton.nif) with 46 part
+sets (read off its ESP 2026-10-27): its default 8, Argonian 10, Orc 10, High
+Elf 8, Dark Elf 8 (normal, headless and dread), 2 burning. The ESP has 44 of
+them at 0x91E..0x949 (`src/WalkerLooks.h`, `tools/esp-write.py` MOO_DONORS;
+the burning two not chosen), built as the sixteen above but with the donor's
+skeleton, bound, textures, parts and animations (MODL, MODB, MODT, NIFZ,
+KFFZ). They name mesh paths only, no MOO form, so the ESP has no MOO master
+(deviation from the first plan of a second ESP with MOO as master, put to
+Nadi and chosen 2026-10-27: no load order to change, no missing-master
+start without MOO). Their meshes come with MOO's archives, so the plugin
+uses them only with MOO's ESP in the load order (`FindMoo`):
+- **The risen by race** (`RiseCandidates`): a fallen Argonian (00023FE9),
+  Orc (000191C0), High Elf (00019204) or Dark Elf (000191C1) rises as one
+  of his race's looks; everyone else as one of the vanilla twenty or MOO's
+  default eight. Without MOO, or none of a race's looks found: the vanilla
+  ones. The rise's log line names the race, the walker and how many looks
+  it was drawn from.
+- **The spawns** draw from all 64: the variant list holds the vanilla twenty
+  first, then MOO's 44, each ten times (640 entries). Without MOO the plugin
+  cuts the list before its first MOO entry (`TrimVariantForMoo`, one link),
+  so it is the 200 vanilla entries again.
+- **Pace** spreads over the families (`SpeedSlot`: record i takes slot
+  i x 37 mod 64), so no race is all fast or all slow.
+- **Headless**: 25 of the 64 (5 vanilla, 20 of MOO's: its "Zombie2" and
+  "SummonZombie2" sets). With MOO about two spawns in five are headless
+  (25 of 64 records, all weighted alike) - not weighted down, noted for
+  Nadi. 4.17's rule (no headless with DieOnlyBeheaded) reads the flag, so it
+  covers MOO's too.
+Not built: MOO's burning zombies, draugr, ghouls and mummies (other
+skeletons). Cost medium (as rated); test `WalkerLooksTest` (the table, the
+races, who rises as what with and without MOO, which entries the list
+keeps), `SpeedSlot` in `ReplaceLogicTest`, harness `rise-moo-races.txt`.
 
 What (the race path, built and measured, kept as the fallback): a fallen
 person of a playable race (men, mer, beast folk; `OnlyPlayableRaces=0` takes
@@ -1129,12 +1159,12 @@ How (Proposed, nothing built):
    müssen dann nicht verwendet werden wenn wir später death only by
    decapitation gebaut haben und dieser toggle an ist"): a walker without a
    head could never be ended. With `DieOnlyBeheaded=1` the spawns' variant
-   list and the rise leave out the five headless walkers (ACBS No Head,
-   0x8000: local 0x90E, 0x913, 0x914, 0x915, 0x91A - read off the ESP of
-   2026-10-27); the plugin reads the flag off the records at the start, so
-   no list is kept by hand. The variant list's headless entries get count 0
-   or are unlinked (to be measured which the engine takes), the rise's
-   PickWalker draws from the fifteen with a head. Walkers already headless
+   list and the rise leave out the headless walkers (ACBS No Head, 0x8000:
+   25 of the 64 - vanilla 0x90E, 0x913, 0x914, 0x915, 0x91A, and 20 of
+   MOO's looks - read off the ESP of 2026-10-27); the plugin reads the flag
+   off the records at the start, so no list is kept by hand. The variant list's headless entries get count 0
+   or are unlinked (to be measured which the engine takes), the rise draws
+   from those with a head. Walkers already headless
    in a save (made with the toggle off) stay as they are: proposed, they end
    as before 4.17 (killed once). Cost small, built with 4.17.
 6. **Without a head cutter a power attack ends a walker** (decided by Nadi
@@ -1250,6 +1280,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
+| `rise-moo-races.txt` | five generic people of five races killed (Argonian, Orc, High Elf, Dark Elf, Nord): each rises as his race's MOO look, the Nord as a vanilla or MOO default one (OblivionWalkers.log); one of each MOO family placed for the pictures | the plugin, the ESP with the 64 walkers, MOO loaded |
 | `walker-variety.txt` | the twenty walkers placed in the prison, ten and ten, their AI off: the parts in the pictures, "20 walker creatures found" and "200 entries over 20 walkers" in OblivionWalkers.log - 2026-10-27 07:13 PASS headless, both log lines there, twenty mixed walkers in shots 08 and 12 | the plugin, the ESP with the twenty walkers |
 | `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak; seven walkers at Anvil's main gate bring its guards out; the Courier's office broadsheet opens on "Walkers at the Gates of Anvil!" (4.9) - 19:59 and 20:03 PASS on the log, the book not opened (the console's activate opens none); 20:07 PASS, the name in the HUD; 20:10 PASS, opened with the hand's A, the text in the picture; 2026-10-27 06:48 PASS with HeadingHoldDays 0.5 (outbreak, heading for Anvil, then the attack; the hold itself is not reached here, the attack outranks it) | the plugin, the ESP with the editions |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |

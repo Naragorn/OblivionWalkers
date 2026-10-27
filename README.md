@@ -23,7 +23,9 @@ What exists:
 - `tools/esm-spawns.py` - lists the leveled creature lists and the spawn
   points of Oblivion.esm, so replacement targets are chosen from data.
 - `tools/esp-write.py` - writes `OblivionWalkers.esp` from Oblivion.esm's own
-  records: the Walker race for the risen, the walkers, the horde's packages
+  records (and the part sets of Maskar's Oblivion Overhaul's zombies, read
+  off its ESP, which it takes as its second argument): the Walker race for
+  the risen, the 64 walker looks, the horde's packages
   and markers, the gate guards with their pool, and the Courier's editions.
   The ESP is deployed
   beside the DLL and must be active in the game's plugin list.

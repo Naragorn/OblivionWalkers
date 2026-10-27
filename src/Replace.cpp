@@ -57,6 +57,34 @@ constexpr UInt32 kFormHeapAllocate = 0x00401F00;
 constexpr UInt32 kListDataBytes = 12;   // {level, pad, form, count}
 constexpr UInt32 kListEntryBytes = 8;   // {data, next}
 
+// Without MOO the variant list ends before its first MOO walker
+// (WalkerLooks.h VariantKeeps): their meshes are not there. The MOO looks
+// follow the vanilla ones, and the list's first entry is a vanilla walker,
+// so the cut is one link. Returns the entries kept.
+UInt32 TrimVariantForMoo(UInt32 variant, bool mooLoaded, LogFn log) {
+	UInt32 kept = 0;
+	UInt32 previous = 0;
+	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && kept < kVariantEntriesMost;
+	     node = Read(node + 4)) {
+		const UInt32 data = Read(node);
+		if (!LooksLikeObject(data)) {
+			break;
+		}
+		LookFamily family = LookFamily::Vanilla;
+		const UInt32 form = Read(data + kListDataFormOffset);
+		const bool walker = FamilyOfLocal(FormIdOf(form) & 0x00FFFFFF, family);
+		if (walker && !VariantKeeps(family, mooLoaded) && previous != 0) {
+			*reinterpret_cast<UInt32*>(previous + 4) = 0;
+			log("Spawns: WalkersZombieVariant cut after %u entries - MOO is not loaded, its looks are left out",
+			    kept);
+			return kept;
+		}
+		previous = node;
+		++kept;
+	}
+	return kept;
+}
+
 // The variant list's counts per walker slot (ReplaceLogic.h SpreadCount).
 void WriteVariantCounts(UInt32 variant, const ReplaceSettings& settings, LogFn log) {
 	UInt32 seen[kWalkerCount] = {};
@@ -244,7 +272,8 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 
 }  // namespace
 
-UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, LogFn log) {
+UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
+                     LogFn log) {
 	if (espIndex > 0xFF) {
 		log("Spawns: no ESP, the lists as they are");
 		return 0;
@@ -257,6 +286,7 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 	static bool s_countsWritten = false;
 	if (!s_countsWritten) {
 		s_countsWritten = true;
+		TrimVariantForMoo(variant, mooLoaded, log);
 		WriteVariantCounts(variant, settings, log);
 	}
 	std::vector<char> section(kSectionBytes, '\0');
@@ -437,9 +467,10 @@ void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, U
 			s_ids[i] = walkerIds[i];
 			s_speed[i] = *speed;
 		}
-		*speed = WalkerSpeed(s_speed[i], multiplier, randomPercent, i, count);
+		const UInt32 slot = SpeedSlot(i, count);
+		*speed = WalkerSpeed(s_speed[i], multiplier, randomPercent, slot, count);
 		log("Walkers: %08X speed %u (x%.2f, %u%% spread, slot %u of %u, the record's %u)", walkerIds[i], *speed,
-		    multiplier, randomPercent, i + 1, count, s_speed[i]);
+		    multiplier, randomPercent, slot + 1, count, s_speed[i]);
 	}
 }
 

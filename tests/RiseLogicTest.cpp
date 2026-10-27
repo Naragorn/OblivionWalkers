@@ -1,7 +1,6 @@
 // Every flow of the rise's decisions: the verdict on a death, the waiting
 // clocks over frames, and the co-save image both ways.
 
-#include "ReplaceLogic.h"
 #include "RiseLogic.h"
 
 #include <cstdio>
@@ -350,28 +349,8 @@ void TestSwap() {
 	          walkers::PickWalker(bases, 3, 0xFFFFFFFF) == 0x0B000801,
 	      "one of the walkers by the random number");
 	Check(walkers::PickWalker(bases, 0, 7) == 0, "none without walkers");
-	Check(walkers::EspFormId(0x0B, 0x801) == 0x0B000801 && walkers::kWalkerLocalIds[3] == 0x804,
-	      "the walkers' IDs under the ESP's index");
-	// Twenty walker looks (Nadi, 2026-10-27: "brauchen mer diversität"): the
-	// first four where they always were, so a save's walkers keep their base,
-	// the sixteen new ones past the Courier's last edition (0x90D).
-	bool firstFour = true;
-	for (UInt32 i = 0; i < 4; ++i) {
-		firstFour = firstFour && walkers::kWalkerLocalIds[i] == 0x801 + i;
-	}
-	bool unique = true;
-	bool pastEditions = true;
-	for (UInt32 i = 0; i < walkers::kWalkerCount; ++i) {
-		for (UInt32 j = i + 1; j < walkers::kWalkerCount; ++j) {
-			unique = unique && walkers::kWalkerLocalIds[i] != walkers::kWalkerLocalIds[j];
-		}
-		pastEditions = pastEditions && (i < 4 || walkers::kWalkerLocalIds[i] > 0x90D);
-	}
-	Check(walkers::kWalkerCount == 20 && firstFour, "twenty walkers, the first four at 0x801..0x804 as before");
-	Check(unique && pastEditions && walkers::kWalkerLocalIds[4] == 0x90E && walkers::kWalkerLocalIds[19] == 0x91D,
-	      "the sixteen new ones at 0x90E..0x91D, none twice");
-	Check(walkers::kVariantEntriesMost == walkers::kWalkerCount * walkers::kVariantSlots,
-	      "the variant list holds every walker ten times: 200 entries");
+	Check(walkers::EspFormId(0x0B, 0x801) == 0x0B000801 && walkers::kWalkerLooks[3].localId == 0x804,
+	      "the walkers' IDs under the ESP's index (the looks: WalkerLooksTest)");
 }
 
 void TestRisenWatch() {

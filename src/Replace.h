@@ -16,7 +16,8 @@ namespace walkers {
 // variant list's counts are written from MinCount/MaxCount first. Run again,
 // it only takes the entries still pointing at a creature. Returns the
 // entries replaced by this run.
-UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, LogFn log);
+UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
+                     LogFn log);
 
 // The walker records' health at `percent` of their own, from the values
 // they had at the first call - the record in memory only.

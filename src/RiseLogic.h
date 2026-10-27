@@ -14,6 +14,7 @@
 #include "NewsLogic.h"
 #include "SafeguardLogic.h"
 #include "Types.h"
+#include "WalkerLooks.h"
 
 namespace walkers {
 
@@ -348,16 +349,9 @@ inline UInt32 PickWalker(const UInt32* bases, UInt32 count, UInt32 random) {
 }
 
 // The ESP's records sit at local IDs from 0x800 (tools/esp-write.py): the
-// race first, then the Walker creatures - the four copies of
-// CreatureZombie1..4 at 0x801..0x804, and since 2026-10-27 (Nadi: "brauchen
-// mer diversität an zombies") sixteen more with the other body part sets
-// Oblivion.esm's zombies wear, past the Courier's editions at 0x90E..0x91D.
-// The mod index is the ESP's load index at runtime.
+// race first, then the Walker creatures (WalkerLooks.h kWalkerLooks). The
+// mod index is the ESP's load index at runtime.
 inline constexpr UInt32 kZombieRaceLocalId = 0x800;
-inline constexpr UInt32 kWalkerCount = 20;
-inline constexpr UInt32 kWalkerLocalIds[kWalkerCount] = {0x801, 0x802, 0x803, 0x804, 0x90E, 0x90F, 0x910,
-                                                         0x911, 0x912, 0x913, 0x914, 0x915, 0x916, 0x917,
-                                                         0x918, 0x919, 0x91A, 0x91B, 0x91C, 0x91D};
 inline UInt32 ZombieRaceFormId(UInt32 modIndex) { return (modIndex << 24) | kZombieRaceLocalId; }
 inline UInt32 EspFormId(UInt32 modIndex, UInt32 localId) { return (modIndex << 24) | localId; }
 

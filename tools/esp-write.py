@@ -60,8 +60,17 @@ index at runtime):
          MODT and the ACBS arm flags go with the arms) - with the donor's
          NIFZ and, without a head among the parts, ACBS's No Head (0x8000,
          UESP Tes4Mod:Mod_File_Format/CREA): the walkers' stats stay one.
+  0x91E..0x949  CREA WalkersZombie21..64 "Walker" - MOO's looks (Nadi,
+         2026-10-27): the part sets on Maskar's Oblivion Overhaul's zombie
+         skeleton, its default 0x91E..0x925, Argonian 0x926..0x92F, Orc
+         0x930..0x939, High Elf 0x93A..0x941, Dark Elf 0x942..0x949
+         (src/WalkerLooks.h) - built as the sixteen above, with the donor's
+         MODL, MODB, MODT, NIFZ and KFFZ: mesh paths only, no MOO master; the
+         plugin uses them only with MOO loaded, and the variant list holds
+         them after the vanilla twenty so it can cut them off without MOO.
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
+        ~/.local/share/Steam/steamapps/common/Oblivion/Data/"Maskar's Oblivion Overhaul.esp" \\
         --out OblivionWalkers.esp
 
 File layout, read off DLCShiveringIsles.esp and Oblivion.esm on 2026-10-23 and
@@ -99,6 +108,29 @@ LOCAL_WALKER_IDS = [0x801, 0x802, 0x803, 0x804]
 PART_DONORS = [0x00025E4E, 0x0009661A, 0x0008238C, 0x000C5B40, 0x000C5B3F, 0x00071B98, 0x00047503, 0x00047500,
                0x00026076, 0x0002CD02, 0x0002C7EC, 0x0002AAC6, 0x0002AAC5, 0x0002AAC4, 0x0002AAC3, 0x0002B81C]
 LOCAL_MORE_WALKER_IDS = [0x90E + i for i in range(len(PART_DONORS))]
+VANILLA_KEYS = (b"NIFZ",)
+# MOO's looks (Nadi, 2026-10-27: its race zombies and its default set, one
+# ESP, used only with MOO loaded - WalkerLooks.h): the part sets on MOO's
+# zombie skeleton (MOO\zombie\skeleton.nif), one donor each, read off
+# Maskar's Oblivion Overhaul.esp on 2026-10-27 (IDs as in its file, its own
+# records under index 01). Taken: the skeleton, bound, textures, parts and
+# animations - mesh paths only, no MOO form, so no MOO master.
+MOO_KEYS = (b"MODL", b"MODB", b"MODT", b"NIFZ", b"KFFZ")
+MOO_DONORS = [
+    # default: MOOZombie1Default01..04, MOOZombie2Default01..04
+    0x0110B23C, 0x0110B23D, 0x0110B23E, 0x0110B23F, 0x0110B240, 0x0110B241, 0x0110B242, 0x0110B243,
+    # Argonian: MOOSummonZombie1Argonian01..04, MOOSummonZombie2Argonian01..04, MOOZombie3Argonian03..04
+    0x0110B939, 0x0110B93A, 0x0110B93B, 0x0110B93C, 0x0110B94D, 0x0110B94E, 0x0110B94F, 0x0110B950,
+    0x011096A4, 0x011096A5,
+    # Orc: MOOSummonZombie1Orc01..04, MOOSummonZombie2Orc01..04, MOOZombie3Orc03..04
+    0x0110B949, 0x0110B94A, 0x0110B94B, 0x0110B94C, 0x0110B95D, 0x0110B95E, 0x0110B95F, 0x0110B960,
+    0x011096B0, 0x011096B1,
+    # High Elf: MOOZombie2HighElf01, MOOZombie3HighElf01..04, MOOZombie2HighElf02..04
+    0x011096C2, 0x011096C3, 0x011096C4, 0x011096C5, 0x011096C6, 0x011096C7, 0x011096C8, 0x011096C9,
+    # Dark Elf: MOOZombie2DarkElf02..04, MOOSummonZombie1DarkElf01..04, MOOSummonZombie2DarkElf01
+    0x011096BF, 0x011096C0, 0x011096C1, 0x0110B93D, 0x0110B93E, 0x0110B93F, 0x0110B940, 0x0110B951,
+]
+LOCAL_MOO_WALKER_IDS = [LOCAL_MORE_WALKER_IDS[-1] + 1 + i for i in range(len(MOO_DONORS))]  # WalkerLooks.h
 ACBS_NO_HEAD = 0x8000
 ACBS_NO_RIGHT_ARM = 0x10000
 ACBS_NO_LEFT_ARM = 0x20000
@@ -232,8 +264,8 @@ def part_names(nifz: bytes) -> list[str]:
 def arm_template(parts: list[str], walker_templates: list[list[tuple[bytes, bytes]]]):
     """CreatureZombie1 with both arms, 2 without the right, 3 without the
     left - the one whose arm flags, animations and bound fit the parts."""
-    right = any(p.startswith("rightarm") for p in parts)
-    left = any(p.startswith("leftarm") for p in parts)
+    right = any("rightarm" in p for p in parts)
+    left = any("leftarm" in p for p in parts)
     if right and left:
         return walker_templates[0]
     if left:
@@ -243,19 +275,26 @@ def arm_template(parts: list[str], walker_templates: list[list[tuple[bytes, byte
     raise SystemExit(f"a part set without either arm: {parts}")
 
 
-def build_more_walker(template: list[tuple[bytes, bytes]], nifz: bytes, edid: str) -> bytes:
-    """The arm template under the Walker's names with the donor's parts, No
-    Head set when no head is among them."""
-    headless = not any(p.startswith("head") for p in part_names(nifz))
+def headless(parts: list[str]) -> bool:
+    """No head among the parts (vanilla head01, MOO's dehead01, arg01head,
+    orc01head and the like)."""
+    return not any("head" in p for p in parts)
+
+
+def build_more_walker(template: list[tuple[bytes, bytes]], donor: dict, keys: tuple, edid: str) -> bytes:
+    """The arm template under the Walker's names with the donor's `keys`
+    (its parts, and for MOO's its skeleton, bound, textures and
+    animations), No Head set when no head is among the parts."""
+    no_head = headless(part_names(donor[b"NIFZ"]))
     out = b""
     for kind, data in template:
         if kind == b"EDID":
             data = zstring(edid)
         elif kind == b"FULL":
             data = zstring(WALKER_NAME)
-        elif kind == b"NIFZ":
-            data = nifz
-        elif kind == b"ACBS" and headless:
+        elif kind in keys and kind in donor:
+            data = donor[kind]
+        elif kind == b"ACBS" and no_head:
             data = struct.pack("<I", struct.unpack_from("<I", data, 0)[0] | ACBS_NO_HEAD) + data[4:]
         out += subrecord(kind, data)
     return out
@@ -395,6 +434,7 @@ def build_list(entries: list[tuple[int, int]]) -> bytes:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("esm", help="Oblivion.esm")
+    parser.add_argument("moo", help="Maskar's Oblivion Overhaul.esp - the parts of the walkers' MOO looks")
     parser.add_argument("--out", default=str(HERE.parent / "OblivionWalkers.esp"))
     parser.add_argument("--test-walker-pool", type=int, default=0, metavar="N",
                         help="a measurement only (4.12, 2026-10-26): N persistent, initially disabled walker "
@@ -403,6 +443,7 @@ def main() -> int:
     args = parser.parse_args()
     esm = load_esm_module()
     buf = Path(args.esm).read_bytes()
+    moo_buf = Path(args.moo).read_bytes()
 
     masters = ["Oblivion.esm"]
     index = len(masters) << 24
@@ -415,15 +456,25 @@ def main() -> int:
     first_forms = [index | local for local in LOCAL_WALKER_IDS]
     creatures = b"".join(record(b"CREA", form, build_walker(tpl, f"WalkersZombie{i + 1}"))
                          for i, (form, tpl) in enumerate(zip(first_forms, walker_templates)))
-    donor_parts = [dict(find_record(esm, buf, b"CREA", donor))[b"NIFZ"] for donor in PART_DONORS]
-    more_forms = [index | local for local in LOCAL_MORE_WALKER_IDS]
+    donors = [dict(find_record(esm, buf, b"CREA", donor)) for donor in PART_DONORS]
+    donor_keys = [VANILLA_KEYS] * len(donors)
+    for donor in MOO_DONORS:
+        found = dict(find_record(esm, moo_buf, b"CREA", donor))
+        if b"moo\\zombie\\skeleton.nif" not in found[b"MODL"].lower():
+            raise SystemExit(f"MOO's {donor:08X} is not on MOO's zombie skeleton")
+        donors.append(found)
+        donor_keys.append(MOO_KEYS)
+    donor_parts = [d[b"NIFZ"] for d in donors]
+    more_forms = [index | local for local in LOCAL_MORE_WALKER_IDS + LOCAL_MOO_WALKER_IDS]
     more_templates = [arm_template(part_names(nifz), walker_templates) for nifz in donor_parts]
     creatures += b"".join(
-        record(b"CREA", form, build_more_walker(tpl, nifz, f"WalkersZombie{len(first_forms) + i + 1}"))
-        for i, (form, tpl, nifz) in enumerate(zip(more_forms, more_templates, donor_parts)))
+        record(b"CREA", form, build_more_walker(tpl, donor, keys, f"WalkersZombie{len(first_forms) + i + 1}"))
+        for i, (form, tpl, donor, keys) in enumerate(zip(more_forms, more_templates, donors, donor_keys)))
     walker_forms = first_forms + more_forms
-    all_parts = [part_names(dict(t)[b"NIFZ"]) for t in walker_templates] + [part_names(n) for n in donor_parts]
-    if len({tuple(p) for p in all_parts}) != len(all_parts):
+    all_parts = [(dict(t)[b"MODL"].lower(), tuple(part_names(dict(t)[b"NIFZ"]))) for t in walker_templates] + \
+        [((d[b"MODL"] if k == MOO_KEYS else dict(t)[b"MODL"]).lower(), tuple(part_names(d[b"NIFZ"])))
+         for d, k, t in zip(donors, donor_keys, more_templates)]
+    if len(set(all_parts)) != len(all_parts):
         raise SystemExit("two walkers wear the same parts")
     list_form = index | LOCAL_LIST_ID
     lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms)))
@@ -461,7 +512,7 @@ def main() -> int:
     test_pool = 0
     for c in range(len(CITIES)):
         for n in range(args.test_walker_pool):
-            local = LOCAL_MORE_WALKER_IDS[-1] + 1 + test_pool
+            local = LOCAL_MOO_WALKER_IDS[-1] + 1 + test_pool
             pool += record(b"ACRE", index | local,
                            build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
                                           test_pool),
@@ -481,7 +532,7 @@ def main() -> int:
     groups = 5 + 5 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms))
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_MORE_WALKER_IDS[-1] + 1 + test_pool,
+    plugin = header(num_records=groups + records, next_object_id=LOCAL_MOO_WALKER_IDS[-1] + 1 + test_pool,
                     masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
@@ -504,17 +555,18 @@ def main() -> int:
         back_names = {k.decode(): d.rstrip(b"\0").decode("latin-1") for k, d in back if k in (b"EDID", b"FULL")}
         if back_names != {"EDID": f"WalkersZombie{i + 1}", "FULL": WALKER_NAME}:
             raise SystemExit(f"walker {i + 1}'s names are off: {back_names}")
-    for i, (form, tpl, nifz) in enumerate(zip(more_forms, more_templates, donor_parts)):
+    for i, (form, tpl, donor, keys) in enumerate(zip(more_forms, more_templates, donors, donor_keys)):
         n = len(first_forms) + i + 1
         back = find_record(esm, plugin, b"CREA", form)
-        headless = not any(p.startswith("head") for p in part_names(nifz))
-        keep = (b"EDID", b"FULL", b"NIFZ", b"ACBS")
+        no_head = headless(part_names(donor[b"NIFZ"]))
+        keep = (b"EDID", b"FULL", b"ACBS") + keys
         if [(k, d) for k, d in back if k not in keep] != [(k, d) for k, d in tpl if k not in keep]:
-            raise SystemExit(f"walker {n} differs from its arm template beyond names, parts and flags")
+            raise SystemExit(f"walker {n} differs from its arm template beyond names, donor's keys and flags")
         got = dict(back)
         flags = struct.unpack_from("<I", got[b"ACBS"], 0)[0]
-        want = struct.unpack_from("<I", dict(tpl)[b"ACBS"], 0)[0] | (ACBS_NO_HEAD if headless else 0)
-        if got[b"NIFZ"] != nifz or flags != want or got[b"ACBS"][4:] != dict(tpl)[b"ACBS"][4:]:
+        want = struct.unpack_from("<I", dict(tpl)[b"ACBS"], 0)[0] | (ACBS_NO_HEAD if no_head else 0)
+        if any(got.get(k) != (donor[k] if k in donor else dict(tpl).get(k)) for k in keys) or flags != want \
+                or got[b"ACBS"][4:] != dict(tpl)[b"ACBS"][4:]:
             raise SystemExit(f"walker {n}'s parts or flags are off")
         if got[b"EDID"].rstrip(b"\0").decode() != f"WalkersZombie{n}" or got[b"FULL"].rstrip(b"\0").decode() != WALKER_NAME:
             raise SystemExit(f"walker {n}'s names are off")
@@ -562,7 +614,8 @@ def main() -> int:
         raise SystemExit("the pool's first banks moved: a save made with a smaller pool would lose its guards")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
-          + f" WalkersZombie1..{len(walker_forms)} '{WALKER_NAME}' ({sum(1 for p in all_parts if not any(x.startswith('head') for x in p))} headless), "
+          + f" WalkersZombie1..{len(walker_forms)} '{WALKER_NAME}' ({len(MOO_DONORS)} of MOO's looks, "
+          + f"{sum(1 for _, p in all_parts if headless(list(p)))} headless), "
           + f"LVLC {list_form:08X} {LIST_EDID} with each x{VARIANT_SLOTS}; "
           + f"PACK {travel_forms[0]:08X}.. travel and {follow_forms[0]:08X}.. follow x{HORDE_GROUPS}, CELL {cell_form:08X} "
           + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X} and {len(pool_forms)} pool guards "

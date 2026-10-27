@@ -301,6 +301,32 @@ void TestSpeed() {
 	      "a multiplier of 0 or below - a word in the INI reads 0: the record's own");
 	Check(walkers::WalkerSpeed(12, 1.0f, 30, 7, 4) == 16, "a slot past the last: the fastest");
 	Check(walkers::WalkerSpeed(0, 1.0f, 30, 3, 4) == 0, "a record of Speed 0 stays so");
+	// The records come in families (WalkerLooks.h: the vanilla twenty, then
+	// MOO's by race); their pace slots are spread over the families, or the
+	// Dark Elves would all be the fastest.
+	bool taken[64] = {};
+	bool permutation = true;
+	for (UInt32 i = 0; i < 64; ++i) {
+		const UInt32 slot = walkers::SpeedSlot(i, 64);
+		permutation = permutation && slot < 64 && !taken[slot];
+		if (slot < 64) {
+			taken[slot] = true;
+		}
+	}
+	Check(permutation, "64 records: every pace slot once");
+	UInt32 lowDarkElves = 0;
+	for (UInt32 i = 56; i < 64; ++i) {
+		lowDarkElves += walkers::SpeedSlot(i, 64) < 32 ? 1u : 0u;
+	}
+	UInt32 lowVanilla = 0;
+	for (UInt32 i = 0; i < 20; ++i) {
+		lowVanilla += walkers::SpeedSlot(i, 64) < 32 ? 1u : 0u;
+	}
+	Check(lowDarkElves >= 3 && lowDarkElves <= 5 && lowVanilla >= 8 && lowVanilla <= 12,
+	      "the last eight (the Dark Elves) and the first twenty (vanilla): about half slow, half fast");
+	Check(walkers::SpeedSlot(3, 4) < 4 && walkers::SpeedSlot(0, 1) == 0 && walkers::SpeedSlot(5, 0) == 0,
+	      "four records, one, none: a slot within them");
+	Check(walkers::SpeedSlot(2, 37) == 2, "a count 37 divides (no spread there): the record's own place");
 }
 
 void TestExtra() {

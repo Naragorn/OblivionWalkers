@@ -428,6 +428,18 @@ inline UInt32 ScaledHealth(UInt32 health, UInt32 percent) {
 // per reference: SetActorValue would write the base record anyway (the CS
 // wiki), and ModActorValue on a reference stays in the save for good. 1 to
 // 255, what the record's byte holds; a record of 0 stays so.
+// The pace slot of walker record `i` of `count`: spread over the records
+// (i times 37, a prime, modulo the count) - they come in families, the
+// vanilla twenty, then MOO's by race (WalkerLooks.h), and each family should
+// shamble at slow and fast paces alike. A count 37 divides: the record's own
+// place.
+inline UInt32 SpeedSlot(UInt32 i, UInt32 count) {
+	if (count == 0) {
+		return 0;
+	}
+	return count % 37 == 0 ? i % count : (i * 37) % count;
+}
+
 inline UInt8 WalkerSpeed(UInt8 base, float multiplier, UInt32 randomPercent, UInt32 slot, UInt32 slots) {
 	if (base == 0) {
 		return 0;

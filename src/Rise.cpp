@@ -86,6 +86,7 @@ UInt32 g_apartWalker = 0;
 UInt32 g_getUpSound = 0;
 UInt32 g_apartRefusedFor = 0;
 UInt32 g_walkers[kWalkerCount] = {};
+LookFamily g_walkerFamilies[kWalkerCount] = {};
 UInt32 g_walkerCount = 0;
 bool g_walkersLooked = false;
 ReplaceSettings g_replace;
@@ -101,6 +102,9 @@ RisenSet g_risenSet;
 // BlockMooResurrect: MOO's token and brain at MOO's load index (0 without
 // MOO), looked up once a session, and the dead walkers still to strip.
 bool g_mooLooked = false;
+// MOO's ESP in the load order: its archives with the meshes of the walkers'
+// MOO looks are loaded (WalkerLooks.h LookUsable).
+bool g_mooLoaded = false;
 UInt32 g_mooToken = 0;
 UInt32 g_mooBrain = 0;
 MooStrip g_mooStrip;
@@ -407,10 +411,11 @@ void FindWalkers() {
 		g_log("Walkers: no ESP, the fallen get up as themselves");
 		return;
 	}
-	for (UInt32 local : kWalkerLocalIds) {
-		const UInt32 formId = EspFormId(index, local);
+	for (const WalkerLook& look : kWalkerLooks) {
+		const UInt32 formId = EspFormId(index, look.localId);
 		const UInt32 form = LookupForm(formId);
 		if (LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeCreature) {
+			g_walkerFamilies[g_walkerCount] = look.family;
 			g_walkers[g_walkerCount++] = formId;
 		} else {
 			g_log("Walkers: %08X is no creature (%s)", formId, LooksLikeObject(form) ? "another type" : "no form");
@@ -429,6 +434,7 @@ void FindMoo() {
 		return;
 	}
 	g_mooLooked = true;
+	g_mooLoaded = false;
 	g_mooToken = 0;
 	g_mooBrain = 0;
 	const UInt32 handler = Read(kDataHandlerPointer);
@@ -442,9 +448,10 @@ void FindMoo() {
 		}
 	}
 	if (index > 0xFF) {
-		g_log("MOO: %s is not loaded - nothing to keep off the walkers", kMooEsp);
+		g_log("MOO: %s is not loaded - nothing to keep off the walkers, the walkers' MOO looks unused", kMooEsp);
 		return;
 	}
+	g_mooLoaded = true;
 	const UInt32 token = LookupForm(MooFormId(index, kMooTokenZombieLocalId));
 	const UInt32 brain = LookupForm(MooFormId(index, kMooZombieBrainLocalId));
 	const UInt32 tokenType = LooksLikeObject(token) ? Read8(token + kFormTypeOffset) : 0;
@@ -621,7 +628,17 @@ void Raise(UInt32 refId) {
 	}
 	if (g_settings.asCreature) {
 		FindWalkers();
-		const UInt32 walker = PickWalker(g_walkers, g_walkerCount, NextRandom());
+		FindMoo();
+		UInt32 raceId = 0;
+		const UInt32 base = Read(ref + kRefBaseFormOffset);
+		if (LooksLikeObject(base) && Read8(base + kFormTypeOffset) == kFormTypeNpc) {
+			const UInt32 race = Read(base + kNpcRacePointerOffset);
+			raceId = LooksLikeObject(race) ? Read(race + kFormIdOffset) : 0;
+		}
+		static UInt32 candidates[kWalkerCount];
+		const UInt32 candidateCount =
+			RiseCandidates(g_walkers, g_walkerFamilies, g_walkerCount, raceId, g_mooLoaded, candidates);
+		const UInt32 walker = PickWalker(candidates, candidateCount, NextRandom());
 		if (walker != 0 && g_console != nullptr && !g_swap.active) {
 			char line[64];
 			std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1 0 0", walker);
@@ -635,10 +652,10 @@ void Raise(UInt32 refId) {
 			g_swap.x = FloatAt(ref + kRefPositionOffset);
 			g_swap.y = FloatAt(ref + kRefPositionOffset + 4);
 			g_swap.z = FloatAt(ref + kRefPositionOffset + 8);
-			g_log("Rise: %08X (base %08X) - walker %08X asked for at %.0f %.0f %.0f (xOBSE answered %d, %u of that "
-			      "base known before); %u waiting",
-			      refId, FormIdOf(Read(ref + kRefBaseFormOffset)), walker, g_swap.x, g_swap.y, g_swap.z,
-			      answer ? 1 : 0, g_swap.knownCount, g_list.count);
+			g_log("Rise: %08X (base %08X, race %08X) - walker %08X, one of %u looks for him (MOO %d), asked for at "
+			      "%.0f %.0f %.0f (xOBSE answered %d, %u of that base known before); %u waiting",
+			      refId, FormIdOf(Read(ref + kRefBaseFormOffset)), raceId, walker, candidateCount, g_mooLoaded ? 1 : 0,
+			      g_swap.x, g_swap.y, g_swap.z, answer ? 1 : 0, g_swap.knownCount, g_list.count);
 			return;
 		}
 		if (walker != 0 && g_swap.active) {
@@ -1142,7 +1159,7 @@ void StepSpawns(float dt) {
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspIndex(), g_settings, g_log);
 		if (g_replace.enabled) {
-			ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_log);
+			ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_mooLoaded, g_log);
 		}
 		return;
 	}
@@ -1152,7 +1169,7 @@ void StepSpawns(float dt) {
 	g_spawnsAgainSeconds -= dt;
 	if (g_spawnsAgainSeconds <= 0.0f) {
 		g_spawnsAgainSeconds = -1.0f;
-		ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_log);
+		ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_mooLoaded, g_log);
 	}
 }
 
