@@ -160,6 +160,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.news.courier = GetPrivateProfileIntA("News", "Courier", 1, path) != 0;
 	rise.news.recentDays = IniFloat("News", "RecentDays", 3.0f, path);
 	rise.news.recentDays = rise.news.recentDays < 0.0f ? 0.0f : rise.news.recentDays;
+	rise.news.headingHoldDays = IniFloat("News", "HeadingHoldDays", 0.5f, path);
+	rise.news.headingHoldDays = rise.news.headingHoldDays < 0.0f ? 0.0f : rise.news.headingHoldDays;
 	const int getUpSound = GetPrivateProfileIntA("Rise", "SoundAtGetUpPercent", 60, path);
 	rise.soundAtGetUpPercent = getUpSound < 0 ? 0u : static_cast<UInt32>(getUpSound);
 	rise.lieSeconds = IniFloat("Rise", "LieSeconds", 1.0f, path);
@@ -177,7 +179,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d; "
 	    "[Replace] ExtraPercent=%u; [Horde] Enabled=%d JoinRadius=%.0f LeadUnits=%.0f StaleSeconds=%.0f TurnDegrees=%.0f GroupMost=%u TowardCities=%d CityPull=%.2f CityRange=%.0f GateHoldUnits=%.0f; "
 	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f TestKillSeconds=%.0f; [Safeguard] Enabled=%d "
-	    "AfterSeconds=%.0f Radius=%.0f; [News] Courier=%d RecentDays=%.1f",
+	    "AfterSeconds=%.0f Radius=%.0f; [News] Courier=%d RecentDays=%.1f HeadingHoldDays=%.2f",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
 	    rise.dropSeconds, rise.lieSeconds, static_cast<UInt32>(rise.matchCorpse), rise.settleSeconds, rise.hideCorpseAtPose ? 1 : 0, rise.keepCorpseApart ? 1 : 0, rise.soundAtGetUpPercent, rise.holdDeathSound ? 1 : 0, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
@@ -189,7 +191,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    rise.guards.healthFactor, rise.guards.zombiesPerGuard, rise.guards.radius, rise.guards.clearSeconds,
 	    rise.guards.testKillSeconds,
 	    rise.safeguard.enabled ? 1 : 0, rise.safeguard.afterSeconds, rise.safeguard.radius,
-	    rise.news.courier ? 1 : 0, rise.news.recentDays);
+	    rise.news.courier ? 1 : 0, rise.news.recentDays, rise.news.headingHoldDays);
 	return true;
 }
 

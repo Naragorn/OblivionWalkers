@@ -29,33 +29,61 @@ constexpr UInt32 kSkingrad = 6;
 
 bool Is(const Edition& e, EditionKind kind, int city) { return e.kind == kind && e.city == city; }
 
+// The edition for `now` with a horde heading for `heading` seen at `seenAt`
+// (-1: none seen), RecentDays 3, HeadingHoldDays 0.5.
+Edition Choose(NewsState news, float now, int heading = -1, float seenAt = -1.0f) {
+	if (heading != -1) {
+		walkers::NoteHeading(news, heading, seenAt);
+	}
+	return walkers::ChooseEdition(news, now, 3.0f, 0.5f);
+}
+
 void TestChoose() {
 	std::printf("Which edition\n");
 	NewsState news;
-	Check(Is(walkers::ChooseEdition(news, 10.0f, 3.0f, -1), EditionKind::General, -1),
-	      "nothing attacked, no horde known: the outbreak in general");
-	Check(Is(walkers::ChooseEdition(news, 10.0f, 3.0f, static_cast<int>(kBruma)), EditionKind::Approaching,
-	         static_cast<int>(kBruma)),
+	Check(Is(Choose(news, 10.0f), EditionKind::General, -1), "nothing attacked, no horde known: the outbreak in general");
+	Check(Is(Choose(news, 10.0f, static_cast<int>(kBruma), 10.0f), EditionKind::Approaching, static_cast<int>(kBruma)),
 	      "a horde near the player heading for Bruma: 'a horde seen near Bruma'");
 	walkers::NoteCityAttack(news, kAnvil, 9.0f);
-	Check(Is(walkers::ChooseEdition(news, 10.0f, 3.0f, static_cast<int>(kBruma)), EditionKind::Attack,
-	         static_cast<int>(kAnvil)),
+	Check(Is(Choose(news, 10.0f, static_cast<int>(kBruma), 10.0f), EditionKind::Attack, static_cast<int>(kAnvil)),
 	      "Anvil's gates attacked a day ago: Anvil's edition, whatever horde heads elsewhere");
-	Check(Is(walkers::ChooseEdition(news, 12.0f, 3.0f, -1), EditionKind::Attack, static_cast<int>(kAnvil)),
+	Check(Is(Choose(news, 12.0f), EditionKind::Attack, static_cast<int>(kAnvil)),
 	      "three days later: still Anvil's (RecentDays reached, not passed)");
-	Check(Is(walkers::ChooseEdition(news, 12.5f, 3.0f, -1), EditionKind::General, -1),
-	      "past RecentDays: old news, the outbreak in general again");
+	Check(Is(Choose(news, 12.5f), EditionKind::General, -1), "past RecentDays: old news, the outbreak in general again");
 	walkers::NoteCityAttack(news, kSkingrad, 12.0f);
 	walkers::NoteCityAttack(news, kAnvil, 12.2f);
-	Check(Is(walkers::ChooseEdition(news, 12.5f, 3.0f, -1), EditionKind::Several, -1),
-	      "Anvil and Skingrad both attacked lately: 'the cities besieged'");
+	Check(Is(Choose(news, 12.5f), EditionKind::Several, -1), "Anvil and Skingrad both attacked lately: 'the cities besieged'");
 	NewsState future;
 	walkers::NoteCityAttack(future, kBruma, 20.0f);
-	Check(Is(walkers::ChooseEdition(future, 19.0f, 3.0f, -1), EditionKind::Attack, static_cast<int>(kBruma)),
+	Check(Is(Choose(future, 19.0f), EditionKind::Attack, static_cast<int>(kBruma)),
 	      "an attack noted later than now (the clock read before the note): counted as recent");
-	Check(Is(walkers::ChooseEdition(news, 12.5f, 3.0f, 99), EditionKind::Several, -1) &&
-	          Is(walkers::ChooseEdition(NewsState{}, 1.0f, 3.0f, 99), EditionKind::General, -1),
+	Check(Is(Choose(news, 12.5f, 99, 12.5f), EditionKind::Several, -1) &&
+	          Is(Choose(NewsState{}, 1.0f, 99, 1.0f), EditionKind::General, -1),
 	      "a heading city out of range is ignored");
+}
+
+void TestHeadingHeld() {
+	std::printf("A horde's heading held (Windows run 2026-10-26: the sheets flipped 7 times in minutes)\n");
+	const int ic = 7;
+	Check(Is(Choose(NewsState{}, 3.2f, ic, 3.0f), EditionKind::Approaching, ic),
+	      "the horde out of sight a fifth of a day later: still 'heading for the Imperial City'");
+	Check(Is(Choose(NewsState{}, 3.5f, ic, 3.0f), EditionKind::Approaching, ic),
+	      "HeadingHoldDays reached, not passed: still held");
+	Check(Is(Choose(NewsState{}, 3.6f, ic, 3.0f), EditionKind::General, -1),
+	      "past HeadingHoldDays without another sighting: the outbreak in general");
+	Check(Is(Choose(NewsState{}, 2.9f, ic, 3.0f), EditionKind::Approaching, ic),
+	      "seen later than now (the clock read before the note): held");
+	NewsState news;
+	walkers::NoteHeading(news, ic, 3.0f);
+	walkers::NoteHeading(news, static_cast<int>(kBruma), 3.1f);
+	Check(Is(walkers::ChooseEdition(news, 3.2f, 3.0f, 0.5f), EditionKind::Approaching, static_cast<int>(kBruma)),
+	      "a newer sighting toward another city: that one");
+	walkers::NoteHeading(news, -1, 3.3f);
+	Check(news.headingCity == static_cast<int>(kBruma) && news.headingDays == 3.1f,
+	      "no horde seen (-1): the last sighting kept, not wiped");
+	Check(Is(walkers::ChooseEdition(news, 3.1f, 3.0f, 0.0f), EditionKind::Approaching, static_cast<int>(kBruma)) &&
+	          Is(walkers::ChooseEdition(news, 3.11f, 3.0f, 0.0f), EditionKind::General, -1),
+	      "HeadingHoldDays 0: only a sighting of this very moment (a hundredth of a day later is past it)");
 }
 
 void TestNote() {
@@ -124,10 +152,21 @@ void TestImage() {
 	Check(length == walkers::kNewsImageBytes && walkers::ReadNewsImage(back, image, length) &&
 	          back.lastAttackDays[kBruma] == 33.5f && back.lastAttackDays[kAnvil] < 0.0f,
 	      "read back: the attacks as written");
+	Check(back.headingCity == -1 && back.headingDays < 0.0f, "no sighting written: none read");
+	walkers::NoteHeading(news, 7, 3.25f);
+	NewsState held;
+	Check(walkers::NewsImage(news, image, sizeof(image)) == walkers::kNewsImageBytes &&
+	          walkers::ReadNewsImage(held, image, walkers::kNewsImageBytes) && held.headingCity == 7 &&
+	          held.headingDays == 3.25f && held.lastAttackDays[kBruma] == 33.5f,
+	      "a sighting written and read back with the attacks (version 2)");
+	NewsState old;
+	Check(walkers::ReadNewsImage(old, image, walkers::kNewsImageV1Bytes) && old.lastAttackDays[kBruma] == 33.5f &&
+	          old.headingCity == -1,
+	      "a version 1 record (the attacks alone): read, no sighting");
 	Check(walkers::NewsImage(news, image, 4) == 0, "too small a buffer: nothing written");
 	NewsState cut;
 	walkers::NoteCityAttack(cut, kAnvil, 1.0f);
-	Check(!walkers::ReadNewsImage(cut, image, length - 1) && cut.lastAttackDays[kAnvil] < 0.0f,
+	Check(!walkers::ReadNewsImage(cut, image, walkers::kNewsImageV1Bytes - 1) && cut.lastAttackDays[kAnvil] < 0.0f,
 	      "cut short: false, and nothing old kept");
 }
 
@@ -135,6 +174,7 @@ void TestImage() {
 
 int main() {
 	TestChoose();
+	TestHeadingHeld();
 	TestNote();
 	TestIndex();
 	TestGameTime();

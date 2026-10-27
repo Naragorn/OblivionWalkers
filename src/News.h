@@ -19,7 +19,8 @@ void ConfigureNews(const NewsSettings& settings, UInt32 espIndex, LogFn log);
 void NoteGateAttack(UInt32 city);
 
 // Every frame; the broadsheets are looked at once a second. `headingCity`:
-// the city the hordes near the player head for, -1 none (Horde.h).
+// the city the hordes near the player head for, -1 none (Horde.h) - a
+// sighting stays the news for HeadingHoldDays.
 void StepNewsInGame(float dt, int headingCity, LogFn log);
 
 // The attacks kept across saves (Rise.cpp's co-save callbacks).

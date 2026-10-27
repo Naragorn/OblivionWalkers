@@ -80,12 +80,14 @@ inline bool NoteVictim(SafeguardList& list, UInt32 refId) {
 enum class VictimNow : UInt8 { Gone, Alive, Dead };
 
 // One step: the clocks run on, those up again or gone from the game leave
-// the list, and the due ones - dead AfterSeconds, `safeOf` true - leave it
-// into `due`, at most `most` (the rest the next step). `stateOf(id)` and
-// `safeOf(id)` read the game. Off: nothing, the list kept.
-template <typename StateFn, typename SafeFn>
+// the list - handed to `leftOf(id, now, seconds)` for the log (the Windows
+// run of 2026-10-26: a Black Guar left the list unseen, why unknown) - and
+// the due ones - dead AfterSeconds, `safeOf` true - leave it into `due`, at
+// most `most` (the rest the next step). `stateOf(id)` and `safeOf(id)` read
+// the game. Off: nothing, the list kept.
+template <typename StateFn, typename SafeFn, typename LeftFn>
 UInt32 StepSafeguard(SafeguardList& list, const SafeguardSettings& s, float dt, StateFn stateOf, SafeFn safeOf,
-                     UInt32* due, UInt32 most) {
+                     LeftFn leftOf, UInt32* due, UInt32 most) {
 	if (!s.enabled) {
 		return 0;
 	}
@@ -95,6 +97,7 @@ UInt32 StepSafeguard(SafeguardList& list, const SafeguardSettings& s, float dt, 
 		SafeguardEntry entry = list.entries[i];
 		const VictimNow now = stateOf(entry.refId);
 		if (now != VictimNow::Dead) {
+			leftOf(entry.refId, now, entry.seconds);
 			continue;
 		}
 		entry.seconds += dt;

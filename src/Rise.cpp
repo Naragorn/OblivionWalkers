@@ -1288,6 +1288,11 @@ void StepSafeguardInGame(float dt) {
 			const UInt32 ref = LookupForm(id);
 			return Read(ref + kRefNiNodeOffset) != 0 && !WalkerWithin(ref, radius, walkers, walkerCount);
 		},
+		[](UInt32 id, VictimNow now, float seconds) {
+			g_log("Safeguard: %08X off the list after %.0f s dead - %s", id, seconds,
+			      now == VictimNow::Alive ? "alive again by other means (a script, a spell, another mod)"
+			                              : "gone from the game (deleted, or no actor any more)");
+		},
 		due, 8);
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 ref = LookupForm(due[i]);
@@ -1419,13 +1424,17 @@ void OnLoad(void*) {
 		if (type == kNewsRecordType) {
 			UInt8 news[kNewsImageBytes];
 			const UInt32 read =
-				version == kNewsRecordVersion && length <= sizeof(news) ? g_serialization->ReadRecordData(news, length) : 0;
+				(version == kNewsRecordVersion || version == 1) && length <= sizeof(news)
+					? g_serialization->ReadRecordData(news, length)
+					: 0;
 			const bool whole = ReadNewsImage(CurrentNews(), news, read);
 			UInt32 attacked = 0;
 			for (float days : CurrentNews().lastAttackDays) {
 				attacked += days >= 0.0f ? 1u : 0u;
 			}
-			g_log("Co-save: %u cities' last attack for the news read%s", attacked,
+			g_log("Co-save: %u cities' last attack for the news read, a horde last seen heading for city %d at game "
+			      "day %.3f (version %u)%s",
+			      attacked, CurrentNews().headingCity, CurrentNews().headingDays, version,
 			      whole ? "" : " (version or length off: none)");
 			continue;
 		}

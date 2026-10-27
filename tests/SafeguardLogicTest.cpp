@@ -93,10 +93,28 @@ struct World {
 	UInt32 Index(UInt32 id) const { return id - 0x10; }
 };
 
-UInt32 Step(SafeguardList& list, const SafeguardSettings& s, World& world, float dt, UInt32* due, UInt32 most = 8) {
+// Who left the list without being raised, and why (the caller logs it).
+struct Left {
+	UInt32 id[8] = {};
+	VictimNow now[8] = {};
+	float seconds[8] = {};
+	UInt32 count = 0;
+};
+
+UInt32 Step(SafeguardList& list, const SafeguardSettings& s, World& world, float dt, UInt32* due, UInt32 most = 8,
+            Left* left = nullptr) {
 	return walkers::StepSafeguard(
 		list, s, dt, [&](UInt32 id) { return world.now[world.Index(id)]; },
-		[&](UInt32 id) { return world.safe[world.Index(id)]; }, due, most);
+		[&](UInt32 id) { return world.safe[world.Index(id)]; },
+		[&](UInt32 id, VictimNow now, float seconds) {
+			if (left != nullptr && left->count < 8) {
+				left->id[left->count] = id;
+				left->now[left->count] = now;
+				left->seconds[left->count] = seconds;
+				++left->count;
+			}
+		},
+		due, most);
 }
 
 void TestStep() {
@@ -125,10 +143,20 @@ void TestStep() {
 	Check(count == 1 && due[0] == 0x11 && list.count == 0, "the walker gone: raised at once (the time counted on)");
 	walkers::NoteVictim(list, 0x12);
 	walkers::NoteVictim(list, 0x13);
+	for (int t = 0; t < 3; ++t) {
+		Step(list, s, world, 1.0f, due);
+	}
+	world.safe[2] = world.safe[3] = false;
+	Step(list, s, world, 1.0f, due);
 	world.now[2] = VictimNow::Alive;
 	world.now[3] = VictimNow::Gone;
-	count = Step(list, s, world, 1.0f, due);
+	Left left;
+	count = Step(list, s, world, 1.0f, due, 8, &left);
 	Check(count == 0 && list.count == 0, "up again by other means, or gone from the game: off the list, nothing done");
+	Check(left.count == 2 && left.id[0] == 0x12 && left.now[0] == VictimNow::Alive && left.id[1] == 0x13 &&
+	          left.now[1] == VictimNow::Gone && left.seconds[0] == 4.0f && left.seconds[1] == 4.0f,
+	      "both handed to the caller with why and how long dead (the Black Guar of 2026-10-26 left unlogged)");
+	world.safe[2] = world.safe[3] = true;
 	for (UInt32 id = 0x10; id < 0x14; ++id) {
 		world.now[world.Index(id)] = VictimNow::Dead;
 		walkers::NoteVictim(list, id);
@@ -136,8 +164,10 @@ void TestStep() {
 	for (int t = 0; t < 9; ++t) {
 		Step(list, s, world, 1.0f, due, 2);
 	}
-	count = Step(list, s, world, 1.0f, due, 2);
+	Left raised;
+	count = Step(list, s, world, 1.0f, due, 2, &raised);
 	Check(count == 2 && list.count == 2, "more due than asked for: the rest the next step");
+	Check(raised.count == 0, "the raised and the kept are not handed over as left");
 	s.enabled = false;
 	Check(Step(list, s, world, 1.0f, due) == 0 && list.count == 2, "off: nothing raised, the list kept");
 }

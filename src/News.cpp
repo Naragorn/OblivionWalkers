@@ -113,7 +113,8 @@ void StepNewsInGame(float dt, int headingCity, LogFn log) {
 	if (now < 0.0f) {
 		return;
 	}
-	const Edition edition = ChooseEdition(g_news, now, g_settings.recentDays, headingCity);
+	NoteHeading(g_news, headingCity, now);
+	const Edition edition = ChooseEdition(g_news, now, g_settings.recentDays, g_settings.headingHoldDays);
 	const UInt32 index = EditionIndex(edition);
 	const UInt32 book = g_editions[index];
 	UInt32 set = 0;

@@ -25,6 +25,11 @@ inline constexpr UInt32 kNewsCities = 8;  // CityGates.h City::Count
 struct NewsSettings {
 	bool courier = true;      // [News] Courier
 	float recentDays = 3.0f;  // [News] RecentDays: an attack this many game days old is still news
+	// [News] HeadingHoldDays: a horde seen heading for a city stays the news
+	// this long after it was last seen - the Windows run of 2026-10-26 had
+	// the sheets flip between the outbreak and the horde 7 times in minutes,
+	// whenever the hordes near the player were out of reach for a moment.
+	float headingHoldDays = 0.5f;
 };
 
 enum class EditionKind : UInt8 { General, Approaching, Attack, Several };
@@ -54,6 +59,8 @@ inline UInt32 EditionIndex(const Edition& e) {
 
 struct NewsState {
 	float lastAttackDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};  // -1: never
+	int headingCity = -1;      // the last city a horde near the player was seen heading for, -1 none
+	float headingDays = -1.0f;  // the game day it was seen
 };
 
 // Walkers at `city`'s gate and its guards out, at game day `days`.
@@ -63,10 +70,19 @@ inline void NoteCityAttack(NewsState& news, UInt32 city, float days) {
 	}
 }
 
+// A horde near the player seen heading for `city` at game day `days`; -1
+// (none seen now) keeps the last sighting, a city out of range is ignored.
+inline void NoteHeading(NewsState& news, int city, float days) {
+	if (city >= 0 && city < static_cast<int>(kNewsCities)) {
+		news.headingCity = city;
+		news.headingDays = days;
+	}
+}
+
 // The edition for game day `now`: several cities attacked lately, else the
-// one attacked, else the city a horde near the player heads for
-// (`headingCity`, -1 none), else the outbreak in general.
-inline Edition ChooseEdition(const NewsState& news, float now, float recentDays, int headingCity) {
+// one attacked, else the city a horde was last seen heading for within
+// `holdDays`, else the outbreak in general.
+inline Edition ChooseEdition(const NewsState& news, float now, float recentDays, float holdDays) {
 	UInt32 recent = 0;
 	int attacked = -1;
 	float latest = -1.0f;
@@ -86,8 +102,9 @@ inline Edition ChooseEdition(const NewsState& news, float now, float recentDays,
 	if (recent == 1) {
 		return Edition{EditionKind::Attack, attacked};
 	}
-	if (headingCity >= 0 && headingCity < static_cast<int>(kNewsCities)) {
-		return Edition{EditionKind::Approaching, headingCity};
+	if (news.headingCity >= 0 && news.headingCity < static_cast<int>(kNewsCities) && news.headingDays >= 0.0f &&
+	    now - news.headingDays <= holdDays) {
+		return Edition{EditionKind::Approaching, news.headingCity};
 	}
 	return Edition{EditionKind::General, -1};
 }
@@ -104,11 +121,13 @@ inline float GameTimeDays(float daysPassed, float hour) {
 	return hour >= 0.0f && hour < 24.0f ? day + hour / 24.0f : day;
 }
 
-// The co-save record: type "NEWS", version 1 - the last attack's game day
-// per city.
+// The co-save record: type "NEWS", version 2 - the last attack's game day
+// per city, then the last sighting's city and game day. Version 1 had the
+// attacks alone (kNewsImageV1Bytes), read as such.
 inline constexpr UInt32 kNewsRecordType = 0x4E455753;  // 'NEWS'
-inline constexpr UInt32 kNewsRecordVersion = 1;
-inline constexpr UInt32 kNewsImageBytes = 4 * kNewsCities;
+inline constexpr UInt32 kNewsRecordVersion = 2;
+inline constexpr UInt32 kNewsImageV1Bytes = 4 * kNewsCities;
+inline constexpr UInt32 kNewsImageBytes = kNewsImageV1Bytes + 8;
 
 inline UInt32 NewsImage(const NewsState& news, UInt8* out, UInt32 capacity) {
 	if (capacity < kNewsImageBytes) {
@@ -119,18 +138,31 @@ inline UInt32 NewsImage(const NewsState& news, UInt8* out, UInt32 capacity) {
 		std::memcpy(&bits, &news.lastAttackDays[c], sizeof(bits));
 		Put32(out + 4 * c, bits);
 	}
+	UInt32 days = 0;
+	std::memcpy(&days, &news.headingDays, sizeof(days));
+	Put32(out + kNewsImageV1Bytes, static_cast<UInt32>(news.headingCity));
+	Put32(out + kNewsImageV1Bytes + 4, days);
 	return kNewsImageBytes;
 }
 
-// `news` emptied first; false when cut short (nothing read then).
+// `news` emptied first; false when shorter than the attacks (nothing read
+// then). The sighting only from a record long enough for it.
 inline bool ReadNewsImage(NewsState& news, const UInt8* in, UInt32 length) {
 	news = NewsState{};
-	if (length < kNewsImageBytes) {
+	if (length < kNewsImageV1Bytes) {
 		return false;
 	}
 	for (UInt32 c = 0; c < kNewsCities; ++c) {
 		const UInt32 bits = Get32(in + 4 * c);
 		std::memcpy(&news.lastAttackDays[c], &bits, sizeof(bits));
+	}
+	if (length >= kNewsImageBytes) {
+		const UInt32 days = Get32(in + kNewsImageV1Bytes + 4);
+		NoteHeading(news, static_cast<int>(Get32(in + kNewsImageV1Bytes)), 0.0f);
+		std::memcpy(&news.headingDays, &days, sizeof(days));
+		if (news.headingCity < 0) {
+			news.headingDays = -1.0f;
+		}
 	}
 	return true;
 }

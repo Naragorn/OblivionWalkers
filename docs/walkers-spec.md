@@ -636,7 +636,7 @@ reads no console output - `player.GetPCFame` in the console settles it.
 
 Cost: **cheap.**
 
-### 4.9 Black Horse Courier - `[News] Courier=1`, `RecentDays=3`
+### 4.9 Black Horse Courier - `[News] Courier=1`, `RecentDays=3`, `HeadingHoldDays=0.5`
 
 What: the broadsheets in the inns and taverns, and in the Courier's own
 office in the Imperial City, carry the latest from the outbreak: the outbreak
@@ -667,9 +667,20 @@ the gate and its guards out):
   `RecentDays` game days - several; one - that city's attack; else the city
   the biggest group of walkers near the player heads for (`HordeLogic.h`
   `HordeHeadingGate`) - a horde heading there; else the outbreak in general.
+- A sighting is held (`NoteHeading`, `HeadingHoldDays` 0.5, built
+  2026-10-27): the city a horde was last seen heading for stays the news
+  for half a game day after the last sighting; a newer sighting toward
+  another city replaces it, none seen keeps it. Found in Nadi's Windows run
+  of 2026-10-26 22:28 (artifacts/win-run-2026-10-26): the sheets went
+  between the outbreak and "a horde heading for the Imperial City" 7 times
+  in a few game minutes, whenever the groups near the player were out of
+  reach for a moment (a load, a door). The 0.5 is a proposal, not measured
+  against play; `HeadingHoldDays=0` is the old behaviour.
 - "Attacked" is what the plugin knows (`GuardLogic.h` `CityAttacked`): one of
   the city's pool guards out at a gate with walkers near it (4.11b). The last
-  attack's game time per city goes into the co-save, record `NEWS` version 1.
+  attack's game time per city goes into the co-save, record `NEWS` version 2
+  with the last sighting's city and game day after them (version 1, the
+  attacks alone, is still read).
 - The game time is GameDaysPassed's whole days plus GameHour / 24 (GLOBs
   0x39 and 0x38, `NewsLogic.h` `GameTimeDays`): GameDaysPassed counts whole
   days only - the harness read 1.000 while GameHour ran from 12.927 to
@@ -1308,6 +1319,13 @@ roster line's counts.
   (C) after the limit raise her where she lies, among them. **Decided A**
   (Nadi, 2026-10-26: "A"): the safeguard waits until no walker is within
   Radius, however long - not a bug, the rule as meant.
+  Seen again in Nadi's Windows run of 2026-10-26 22:28: a MOO Black Guar
+  (FF000EEB, base MOO 09976A) killed three walkers and was killed; a walker
+  stood 61 to 368 units off it for 446 s, then the Guar left the list
+  without a line - alive again or gone from the game, which is unknown.
+  Since 2026-10-27 the step hands every one leaving the list unraised to
+  the log ("Safeguard: X off the list after N s dead - alive again by other
+  means / gone from the game"), `SafeguardLogicTest`.
 
 - **RESOLVED 2026-10-25 09:24 (1883c49) - "Zombies ersetzen nicht die leiche
   am boden sondern schweben fallend auf den boden ganz runter und stehen dann
