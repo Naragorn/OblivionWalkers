@@ -68,11 +68,40 @@ void TestSites() {
 	      "other sites: not decided by the register (the frame's hit decides there)");
 }
 
+void TestHitCount() {
+	std::printf("The landed hit counted for the weapon skill\n");
+	// AttackHandling counts a landed hit on the attacker (0x005FF53D reads the
+	// count through +0x214, 0x005FF54B sets it +1 through +0x210, the target
+	// in ESI); the attack update 0x005FCAB0 later trains the weapon skill that
+	// many times (read in the EXE by OBVR's session and here, 2026-10-27).
+	Check(walkers::kHitCountSlot == 0x00A73A0C + 0x210 && walkers::kHitCountReturn == 0x005FF54D,
+	      "the player's vtable slot 0x210, returning to 0x005FF54D in AttackHandling");
+	Check(walkers::HoldsHitCount(true, 0x005FF54D, true), "the player's landed hit on a walker: not counted");
+	Check(!walkers::HoldsHitCount(true, 0x005FF54D, false), "on anyone else: counted");
+	Check(!walkers::HoldsHitCount(true, 0x005FD859, true),
+	      "the count set from elsewhere (the attack update's reset): as it comes");
+	Check(!walkers::HoldsHitCount(false, 0x005FF54D, true), "the setting off: counted");
+}
+
+void TestExceptions() {
+	std::printf("The bases OBVR is told of\n");
+	Check(walkers::kSkillExceptionsMessage == 0x58454B53,
+	      "the message type 0x58454B53 ('S','K','E','X' in memory), to OBVR");
+	UInt32 out[4] = {};
+	const UInt32 bases[3] = {0x11000801, 0x11000802, 0x11000949};
+	Check(walkers::SkillExceptions(true, bases, 3, out, 4) == 3 && out[0] == 0x11000801 && out[2] == 0x11000949,
+	      "NoSkillGain on: every walker base");
+	Check(walkers::SkillExceptions(false, bases, 3, out, 4) == 0, "off: none - the list cleared");
+	Check(walkers::SkillExceptions(true, bases, 3, out, 2) == 2, "no more than there is room for");
+}
+
 }  // namespace
 
 int main() {
 	TestWho();
 	TestSites();
+	TestHitCount();
+	TestExceptions();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

@@ -310,6 +310,59 @@ __declspec(naked) void SkillUseStub() {
 	}
 }
 
+// The player's landed-hit count (SkillLogic.h kHitCountSlot): a landed hit
+// on a walker - the target in ESI at 0x005FF54B - is not counted, so the
+// attack update (or OBVR after its strike) trains no weapon skill for it.
+UInt32 g_callerEsi = 0;
+UInt32 g_originalHitCount = 0;
+UInt32 g_hitCountLinesLeft = 12;
+
+void __fastcall HitCountHook(void* self, void* edx, UInt32 count) {
+	const UInt32 caller = reinterpret_cast<UInt32>(_ReturnAddress());
+	const UInt32 target = g_callerEsi;
+	const bool targetWalker = caller == kHitCountReturn && LooksLikeObject(target) && IsWalkerRef(target);
+	const bool hold = HoldsHitCount(g_settings.noSkillGain, caller, targetWalker);
+	if (caller == kHitCountReturn && g_hitCountLinesLeft > 0) {
+		--g_hitCountLinesLeft;
+		g_log("Skills: the player's landed hit on %08X counted to %u - %s", FormIdOf(target), count,
+		      hold ? "NOT COUNTED (a walker)" : "counted");
+	}
+	if (hold) {
+		return;
+	}
+	using HitCountFn = void(__fastcall*)(void* self, void* edx, UInt32 count);
+	reinterpret_cast<HitCountFn>(g_originalHitCount)(self, edx, count);
+}
+
+__declspec(naked) void HitCountStub() {
+	__asm {
+		mov g_callerEsi, esi
+		jmp HitCountHook
+	}
+}
+
+// OBVR's skill exceptions (SkillLogic.h): the walker bases with NoSkillGain
+// on, none with it off; sent once the walkers are known after a load, and
+// again when LINK changes NoSkillGain.
+obse::MessagingInterface* g_messaging = nullptr;
+UInt32 g_pluginHandle = 0;
+bool g_exceptionsSent = false;
+bool g_exceptionsSetting = false;
+
+void SendSkillExceptions() {
+	if (g_messaging == nullptr || g_walkerCount == 0) {
+		return;
+	}
+	static UInt32 bases[kWalkerCount];
+	const UInt32 n = SkillExceptions(g_settings.noSkillGain, g_walkers, g_walkerCount, bases, kWalkerCount);
+	const bool sent = g_messaging->Dispatch(g_pluginHandle, kSkillExceptionsMessage, n > 0 ? bases : nullptr, n * 4,
+	                                        kSkillExceptionsReceiver);
+	g_exceptionsSent = true;
+	g_exceptionsSetting = g_settings.noSkillGain;
+	g_log("Skills: %u walker bases sent to %s as skill exceptions (NoSkillGain=%d; dispatched: %d)", n,
+	      kSkillExceptionsReceiver, g_settings.noSkillGain ? 1 : 0, sent ? 1 : 0);
+}
+
 // The slot is swapped once a session, if it still holds the engine's own
 // function (another plugin's hook there: left alone, logged).
 void InstallSkillHook() {
@@ -329,6 +382,19 @@ void InstallSkillHook() {
 	VirtualProtect(slot, 4, old, &old);
 	g_log("Skills: the player's skill use (vtable slot %08X) watched - NoSkillGain=%d", kPlayerSkillUseSlot,
 	      g_settings.noSkillGain ? 1 : 0);
+	auto* const count = reinterpret_cast<UInt32*>(kHitCountSlot);
+	if (*count < 0x00401000 || *count >= 0x00A00000) {
+		g_log("Skills: the player's hit count slot holds %08X, not in the game's code - left alone", *count);
+		return;
+	}
+	if (!VirtualProtect(count, 4, PAGE_EXECUTE_READWRITE, &old)) {
+		g_log("Skills: the hit count slot could not be written - landed hits on walkers still count");
+		return;
+	}
+	g_originalHitCount = *count;
+	*count = reinterpret_cast<UInt32>(&HitCountStub);
+	VirtualProtect(count, 4, old, &old);
+	g_log("Skills: the player's landed-hit count (vtable slot %08X, %08X) watched", kHitCountSlot, g_originalHitCount);
 }
 
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
@@ -968,9 +1034,7 @@ bool TryRegisterDeath() {
 	g_log("Death watch on (the OnDeath handler taken at try %u)", g_registerTries);
 	g_hitWatchOn = g_events->RegisterEvent("OnHit", &OnHit, nullptr, nullptr, nullptr);
 	g_log("Hit watch %s (the OnHit handler, for NoSkillGain)", g_hitWatchOn ? "on" : "REFUSED");
-	if (g_hitWatchOn) {
-		InstallSkillHook();
-	}
+	InstallSkillHook();
 	return true;
 }
 
@@ -1480,6 +1544,9 @@ void StepLink(float dt) {
 		return;
 	}
 	g_linkClock = 0.0f;
+	if (!g_exceptionsSent || g_exceptionsSetting != g_settings.noSkillGain) {
+		SendSkillExceptions();
+	}
 	const UInt32 quest = EspFormId(FindEspIndex(), kLinkQuestLocalId);
 	double* version = QuestVariable(quest, kLinkVersionVariable);
 	if (version == nullptr) {
@@ -1940,6 +2007,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_tasks = static_cast<obse::TasksInterface*>(xse.QueryInterface(obse::kInterface_Tasks));
 	g_serialization = static_cast<obse::SerializationInterface*>(xse.QueryInterface(obse::kInterface_Serialization));
 	g_console = static_cast<obse::ConsoleInterface*>(xse.QueryInterface(obse::kInterface_Console));
+	g_messaging = static_cast<obse::MessagingInterface*>(xse.QueryInterface(obse::kInterface_Messaging));
 	if (g_console != nullptr && (g_console->version < 2 || g_console->RunScriptLine2 == nullptr)) {
 		log("xOBSE's console interface is version %u without RunScriptLine2: the risen keep their old look",
 		    g_console->version);
@@ -1969,6 +2037,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 			xse.SetOpcodeBase(kOpcodeBase);
 		}
 		const UInt32 plugin = xse.GetPluginHandle();
+		g_pluginHandle = plugin;
 		g_serialization->SetSaveCallback(plugin, &OnSave);
 		g_serialization->SetLoadCallback(plugin, &OnLoad);
 		g_serialization->SetNewGameCallback(plugin, &OnNewGame);

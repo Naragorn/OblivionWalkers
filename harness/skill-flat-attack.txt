@@ -6,10 +6,14 @@
 # trigger is the attack - to be seen here) ten times. OblivionWalkers.log's
 # "Skills: the player's skill 0E use ... (from <return address> ...)" lines
 # give the call site of the weapon skill and EDI there; the run is a probe,
-# the decision comes after. Then the AI back on (tai again), a walker (0x801)
-# placed and put into combat with him while the player holds the left
-# trigger 20 s (to be seen: is that the block without hands) - "skill 0F ...
-# (from 005F5C0B, a block, the attacker <walker>) - HELD BACK".
+# the decision comes after. Then the bandit killed, a walker (0x801) placed
+# in front, still frozen, and attacked ten times the same way: "the player's
+# landed hit on <walker> ... NOT COUNTED (a walker)" and no weapon skill use
+# after it, where the bandit's hits read "counted" and a 0E use each. Then
+# the AI back on (tai again), the walker put into combat with him while the
+# player holds the left trigger 20 s (to be seen: is that the block without
+# hands) - "skill 0F ... (from 005F5C0B, a block, the attacker <walker>) -
+# HELD BACK".
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/skill-flat-attack.txt --headless \
@@ -22,9 +26,10 @@ console-at ready player.equipitem 00000C0C
 console-at ready player.setav health 5000
 console-at placed player.placeatme 00069AD1 1 80 0
 console-at placed tai
-console-at attacked tai
-console-at attacked player.placeatme 11000801 1 100 0
-console-at walker-placed {actor}.startcombat player
+console-at attacked {actor}.kill
+console-at attacked player.placeatme 11000801 1 80 0
+console-at walker-attacked tai
+console-at walker-attacked {actor}.startcombat player
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -80,9 +85,49 @@ wait 0.4
 right trigger 0
 wait 1.2
 mark attacked
+wait 4
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+right trigger 1
+wait 0.4
+right trigger 0
+wait 1.2
+mark walker-attacked
 wait 3
-mark walker-placed
-wait 2
 left trigger 1
 wait 20
 left trigger 0

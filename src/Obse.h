@@ -100,4 +100,19 @@ struct EventManagerInterface {
 	bool (*RegisterEventNative)(void* info);
 };
 
+// OBSEMessagingInterface (version 1): messages between plugins; a
+// receiver's listener gets {sender name, type, length, data}.
+struct MessagingInterface {
+	struct Message {
+		const char* sender;
+		UInt32 type;
+		UInt32 dataLen;
+		void* data;
+	};
+	using EventCallback = void (*)(Message* message);
+	UInt32 version;
+	bool (*RegisterListener)(UInt32 listener, const char* sender, EventCallback handler);
+	bool (*Dispatch)(UInt32 sender, UInt32 messageType, void* data, UInt32 dataLen, const char* receiver);
+};
+
 }  // namespace walkers::obse

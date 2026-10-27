@@ -93,4 +93,38 @@ inline bool HoldsSiteUse(bool setting, SkillSite site, bool attackerWalker) {
 	return setting && (site == SkillSite::ArmorOfHit || site == SkillSite::BlockOfHit) && attackerWalker;
 }
 
+// The weapon skill of a landed blow (read in the EXE 2026-10-27, here and in
+// OBVR's session): AttackHandling counts the hit on the attacker - 0x005FF53D
+// reads the count through the attacker's vtable+0x214, 0x005FF54B sets it +1
+// through +0x210 (thiscall(count), the target in ESI) - and the attack
+// update 0x005FCAB0 trains the weapon skill that many times (0x005FD83C) and
+// sets the count back to 0. So a landed hit on a walker is simply not
+// counted: the player's slot 0x210 returning to 0x005FF54D with a walker in
+// ESI keeps the count as it was. OBVR's hand-tracked strikes count the same
+// way (AttackHandling) and train count times after it.
+inline constexpr UInt32 kHitCountSlot = 0x00A73A0C + 0x210;
+inline constexpr UInt32 kHitCountReturn = 0x005FF54D;
+
+inline bool HoldsHitCount(bool setting, UInt32 returnAddress, bool targetWalker) {
+	return setting && returnAddress == kHitCountReturn && targetWalker;
+}
+
+// OBVR's skill exceptions (OBVR's session, 2026-10-27): xOBSE messaging to
+// the plugin "OBVR", type 0x58454B53 ('S','K','E','X' in memory), data the
+// runtime base form IDs, each message replacing the list, an empty one
+// clearing it. The walkers' bases with NoSkillGain on, none with it off.
+inline constexpr UInt32 kSkillExceptionsMessage = 0x58454B53;
+inline constexpr const char* kSkillExceptionsReceiver = "OBVR";
+
+inline UInt32 SkillExceptions(bool setting, const UInt32* bases, UInt32 count, UInt32* out, UInt32 room) {
+	if (!setting) {
+		return 0;
+	}
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < count && n < room; ++i) {
+		out[n++] = bases[i];
+	}
+	return n;
+}
+
 }  // namespace walkers
