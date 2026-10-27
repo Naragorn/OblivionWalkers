@@ -55,7 +55,11 @@ void TestSites() {
 	      "returning to 0x005FFCA4: the armor of a hit in AttackHandling (the attacker in EDI)");
 	Check(walkers::SiteOf(0x005FD846) == SkillSite::WeaponOfAttack,
 	      "returning to 0x005FD846: the weapon skill in the attack update 0x005FCAB0");
+	Check(walkers::SiteOf(0x005F5C0B) == SkillSite::BlockOfHit,
+	      "returning to 0x005F5C0B: the block in 0x005F5B70 (the attacker in EBP)");
 	Check(walkers::SiteOf(0x00401000) == SkillSite::Other, "anywhere else: another use");
+	Check(walkers::HoldsSiteUse(true, SkillSite::BlockOfHit, true) && !walkers::HoldsSiteUse(true, SkillSite::BlockOfHit, false),
+	      "a block of a walker's blow held back, of anyone else's trained");
 	Check(walkers::HoldsSiteUse(true, SkillSite::ArmorOfHit, true) &&
 	          !walkers::HoldsSiteUse(true, SkillSite::ArmorOfHit, false),
 	      "the armor of a walker's hit held back, of anyone else's trained");

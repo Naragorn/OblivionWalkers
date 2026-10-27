@@ -255,6 +255,7 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 // The caller's EDI as the hook was entered (SkillUseStub) - at the armor
 // site the attacker (SkillLogic.h SiteOf).
 UInt32 g_callerEdi = 0;
+UInt32 g_callerEbp = 0;  // at the block site the attacker
 
 // PlayerCharacter's skill use, in its vtable slot: held back when the call
 // site names a walker as the attacker (the armor of its hit), or when the
@@ -262,7 +263,7 @@ UInt32 g_callerEdi = 0;
 void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, float times) {
 	const UInt32 caller = reinterpret_cast<UInt32>(_ReturnAddress());
 	const SkillSite site = SiteOf(caller);
-	const UInt32 attacker = g_callerEdi;
+	const UInt32 attacker = site == SkillSite::BlockOfHit ? g_callerEbp : g_callerEdi;
 	SkillHit hit{};
 	hit.thisFrame = g_lastHit.frame == g_frame;
 	if (hit.thisFrame) {
@@ -271,7 +272,8 @@ void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, fl
 		hit.targetPlayer = FormIdOf(g_lastHit.target) == 0x14;
 		hit.attackerPlayer = FormIdOf(g_lastHit.attacker) == 0x14;
 	}
-	const bool siteWalker = site == SkillSite::ArmorOfHit && LooksLikeObject(attacker) && IsWalkerRef(attacker);
+	const bool siteWalker = (site == SkillSite::ArmorOfHit || site == SkillSite::BlockOfHit) && LooksLikeObject(attacker) &&
+	                        IsWalkerRef(attacker);
 	const bool hold = HoldsSiteUse(g_settings.noSkillGain, site, siteWalker) || HoldsSkillUse(g_settings.noSkillGain, skill, hit);
 	if (!IsBlowSkill(skill) && g_otherSkillLinesLeft > 0) {
 		--g_otherSkillLinesLeft;
@@ -281,8 +283,12 @@ void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, fl
 		--g_skillLinesLeft;
 		g_log("Skills: the player's skill %02X use %u x%.2f (from %08X, %s%s%08X) - %s; the frame's hit %s: %08X by %08X",
 		      skill, use, times, caller,
-		      site == SkillSite::ArmorOfHit ? "the armor of a hit" : (site == SkillSite::WeaponOfAttack ? "the weapon of an attack" : "elsewhere"),
-		      site == SkillSite::ArmorOfHit ? ", the attacker " : ", EDI ", site == SkillSite::ArmorOfHit ? FormIdOf(attacker) : attacker,
+		      site == SkillSite::ArmorOfHit       ? "the armor of a hit"
+		      : site == SkillSite::BlockOfHit     ? "a block"
+		      : site == SkillSite::WeaponOfAttack ? "the weapon of an attack"
+		                                          : "elsewhere",
+		      site == SkillSite::ArmorOfHit || site == SkillSite::BlockOfHit ? ", the attacker " : ", EDI ",
+		      site == SkillSite::ArmorOfHit || site == SkillSite::BlockOfHit ? FormIdOf(attacker) : attacker,
 		      hold ? "HELD BACK" : "trained", hit.thisFrame ? "this frame" : "none", FormIdOf(g_lastHit.target),
 		      FormIdOf(g_lastHit.attacker));
 	}
@@ -299,6 +305,7 @@ void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, fl
 __declspec(naked) void SkillUseStub() {
 	__asm {
 		mov g_callerEdi, edi
+		mov g_callerEbp, ebp
 		jmp SkillUseHook
 	}
 }

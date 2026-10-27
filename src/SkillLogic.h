@@ -63,15 +63,23 @@ inline bool HoldsSkillUse(bool setting, UInt32 skill, const SkillHit& hit) {
 //   attacker - so the attacker is read off EDI at the hook's entry;
 // - 0x005FD846, after `call eax` at 0x005FD844 in the attack update
 //   0x005FCAB0: the attacker's weapon skill (via +0x21C), not reached by
-//   OBVR's hand-tracked strikes, which call AttackHandling directly.
-enum class SkillSite : UInt8 { Other, ArmorOfHit, WeaponOfAttack };
+//   OBVR's hand-tracked strikes, which call AttackHandling directly;
+// - 0x005F5C0B, after `call edx` at 0x005F5C09 in 0x005F5B70 (thiscall:
+//   ECX, kept in EBP, the attacker; [esp+0x18], kept in ESI, the blocker -
+//   its "%.20s blocks %.0f%% of %.20s's blow!" names them so): the
+//   blocker's Block (0x0F), the attacker in EBP.
+enum class SkillSite : UInt8 { Other, ArmorOfHit, WeaponOfAttack, BlockOfHit };
 
 inline constexpr UInt32 kArmorOfHitReturn = 0x005FFCA4;
 inline constexpr UInt32 kWeaponOfAttackReturn = 0x005FD846;
+inline constexpr UInt32 kBlockOfHitReturn = 0x005F5C0B;
 
 inline SkillSite SiteOf(UInt32 returnAddress) {
 	if (returnAddress == kArmorOfHitReturn) {
 		return SkillSite::ArmorOfHit;
+	}
+	if (returnAddress == kBlockOfHitReturn) {
+		return SkillSite::BlockOfHit;
 	}
 	if (returnAddress == kWeaponOfAttackReturn) {
 		return SkillSite::WeaponOfAttack;
@@ -79,9 +87,10 @@ inline SkillSite SiteOf(UInt32 returnAddress) {
 	return SkillSite::Other;
 }
 
-// At the armor site the attacker is known: a walker's hit trains nothing.
+// At the armor and the block site the attacker is known: a walker's blow
+// trains nothing.
 inline bool HoldsSiteUse(bool setting, SkillSite site, bool attackerWalker) {
-	return setting && site == SkillSite::ArmorOfHit && attackerWalker;
+	return setting && (site == SkillSite::ArmorOfHit || site == SkillSite::BlockOfHit) && attackerWalker;
 }
 
 }  // namespace walkers
