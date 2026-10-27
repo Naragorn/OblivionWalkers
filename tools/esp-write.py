@@ -423,11 +423,11 @@ def variant_entries(walkers: list[int], no_heads: list[bool]) -> list[tuple[int,
             for slot in range(VARIANT_SLOTS // 2 if no_head else VARIANT_SLOTS)]
 
 
-def build_list(entries: list[tuple[int, int]]) -> bytes:
+def build_list(entries: list[tuple[int, int]], edid: str = "") -> bytes:
     """A leveled creature list of the (form, count) entries at level 1: EDID,
     LVLD (chance none), LVLF (flags), then LVLO level(2) pad(2) form(4)
     count(2) pad(2)."""
-    out = subrecord(b"EDID", zstring(LIST_EDID))
+    out = subrecord(b"EDID", zstring(edid or LIST_EDID))
     out += subrecord(b"LVLD", bytes([0]))
     out += subrecord(b"LVLF", bytes([0]))
     for form, count in entries:
@@ -444,6 +444,10 @@ def main() -> int:
                         help="a measurement only (4.12, 2026-10-26): N persistent, initially disabled walker "
                              "references per city in the holding cell, after the last walker - what such a pool "
                              "costs the game before one is built; never for a deployed ESP")
+    parser.add_argument("--test-nested-variant", action="store_true",
+                        help="a measurement only (2026-10-27, Nadi: ten walkers at once are one look): the variant "
+                             "list's entries point at a second list holding every walker once, at counts 1..10 - "
+                             "whether the engine draws that list anew for each of the count; never deployed")
     args = parser.parse_args()
     esm = load_esm_module()
     buf = Path(args.esm).read_bytes()
@@ -483,6 +487,11 @@ def main() -> int:
     list_form = index | LOCAL_LIST_ID
     walker_no_heads = [headless(list(p)) for _, p in all_parts]
     lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms, walker_no_heads)))
+    nested_list = 0
+    if args.test_nested_variant:
+        nested_list = index | (LOCAL_MOO_WALKER_IDS[-1] + 1 + args.test_walker_pool * len(CITIES))
+        lists = (record(b"LVLC", list_form, build_list([(nested_list, c) for c in range(1, VARIANT_SLOTS + 1)]))
+                 + record(b"LVLC", nested_list, build_list([(f, 1) for f in walker_forms], "WalkersTestAnyWalker")))
 
     travel_template = find_record(esm, buf, b"PACK", TRAVEL_TEMPLATE)
     follow_template = find_record(esm, buf, b"PACK", FOLLOW_TEMPLATE)
@@ -536,8 +545,9 @@ def main() -> int:
             + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
     groups = 5 + 5 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms))
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_MOO_WALKER_IDS[-1] + 1 + test_pool,
+               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + (1 if nested_list else 0))
+    plugin = header(num_records=groups + records,
+                    next_object_id=LOCAL_MOO_WALKER_IDS[-1] + 1 + test_pool + (1 if nested_list else 0),
                     masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
@@ -579,7 +589,9 @@ def main() -> int:
         raise SystemExit("the new walkers overlap the editions")
     back_list = find_record(esm, plugin, b"LVLC", list_form)
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
-    if [(e[2], e[3]) for e in entries] != variant_entries(walker_forms, walker_no_heads) or any(e[0] != 1 for e in entries):
+    want_entries = ([(nested_list, c) for c in range(1, VARIANT_SLOTS + 1)] if nested_list
+                    else variant_entries(walker_forms, walker_no_heads))
+    if [(e[2], e[3]) for e in entries] != want_entries or any(e[0] != 1 for e in entries):
         raise SystemExit(f"the list's entries are off: {[(f'{e[2]:08X}', e[3]) for e in entries]}")
     for i, (form, marker) in enumerate(zip(travel_forms, marker_forms)):
         back = dict(find_record(esm, plugin, b"PACK", form))

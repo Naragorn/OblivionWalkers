@@ -1381,6 +1381,33 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
+  walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
+  pool, aber es sollten 10 unterschiedliche sein"). Seen in his log too:
+  MemorialCave's dead FF001548..FF001550 all base 2500093B. Cause, read in
+  the ESP and the plugin: WalkersZombieVariant holds each walker with a
+  count (1..10, `SpreadCount`), so one draw picks one walker and the engine
+  makes count copies of it. Measured (`spawn-mixed.txt`, 2026-10-27 14:41
+  control, 14:44 with `esp-write.py --test-nested-variant`, Linux): four
+  placements of the list gave one base each (3, 8, 3, 2) - and with the
+  count moved onto an entry pointing at a second list of every walker once,
+  still one base each (2, 9, 9, 3): the engine draws a nested list once and
+  copies it count times. So no ESP layout fixes it; the fix is in where the
+  engine expands the count, or after it. Options for Nadi, not built.
+
+- **Crash on loading a save inside a dungeon** (Nadi, Windows, 2026-10-27
+  13:54, CrashLogger.2026-10-27-12-54-52.log): access violation in
+  NiGeometry::Render+0xA (0x00722A1A, caller 0x00719BAE), ecx a
+  Lighting30ShaderProperty where a geometry is expected; on the stack two
+  walkers FF0013A9 and FF0013AA (base 25000802, cell "Temp Pathgrid"), the
+  horde's follow package 25000818, a SaveGameFile. Read in that session's
+  OblivionWalkers.log.prev: the plugin never named either walker (no death,
+  swap, horde follow, MOO strip or loot block); 818 went to FF0012EA/EC/EE
+  only - derived: the two carried it from an earlier save. The performance
+  session reads the engine side. Not read: whether the plugin's frame tick
+  runs during a load and hands console lines (the MOO strip's second
+  RemoveItem, the horde's MoveTo) to references being torn down.
+
 - **Walkers can still be made in a city** (2026-10-26): the rise has no
   city rule - a person it takes who dies in a city gets up there as a
   walker (derived from the code; no run). **Decided: no city rule** (Nadi,

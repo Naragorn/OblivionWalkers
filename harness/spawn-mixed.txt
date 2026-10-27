@@ -1,0 +1,55 @@
+# Ten walkers at once are one look (Nadi, Windows, 2026-10-27: "wenn 10
+# walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
+# pool, aber es sollten 10 unterschiedliche sein"). Read in the ESP: the
+# variant list WalkersZombieVariant (0x805) holds each walker with a count
+# (1..10, ReplaceLogic.h SpreadCount), so a draw picks one walker and the
+# engine makes count copies of it. The probe: whether an entry that points
+# at a second list (every walker once) with a count is drawn anew for each
+# of the count - `tools/esp-write.py --test-nested-variant`, Linux install
+# only, the deployed ESP put back after.
+#
+# The variant list is placed four times in the hall (player.placeatme
+# 11000805, the ESP at 11 in the Linux load order), the player in god mode.
+# The roster at each mark lists the bases and how many of each: one base
+# per placement - one look per draw; several bases from one placement of
+# count above 1 - drawn anew per copy. Run once with the deployed ESP (the
+# control) and once with the probe's.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-mixed.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at one player.placeatme 11000805 1 400 0
+console-at two player.placeatme 11000805 1 400 0
+console-at three player.placeatme 11000805 1 400 0
+console-at four player.placeatme 11000805 1 400 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 3
+mark one
+wait 4
+mark one-placed
+wait 1
+mark two
+wait 4
+mark two-placed
+wait 1
+mark three
+wait 4
+mark three-placed
+wait 1
+mark four
+wait 4
+mark four-placed
+wait 3
+mark end
