@@ -8,6 +8,13 @@
 # walker stands again, "0 dead"; with 1 (the default) it lies, "1 dead", and
 # the plugin's log reads "MOO: walker ... dead - MOO's token and brain taken".
 #
+# Results 2026-10-27 (artifacts/hand-script/moo-stay-down-moo-look/):
+#   07:59 (20261027-075958) PASS, BlockMooResurrect=0: dead at the dead to
+#   t45 marks, up again at t60, then at the player (46 units) - MOO does
+#   raise a walker in its own look.
+#   08:02 (20261027-080233) PASS, BlockMooResurrect=1: "MOO: walker FF000EE7
+#   dead - MOO's token and brain taken", dead at every mark to the end.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/moo-stay-down-moo-look.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
