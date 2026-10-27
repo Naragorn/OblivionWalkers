@@ -560,10 +560,34 @@ AttackHandling directly and no skill use (read in OBVR src/game/MeleeHits.cpp:
 `AttackHandlingFn(kAttackHandling)(player, ..., actor)`, no call of the
 skill slot) - so a VR strike trains no weapon skill at all (derived from
 that and the engine's reading above; blade-body.txt 16:50, a swing in the
-beggar, no Blade use). Open: Block (0x005F5B70) and the vanilla weapon skill
-(0x005FD846) - neither has the other actor in a register read yet; OnHit does
-not come for an unscripted target (none in the runs where the player's
-blade went into the beggar or the walker).
+beggar, no Blade use). OnHit does not come for an unscripted target (none
+in the runs where the player's blade went into the beggar or the walker).
+
+Since 2026-10-27 evening (Nadi: "OBVR bekommt: VR-Schläge sollen Waffenskill
+trainieren mit einer Möglichkeit, Records zu übergeben, die dies nicht tun
+... du baust für die flat Leute ohne OBVR diese Option in Walkers"):
+- **Block**: in 0x005F5B70 (thiscall, ECX kept in EBP the attacker, the
+  blocker in ESI - its debug text "%.20s blocks %.0f%% of %.20s's blow!"
+  names them so) the Block use returns to 0x005F5C0B; the stub notes EBP
+  too, a walker attacker holds it back. Built, not yet run (the harness's
+  left trigger did not block without hands, 21:44).
+- **The weapon skill of a landed blow**: AttackHandling counts a landed hit
+  on the attacker (0x005FF53D reads the count via +0x214, 0x005FF54B sets
+  it +1 via +0x210, the target in ESI); the attack update trains the weapon
+  skill that many times and resets the count; OBVR's strikes, since OBVR's
+  `StrikesTrainSkills`, do the same after their AttackHandling. So the
+  player's vtable slot 0x210 (0x00A73C1C, the engine's 0x0066B0D0) holds a
+  stub that notes ESI: the call returning to 0x005FF54D with a walker there
+  is not passed on - the hit is not counted, no weapon skill for it, flat
+  and VR alike. Every other call (the resets) passes through. Built; not
+  yet seen: the harness's right trigger made no attack without hands
+  (21:44, "0 attack actions begun"), and the VR swings of blade-body and
+  skill-walker did not connect at 21:47/21:49 - OBVR's StrikesTrainSkills
+  runs are to show the lines.
+- **OBVR's exceptions**: Walkers sends OBVR (xOBSE messaging, receiver
+  "OBVR", type 0x58454B53) its 64 walker bases with NoSkillGain on, an empty
+  list with it off, again on a LINK change. At 21:44 "dispatched: 0" - OBVR's
+  listener not deployed yet.
 
 
 ### 4.3b No Ultimate Leveling experience from walkers - `[Zombies] NoLevelingXP=1`
