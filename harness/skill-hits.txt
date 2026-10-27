@@ -1,0 +1,50 @@
+# Do blows on the player train his armor, and does OnHit come for them?
+# (docs/walkers-spec.md 4.3; Nadi, 2026-10-27: "Ja. Auch klären ob VR
+# Schläge überhaupt skill üben"). The player wears an iron cuirass (Heavy
+# Armor, 0001C6D1), his health set to 5000 (not god mode, which may skip the
+# hit), and is attacked first by a bandit (00069AD1, the control: his blows
+# train, "trained") and then by a walker (the ESP's 0x801: "HELD BACK"), each
+# put into combat with him (startcombat) for 25 s and then killed by the
+# console. OblivionWalkers.log (copied into the run's folder by hand): the
+# "Hit: ... hit by ..." lines (does xOBSE's OnHit come for them at all) and
+# "Skills: the player's skill 12 use ..." lines (does the hook see the armor
+# use, and what does it decide).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/skill-hits.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.additem 0001C6D1 1
+console-at ready player.equipitem 0001C6D1
+console-at ready player.setav health 5000
+console-at bandit player.placeatme 00069AD1 1 100 0
+console-at bandit-placed {actor}.startcombat player
+console-at bandit-done {actor}.kill
+console-at walker player.placeatme 11000801 1 100 0
+console-at walker-placed {actor}.startcombat player
+console-at walker-done {actor}.kill
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 4
+mark bandit
+wait 3
+mark bandit-placed
+wait 25
+mark bandit-done
+wait 3
+mark walker
+wait 3
+mark walker-placed
+wait 25
+mark walker-done
+wait 3
+mark end
