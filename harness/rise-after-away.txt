@@ -25,6 +25,13 @@
 # only in the cells around the player (RiseLogic.h InPlayersCells): its
 # clock stands while the player is elsewhere.
 #
+# Run 2, 2026-10-27 10:22 (20261027-102215), with the fix: "uGridsToLoad
+# reads 5"; at the first coc the body goes "absent (no 3D, or not where the
+# player is)" - its clock stands - and at the fourth "gone" (form flags 0:
+# the hall left the buffer, the reference freed), so it left the list. Back
+# in the hall the same reference FF000EE6 lies there dead again (the roster)
+# and never rises: "gone" is not "deleted" - the next gap.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-after-away.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

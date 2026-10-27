@@ -1059,9 +1059,12 @@ from the city through the Anvil Castle Gate to AnvilCastleGateMarker in
 Tamriel, the player at the marker (the city not loaded, the guard in low
 process): he came out into Tamriel between 90 and 120 s with the gate open
 **and** with both doors (00006B96, 00006FBA) locked at 100. Not yet
-settled: whether the lock took - the console's answer says nothing of that;
-the rerun makes the player use the door at the end (open: he goes in;
-locked: he stays). MOO has a locks module of its own (`Maskar's Oblivion
+settled: whether the lock took - the console's answer says nothing of that,
+and the rerun's read-back failed (10:25 and 10:28: `00006FBA.activate
+player` moved the player through neither the open nor the locked door; he
+stood on the bridge in both, shot 10, so it tells nothing). The plugin will
+lock the doors itself (point 3), and reading a door's lock is part of that -
+the cheapest step that settles it. MOO has a locks module of its own (`Maskar's Oblivion
 Overhaul for locks.ini`), not read. If the lock held, a low-process
 traveller passes a shut gate - the siege then shuts the gate for the player,
 not for the game's people.
