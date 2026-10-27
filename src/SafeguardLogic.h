@@ -13,6 +13,7 @@
 // The list goes into the co-save, a load keeps it.
 
 #include "Bytes.h"
+#include "MissingLogic.h"
 #include "Types.h"
 
 #include <cstring>
@@ -30,6 +31,7 @@ inline constexpr UInt32 kSafeguardMost = 128;
 struct SafeguardEntry {
 	UInt32 refId = 0;
 	float seconds = 0.0f;  // dead this long
+	float missingSince = -1.0f;  // the game day it was first not found, -1 held (MissingLogic.h)
 };
 
 struct SafeguardList {
@@ -77,17 +79,21 @@ inline bool NoteVictim(SafeguardList& list, UInt32 refId) {
 	return true;
 }
 
-enum class VictimNow : UInt8 { Gone, Alive, Dead };
+// Gone: the ID is no actor any more. Missing: not found right now - its
+// cell freed from memory (MissingLogic.h).
+enum class VictimNow : UInt8 { Gone, Missing, Alive, Dead };
 
 // One step: the clocks run on, those up again or gone from the game leave
 // the list - handed to `leftOf(id, now, seconds)` for the log (the Windows
 // run of 2026-10-26: a Black Guar left the list unseen, why unknown) - and
 // the due ones - dead AfterSeconds, `safeOf` true - leave it into `due`, at
 // most `most` (the rest the next step). `stateOf(id)` and `safeOf(id)` read
-// the game. Off: nothing, the list kept.
+// the game. A missing one is kept, its time dead standing, until
+// kForgetMissingDays have passed on `nowDays` (the game's clock in days, -1
+// not read), then handed to `leftOf` as missing. Off: nothing, the list kept.
 template <typename StateFn, typename SafeFn, typename LeftFn>
 UInt32 StepSafeguard(SafeguardList& list, const SafeguardSettings& s, float dt, StateFn stateOf, SafeFn safeOf,
-                     LeftFn leftOf, UInt32* due, UInt32 most) {
+                     LeftFn leftOf, UInt32* due, UInt32 most, float nowDays = -1.0f) {
 	if (!s.enabled) {
 		return 0;
 	}
@@ -96,10 +102,19 @@ UInt32 StepSafeguard(SafeguardList& list, const SafeguardSettings& s, float dt, 
 	for (UInt32 i = 0; i < list.count; ++i) {
 		SafeguardEntry entry = list.entries[i];
 		const VictimNow now = stateOf(entry.refId);
+		if (now == VictimNow::Missing) {
+			if (KeepMissing(entry.missingSince, nowDays)) {
+				list.entries[kept++] = entry;
+			} else {
+				leftOf(entry.refId, now, entry.seconds);
+			}
+			continue;
+		}
 		if (now != VictimNow::Dead) {
 			leftOf(entry.refId, now, entry.seconds);
 			continue;
 		}
+		entry.missingSince = -1.0f;
 		entry.seconds += dt;
 		if (count < most && entry.seconds >= s.afterSeconds && safeOf(entry.refId)) {
 			due[count++] = entry.refId;
@@ -112,10 +127,11 @@ UInt32 StepSafeguard(SafeguardList& list, const SafeguardSettings& s, float dt, 
 }
 
 // The co-save record: type "SAFE", version 1 - the count, then reference
-// and seconds dead per entry.
+// and seconds dead per entry; version 2 (2026-10-27) adds the missing day.
 inline constexpr UInt32 kSafeguardRecordType = 0x53414645;  // 'SAFE'
-inline constexpr UInt32 kSafeguardRecordVersion = 1;
-inline constexpr UInt32 kSafeguardEntryBytes = 8;
+inline constexpr UInt32 kSafeguardRecordVersion = 2;
+inline constexpr UInt32 kSafeguardEntryBytesV1 = 8;
+inline constexpr UInt32 kSafeguardEntryBytes = 12;
 inline constexpr UInt32 kSafeguardImageMost = 4 + kSafeguardMost * kSafeguardEntryBytes;
 
 // Returns the bytes written, 0 when the image does not fit.
@@ -127,36 +143,47 @@ inline UInt32 SafeguardImage(const SafeguardList& list, UInt8* out, UInt32 capac
 	Put32(out, list.count);
 	for (UInt32 i = 0; i < list.count; ++i) {
 		UInt32 seconds = 0;
+		UInt32 missing = 0;
 		std::memcpy(&seconds, &list.entries[i].seconds, sizeof(seconds));
+		std::memcpy(&missing, &list.entries[i].missingSince, sizeof(missing));
 		Put32(out + 4 + i * kSafeguardEntryBytes, list.entries[i].refId);
 		Put32(out + 8 + i * kSafeguardEntryBytes, seconds);
+		Put32(out + 12 + i * kSafeguardEntryBytes, missing);
 	}
 	return needed;
 }
 
 // As ReadWaitingImage: `list` emptied first, an unresolved reference
 // dropped, false when cut short or claiming more than the list holds.
+// `version` 1 (a save before 2026-10-27): no missing day, nobody missing.
 template <typename ResolveFn>
-bool ReadSafeguardImage(SafeguardList& list, const UInt8* in, UInt32 length, ResolveFn resolve) {
+bool ReadSafeguardImage(SafeguardList& list, const UInt8* in, UInt32 length, ResolveFn resolve,
+                        UInt32 version = kSafeguardRecordVersion) {
 	list.count = 0;
 	if (length < 4) {
 		return false;
 	}
+	const UInt32 entryBytes = version == 1 ? kSafeguardEntryBytesV1 : kSafeguardEntryBytes;
 	const UInt32 count = Get32(in);
 	if (count > kSafeguardMost) {
 		return false;
 	}
-	const bool whole = length >= 4 + count * kSafeguardEntryBytes;
-	const UInt32 readable = whole ? count : (length - 4) / kSafeguardEntryBytes;
+	const bool whole = length >= 4 + count * entryBytes;
+	const UInt32 readable = whole ? count : (length - 4) / entryBytes;
 	for (UInt32 i = 0; i < readable; ++i) {
 		UInt32 refId = 0;
-		if (!resolve(Get32(in + 4 + i * kSafeguardEntryBytes), refId)) {
+		if (!resolve(Get32(in + 4 + i * entryBytes), refId)) {
 			continue;
 		}
-		const UInt32 bits = Get32(in + 8 + i * kSafeguardEntryBytes);
+		const UInt32 bits = Get32(in + 8 + i * entryBytes);
 		SafeguardEntry& entry = list.entries[list.count++];
 		entry.refId = refId;
 		std::memcpy(&entry.seconds, &bits, sizeof(bits));
+		entry.missingSince = -1.0f;
+		if (version != 1) {
+			const UInt32 missing = Get32(in + 12 + i * entryBytes);
+			std::memcpy(&entry.missingSince, &missing, sizeof(missing));
+		}
 	}
 	return whole;
 }

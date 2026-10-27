@@ -236,11 +236,57 @@ void TestPresenceAt() {
 	Check(!walkers::InPlayersCells(nowhere, hall, 5) && !walkers::InPlayersCells(hall, nowhere, 5),
 	      "a body or a player without a cell: out of reach");
 
-	Check(walkers::PresenceAt(false, true, hall, hall, 5) == Presence::Gone, "no such reference: gone");
+	Check(walkers::PresenceAt(false, true, hall, hall, 5) == Presence::Missing,
+	      "no such reference in memory: missing (its cell may only be out of the buffer)");
 	Check(walkers::PresenceAt(true, true, hall, hall, 5) == Presence::Present, "in reach with its 3D: present, the clock runs");
 	Check(walkers::PresenceAt(true, false, hall, hall, 5) == Presence::Absent, "in reach without 3D yet: absent, the clock stands");
 	Check(walkers::PresenceAt(true, true, hall, prison, 5) == Presence::Absent,
 	      "its 3D kept but the player elsewhere: absent - the clock stands, no swap where nobody is");
+}
+
+// rise-after-away.txt 2026-10-27 10:22: four interiors on, the hall left the
+// cell buffer and the game freed the body's reference ("now gone", form
+// flags 0); back in the hall the same FF000EE6 lay there dead again and never
+// rose - it had left the list. A reference the game cannot find now keeps
+// waiting, its clock standing, for kForgetMissingDays game days.
+void TestMissing() {
+	std::printf("A body the game does not hold right now\n");
+	using walkers::Presence;
+	float since = -1.0f;
+	Check(walkers::KeepMissing(since, -1.0f) && since == -1.0f, "no game clock read: kept, nothing noted");
+	Check(walkers::KeepMissing(since, 10.0f) && since == 10.0f, "first missed: kept, the game day noted");
+	Check(walkers::KeepMissing(since, 12.9f) && since == 10.0f, "2.9 game days on: kept");
+	Check(!walkers::KeepMissing(since, 13.0f), "three game days on: forgotten");
+	since = 10.0f;
+	Check(walkers::KeepMissing(since, 4.0f) && since == 4.0f, "the clock earlier than noted (an older save): noted anew, kept");
+
+	walkers::RiseSettings settings;
+	settings.afterSeconds = 1.0f;
+	settings.jitterSeconds = 0.0f;
+	walkers::WaitingList list;
+	walkers::NoteDeath(list, settings, Bandit(0xA), 0, 0.0f);
+	UInt32 due[4] = {};
+	Presences where{{{0xA, Presence::Missing}}};
+	Check(walkers::TickWaiting(list, 5.0f, where, due, 4, 20.0f) == 0 && list.count == 1 &&
+	          Near(list.entries[0].secondsLeft, 1.0f) && list.entries[0].missingSince == 20.0f,
+	      "missing: kept, his clock standing, the day noted");
+	Check(walkers::TickWaiting(list, 5.0f, where, due, 4, 22.0f) == 0 && list.count == 1, "two days on: still kept");
+	where.map = {{0xA, Presence::Absent}};
+	Check(walkers::TickWaiting(list, 1.0f, where, due, 4, 22.5f) == 0 && list.count == 1 &&
+	          list.entries[0].missingSince == -1.0f,
+	      "held by the game again (not yet where the player is): kept, the missing day cleared");
+	where.map = {{0xA, Presence::Present}};
+	Check(walkers::TickWaiting(list, 1.0f, where, due, 4, 22.6f) == 1 && due[0] == 0xA && list.count == 0,
+	      "present again: his clock runs out, he rises");
+	walkers::NoteDeath(list, settings, Bandit(0xB), 0, 0.0f);
+	where.map = {{0xB, Presence::Missing}};
+	walkers::TickWaiting(list, 1.0f, where, due, 4, 30.0f);
+	Check(walkers::TickWaiting(list, 1.0f, where, due, 4, 33.0f) == 0 && list.count == 0,
+	      "missing three game days (the cell reset, the body cleared away): off the list");
+	walkers::NoteDeath(list, settings, Bandit(0xC), 0, 0.0f);
+	where.map = {{0xC, Presence::Gone}};
+	Check(walkers::TickWaiting(list, 1.0f, where, due, 4, 33.0f) == 0 && list.count == 0,
+	      "gone (the ID now some other object): off the list at once");
 }
 
 void TestWalkOnly() {
@@ -474,7 +520,8 @@ void TestImage() {
 	walkers::NoteDeath(list, settings, Bandit(0xFF000BB0), 0, 0.0f);
 	UInt8 image[walkers::kWaitingImageMost] = {};
 	const UInt32 length = walkers::WaitingImage(list, image, sizeof(image));
-	Check(length == 4 + 2 * walkers::kWaitingEntryBytes, "two entries: the count and twelve bytes each");
+	Check(length == 4 + 2 * walkers::kWaitingEntryBytes && walkers::kWaitingEntryBytes == 16,
+	      "two entries: the count and sixteen bytes each (version 2: the missing day too)");
 	Check(image[0] == 2 && image[4] == 0xAF && image[7] == 0xFF, "little-endian, the count first");
 
 	walkers::WaitingList back;
@@ -482,6 +529,19 @@ void TestImage() {
 	Check(back.entries[0].refId == 0xFF000BAF && back.entries[0].baseId == 0x00069AD1 &&
 	          Near(back.entries[0].secondsLeft, 22.5f) && back.entries[1].refId == 0xFF000BB0,
 	      "reference, base and seconds as written");
+
+	list.entries[1].missingSince = 41.5f;
+	const UInt32 withMissing = walkers::WaitingImage(list, image, sizeof(image));
+	Check(walkers::ReadWaitingImage(back, image, withMissing, &ResolveSame) && back.entries[0].missingSince == -1.0f &&
+	          back.entries[1].missingSince == 41.5f,
+	      "the missing day as written, -1 for one held");
+	UInt8 old[4 + 12] = {1, 0, 0, 0, 0xAF, 0x0B, 0, 0xFF, 0xD1, 0x9A, 0x06, 0, 0, 0, 0xB4, 0x41};
+	Check(walkers::ReadWaitingImage(back, old, sizeof(old), &ResolveSame, 1) && back.count == 1 &&
+	          back.entries[0].refId == 0xFF000BAF && Near(back.entries[0].secondsLeft, 22.5f) &&
+	          back.entries[0].missingSince == -1.0f,
+	      "a version 1 image (twelve bytes an entry, from a save before): read, nobody missing");
+	list.entries[1].missingSince = -1.0f;
+	walkers::WaitingImage(list, image, sizeof(image));
 
 	walkers::WaitingList none;
 	const UInt32 emptyLength = walkers::WaitingImage(none, image, sizeof(image));
@@ -729,6 +789,7 @@ int main() {
 	TestVerdicts();
 	TestTick();
 	TestPresenceAt();
+	TestMissing();
 	TestWalkOnly();
 	TestRequeue();
 	TestEspRace();

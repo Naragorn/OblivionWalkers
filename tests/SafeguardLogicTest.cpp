@@ -102,7 +102,7 @@ struct Left {
 };
 
 UInt32 Step(SafeguardList& list, const SafeguardSettings& s, World& world, float dt, UInt32* due, UInt32 most = 8,
-            Left* left = nullptr) {
+            Left* left = nullptr, float nowDays = -1.0f) {
 	return walkers::StepSafeguard(
 		list, s, dt, [&](UInt32 id) { return world.now[world.Index(id)]; },
 		[&](UInt32 id) { return world.safe[world.Index(id)]; },
@@ -114,7 +114,7 @@ UInt32 Step(SafeguardList& list, const SafeguardSettings& s, World& world, float
 				++left->count;
 			}
 		},
-		due, most);
+		due, most, nowDays);
 }
 
 void TestStep() {
@@ -172,6 +172,35 @@ void TestStep() {
 	Check(Step(list, s, world, 1.0f, due) == 0 && list.count == 2, "off: nothing raised, the list kept");
 }
 
+// The same as the rise's waiting list (rise-after-away.txt 2026-10-27
+// 10:22): a victim whose reference the game freed with its cell keeps its
+// place, the time dead standing, for kForgetMissingDays game days.
+void TestMissing() {
+	std::printf("A victim the game does not hold right now\n");
+	SafeguardSettings s;
+	s.afterSeconds = 10.0f;
+	SafeguardList list;
+	World world;
+	walkers::NoteVictim(list, 0x10);
+	UInt32 due[8];
+	Step(list, s, world, 4.0f, due);
+	world.now[0] = VictimNow::Missing;
+	Left left;
+	Check(Step(list, s, world, 20.0f, due, 8, &left, 5.0f) == 0 && list.count == 1 && list.entries[0].seconds == 4.0f &&
+	          list.entries[0].missingSince == 5.0f && left.count == 0,
+	      "missing: kept, the time dead standing, the day noted, not handed over as left");
+	world.now[0] = VictimNow::Dead;
+	Check(Step(list, s, world, 6.0f, due, 8, nullptr, 6.0f) == 1 && due[0] == 0x10,
+	      "held again: the time runs on from 4 s, raised at 10");
+	walkers::NoteVictim(list, 0x11);
+	world.now[1] = VictimNow::Missing;
+	Step(list, s, world, 1.0f, due, 8, nullptr, 7.0f);
+	Left forgotten;
+	Check(Step(list, s, world, 1.0f, due, 8, &forgotten, 10.0f) == 0 && list.count == 0 && forgotten.count == 1 &&
+	          forgotten.id[0] == 0x11 && forgotten.now[0] == VictimNow::Missing,
+	      "missing three game days: off the list, handed over as missing");
+}
+
 void TestImage() {
 	std::printf("In the co-save\n");
 	SafeguardList list;
@@ -187,6 +216,23 @@ void TestImage() {
 	});
 	Check(whole && back.count == 1 && back.entries[0].refId == 0x1010 && back.entries[0].seconds == 4.5f,
 	      "read back: resolved anew, the seconds kept, an unresolved one dropped");
+	list.entries[0].missingSince = 7.25f;
+	const UInt32 withMissing = walkers::SafeguardImage(list, image, sizeof(image));
+	SafeguardList again;
+	Check(withMissing == 4 + 2 * 12 && walkers::ReadSafeguardImage(again, image, withMissing, [](UInt32 id, UInt32& out) {
+		out = id;
+		return true;
+	}) && again.entries[0].missingSince == 7.25f && again.entries[1].missingSince == -1.0f,
+	      "version 2: twelve bytes an entry, the missing day kept");
+	UInt8 old[4 + 8] = {1, 0, 0, 0, 0x10, 0, 0, 0, 0, 0, 0x90, 0x40};
+	SafeguardList fromOld;
+	Check(walkers::ReadSafeguardImage(fromOld, old, sizeof(old), [](UInt32 id, UInt32& out) {
+		out = id;
+		return true;
+	}, 1) && fromOld.count == 1 && fromOld.entries[0].seconds == 4.5f && fromOld.entries[0].missingSince == -1.0f,
+	      "a version 1 image (eight bytes an entry): read, nobody missing");
+	list.entries[0].missingSince = -1.0f;
+	walkers::SafeguardImage(list, image, sizeof(image));
 	Check(walkers::SafeguardImage(list, image, 4) == 0, "too small a buffer: nothing written");
 	SafeguardList cut;
 	Check(!walkers::ReadSafeguardImage(cut, image, length - 3, [](UInt32 id, UInt32& out) {
@@ -203,6 +249,7 @@ int main() {
 	TestNoKiller();
 	TestNote();
 	TestStep();
+	TestMissing();
 	TestImage();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

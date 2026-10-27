@@ -23,6 +23,10 @@ void NoteGateAttack(UInt32 city);
 // sighting stays the news for HeadingHoldDays.
 void StepNewsInGame(float dt, int headingCity, LogFn log);
 
+// The game's clock in days (GameDaysPassed's days plus GameHour), -1 when
+// its globals are not read.
+float GameDaysNow();
+
 // The attacks kept across saves (Rise.cpp's co-save callbacks).
 NewsState& CurrentNews();
 

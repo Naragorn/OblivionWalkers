@@ -320,7 +320,10 @@ bool InPlayersReach(UInt32 ref) {
 
 Presence PresenceOfNow(UInt32 refId) {
 	const UInt32 ref = LookupForm(refId);
-	if (!LooksLikeObject(ref) || !IsActor(ref)) {
+	if (!LooksLikeObject(ref)) {
+		return Presence::Missing;
+	}
+	if (!IsActor(ref)) {
 		return Presence::Gone;
 	}
 	return PresenceAt(true, Read(ref + kRefNiNodeOffset) != 0, PlaceOf(ref), PlaceOf(LookupForm(kPlayerRefId)),
@@ -356,8 +359,10 @@ Presence PresenceOf(UInt32 refId) {
 		const UInt32 ref = LookupForm(refId);
 		const bool object = LooksLikeObject(ref);
 		g_log("Waiting: %08X is now %s at %.0f %.0f %.0f (form flags %08X)", refId,
-		      now == Presence::Present ? "present"
-		                               : (now == Presence::Absent ? "absent (no 3D, or not where the player is)" : "gone"),
+		      now == Presence::Present  ? "present"
+		      : now == Presence::Absent ? "absent (no 3D, or not where the player is)"
+		      : now == Presence::Missing ? "missing (not held by the game - kept, its clock standing)"
+		                                 : "gone",
 		      object ? FloatAt(ref + kRefPositionOffset) : 0.0f, object ? FloatAt(ref + kRefPositionOffset + 4) : 0.0f,
 		      object ? FloatAt(ref + kRefPositionOffset + 8) : 0.0f, object ? Read(ref + 0x08) : 0u);
 		s_last[slot] = static_cast<UInt8>(now);
@@ -1342,7 +1347,10 @@ void StepSafeguardInGame(float dt) {
 		g_safeguard, g_settings.safeguard, elapsed,
 		[](UInt32 id) {
 			const UInt32 ref = LookupForm(id);
-			if (!LooksLikeObject(ref) || !IsActor(ref)) {
+			if (!LooksLikeObject(ref)) {
+				return VictimNow::Missing;
+			}
+			if (!IsActor(ref)) {
 				return VictimNow::Gone;
 			}
 			return IsDead(ref) ? VictimNow::Dead : VictimNow::Alive;
@@ -1357,10 +1365,11 @@ void StepSafeguardInGame(float dt) {
 		},
 		[](UInt32 id, VictimNow now, float seconds) {
 			g_log("Safeguard: %08X off the list after %.0f s dead - %s", id, seconds,
-			      now == VictimNow::Alive ? "alive again by other means (a script, a spell, another mod)"
-			                              : "gone from the game (deleted, or no actor any more)");
+			      now == VictimNow::Alive     ? "alive again by other means (a script, a spell, another mod)"
+			      : now == VictimNow::Missing ? "not held by the game for three game days (its cell reset, presumably)"
+			                                  : "gone from the game (no actor any more)");
 		},
-		due, 8);
+		due, 8, GameDaysNow());
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 ref = LookupForm(due[i]);
 		const UInt32 fn = Read(Read(ref) + kActorVtableResurrect);
@@ -1410,7 +1419,7 @@ void Tick() {
 		return;
 	}
 	UInt32 due[kWaitingMost];
-	const UInt32 dueCount = TickWaiting(g_list, dt, &PresenceOf, due, kWaitingMost);
+	const UInt32 dueCount = TickWaiting(g_list, dt, &PresenceOf, due, kWaitingMost, GameDaysNow());
 	for (UInt32 i = 0; i < dueCount; ++i) {
 		Raise(due[i]);
 	}
@@ -1477,13 +1486,13 @@ void OnLoad(void*) {
 	UInt32 length = 0;
 	while (g_serialization->GetNextRecordInfo(&type, &version, &length)) {
 		if (type == kSafeguardRecordType) {
-			if (version != kSafeguardRecordVersion || length > kSafeguardImageMost) {
+			if ((version != 1 && version != kSafeguardRecordVersion) || length > kSafeguardImageMost) {
 				g_log("Co-save: a safeguard list of version %u, %u bytes: not read", version, length);
 				continue;
 			}
 			static UInt8 safe[kSafeguardImageMost];
 			const UInt32 read = g_serialization->ReadRecordData(safe, length);
-			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved);
+			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved, version);
 			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
 			      whole ? "" : " (the record cut short)");
 			continue;
@@ -1528,13 +1537,13 @@ void OnLoad(void*) {
 		if (type != kWaitingRecordType) {
 			continue;
 		}
-		if (version != kWaitingRecordVersion || length > kWaitingImageMost) {
+		if ((version != 1 && version != kWaitingRecordVersion) || length > kWaitingImageMost) {
 			g_log("Co-save: a waiting list of version %u, %u bytes: not read", version, length);
 			continue;
 		}
 		UInt8 image[kWaitingImageMost];
 		const UInt32 read = g_serialization->ReadRecordData(image, length);
-		if (!ReadWaitingImage(g_list, image, read, &ResolveSaved)) {
+		if (!ReadWaitingImage(g_list, image, read, &ResolveSaved, version)) {
 			g_log("Co-save: the waiting list is cut short (%u of %u bytes), %u read before that", read, length,
 			      g_list.count);
 			continue;

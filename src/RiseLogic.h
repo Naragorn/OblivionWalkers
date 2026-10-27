@@ -11,6 +11,7 @@
 #include "Bytes.h"
 #include "GuardLogic.h"
 #include "HordeLogic.h"
+#include "MissingLogic.h"
 #include "NewsLogic.h"
 #include "SafeguardLogic.h"
 #include "Types.h"
@@ -490,6 +491,7 @@ struct Waiting {
 	UInt32 refId;
 	UInt32 baseId;
 	float secondsLeft;
+	float missingSince = -1.0f;  // the game day it was first not found, -1 held (MissingLogic.h)
 };
 
 inline constexpr UInt32 kWaitingMost = 128;
@@ -561,8 +563,9 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 
 // What the engine says of a waiting reference each frame.
 enum class Presence : UInt8 {
-	Gone,     // no such reference any more: leaves the list, nobody rises
-	Absent,   // its cell is not loaded (no 3D): the clock stands
+	Gone,     // the ID is no actor any more: leaves the list, nobody rises
+	Missing,  // not found right now - its cell freed (MissingLogic.h): kept, the clock stands
+	Absent,   // held, but no 3D or not where the player is: the clock stands
 	Present,  // in the world: the clock runs
 };
 
@@ -606,21 +609,24 @@ inline bool InPlayersCells(const Place& at, const Place& player, UInt32 gridsToL
 	return dx <= reach && dx >= -reach && dy <= reach && dy >= -reach;
 }
 
-// A waiting reference's presence: gone without the reference; present with
+// A waiting reference's presence: missing without the reference; present with
 // its 3D and in the player's cells; absent otherwise - its clock stands, so
 // nothing is swapped or raised where the player is not.
 inline Presence PresenceAt(bool exists, bool has3D, const Place& at, const Place& player, UInt32 gridsToLoad) {
 	if (!exists) {
-		return Presence::Gone;
+		return Presence::Missing;
 	}
 	return has3D && InPlayersCells(at, player, gridsToLoad) ? Presence::Present : Presence::Absent;
 }
 
 // One frame of `dt` seconds. The references whose clock ran out go to `due`
 // (at most dueMost; any beyond that keep a clock of zero for the next frame)
-// and leave the list; returns how many are due. The list keeps its order.
+// and leave the list; returns how many are due. The list keeps its order. A
+// missing one stays until kForgetMissingDays have passed on `nowDays` (the
+// game's clock in days, -1 not read).
 template <typename PresentFn>
-UInt32 TickWaiting(WaitingList& list, float dt, PresentFn present, UInt32* due, UInt32 dueMost) {
+UInt32 TickWaiting(WaitingList& list, float dt, PresentFn present, UInt32* due, UInt32 dueMost,
+                   float nowDays = -1.0f) {
 	UInt32 dueCount = 0;
 	UInt32 kept = 0;
 	for (UInt32 i = 0; i < list.count; ++i) {
@@ -629,6 +635,13 @@ UInt32 TickWaiting(WaitingList& list, float dt, PresentFn present, UInt32* due, 
 		if (where == Presence::Gone) {
 			continue;
 		}
+		if (where == Presence::Missing) {
+			if (KeepMissing(entry.missingSince, nowDays)) {
+				list.entries[kept++] = entry;
+			}
+			continue;
+		}
+		entry.missingSince = -1.0f;
 		if (where == Presence::Present) {
 			entry.secondsLeft -= dt;
 			if (entry.secondsLeft <= 0.0f) {
@@ -696,11 +709,13 @@ inline UInt32 StepRisenWatch(RisenWatch& watch, bool dead, float x, float y, flo
 	return events;
 }
 
-// The co-save record: type "WAIT", version 1 - the count, then reference,
-// base and seconds left per entry, little-endian like the engine's own.
+// The co-save record: type "WAIT", version 2 - the count, then reference,
+// base, seconds left and the missing day (version 1, before 2026-10-27:
+// without it) per entry, little-endian like the engine's own.
 inline constexpr UInt32 kWaitingRecordType = 0x57414954;
-inline constexpr UInt32 kWaitingRecordVersion = 1;
-inline constexpr UInt32 kWaitingEntryBytes = 12;
+inline constexpr UInt32 kWaitingRecordVersion = 2;
+inline constexpr UInt32 kWaitingEntryBytesV1 = 12;
+inline constexpr UInt32 kWaitingEntryBytes = 16;
 inline constexpr UInt32 kWaitingImageMost = 4 + kWaitingMost * kWaitingEntryBytes;
 
 // Returns the bytes written, 0 when the image does not fit.
@@ -714,10 +729,13 @@ inline UInt32 WaitingImage(const WaitingList& list, UInt8* out, UInt32 capacity)
 	for (UInt32 i = 0; i < list.count; ++i) {
 		const Waiting& entry = list.entries[i];
 		UInt32 seconds = 0;
+		UInt32 missing = 0;
 		std::memcpy(&seconds, &entry.secondsLeft, sizeof(seconds));
+		std::memcpy(&missing, &entry.missingSince, sizeof(missing));
 		Put32(out + at, entry.refId);
 		Put32(out + at + 4, entry.baseId);
 		Put32(out + at + 8, seconds);
+		Put32(out + at + 12, missing);
 		at += kWaitingEntryBytes;
 	}
 	return at;
@@ -727,20 +745,23 @@ inline UInt32 WaitingImage(const WaitingList& list, UInt8* out, UInt32 capacity)
 // reference ID to the loaded game's (xOBSE's ResolveRefID); an entry whose
 // reference cannot be resolved is dropped. False when the image is cut short
 // or claims more entries than the list holds; what was read before stays.
+// `version` 1: twelve bytes an entry, nobody missing.
 template <typename ResolveFn>
-bool ReadWaitingImage(WaitingList& list, const UInt8* in, UInt32 length, ResolveFn resolve) {
+bool ReadWaitingImage(WaitingList& list, const UInt8* in, UInt32 length, ResolveFn resolve,
+                      UInt32 version = kWaitingRecordVersion) {
 	list.count = 0;
 	if (length < 4) {
 		return false;
 	}
+	const UInt32 entryBytes = version == 1 ? kWaitingEntryBytesV1 : kWaitingEntryBytes;
 	const UInt32 count = Get32(in);
 	if (count > kWaitingMost) {
 		return false;
 	}
-	const bool whole = length >= 4 + count * kWaitingEntryBytes;
-	const UInt32 readable = whole ? count : (length - 4) / kWaitingEntryBytes;
+	const bool whole = length >= 4 + count * entryBytes;
+	const UInt32 readable = whole ? count : (length - 4) / entryBytes;
 	UInt32 at = 4;
-	for (UInt32 i = 0; i < readable; ++i, at += kWaitingEntryBytes) {
+	for (UInt32 i = 0; i < readable; ++i, at += entryBytes) {
 		UInt32 refId = 0;
 		if (!resolve(Get32(in + at), refId)) {
 			continue;
@@ -748,7 +769,12 @@ bool ReadWaitingImage(WaitingList& list, const UInt8* in, UInt32 length, Resolve
 		const UInt32 bits = Get32(in + at + 8);
 		float seconds = 0.0f;
 		std::memcpy(&seconds, &bits, sizeof(seconds));
-		list.entries[list.count++] = Waiting{refId, Get32(in + at + 4), seconds};
+		float missing = -1.0f;
+		if (version != 1) {
+			const UInt32 missingBits = Get32(in + at + 12);
+			std::memcpy(&missing, &missingBits, sizeof(missing));
+		}
+		list.entries[list.count++] = Waiting{refId, Get32(in + at + 4), seconds, missing};
 	}
 	return whole;
 }

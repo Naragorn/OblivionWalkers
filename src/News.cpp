@@ -63,6 +63,8 @@ const char* EditionText(const Edition& edition) {
 
 }  // namespace
 
+float GameDaysNow() { return GameTime(); }
+
 void ConfigureNews(const NewsSettings& settings, UInt32 espIndex, LogFn log) {
 	g_settings = settings;
 	g_ready = false;
