@@ -524,6 +524,33 @@ entry point is the unknown, the veto a few lines, the test a harness scenario
 that reads the player's skill-use counters before and after blows on a
 walker and on a bandit. Not in the first build (section 8, phase 4).
 
+### 4.3b No Ultimate Leveling experience from walkers - `[Zombies] NoLevelingXP=1`
+
+What (Nadi, 2026-10-27: "da ich ultimate leveling by maskar nutze: füge
+eine option hinzu, dass für diese mod zombie kills keine erfahrung
+bringen"): with Maskar's Ultimate Leveling's experience system, a walker's
+death gives no experience.
+
+How (built 2026-10-27, `LevelingLogic.h`), read in Ultimate Leveling.esp's
+script sources: its OnDeath handler (ULVLOnDeathFunctionScript, set at
+every game load while ini_leveling_system is 2) computes basexp * levelmod
+* toughnessmod * share, the toughness modifier taking (3 * Confidence +
+Aggression) / 400 of the dead at that moment, and gives experience only
+"if ULVL.XPmod > 0". The plugin's own OnDeath handler sets a dead walker's
+Confidence and Aggression to 0 (the console's SetAV), so the experience is
+0 - none given, no "dies" message. **Deviation from this spec's own rule**
+(4.1 step 1: nothing of the actor touched in the frame of the death, after
+Zombie Walkers' crash), named: the value has to be there when Ultimate
+Leveling's handler of the same event reads it. MOO's and Ultimate
+Leveling's handlers touch the dead in that event too (a token given, one
+removed). It rests on the plugin's handler running first: xOBSE calls an
+event's handlers in the order they were set (deepwiki on llde/xOBSE,
+EventManager's CallbackList), and the plugin sets its own at the main menu,
+before Ultimate Leveling's at the game load - derived, not yet seen. Not
+run: Ultimate Leveling is installed on Windows only; the first look is
+Nadi's (the log's "Leveling: walker ... Confidence and Aggression to 0"
+lines, and no experience text on a walker kill).
+
 ### 4.4 Walkers walk - `[Zombies] Walk=1`, `SpeedMultiplier=1.0`, `SpeedRandomPercent=30`
 
 What: zombies never run. They shamble, each at its own pace.

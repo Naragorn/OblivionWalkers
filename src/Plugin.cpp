@@ -99,6 +99,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.healthPercent = health < 1 ? 1u : (health > 100 ? 100u : static_cast<UInt32>(health));
 	rise.noLoot = GetPrivateProfileIntA("Zombies", "NoLoot", 1, path) != 0;
 	rise.blockMooResurrect = GetPrivateProfileIntA("Zombies", "BlockMooResurrect", 1, path) != 0;
+	rise.noLevelingXp = GetPrivateProfileIntA("Zombies", "NoLevelingXP", 1, path) != 0;
 	rise.speedMultiplier = IniFloat("Zombies", "SpeedMultiplier", 1.0f, path);
 	const int spread = GetPrivateProfileIntA("Zombies", "SpeedRandomPercent", 30, path);
 	rise.speedRandomPercent = spread < 0 ? 0u : (spread > 100 ? 100u : static_cast<UInt32>(spread));
@@ -176,7 +177,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
 	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d SoundAtGetUpPercent=%u HoldDeathSound=%d CloneBase=%d ZombieRace=%d "
-	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d; "
+	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d NoLevelingXP=%d; "
 	    "[Replace] ExtraPercent=%u; [Horde] Enabled=%d JoinRadius=%.0f LeadUnits=%.0f StaleSeconds=%.0f TurnDegrees=%.0f GroupMost=%u TowardCities=%d CityPull=%.2f CityRange=%.0f GateHoldUnits=%.0f; "
 	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f TestKillSeconds=%.0f; [Safeguard] Enabled=%d "
 	    "AfterSeconds=%.0f Radius=%.0f; [News] Courier=%d RecentDays=%.1f HeadingHoldDays=%.2f",
@@ -185,6 +186,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    rise.dropSeconds, rise.lieSeconds, static_cast<UInt32>(rise.matchCorpse), rise.settleSeconds, rise.hideCorpseAtPose ? 1 : 0, rise.keepCorpseApart ? 1 : 0, rise.soundAtGetUpPercent, rise.holdDeathSound ? 1 : 0, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
 	    rise.walkOnly ? 1 : 0, rise.speedMultiplier, rise.speedRandomPercent, rise.famePerKills,
 	    rise.avoidChapels ? 1 : 0, rise.renameToWalker ? 1 : 0, rise.walkerName, rise.renameVanilla ? 1 : 0, rise.blockMooResurrect ? 1 : 0,
+	    rise.noLevelingXp ? 1 : 0,
 	    replace.extraPercent, rise.horde.enabled ? 1 : 0, rise.horde.joinRadius, rise.horde.leadUnits,
 	    rise.horde.staleSeconds, rise.horde.turnDegrees, rise.horde.groupMost, rise.horde.towardCities ? 1 : 0,
 	    rise.horde.cityPull, rise.horde.cityRange, rise.horde.gateHoldUnits, rise.guards.enabled ? 1 : 0,

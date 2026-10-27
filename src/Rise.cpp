@@ -2,6 +2,7 @@
 
 #include "Engine.h"
 #include "Horde.h"
+#include "LevelingLogic.h"
 #include "MooLogic.h"
 #include "News.h"
 #include "SoundLogic.h"
@@ -114,6 +115,10 @@ RisenSet g_risenSet;
 // BlockMooResurrect: MOO's token and brain at MOO's load index (0 without
 // MOO), looked up once a session, and the dead walkers still to strip.
 bool g_mooLooked = false;
+// NoLevelingXP: Maskar's Ultimate Leveling loaded (LevelingLogic.h), looked
+// up with MOO; how many walker deaths were held back, for the log.
+bool g_levelingLoaded = false;
+UInt32 g_levelingHeld = 0;
 // MOO's ESP in the load order: its archives with the meshes of the walkers'
 // MOO looks are loaded (WalkerLooks.h LookUsable).
 bool g_mooLoaded = false;
@@ -192,8 +197,14 @@ bool IsWalkerRef(UInt32 ref) {
 	return false;
 }
 
+bool ConsoleOn(UInt32 ref, const char* line);
+
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
-// the actor touched in this frame (Zombie Walkers' crash was there).
+// the actor touched in this frame (Zombie Walkers' crash was there) - with
+// one exception, NoLevelingXP: Ultimate Leveling reads the dead walker's
+// Confidence and Aggression in its own handler of this same event, so they
+// are set here (MOO's and Ultimate Leveling's handlers touch the dead in
+// this event too: MOO gives a token, Ultimate Leveling removes one).
 void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	const UInt32 ref = reinterpret_cast<UInt32>(arg0);
 	Fallen fallen;
@@ -237,6 +248,18 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	}
 	if (BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
+	}
+	if (HoldsLevelingXp(g_settings.noLevelingXp, g_levelingLoaded, walker)) {
+		const UInt32 dead = LookupForm(fallen.refId);
+		bool handed = LooksLikeObject(dead);
+		for (UInt32 i = 0; handed && i < kLevelingHoldLineCount; ++i) {
+			handed = ConsoleOn(dead, kLevelingHoldLines[i]);
+		}
+		if (++g_levelingHeld <= 8) {
+			g_log("Leveling: walker %08X dead - Confidence and Aggression to 0 before Ultimate Leveling counts it "
+			      "(handed to xOBSE: %d)",
+			      fallen.refId, handed ? 1 : 0);
+		}
 	}
 	if (StripsMoo(g_settings.blockMooResurrect, g_mooToken != 0, walker) && !NoteMooStrip(g_mooStrip, fallen.refId)) {
 		g_log("MOO: walker %08X dead, but %u wait to be stripped already - MOO may raise this one", fallen.refId,
@@ -488,6 +511,7 @@ void FindMoo() {
 	}
 	g_mooLooked = true;
 	g_mooLoaded = false;
+	g_levelingLoaded = false;
 	g_mooToken = 0;
 	g_mooBrain = 0;
 	const UInt32 handler = Read(kDataHandlerPointer);
@@ -495,11 +519,17 @@ void FindMoo() {
 	UInt32 index = 0x100;
 	for (UInt32 i = 0; i < count && i < 0xFF; ++i) {
 		const char* name = ModNameAt(i);
-		if (name != nullptr && SameModName(name, kMooEsp)) {
+		if (name != nullptr && SameModName(name, kMooEsp) && index > 0xFF) {
 			index = i;
-			break;
+		}
+		if (name != nullptr && SameModName(name, kLevelingEsp)) {
+			g_levelingLoaded = true;
 		}
 	}
+	g_log("Leveling: %s %s (NoLevelingXP=%d)", kLevelingEsp,
+	      g_levelingLoaded ? "is loaded - a dead walker's Confidence and Aggression go to 0, so it gives no experience"
+	                       : "is not loaded - nothing to hold back",
+	      g_settings.noLevelingXp ? 1 : 0);
 	if (index > 0xFF) {
 		g_log("MOO: %s is not loaded - nothing to keep off the walkers, the walkers' MOO looks unused", kMooEsp);
 		return;

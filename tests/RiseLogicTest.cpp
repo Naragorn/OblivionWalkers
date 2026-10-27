@@ -738,6 +738,8 @@ void TestZombieDefaults() {
 	      "60 times in 100 (Nadi, 2026-10-26: \"percentage chance fuer den sound 60\")");
 	Check(settings.blockMooResurrect,
 	      "[Zombies] BlockMooResurrect=1 - a dead walker loses MOO's token and brain (Nadi, 2026-10-25: go)");
+	Check(settings.noLevelingXp,
+	      "[Zombies] NoLevelingXP=1 - a walker's death gives Ultimate Leveling no experience (Nadi, 2026-10-27)");
 	Check(settings.keepCorpseApart,
 	      "[Rise] KeepCorpseApart=1 (Nadi, 2026-10-25: go after the runs of 18:04 to 18:09)");
 	Check(settings.matchCorpse == 2 && settings.lieSeconds == 1.0f,

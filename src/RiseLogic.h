@@ -129,6 +129,9 @@ struct RiseSettings {
 	// Maskar's Oblivion Overhaul gives zombies, so MOO does not raise it again
 	// (MooLogic.h) - MOO's own ini_zombie_resurrect can stay as it is.
 	bool blockMooResurrect = true;
+	// [Zombies] NoLevelingXP: a walker's death gives Maskar's Ultimate
+	// Leveling no experience (LevelingLogic.h).
+	bool noLevelingXp = true;
 	// [Zombies] SpeedMultiplier and SpeedRandomPercent: the walkers' pace,
 	// spread over the walker records (ReplaceLogic.h WalkerSpeed).
 	float speedMultiplier = 1.0f;
