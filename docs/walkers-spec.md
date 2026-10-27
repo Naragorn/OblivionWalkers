@@ -553,6 +553,20 @@ only): the walker killed by the player "Ultimate Leveling's XP 0 before, 0
 after", the bandit "0 before, 38 after" - ULVL.XP read off its quest a
 second after each kill (`QuestVars.cpp`).
 
+Oblivion XP Update 4.5 too (Nadi, 2026-10-27: "auch für oblivion xp update
+brauchen wir was"), the same switch: read in its ESP, OBXPfnOnDeath (set by
+ObXPMainScript at the game load) gives a kill by the player baseXP times
+bonusXP, bonusXP = the dead's base Health + Agility + Endurance +
+Intelligence + Personality + Speed + Strength + Willpower over the
+player's, times multXPKillBonus (1); the plugin sets the dead walker's eight
+to 0. It still shows "Gained 0.00 XP. Killed Walker" - it has no check for
+nothing gained, and its message buffer is a script array the plugin does
+not touch. With multXPKillBonus 0 in its INI the bonus is 1 and walkers
+give XP again (not a default). `leveling-no-xp.txt` 16:35 PASS with Oblivion
+XP alone (its ESP, its Ini\Oblivion XP Settings.ini and strings, not its
+menus, for the run only): the walker "currentXP 0.00 before, 0.00 after",
+the bandit "0.00 before, 656.71 after".
+
 ### 4.4 Walkers walk - `[Zombies] Walk=1`, `SpeedMultiplier=1.0`, `SpeedRandomPercent=30`
 
 What: zombies never run. They shamble, each at its own pace.

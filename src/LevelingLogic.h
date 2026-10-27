@@ -34,7 +34,25 @@ inline constexpr UInt32 kLevelingHoldLineCount = 2;
 inline constexpr UInt32 kLevelingQuestLocalId = 0x000ED3;
 inline constexpr const char* kLevelingXpVariable = "XP";
 
-// [Zombies] NoLevelingXP: a walker's death gives Ultimate Leveling nothing.
+// Oblivion XP Update 4.5 (Nexus 51817), read in its ESP's script sources
+// 2026-10-27: its OnDeath handler OBXPfnOnDeath (set by ObXPMainScript at
+// the game load, so after the plugin's) gives a kill by the player
+// baseXP * bonusXP * ..., bonusXP = the dead's base Health + Agility +
+// Endurance + Intelligence + Personality + Speed + Strength + Willpower over
+// the player's, times multXPKillBonus (1 by default). With the dead
+// walker's eight at 0 the kill gives 0 XP. Unlike Ultimate Leveling it
+// still shows its line ("Gained 0.00 XP. Killed Walker") - it has no check
+// for nothing gained. Its quest ObXPMain (local 000ED3) keeps currentXP.
+inline constexpr const char* kObXpEsp = "Oblivion XP.esp";
+inline constexpr const char* kObXpHoldLines[] = {"SetAV Health 0",      "SetAV Agility 0",     "SetAV Endurance 0",
+                                                 "SetAV Intelligence 0", "SetAV Personality 0", "SetAV Speed 0",
+                                                 "SetAV Strength 0",     "SetAV Willpower 0"};
+inline constexpr UInt32 kObXpLineCount = 8;
+inline constexpr UInt32 kObXpQuestLocalId = 0x000ED3;
+inline constexpr const char* kObXpXpVariable = "currentXP";
+
+// [Zombies] NoLevelingXP: a walker's death gives Ultimate Leveling and
+// Oblivion XP nothing - one switch for both.
 inline bool HoldsLevelingXp(bool setting, bool levelingLoaded, bool isWalker) {
 	return setting && levelingLoaded && isWalker;
 }

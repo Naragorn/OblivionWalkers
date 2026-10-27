@@ -133,8 +133,11 @@ float g_linkClock = 0.0f;
 struct LevelingCheck {
 	UInt32 refId;
 	bool walker;
-	double before;
+	double before;      // ULVL.XP
+	double obXpBefore;  // ObXPMain.currentXP
 };
+bool g_obXpLoaded = false;
+UInt32 g_obXpIndex = 0x100;
 LevelingCheck g_levelingChecks[4] = {};
 UInt32 g_levelingCheckCount = 0;
 UInt32 g_levelingChecksLeft = 12;
@@ -269,21 +272,28 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	if (BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
 	}
-	if (g_levelingLoaded && FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId && g_levelingChecksLeft > 0 &&
-	    g_levelingCheckCount < 4) {
+	if ((g_levelingLoaded || g_obXpLoaded) && FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId &&
+	    g_levelingChecksLeft > 0 && g_levelingCheckCount < 4) {
 		const double* xp = QuestVariable((g_levelingIndex << 24) | kLevelingQuestLocalId, kLevelingXpVariable);
-		g_levelingChecks[g_levelingCheckCount++] = LevelingCheck{fallen.refId, walker, xp != nullptr ? *xp : -1.0};
+		const double* obXp = QuestVariable((g_obXpIndex << 24) | kObXpQuestLocalId, kObXpXpVariable);
+		g_levelingChecks[g_levelingCheckCount++] =
+			LevelingCheck{fallen.refId, walker, xp != nullptr ? *xp : -1.0, obXp != nullptr ? *obXp : -1.0};
 	}
-	if (HoldsLevelingXp(g_settings.noLevelingXp, g_levelingLoaded, walker)) {
+	const bool holdUlvl = HoldsLevelingXp(g_settings.noLevelingXp, g_levelingLoaded, walker);
+	const bool holdObXp = HoldsLevelingXp(g_settings.noLevelingXp, g_obXpLoaded, walker);
+	if (holdUlvl || holdObXp) {
 		const UInt32 dead = LookupForm(fallen.refId);
 		bool handed = LooksLikeObject(dead);
-		for (UInt32 i = 0; handed && i < kLevelingHoldLineCount; ++i) {
+		for (UInt32 i = 0; handed && holdUlvl && i < kLevelingHoldLineCount; ++i) {
 			handed = ConsoleOn(dead, kLevelingHoldLines[i]);
 		}
+		for (UInt32 i = 0; handed && holdObXp && i < kObXpLineCount; ++i) {
+			handed = ConsoleOn(dead, kObXpHoldLines[i]);
+		}
 		if (++g_levelingHeld <= 8) {
-			g_log("Leveling: walker %08X dead - Confidence and Aggression to 0 before Ultimate Leveling counts it "
-			      "(handed to xOBSE: %d)",
-			      fallen.refId, handed ? 1 : 0);
+			g_log("Leveling: walker %08X dead -%s%s before the leveling mods count it (handed to xOBSE: %d)",
+			      fallen.refId, holdUlvl ? " Confidence and Aggression to 0" : "",
+			      holdObXp ? " its eight attributes to 0" : "", handed ? 1 : 0);
 		}
 	}
 	if (StripsMoo(g_settings.blockMooResurrect, g_mooToken != 0, walker) && !NoteMooStrip(g_mooStrip, fallen.refId)) {
@@ -539,6 +549,8 @@ void FindMoo() {
 	g_levelingLoaded = false;
 	g_levelingIndex = 0x100;
 	g_linkLoaded = false;
+	g_obXpLoaded = false;
+	g_obXpIndex = 0x100;
 	g_mooToken = 0;
 	g_mooBrain = 0;
 	const UInt32 handler = Read(kDataHandlerPointer);
@@ -549,6 +561,10 @@ void FindMoo() {
 		if (name != nullptr && SameModName(name, kMooEsp) && index > 0xFF) {
 			index = i;
 		}
+		if (name != nullptr && SameModName(name, kObXpEsp)) {
+			g_obXpLoaded = true;
+			g_obXpIndex = i;
+		}
 		if (name != nullptr && SameModName(name, kLinkEsp)) {
 			g_linkLoaded = true;
 		}
@@ -557,9 +573,11 @@ void FindMoo() {
 			g_levelingIndex = i;
 		}
 	}
-	g_log("Leveling: %s %s (NoLevelingXP=%d)", kLevelingEsp,
+	g_log("Leveling: %s %s; %s %s (NoLevelingXP=%d)", kLevelingEsp,
 	      g_levelingLoaded ? "is loaded - a dead walker's Confidence and Aggression go to 0, so it gives no experience"
-	                       : "is not loaded - nothing to hold back",
+	                       : "is not loaded",
+	      kObXpEsp,
+	      g_obXpLoaded ? "is loaded - a dead walker's eight attributes go to 0, so it gives 0 XP" : "is not loaded",
 	      g_settings.noLevelingXp ? 1 : 0);
 	if (index > 0xFF) {
 		g_log("MOO: %s is not loaded - nothing to keep off the walkers, the walkers' MOO looks unused", kMooEsp);
@@ -1409,11 +1427,19 @@ void StepLevelingChecks(float dt) {
 	}
 	g_levelingCheckWait = 0.0f;
 	const double* xp = QuestVariable((g_levelingIndex << 24) | kLevelingQuestLocalId, kLevelingXpVariable);
+	const double* obXp = QuestVariable((g_obXpIndex << 24) | kObXpQuestLocalId, kObXpXpVariable);
 	for (UInt32 i = 0; i < g_levelingCheckCount && g_levelingChecksLeft > 0; ++i, --g_levelingChecksLeft) {
 		const LevelingCheck& check = g_levelingChecks[i];
-		g_log("Leveling: %08X (%s) killed by the player - Ultimate Leveling's XP %.0f before, %.0f after%s",
-		      check.refId, check.walker ? "a walker" : "not a walker", check.before, xp != nullptr ? *xp : -1.0,
-		      xp == nullptr ? " (ULVL.XP not found)" : "");
+		if (g_levelingLoaded) {
+			g_log("Leveling: %08X (%s) killed by the player - Ultimate Leveling's XP %.0f before, %.0f after%s",
+			      check.refId, check.walker ? "a walker" : "not a walker", check.before, xp != nullptr ? *xp : -1.0,
+			      xp == nullptr ? " (ULVL.XP not found)" : "");
+		}
+		if (g_obXpLoaded) {
+			g_log("Leveling: %08X (%s) killed by the player - Oblivion XP's currentXP %.2f before, %.2f after%s",
+			      check.refId, check.walker ? "a walker" : "not a walker", check.obXpBefore,
+			      obXp != nullptr ? *obXp : -1.0, obXp == nullptr ? " (ObXPMain.currentXP not found)" : "");
+		}
 	}
 	g_levelingCheckCount = 0;
 }

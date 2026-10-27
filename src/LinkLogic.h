@@ -99,7 +99,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 1, 1, 0, false, LinkEffect::Live},
 	{"ini_fame_per_kills", "Fame per walker kills", "A point of fame for this many walkers cut down, 0 none.",
 	 LinkKind::Slider, 0, 100, 1, 0, false, LinkEffect::Live},
-	{"ini_no_leveling_xp", "No experience for walkers", "With Ultimate Leveling a walker's death gives no experience.",
+	{"ini_no_leveling_xp", "No experience for walkers", "With Ultimate Leveling or Oblivion XP a walker's death gives no experience.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_replace_enabled", "Walkers replace spawns", "Creatures of the leveled lists become walkers. At the next start.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::NextStart},
