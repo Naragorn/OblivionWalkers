@@ -21,6 +21,10 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 
 // The walker records' health at `percent` of their own, from the values
 // they had at the first call - the record in memory only.
+// The variant list's count slots written anew from MinCount and MaxCount
+// (LINK's menu, 4.18); nothing without the ESP's lists.
+void RewriteVariantCounts(UInt32 espIndex, const ReplaceSettings& settings, LogFn log);
+
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log);
 
 // The walker records' Speed (4.4): each record's own times the multiplier,

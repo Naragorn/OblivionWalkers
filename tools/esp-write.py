@@ -92,6 +92,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import re
 import struct
 import sys
 from pathlib import Path
@@ -142,6 +143,11 @@ ACBS_NO_RIGHT_ARM = 0x10000
 ACBS_NO_LEFT_ARM = 0x20000
 LOCAL_LIST_ID = 0x805
 LOCAL_ANY_WALKER_ID = 0x94A  # ReplaceLogic.h kAnyWalkerLocalId: right after the last walker
+LOCAL_LINK_QUEST_ID = 0x94B  # LinkLogic.h kLinkQuestLocalId
+LOCAL_LINK_SCRIPT_ID = 0x94C  # LinkLogic.h kLinkScriptLocalId
+LINK_QUEST_EDID = "Walkers"  # LinkLogic.h kLinkQuestEditorId
+LINK_SCRIPT_EDID = "WalkersLinkScript"
+LOCAL_TEST_POOL_FIRST = 0x94D
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -439,6 +445,43 @@ def any_walker_entries(walkers: list[int], no_heads: list[bool]) -> list[tuple[i
     return [(form, 1) for form, no_head in zip(walkers, no_heads) for _ in range(1 if no_head else 2)]
 
 
+def link_variables() -> list[str]:
+    """The LINK settings' variable names, read off src/LinkLogic.h's
+    kLinkSettings in its order, then ini_version - one list for the plugin
+    and the ESP."""
+    text = (Path(__file__).resolve().parent.parent / "src" / "LinkLogic.h").read_text()
+    table = text[text.index("kLinkSettings[] = {"):text.index("kLinkSettingCount")]
+    names = re.findall(r'\{"(ini_[a-z_]+)"', table)
+    if len(names) != len(set(names)) or not names:
+        raise SystemExit("LinkLogic.h's settings are not readable")
+    return names + ["ini_version"]
+
+
+def build_link_script(names: list[str]) -> bytes:
+    """A quest script that only declares LINK's variables, all floats: SCHR
+    (unused, refs 0, compiled size 4, the last variable's index, type 1
+    quest), SCDA the bare script name opcode 1D 00 00 00, SCTX the source,
+    and per variable SLSD (index, 12 unused, flags 0 = float, 7 unused) and
+    SCVR (its name) - as Ultimate Leveling.esp's variables-only scripts and
+    ULVLScript have them (read 2026-10-27)."""
+    source = "scn " + LINK_SCRIPT_EDID + "\r\n\r\n" + "".join(f"float {n}\r\n" for n in names)
+    out = subrecord(b"EDID", zstring(LINK_SCRIPT_EDID))
+    out += subrecord(b"SCHR", struct.pack("<IIIII", 0, 0, 4, len(names), 1))
+    out += subrecord(b"SCDA", bytes([0x1D, 0, 0, 0]))
+    out += subrecord(b"SCTX", source.encode("latin-1"))
+    for i, name in enumerate(names, start=1):
+        out += subrecord(b"SLSD", struct.pack("<I12sB7s", i, bytes(12), 0, bytes(7)))
+        out += subrecord(b"SCVR", zstring(name))
+    return out
+
+
+def build_link_quest(script_form: int) -> bytes:
+    """The quest LINK's settings live in: EDID, SCRI its script, DATA flags
+    1 (start game enabled) and priority 0, like ULVLOBSEInit."""
+    return (subrecord(b"EDID", zstring(LINK_QUEST_EDID)) + subrecord(b"SCRI", struct.pack("<I", script_form))
+            + subrecord(b"DATA", bytes([1, 0])))
+
+
 def build_list(entries: list[tuple[int, int]], edid: str = "", flags: int = 0) -> bytes:
     """A leveled creature list of the (form, count) entries at level 1: EDID,
     LVLD (chance none), LVLF (flags), then LVLO level(2) pad(2) form(4)
@@ -536,7 +579,7 @@ def main() -> int:
     test_pool = 0
     for c in range(len(CITIES)):
         for n in range(args.test_walker_pool):
-            local = LOCAL_ANY_WALKER_ID + 1 + test_pool
+            local = LOCAL_TEST_POOL_FIRST + test_pool
             pool += record(b"ACRE", index | local,
                            build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
                                           test_pool),
@@ -550,14 +593,20 @@ def main() -> int:
     edition_forms = [index | local for local in LOCAL_EDITION_IDS]
     books = b"".join(record(b"BOOK", form, build_edition(broadsheet, edid, title, text))
                      for form, (edid, title, text) in zip(edition_forms, edition_texts))
-    body = (group(b"RACE", races) + group(b"BOOK", books) + group(b"NPC_", guards) + group(b"CREA", creatures)
+    link_names = link_variables()
+    link_script_form = index | LOCAL_LINK_SCRIPT_ID
+    link_quest_form = index | LOCAL_LINK_QUEST_ID
+    body = (group(b"RACE", races) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
+            + group(b"BOOK", books) + group(b"NPC_", guards) + group(b"CREA", creatures)
             + group(b"LVLC", lists)
-            + cell_groups(cell_form, cell, markers + pool) + group(b"PACK", packages))
-    groups = 5 + 5 + 1
+            + cell_groups(cell_form, cell, markers + pool)
+            + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
+            + group(b"PACK", packages))
+    groups = 5 + 5 + 1 + 2
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1)
+               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2)
     plugin = header(num_records=groups + records,
-                    next_object_id=LOCAL_ANY_WALKER_ID + 1 + test_pool,
+                    next_object_id=LOCAL_TEST_POOL_FIRST + test_pool,
                     masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
@@ -601,6 +650,11 @@ def main() -> int:
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
     if [(e[2], e[3]) for e in entries] != variant_entries(any_walker_form) or any(e[0] != 1 for e in entries):
         raise SystemExit(f"the list's entries are off: {[(f'{e[2]:08X}', e[3]) for e in entries]}")
+    back_quest = dict(find_record(esm, plugin, b"QUST", link_quest_form))
+    back_script = find_record(esm, plugin, b"SCPT", link_script_form)
+    if back_quest[b"SCRI"] != struct.pack("<I", link_script_form) or back_quest[b"DATA"] != bytes([1, 0]) \
+            or [d.rstrip(b"\0").decode() for k, d in back_script if k == b"SCVR"] != link_names:
+        raise SystemExit("the LINK quest or its script is off")
     if LOCAL_ANY_WALKER_ID != LOCAL_MOO_WALKER_IDS[-1] + 1:
         raise SystemExit("the any-walker list is not right after the last walker")
     back_any = find_record(esm, plugin, b"LVLC", any_walker_form)

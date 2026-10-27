@@ -67,7 +67,6 @@ constexpr UInt32 kListEntryBytes = 8;   // {data, next}
 // so the cut is one link. Returns the entries kept.
 UInt32 TrimAnyWalkerForMoo(UInt32 anyWalker, bool mooLoaded, LogFn log) {
 	UInt32 kept = 0;
-	UInt32 headless = 0;
 	UInt32 previous = 0;
 	for (UInt32 node = anyWalker + kLevCreatureListOffset; LooksLikeObject(node) && kept < kAnyWalkerEntriesMost;
 	     node = Read(node + 4)) {
@@ -272,6 +271,18 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 }
 
 }  // namespace
+
+void RewriteVariantCounts(UInt32 espIndex, const ReplaceSettings& settings, LogFn log) {
+	if (espIndex > 0xFF) {
+		return;
+	}
+	const UInt32 variant = LookupForm(EspFormId(espIndex, kVariantLocalId));
+	const UInt32 anyWalker = LookupForm(EspFormId(espIndex, kAnyWalkerLocalId));
+	if (LooksLikeObject(variant) && Read8(variant + kFormTypeOffset) == kFormTypeLeveledCreature &&
+	    LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
+		WriteVariantCounts(variant, anyWalker, settings, log);
+	}
+}
 
 UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log) {

@@ -1,0 +1,35 @@
+# LINK's settings reach the plugin (docs/walkers-spec.md 4.18; Nadi,
+# 2026-10-27: "ok passt für mich so"): with Maskar's LINK 1.4 in the Linux
+# install (Nadi's Windows files), the plugin writes Data\OblivionWalkers.cfg
+# and .ini at the start and, at the first look after the load, the plugin
+# INI's values into the quest Walkers' variables ("LINK: loaded, the save
+# had none of this version - ... written into the quest's 27 of 27
+# variables"). Then the console sets three of them as LINK's menu would -
+# HealthPercent 40, MaxCount 4, the Courier off - and within a second the
+# log reads "LINK: ini_health_percent now 40" with the walkers' health
+# lines written anew, "ini_max_count now 4" with the variant list's counts
+# anew, "ini_courier now 0". OblivionWalkers.log copied into the run's
+# folder by hand. The menu itself is not opened here.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/link-settings.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at changed set Walkers.ini_health_percent to 40
+console-at changed set Walkers.ini_max_count to 4
+console-at changed set Walkers.ini_courier to 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 6
+mark changed
+wait 4
+mark changed-4
+wait 2
+mark end

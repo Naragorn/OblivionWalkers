@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Horde.h"
 #include "LevelingLogic.h"
+#include "LinkLogic.h"
 #include "MooLogic.h"
 #include "News.h"
 #include "SoundLogic.h"
@@ -14,6 +15,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <unordered_set>
 
 namespace walkers {
@@ -121,6 +123,11 @@ bool g_mooLooked = false;
 bool g_levelingLoaded = false;
 UInt32 g_levelingHeld = 0;
 UInt32 g_levelingIndex = 0x100;
+// LINK (LinkLogic.h): loaded, the variables brought in line with the
+// settings since the game's load, and the second's clock.
+bool g_linkLoaded = false;
+bool g_linkSynced = false;
+float g_linkClock = 0.0f;
 // The kills by the player whose experience the log checks a frame later:
 // ULVL.XP read before Ultimate Leveling's handler of the death, and after.
 struct LevelingCheck {
@@ -531,6 +538,7 @@ void FindMoo() {
 	g_mooLoaded = false;
 	g_levelingLoaded = false;
 	g_levelingIndex = 0x100;
+	g_linkLoaded = false;
 	g_mooToken = 0;
 	g_mooBrain = 0;
 	const UInt32 handler = Read(kDataHandlerPointer);
@@ -540,6 +548,9 @@ void FindMoo() {
 		const char* name = ModNameAt(i);
 		if (name != nullptr && SameModName(name, kMooEsp) && index > 0xFF) {
 			index = i;
+		}
+		if (name != nullptr && SameModName(name, kLinkEsp)) {
+			g_linkLoaded = true;
 		}
 		if (name != nullptr && SameModName(name, kLevelingEsp)) {
 			g_levelingLoaded = true;
@@ -1278,6 +1289,111 @@ void StepSpawns(float dt) {
 
 // BlockMooResurrect: the dead walkers due a pass lose MOO's token and brain
 // (RemoveItem, the console's own; a count of 1 is what MOO gives).
+// LINK's two files, Data\OblivionWalkers.cfg and .ini, written at the start
+// from the plugin INI's values (LinkCfgText, LinkIniText) - beside the
+// ESP, where LINK looks for them. The plugin INI is Data\OBSE\Plugins\.
+void WriteLinkFiles() {
+	char data[260];
+	std::snprintf(data, sizeof(data), "%s", g_iniPath);
+	for (int up = 0; up < 3; ++up) {
+		char* slash = std::strrchr(data, '\\');
+		if (slash == nullptr) {
+			g_log("LINK: no Data folder above %s - its files not written", g_iniPath);
+			return;
+		}
+		*slash = '\0';
+	}
+	static char text[1 << 16];
+	const char* names[2] = {"OblivionWalkers.cfg", "OblivionWalkers.ini"};
+	for (int f = 0; f < 2; ++f) {
+		const UInt32 length = f == 0 ? LinkCfgText(text, sizeof(text)) : LinkIniText(g_settings, g_replace, text, sizeof(text));
+		char path[300];
+		std::snprintf(path, sizeof(path), "%s\\%s", data, names[f]);
+		FILE* file = length > 0 ? std::fopen(path, "wb") : nullptr;
+		const bool written = file != nullptr && std::fwrite(text, 1, length, file) == length;
+		if (file != nullptr) {
+			std::fclose(file);
+		}
+		g_log("LINK: %s %s (%u bytes)", path, written ? "written" : "NOT written", length);
+	}
+}
+
+// What a change in LINK's menu needs beyond the value (LinkEffect).
+void ApplyLinkEffect(LinkEffect effect) {
+	switch (effect) {
+		case LinkEffect::WalkerRecords:
+			ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
+			ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
+			break;
+		case LinkEffect::SpawnCounts:
+			RewriteVariantCounts(FindEspIndex(), g_replace, g_log);
+			break;
+		case LinkEffect::Horde:
+			ConfigureHorde(g_settings.horde, FindEspIndex(), g_log);
+			ConfigureGuards(g_settings.guards, g_log);
+			ConfigureNews(g_settings.news, FindEspIndex(), g_log);
+			break;
+		default:
+			break;
+	}
+}
+
+// Once a second in a game: at the first look after a load, StartOf decides
+// whether the plugin INI's values go into the quest's variables or LINK's
+// (the save's) into the settings; after that, with LINK, what the menu
+// changed is applied.
+void StepLink(float dt) {
+	g_linkClock += dt;
+	if (g_linkClock < 1.0f || g_walkerCount == 0) {
+		return;
+	}
+	g_linkClock = 0.0f;
+	const UInt32 quest = EspFormId(FindEspIndex(), kLinkQuestLocalId);
+	double* version = QuestVariable(quest, kLinkVersionVariable);
+	if (version == nullptr) {
+		return;
+	}
+	if (!g_linkSynced) {
+		g_linkSynced = true;
+		if (StartOf(g_linkLoaded, *version) == LinkStart::WriteIni) {
+			UInt32 written = 0;
+			for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+				double* var = QuestVariable(quest, kLinkSettings[i].var);
+				if (var != nullptr) {
+					*var = LinkValue(g_settings, g_replace, i);
+					++written;
+				}
+			}
+			const double was = *version;
+			*version = kLinkVersion;
+			g_log("LINK: %s - the plugin INI's values written into the quest's %u of %u variables (version %.0f was %.0f)",
+			      g_linkLoaded ? "loaded, the save had none of this version" : "not loaded, the plugin INI decides",
+			      written, kLinkSettingCount, kLinkVersion, was);
+			return;
+		}
+		g_log("LINK: loaded - the save's values decide");
+	}
+	if (!g_linkLoaded) {
+		return;
+	}
+	bool effects[5] = {};
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		const double* var = QuestVariable(quest, kLinkSettings[i].var);
+		if (var == nullptr || !SetLinkValue(g_settings, g_replace, i, *var)) {
+			continue;
+		}
+		const LinkEffect effect = kLinkSettings[i].effect;
+		effects[static_cast<UInt32>(effect)] = true;
+		g_log("LINK: %s now %.*f%s", kLinkSettings[i].var, static_cast<int>(kLinkSettings[i].decimals),
+		      LinkValue(g_settings, g_replace, i), effect == LinkEffect::NextStart ? " - takes effect at the next start" : "");
+	}
+	for (UInt32 e = 0; e < 5; ++e) {
+		if (effects[e]) {
+			ApplyLinkEffect(static_cast<LinkEffect>(e));
+		}
+	}
+}
+
 // The kills by the player a second ago (Ultimate Leveling gives the
 // experience through SetStage ULVL 10, whose result script may run later than
 // the handler): ULVL.XP now against before - a walker's should be unchanged
@@ -1471,6 +1587,7 @@ void Tick() {
 		FindWalkers();
 		FindMoo();
 		StepLevelingChecks(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepLink(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
@@ -1541,6 +1658,7 @@ bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
 }
 
 void OnLoad(void*) {
+	g_linkSynced = false;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
 	g_fame = FameCount{};
@@ -1628,6 +1746,7 @@ void OnLoad(void*) {
 }
 
 void OnNewGame(void*) {
+	g_linkSynced = false;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
 	g_fame = FameCount{};
@@ -1670,6 +1789,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_walkerCount = 0;
 	g_mooLooked = false;
 	g_mooStrip = MooStrip{};
+	g_linkSynced = false;
+	WriteLinkFiles();
 	if (xse.QueryInterface == nullptr) {
 		log("xOBSE offers no QueryInterface: no death watch");
 		return false;
