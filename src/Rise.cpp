@@ -85,7 +85,7 @@ UInt32 g_apartWalker = 0;
 // beforehand and played as it gets up (SoundAtGetUp); 0: none.
 UInt32 g_getUpSound = 0;
 UInt32 g_apartRefusedFor = 0;
-UInt32 g_walkers[4] = {};
+UInt32 g_walkers[kWalkerCount] = {};
 UInt32 g_walkerCount = 0;
 bool g_walkersLooked = false;
 ReplaceSettings g_replace;
@@ -394,7 +394,7 @@ UInt32 FindZombieRace() {
 	return race;
 }
 
-// The ESP's Walker creatures (local IDs 0x801..0x804), looked up once per
+// The ESP's Walker creatures (RiseLogic.h kWalkerLocalIds), looked up once per
 // session; g_walkerCount stays 0 without the ESP.
 void FindWalkers() {
 	if (g_walkersLooked) {

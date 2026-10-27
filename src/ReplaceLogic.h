@@ -322,6 +322,7 @@ inline UInt32 InsertSectionLines(const char* text, UInt32 length, const char* se
 // and MaxCount, so the engine's own pick among the entries gives the spread.
 // Ten slots: MinCount=1, MaxCount=10 gives every count from 1 to 10 once.
 inline constexpr UInt32 kVariantSlots = 10;
+inline constexpr UInt32 kVariantEntriesMost = kWalkerCount * kVariantSlots;
 inline constexpr UInt32 kWalkersPerSpawnMost = 10;
 
 inline UInt32 SpreadCount(UInt32 minCount, UInt32 maxCount, UInt32 slot, UInt32 slots) {
@@ -420,9 +421,10 @@ inline UInt32 ScaledHealth(UInt32 health, UInt32 percent) {
 // walker record `slot` of `slots`, from the record's own. The records spread
 // evenly from RandomPercent under to RandomPercent over the multiplied pace,
 // so the variant list's walkers and the risen (a record drawn at random)
-// shamble at four paces. A creature walks at fMoveCreatureWalkMin + (Max -
-// Min) * Speed / 100 units a second (5 and 300 by default; the CS wiki's
-// Movement Game Settings) - Speed 12, the zombies', 40. On the records, not
+// shamble at as many paces as there are records. A creature walks at
+// fMoveCreatureWalkMin + (Max - Min) * Speed / 100 units a second (5 and
+// 300 by default; the CS wiki's Movement Game Settings) - Speed 12, the
+// zombies', 40. On the records, not
 // per reference: SetActorValue would write the base record anyway (the CS
 // wiki), and ModActorValue on a reference stays in the save for good. 1 to
 // 255, what the record's byte holds; a record of 0 stays so.

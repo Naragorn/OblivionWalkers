@@ -117,6 +117,28 @@ no factions, combat style or walk to rebuild on a person, one set of Walker
 records for 4.1 and 4.6. Lost: his face, clothes and name. The race path below
 stays measured and built behind `CloneBase` as the fallback.
 
+**Twenty looks** (Nadi, 2026-10-27: "gibts noch andere zombie modelle?
+brauchen mer diversität an zombies" - "go A"): every zombie of Oblivion.esm
+is one skeleton (Creatures\Zombie\Skeleton.NIF) with body parts (NIFZ):
+hair, head, arms, hands, legs and torso halves, each as 01 or 02, and a neck
+plug for the headless. Its CREA records wear twenty different part sets
+(read 2026-10-27); the walkers were four of them (CreatureZombie1..4). Since
+2026-10-27 the ESP has the other sixteen too, at 0x90E..0x91D
+(`tools/esp-write.py` PART_DONORS, `RiseLogic.h` kWalkerLocalIds): each is
+CreatureZombie1, 2 or 3 - the one missing the same arm, whose animations
+(KFFZ), bound (MODB, MODT) and arm flags fit - with the donor's parts, and
+No Head (ACBS 0x8000, UESP Tes4Mod:Mod_File_Format/CREA) where no head is
+among them; five are headless. The stats stay one; the spawns' variant list
+holds each walker ten times (200 entries), the risen draw one of the twenty,
+the speed spreads over twenty paces. 0x801..0x804 stay where they were, so a
+save's walkers keep their base. Still the vanilla skin: other races and
+looks are option B, next and not built - an optional second ESP with MOO as
+its master, walkers from MOO's race zombies (Argonian, Orc, High Elf, Dark
+Elf; normal, headless, dread), its burning ones, maybe its draugr, ghouls
+and mummies, and the risen drawn by the corpse's race (cost medium). Option
+C, the s6o6t zombie overhaul on Nexus (55729), Nadi turned down
+(2026-10-27: "C ist schlecht").
+
 What (the race path, built and measured, kept as the fallback): a fallen
 person of a playable race (men, mer, beast folk; `OnlyPlayableRaces=0` takes
 Dremora and the Isles' Saints and Seducers too; `OnlyHumans=1` narrows to the
@@ -1216,6 +1238,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
+| `walker-variety.txt` | the twenty walkers placed in the prison, ten and ten, their AI off: the parts in the pictures, "20 walker creatures found" and "200 entries over 20 walkers" in OblivionWalkers.log | the plugin, the ESP with the twenty walkers |
 | `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak; seven walkers at Anvil's main gate bring its guards out; the Courier's office broadsheet opens on "Walkers at the Gates of Anvil!" (4.9) - 19:59 and 20:03 PASS on the log, the book not opened (the console's activate opens none); 20:07 PASS, the name in the HUD; 20:10 PASS, opened with the hand's A, the text in the picture; 2026-10-27 06:48 PASS with HeadingHoldDays 0.5 (outbreak, heading for Anvil, then the attack; the hold itself is not reached here, the attack outranks it) | the plugin, the ESP with the editions |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |
 

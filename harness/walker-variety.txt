@@ -1,0 +1,72 @@
+# The twenty walker looks (Nadi, 2026-10-27: "brauchen mer diversität an
+# zombies"): the ESP's 0x801..0x804 and the sixteen new 0x90E..0x91D, each
+# placed once in front of the player in the game's prison
+# (ImperialDungeon01), the AI off after the first ten (tai, a toggle: once)
+# so they stand for the pictures. The player is held (tcl, setrestrained)
+# and in god mode.
+# OBVR.log does not see the walkers; OblivionWalkers.log (copied into the
+# run's folder by hand) must read "20 walker creatures found" and "200
+# entries over 20 walkers", the pictures show the parts: with and without
+# hair, head (5 headless), either arm.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/walker-variety.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands ReachOpens=0
+console-at placed tgm
+console-at placed coc ImperialDungeon01
+console-at prison tcl
+console-at prison player.setrestrained 1
+console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
+console-at first player.placeatme 11000801 1 250 0
+console-at first player.placeatme 11000802 1 250 0
+console-at first player.placeatme 11000803 1 250 0
+console-at first player.placeatme 11000804 1 250 0
+console-at first player.placeatme 1100090E 1 250 0
+console-at first player.placeatme 1100090F 1 250 0
+console-at first player.placeatme 11000910 1 250 0
+console-at first player.placeatme 11000911 1 250 0
+console-at first player.placeatme 11000912 1 250 0
+console-at first player.placeatme 11000913 1 250 0
+console-at first-placed tai
+console-at second player.placeatme 11000914 1 250 0
+console-at second player.placeatme 11000915 1 250 0
+console-at second player.placeatme 11000916 1 250 0
+console-at second player.placeatme 11000917 1 250 0
+console-at second player.placeatme 11000918 1 250 0
+console-at second player.placeatme 11000919 1 250 0
+console-at second player.placeatme 1100091A 1 250 0
+console-at second player.placeatme 1100091B 1 250 0
+console-at second player.placeatme 1100091C 1 250 0
+console-at second player.placeatme 1100091D 1 250 0
+
+expect HandScript: finished
+reject menu Container
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 22
+mark placed
+wait 16
+mark prison
+wait 4
+mark first
+wait 3
+mark first-placed
+wait 4
+mark first-look
+wait 2
+mark first-look-2
+wait 2
+mark second
+wait 3
+mark second-placed
+wait 4
+mark second-look
+wait 2
+mark second-look-2
+wait 2
+mark end

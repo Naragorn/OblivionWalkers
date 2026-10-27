@@ -12,8 +12,8 @@ index at runtime):
          but EDID and FULL: the walkers the risen become (4.1, the creature
          path decided 2026-10-23) and the spawns turn into (4.6); their own
          animation folder (4.4) comes later on these records.
-  0x805  LVLC WalkersZombieVariant - each of the four three times at level 1
-         (counts 1, 2, 3, which the plugin rewrites from [Replace] MinCount
+  0x805  LVLC WalkersZombieVariant - each walker VARIANT_SLOTS times at level
+         1 (counts 1..10, which the plugin rewrites from [Replace] MinCount
          and MaxCount at the start), no chance none, flags 0, like
          LL0ZombieVariant (00034095): what 4.6 puts in place of a creature.
   0x806..0x815  PACK WalkersHordeTravel00..15 - the horde's leaders (4.11):
@@ -51,6 +51,15 @@ index at runtime):
          fits on the vanilla broadsheets of the inns and the Courier's office
          (src/CourierRefs.h). 0x8FC is past the last pool guard and no pool
          slot (GuardLogic.h PoolSlotOf: bank 3, slot 21).
+  0x90E..0x91D  CREA WalkersZombie5..20 "Walker" - more looks (Nadi,
+         2026-10-27: "brauchen mer diversität an zombies"): the other sixteen
+         body part sets (NIFZ) Oblivion.esm's zombies wear, read off its
+         CREA records whose skeleton is Creatures\\Zombie\\Skeleton.NIF on
+         2026-10-27 (twenty sets, four of them the walkers above). Each is
+         CreatureZombie1, 2 or 3 - the one missing the same arm (KFFZ, MODB,
+         MODT and the ACBS arm flags go with the arms) - with the donor's
+         NIFZ and, without a head among the parts, ACBS's No Head (0x8000,
+         UESP Tes4Mod:Mod_File_Format/CREA): the walkers' stats stay one.
 
     python3 tools/esp-write.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         --out OblivionWalkers.esp
@@ -81,6 +90,18 @@ LOCAL_RACE_ID = 0x800
 WALKER_NAME = "Walker"
 ZOMBIE_SOURCES = [0x00025E6E, 0x00025E5E, 0x00025E55, 0x00025E4F]  # CreatureZombie1..4
 LOCAL_WALKER_IDS = [0x801, 0x802, 0x803, 0x804]
+# The donors of the sixteen other part sets (RiseLogic.h kWalkerLocalIds
+# 0x90E..0x91D, in this order): CreatureZombieHeadless1, SEUncleLeo,
+# XPEbroccaWife, MQ12KingsZombie03, MQ12KingsZombie02, Dark05Zombie1,
+# MG01ZombieHeadless14, MG01ZombieHeadless8, ARTESTZombie01, TestZombieGrant,
+# TestCombatZombie02, TestZombie06, TestZombie05, TestZombie04, TestZombie03,
+# TestZombie02.
+PART_DONORS = [0x00025E4E, 0x0009661A, 0x0008238C, 0x000C5B40, 0x000C5B3F, 0x00071B98, 0x00047503, 0x00047500,
+               0x00026076, 0x0002CD02, 0x0002C7EC, 0x0002AAC6, 0x0002AAC5, 0x0002AAC4, 0x0002AAC3, 0x0002B81C]
+LOCAL_MORE_WALKER_IDS = [0x90E + i for i in range(len(PART_DONORS))]
+ACBS_NO_HEAD = 0x8000
+ACBS_NO_RIGHT_ARM = 0x10000
+ACBS_NO_LEFT_ARM = 0x20000
 LOCAL_LIST_ID = 0x805
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
@@ -200,6 +221,42 @@ def build_walker(template: list[tuple[bytes, bytes]], edid: str) -> bytes:
             data = zstring(edid)
         elif kind == b"FULL":
             data = zstring(WALKER_NAME)
+        out += subrecord(kind, data)
+    return out
+
+
+def part_names(nifz: bytes) -> list[str]:
+    return sorted(p.decode("latin-1").lower() for p in nifz.split(b"\0") if p)
+
+
+def arm_template(parts: list[str], walker_templates: list[list[tuple[bytes, bytes]]]):
+    """CreatureZombie1 with both arms, 2 without the right, 3 without the
+    left - the one whose arm flags, animations and bound fit the parts."""
+    right = any(p.startswith("rightarm") for p in parts)
+    left = any(p.startswith("leftarm") for p in parts)
+    if right and left:
+        return walker_templates[0]
+    if left:
+        return walker_templates[1]
+    if right:
+        return walker_templates[2]
+    raise SystemExit(f"a part set without either arm: {parts}")
+
+
+def build_more_walker(template: list[tuple[bytes, bytes]], nifz: bytes, edid: str) -> bytes:
+    """The arm template under the Walker's names with the donor's parts, No
+    Head set when no head is among them."""
+    headless = not any(p.startswith("head") for p in part_names(nifz))
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"FULL":
+            data = zstring(WALKER_NAME)
+        elif kind == b"NIFZ":
+            data = nifz
+        elif kind == b"ACBS" and headless:
+            data = struct.pack("<I", struct.unpack_from("<I", data, 0)[0] | ACBS_NO_HEAD) + data[4:]
         out += subrecord(kind, data)
     return out
 
@@ -355,9 +412,19 @@ def main() -> int:
     races = record(b"RACE", race_form, build_race(template))
 
     walker_templates = [find_record(esm, buf, b"CREA", source) for source in ZOMBIE_SOURCES]
-    walker_forms = [index | local for local in LOCAL_WALKER_IDS]
+    first_forms = [index | local for local in LOCAL_WALKER_IDS]
     creatures = b"".join(record(b"CREA", form, build_walker(tpl, f"WalkersZombie{i + 1}"))
-                         for i, (form, tpl) in enumerate(zip(walker_forms, walker_templates)))
+                         for i, (form, tpl) in enumerate(zip(first_forms, walker_templates)))
+    donor_parts = [dict(find_record(esm, buf, b"CREA", donor))[b"NIFZ"] for donor in PART_DONORS]
+    more_forms = [index | local for local in LOCAL_MORE_WALKER_IDS]
+    more_templates = [arm_template(part_names(nifz), walker_templates) for nifz in donor_parts]
+    creatures += b"".join(
+        record(b"CREA", form, build_more_walker(tpl, nifz, f"WalkersZombie{len(first_forms) + i + 1}"))
+        for i, (form, tpl, nifz) in enumerate(zip(more_forms, more_templates, donor_parts)))
+    walker_forms = first_forms + more_forms
+    all_parts = [part_names(dict(t)[b"NIFZ"]) for t in walker_templates] + [part_names(n) for n in donor_parts]
+    if len({tuple(p) for p in all_parts}) != len(all_parts):
+        raise SystemExit("two walkers wear the same parts")
     list_form = index | LOCAL_LIST_ID
     lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms)))
 
@@ -394,7 +461,7 @@ def main() -> int:
     test_pool = 0
     for c in range(len(CITIES)):
         for n in range(args.test_walker_pool):
-            local = LOCAL_EDITION_IDS[-1] + 1 + test_pool
+            local = LOCAL_MORE_WALKER_IDS[-1] + 1 + test_pool
             pool += record(b"ACRE", index | local,
                            build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
                                           test_pool),
@@ -414,7 +481,7 @@ def main() -> int:
     groups = 5 + 5 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms))
-    plugin = header(num_records=groups + records, next_object_id=LOCAL_EDITION_IDS[-1] + 1 + test_pool,
+    plugin = header(num_records=groups + records, next_object_id=LOCAL_MORE_WALKER_IDS[-1] + 1 + test_pool,
                     masters=masters) + body
     out = Path(args.out)
     out.write_bytes(plugin)
@@ -429,7 +496,7 @@ def main() -> int:
         raise SystemExit("the written race differs from the Imperial beyond its names")
     if names != {"EDID": RACE_EDID, "FULL": RACE_NAME, "DESC": RACE_DESC}:
         raise SystemExit(f"the written race's names are off: {names}")
-    for i, (form, tpl) in enumerate(zip(walker_forms, walker_templates)):
+    for i, (form, tpl) in enumerate(zip(first_forms, walker_templates)):
         back = find_record(esm, plugin, b"CREA", form)
         if [(k, d) for k, d in back if k not in (b"EDID", b"FULL")] != \
                 [(k, d) for k, d in tpl if k not in (b"EDID", b"FULL")]:
@@ -437,6 +504,22 @@ def main() -> int:
         back_names = {k.decode(): d.rstrip(b"\0").decode("latin-1") for k, d in back if k in (b"EDID", b"FULL")}
         if back_names != {"EDID": f"WalkersZombie{i + 1}", "FULL": WALKER_NAME}:
             raise SystemExit(f"walker {i + 1}'s names are off: {back_names}")
+    for i, (form, tpl, nifz) in enumerate(zip(more_forms, more_templates, donor_parts)):
+        n = len(first_forms) + i + 1
+        back = find_record(esm, plugin, b"CREA", form)
+        headless = not any(p.startswith("head") for p in part_names(nifz))
+        keep = (b"EDID", b"FULL", b"NIFZ", b"ACBS")
+        if [(k, d) for k, d in back if k not in keep] != [(k, d) for k, d in tpl if k not in keep]:
+            raise SystemExit(f"walker {n} differs from its arm template beyond names, parts and flags")
+        got = dict(back)
+        flags = struct.unpack_from("<I", got[b"ACBS"], 0)[0]
+        want = struct.unpack_from("<I", dict(tpl)[b"ACBS"], 0)[0] | (ACBS_NO_HEAD if headless else 0)
+        if got[b"NIFZ"] != nifz or flags != want or got[b"ACBS"][4:] != dict(tpl)[b"ACBS"][4:]:
+            raise SystemExit(f"walker {n}'s parts or flags are off")
+        if got[b"EDID"].rstrip(b"\0").decode() != f"WalkersZombie{n}" or got[b"FULL"].rstrip(b"\0").decode() != WALKER_NAME:
+            raise SystemExit(f"walker {n}'s names are off")
+    if LOCAL_MORE_WALKER_IDS[0] <= LOCAL_EDITION_IDS[-1]:
+        raise SystemExit("the new walkers overlap the editions")
     back_list = find_record(esm, plugin, b"LVLC", list_form)
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
     if [(e[2], e[3]) for e in entries] != variant_entries(walker_forms) or any(e[0] != 1 for e in entries):
@@ -479,7 +562,8 @@ def main() -> int:
         raise SystemExit("the pool's first banks moved: a save made with a smaller pool would lose its guards")
     print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
-          + f" WalkersZombie1..4 '{WALKER_NAME}', LVLC {list_form:08X} {LIST_EDID} with the four x{VARIANT_SLOTS}; "
+          + f" WalkersZombie1..{len(walker_forms)} '{WALKER_NAME}' ({sum(1 for p in all_parts if not any(x.startswith('head') for x in p))} headless), "
+          + f"LVLC {list_form:08X} {LIST_EDID} with each x{VARIANT_SLOTS}; "
           + f"PACK {travel_forms[0]:08X}.. travel and {follow_forms[0]:08X}.. follow x{HORDE_GROUPS}, CELL {cell_form:08X} "
           + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X} and {len(pool_forms)} pool guards "
           + f"{pool_forms[0]:08X}..{pool_forms[-1]:08X} of NPC_ {guard_forms[0]:08X}..{guard_forms[-1]:08X}; "

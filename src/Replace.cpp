@@ -59,13 +59,13 @@ constexpr UInt32 kListEntryBytes = 8;   // {data, next}
 
 // The variant list's counts per walker slot (ReplaceLogic.h SpreadCount).
 void WriteVariantCounts(UInt32 variant, const ReplaceSettings& settings, LogFn log) {
-	UInt32 seen[16] = {};
-	UInt32 times[16] = {};
+	UInt32 seen[kWalkerCount] = {};
+	UInt32 times[kWalkerCount] = {};
 	UInt32 kinds = 0;
 	UInt32 entries = 0;
 	char counts[128] = {};
 	UInt32 written = 0;
-	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && entries < 64;
+	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && entries < kVariantEntriesMost;
 	     node = Read(node + 4)) {
 		const UInt32 data = Read(node);
 		if (!LooksLikeObject(data)) {
@@ -76,10 +76,10 @@ void WriteVariantCounts(UInt32 variant, const ReplaceSettings& settings, LogFn l
 		UInt32 k = 0;
 		for (; k < kinds && seen[k] != form; ++k) {
 		}
-		if (k == kinds && kinds < 16) {
+		if (k == kinds && kinds < kWalkerCount) {
 			seen[kinds++] = form;
 		}
-		if (k < 16) {
+		if (k < kWalkerCount) {
 			slot = times[k]++;
 		}
 		const UInt16 count = static_cast<UInt16>(SpreadCount(settings.minCount, settings.maxCount, slot, kVariantSlots));
@@ -344,9 +344,9 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 }
 
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log) {
-	static UInt32 s_ids[8] = {};
-	static UInt32 s_health[8] = {};
-	for (UInt32 i = 0; i < count && i < 8; ++i) {
+	static UInt32 s_ids[kWalkerCount] = {};
+	static UInt32 s_health[kWalkerCount] = {};
+	for (UInt32 i = 0; i < count && i < kWalkerCount; ++i) {
 		const UInt32 walker = LookupForm(walkerIds[i]);
 		if (!LooksLikeObject(walker) || Read8(walker + kFormTypeOffset) != kFormTypeCreature) {
 			continue;
@@ -425,9 +425,9 @@ void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espIndex, const
 }
 
 void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log) {
-	static UInt32 s_ids[8] = {};
-	static UInt8 s_speed[8] = {};
-	for (UInt32 i = 0; i < count && i < 8; ++i) {
+	static UInt32 s_ids[kWalkerCount] = {};
+	static UInt8 s_speed[kWalkerCount] = {};
+	for (UInt32 i = 0; i < count && i < kWalkerCount; ++i) {
 		const UInt32 walker = LookupForm(walkerIds[i]);
 		if (!LooksLikeObject(walker) || Read8(walker + kFormTypeOffset) != kFormTypeCreature) {
 			continue;
