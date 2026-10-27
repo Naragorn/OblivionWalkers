@@ -252,9 +252,17 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	}
 }
 
-// PlayerCharacter's skill use, in its vtable slot: held back when the
+// The caller's EDI as the hook was entered (SkillUseStub) - at the armor
+// site the attacker (SkillLogic.h SiteOf).
+UInt32 g_callerEdi = 0;
+
+// PlayerCharacter's skill use, in its vtable slot: held back when the call
+// site names a walker as the attacker (the armor of its hit), or when the
 // frame's hit was between the player and a walker and the skill is a blow's.
 void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, float times) {
+	const UInt32 caller = reinterpret_cast<UInt32>(_ReturnAddress());
+	const SkillSite site = SiteOf(caller);
+	const UInt32 attacker = g_callerEdi;
 	SkillHit hit{};
 	hit.thisFrame = g_lastHit.frame == g_frame;
 	if (hit.thisFrame) {
@@ -263,22 +271,36 @@ void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, fl
 		hit.targetPlayer = FormIdOf(g_lastHit.target) == 0x14;
 		hit.attackerPlayer = FormIdOf(g_lastHit.attacker) == 0x14;
 	}
-	const bool hold = HoldsSkillUse(g_settings.noSkillGain, skill, hit);
+	const bool siteWalker = site == SkillSite::ArmorOfHit && LooksLikeObject(attacker) && IsWalkerRef(attacker);
+	const bool hold = HoldsSiteUse(g_settings.noSkillGain, site, siteWalker) || HoldsSkillUse(g_settings.noSkillGain, skill, hit);
 	if (!IsBlowSkill(skill) && g_otherSkillLinesLeft > 0) {
 		--g_otherSkillLinesLeft;
 		g_log("Skills: the player's skill %02X use %u (not a blow's) - trained", skill, use);
 	}
 	if (IsBlowSkill(skill) && g_skillLinesLeft > 0) {
 		--g_skillLinesLeft;
-		g_log("Skills: the player's skill %02X use %u x%.2f (from %08X) - %s; the frame's hit %s: %08X by %08X",
-		      skill, use, times, reinterpret_cast<UInt32>(_ReturnAddress()), hold ? "HELD BACK" : "trained",
-		      hit.thisFrame ? "this frame" : "none", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker));
+		g_log("Skills: the player's skill %02X use %u x%.2f (from %08X, %s%s%08X) - %s; the frame's hit %s: %08X by %08X",
+		      skill, use, times, caller,
+		      site == SkillSite::ArmorOfHit ? "the armor of a hit" : (site == SkillSite::WeaponOfAttack ? "the weapon of an attack" : "elsewhere"),
+		      site == SkillSite::ArmorOfHit ? ", the attacker " : ", EDI ", site == SkillSite::ArmorOfHit ? FormIdOf(attacker) : attacker,
+		      hold ? "HELD BACK" : "trained", hit.thisFrame ? "this frame" : "none", FormIdOf(g_lastHit.target),
+		      FormIdOf(g_lastHit.attacker));
 	}
 	if (hold) {
 		return;
 	}
 	using SkillUseFn = void(__fastcall*)(void* self, void* edx, UInt32 skill, UInt32 use, float times);
 	reinterpret_cast<SkillUseFn>(g_originalSkillUse)(self, edx, skill, use, times);
+}
+
+// Entered from the vtable slot: notes the caller's EDI, then on to the hook
+// with the stack as the caller left it (ECX the player, the three arguments,
+// the return address).
+__declspec(naked) void SkillUseStub() {
+	__asm {
+		mov g_callerEdi, edi
+		jmp SkillUseHook
+	}
 }
 
 // The slot is swapped once a session, if it still holds the engine's own
@@ -296,7 +318,7 @@ void InstallSkillHook() {
 		return;
 	}
 	g_originalSkillUse = *slot;
-	*slot = reinterpret_cast<UInt32>(&SkillUseHook);
+	*slot = reinterpret_cast<UInt32>(&SkillUseStub);
 	VirtualProtect(slot, 4, old, &old);
 	g_log("Skills: the player's skill use (vtable slot %08X) watched - NoSkillGain=%d", kPlayerSkillUseSlot,
 	      g_settings.noSkillGain ? 1 : 0);

@@ -57,4 +57,31 @@ inline bool HoldsSkillUse(bool setting, UInt32 skill, const SkillHit& hit) {
 	return (hit.attackerPlayer && hit.targetWalker) || (hit.targetPlayer && hit.attackerWalker);
 }
 
+// The call site a skill use returns to (read with REA 2026-10-27):
+// - 0x005FFCA4, after `call edx` at 0x005FFCA2 in AttackHandling: the hit
+//   actor's armor (Light 0x1B or Heavy 0x12), ESI the hit actor, EDI the
+//   attacker - so the attacker is read off EDI at the hook's entry;
+// - 0x005FD846, after `call eax` at 0x005FD844 in the attack update
+//   0x005FCAB0: the attacker's weapon skill (via +0x21C), not reached by
+//   OBVR's hand-tracked strikes, which call AttackHandling directly.
+enum class SkillSite : UInt8 { Other, ArmorOfHit, WeaponOfAttack };
+
+inline constexpr UInt32 kArmorOfHitReturn = 0x005FFCA4;
+inline constexpr UInt32 kWeaponOfAttackReturn = 0x005FD846;
+
+inline SkillSite SiteOf(UInt32 returnAddress) {
+	if (returnAddress == kArmorOfHitReturn) {
+		return SkillSite::ArmorOfHit;
+	}
+	if (returnAddress == kWeaponOfAttackReturn) {
+		return SkillSite::WeaponOfAttack;
+	}
+	return SkillSite::Other;
+}
+
+// At the armor site the attacker is known: a walker's hit trains nothing.
+inline bool HoldsSiteUse(bool setting, SkillSite site, bool attackerWalker) {
+	return setting && site == SkillSite::ArmorOfHit && attackerWalker;
+}
+
 }  // namespace walkers

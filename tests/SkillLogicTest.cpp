@@ -48,10 +48,27 @@ void TestWho() {
 	Check(!walkers::HoldsSkillUse(true, walkers::kSkillBlade, walkerHitsWalker), "a hit without the player: not his");
 }
 
+void TestSites() {
+	std::printf("Where the skill use comes from\n");
+	using walkers::SkillSite;
+	Check(walkers::SiteOf(0x005FFCA4) == SkillSite::ArmorOfHit,
+	      "returning to 0x005FFCA4: the armor of a hit in AttackHandling (the attacker in EDI)");
+	Check(walkers::SiteOf(0x005FD846) == SkillSite::WeaponOfAttack,
+	      "returning to 0x005FD846: the weapon skill in the attack update 0x005FCAB0");
+	Check(walkers::SiteOf(0x00401000) == SkillSite::Other, "anywhere else: another use");
+	Check(walkers::HoldsSiteUse(true, SkillSite::ArmorOfHit, true) &&
+	          !walkers::HoldsSiteUse(true, SkillSite::ArmorOfHit, false),
+	      "the armor of a walker's hit held back, of anyone else's trained");
+	Check(!walkers::HoldsSiteUse(false, SkillSite::ArmorOfHit, true), "the setting off: trained");
+	Check(!walkers::HoldsSiteUse(true, SkillSite::Other, true) && !walkers::HoldsSiteUse(true, SkillSite::WeaponOfAttack, true),
+	      "other sites: not decided by the register (the frame's hit decides there)");
+}
+
 }  // namespace
 
 int main() {
 	TestWho();
+	TestSites();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;
