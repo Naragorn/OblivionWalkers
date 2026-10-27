@@ -566,6 +566,56 @@ enum class Presence : UInt8 {
 	Present,  // in the world: the clock runs
 };
 
+// Where a reference stands, as the presence reads it: its cell, whether that
+// is an interior (the cell's flag bit 0), an exterior's worldspace and the
+// position on the ground.
+struct Place {
+	bool known = false;  // false: no cell read
+	bool interior = false;
+	UInt32 cell = 0;
+	UInt32 world = 0;  // exteriors only
+	float x = 0.0f;
+	float y = 0.0f;
+};
+
+inline constexpr float kExteriorCellUnits = 4096.0f;
+
+inline int ExteriorCellIndex(float units) {
+	const float cells = units / kExteriorCellUnits;
+	const int index = static_cast<int>(cells);
+	return (cells < 0.0f && static_cast<float>(index) != cells) ? index - 1 : index;
+}
+
+// Whether `at` is in the cells the game runs around `player`: an interior
+// only with the player in that very cell (the game keeps a left interior's
+// 3D in its cell buffer - rise-after-away.txt 2026-10-27), an exterior in the
+// player's worldspace within uGridsToLoad / 2 cells on both axes (5: two).
+inline bool InPlayersCells(const Place& at, const Place& player, UInt32 gridsToLoad) {
+	if (!at.known || !player.known || at.interior != player.interior) {
+		return false;
+	}
+	if (at.interior) {
+		return at.cell == player.cell;
+	}
+	if (at.world != player.world) {
+		return false;
+	}
+	const int reach = static_cast<int>(gridsToLoad / 2);
+	const int dx = ExteriorCellIndex(at.x) - ExteriorCellIndex(player.x);
+	const int dy = ExteriorCellIndex(at.y) - ExteriorCellIndex(player.y);
+	return dx <= reach && dx >= -reach && dy <= reach && dy >= -reach;
+}
+
+// A waiting reference's presence: gone without the reference; present with
+// its 3D and in the player's cells; absent otherwise - its clock stands, so
+// nothing is swapped or raised where the player is not.
+inline Presence PresenceAt(bool exists, bool has3D, const Place& at, const Place& player, UInt32 gridsToLoad) {
+	if (!exists) {
+		return Presence::Gone;
+	}
+	return has3D && InPlayersCells(at, player, gridsToLoad) ? Presence::Present : Presence::Absent;
+}
+
 // One frame of `dt` seconds. The references whose clock ran out go to `due`
 // (at most dueMost; any beyond that keep a clock of zero for the next frame)
 // and leave the list; returns how many are due. The list keeps its order.

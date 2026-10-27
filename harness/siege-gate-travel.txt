@@ -19,6 +19,10 @@
 # lock, the control. The roster lines at the marks tell whether base
 # 0000BFD7 comes into Tamriel near the player; the pictures show where.
 #
+# At the end the player is made to use the Tamriel door (00006FBA.activate
+# player): open, he goes through into AnvilWorld (the city's people in the
+# roster at "tried"); locked at 100, he stays - the lock read back.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/siege-gate-travel.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
@@ -33,6 +37,7 @@ console-at ready player.moveto 0000BFD4
 console-at outside player.setangle z 0
 console-at outside 0000BFD8.moveto 00006B96
 console-at outside 0000BFD8.evp
+console-at try 00006FBA.activate player
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -55,4 +60,8 @@ mark t90
 wait 30
 mark t120
 wait 5
+mark try
+wait 10
+mark tried
+wait 3
 mark end

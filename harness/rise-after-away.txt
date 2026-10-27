@@ -15,6 +15,16 @@
 # for. OblivionWalkers.log (copied into the run's folder by hand) and the
 # roster lines at the marks tell which.
 #
+# Run 1, 2026-10-27 09:21 (artifacts/hand-script/rise-after-away/20261027-092127,
+# PASS by its lines, FAIL in substance): the body stayed "present" the whole
+# time - the hall kept its 3D in the interior cell buffer - so its clock ran
+# on while the player was away; the swap came in the left hall ("walker
+# FF000EFA's model never came within 15 s"), the walker was not hidden and
+# the bandit not raised ("is gone"). Back in the hall: a walker standing in
+# T-pose beside the bandit's corpse (shot 12). Since then a body is present
+# only in the cells around the player (RiseLogic.h InPlayersCells): its
+# clock stands while the player is elsewhere.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-after-away.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

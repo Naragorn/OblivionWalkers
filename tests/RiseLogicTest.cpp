@@ -196,6 +196,53 @@ void TestTick() {
 	Check(n == 1 && due[0] == 0x12 && many.count == 0, "and come the next frame, even one of zero seconds");
 }
 
+// rise-after-away.txt 2026-10-27 09:21: the hall the player left kept its 3D
+// (the game's interior cell buffer), so the waiting clock ran on, the swap
+// came in a cell nobody was in and the walker's model never loaded - a
+// walker in T-pose beside the corpse at the player's return. A body counts
+// as present only in the cells around the player.
+void TestPresenceAt() {
+	std::printf("Present only where the player is\n");
+	using walkers::Place;
+	using walkers::Presence;
+	const Place hall{true, true, 0xC0, 0, 267.0f, -1492.0f};
+	const Place prison{true, true, 0xC1, 0, 0.0f, 0.0f};
+	const Place tamriel{true, false, 0xE0, 0x3C, -100.0f, 300.0f};
+	Check(walkers::InPlayersCells(hall, hall, 5), "an interior body with the player in its cell: in reach");
+	Check(!walkers::InPlayersCells(hall, prison, 5), "the player in another interior: out of reach, though the cell is kept");
+	Check(!walkers::InPlayersCells(hall, tamriel, 5) && !walkers::InPlayersCells(tamriel, hall, 5),
+	      "one inside, the other outside: out of reach");
+	Place nearby = tamriel;
+	nearby.cell = 0xE1;
+	nearby.x = 4000.0f;  // the next cell east
+	nearby.y = 300.0f + 2.0f * 4096.0f;  // two cells north
+	Check(walkers::InPlayersCells(tamriel, nearby, 5), "outside, the same world, two cells off: in reach at uGridsToLoad 5");
+	Place far = tamriel;
+	far.x = 8200.0f;  // three cells from x -100 (cell -1)
+	Check(!walkers::InPlayersCells(tamriel, far, 5), "three cells east (the cells counted from -1 below zero): out of reach");
+	far = tamriel;
+	far.y = 300.0f - 3.0f * 4096.0f;
+	Check(!walkers::InPlayersCells(tamriel, far, 5), "three cells south: out of reach");
+	Check(walkers::InPlayersCells(tamriel, nearby, 5) && !walkers::InPlayersCells(tamriel, nearby, 3),
+	      "uGridsToLoad 3: one cell around, the two-off one out");
+	Place own = tamriel;
+	own.x = 50.0f;
+	Check(!walkers::InPlayersCells(tamriel, own, 0) && walkers::InPlayersCells(tamriel, tamriel, 0),
+	      "uGridsToLoad 0 (unread): the player's own cell alone");
+	Place city = tamriel;
+	city.world = 0x1C31A;
+	Check(!walkers::InPlayersCells(tamriel, city, 5), "outside in another world (a city's): out of reach");
+	const Place nowhere{};
+	Check(!walkers::InPlayersCells(nowhere, hall, 5) && !walkers::InPlayersCells(hall, nowhere, 5),
+	      "a body or a player without a cell: out of reach");
+
+	Check(walkers::PresenceAt(false, true, hall, hall, 5) == Presence::Gone, "no such reference: gone");
+	Check(walkers::PresenceAt(true, true, hall, hall, 5) == Presence::Present, "in reach with its 3D: present, the clock runs");
+	Check(walkers::PresenceAt(true, false, hall, hall, 5) == Presence::Absent, "in reach without 3D yet: absent, the clock stands");
+	Check(walkers::PresenceAt(true, true, hall, prison, 5) == Presence::Absent,
+	      "its 3D kept but the player elsewhere: absent - the clock stands, no swap where nobody is");
+}
+
 void TestWalkOnly() {
 	std::printf("Walkers walk\n");
 	Check(walkers::WalkInsteadOfRun(0x0201) == 0x0101, "a run forward becomes a walk forward");
@@ -681,6 +728,7 @@ void TestKeepWalkers() {
 int main() {
 	TestVerdicts();
 	TestTick();
+	TestPresenceAt();
 	TestWalkOnly();
 	TestRequeue();
 	TestEspRace();

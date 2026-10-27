@@ -31,6 +31,14 @@ constexpr UInt32 kNpcRacePointerOffset = 0xE8;  // TESNPC::race.race (TESRaceFor
 constexpr UInt32 kRacePlayableOffset = 0x70;    // TESRace::isPlayable, a byte
 constexpr UInt32 kRefPositionOffset = 0x2C;     // TESObjectREFR::posX, posY, posZ
 constexpr UInt32 kRefParentCellOffset = 0x40;   // TESObjectREFR::parentCell
+// A cell's flags (bit 0: interior) and an exterior's worldspace - as Horde.cpp
+// reads them (0x004C9CF0).
+constexpr UInt32 kCellFlagsOffset = 0x24;
+constexpr UInt32 kCellWorldspaceOffset = 0x50;
+// The game's uGridsToLoad:General setting: its value at the Setting's head,
+// the name "uGridsToLoad:General" (0x00A3D7C4) right after it - read off
+// Oblivion.exe's bytes 2026-10-27; 5 there, the INI's value once loaded.
+constexpr UInt32 kGridsToLoadSetting = 0x00B06A2C;
 // TESObjectCELL's ExtraDataList at +0x28, its first BSExtraData at +0x2C;
 // a BSExtraData is {vtable, type at +4, next at +8} (xOBSE GameForms.h,
 // GameBSExtraData.h). The cell's editor ID (ExtraEditorID, 0x0A: a
@@ -277,12 +285,46 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	}
 }
 
+Place PlaceOf(UInt32 ref) {
+	Place place;
+	const UInt32 cell = LooksLikeObject(ref) ? Read(ref + kRefParentCellOffset) : 0;
+	if (!LooksLikeObject(cell)) {
+		return place;
+	}
+	place.known = true;
+	place.interior = (Read8(cell + kCellFlagsOffset) & 1) != 0;
+	place.cell = cell;
+	place.world = place.interior ? 0 : Read(cell + kCellWorldspaceOffset);
+	place.x = FloatAt(ref + kRefPositionOffset);
+	place.y = FloatAt(ref + kRefPositionOffset + 4);
+	return place;
+}
+
+// uGridsToLoad as the game runs it; a value outside 1..15 (the setting not
+// where it was read) is logged once and taken as the default 5.
+UInt32 GridsToLoad() {
+	const UInt32 grids = Read(kGridsToLoadSetting);
+	static bool s_logged = false;
+	if (!s_logged) {
+		s_logged = true;
+		g_log("Presence: uGridsToLoad reads %u%s", grids,
+		      grids >= 1 && grids <= 15 ? "" : " - not a grid size, taken as 5");
+	}
+	return grids >= 1 && grids <= 15 ? grids : 5;
+}
+
+// In the cells the game runs around the player (RiseLogic.h InPlayersCells).
+bool InPlayersReach(UInt32 ref) {
+	return InPlayersCells(PlaceOf(ref), PlaceOf(LookupForm(kPlayerRefId)), GridsToLoad());
+}
+
 Presence PresenceOfNow(UInt32 refId) {
 	const UInt32 ref = LookupForm(refId);
 	if (!LooksLikeObject(ref) || !IsActor(ref)) {
 		return Presence::Gone;
 	}
-	return Read(ref + kRefNiNodeOffset) != 0 ? Presence::Present : Presence::Absent;
+	return PresenceAt(true, Read(ref + kRefNiNodeOffset) != 0, PlaceOf(ref), PlaceOf(LookupForm(kPlayerRefId)),
+	                  GridsToLoad());
 }
 
 // The presence as the waiting clocks see it, with a log line whenever a
@@ -314,7 +356,8 @@ Presence PresenceOf(UInt32 refId) {
 		const UInt32 ref = LookupForm(refId);
 		const bool object = LooksLikeObject(ref);
 		g_log("Waiting: %08X is now %s at %.0f %.0f %.0f (form flags %08X)", refId,
-		      now == Presence::Present ? "present" : (now == Presence::Absent ? "absent (no 3D)" : "gone"),
+		      now == Presence::Present ? "present"
+		                               : (now == Presence::Absent ? "absent (no 3D, or not where the player is)" : "gone"),
 		      object ? FloatAt(ref + kRefPositionOffset) : 0.0f, object ? FloatAt(ref + kRefPositionOffset + 4) : 0.0f,
 		      object ? FloatAt(ref + kRefPositionOffset + 8) : 0.0f, object ? Read(ref + 0x08) : 0u);
 		s_last[slot] = static_cast<UInt8>(now);
@@ -1286,7 +1329,7 @@ void StepSafeguardInGame(float dt) {
 		for (UInt32 i = 0; i < g_safeguard.count && i < 8 && g_safeguardStatusLeft > 0; ++i, --g_safeguardStatusLeft) {
 			const SafeguardEntry& entry = g_safeguard.entries[i];
 			const UInt32 ref = LookupForm(entry.refId);
-			const bool loaded = LooksLikeObject(ref) && Read(ref + kRefNiNodeOffset) != 0;
+			const bool loaded = LooksLikeObject(ref) && Read(ref + kRefNiNodeOffset) != 0 && InPlayersReach(ref);
 			const float nearest = LooksLikeObject(ref) ? NearestWalkerDistance(ref, walkers, walkerCount) : -1.0f;
 			g_log("Safeguard: %08X still down - dead %.0f s, %s, the nearest living walker %.0f units off (-1 none; "
 			      "up once %.0f s and beyond %.0f)",
@@ -1305,10 +1348,12 @@ void StepSafeguardInGame(float dt) {
 			return IsDead(ref) ? VictimNow::Dead : VictimNow::Alive;
 		},
 		[&](UInt32 id) {
-			// Loaded (its 3D there): an unloaded body waits for the player to come
-			// back - a raise without 3D is not read yet (spec 4.11b).
+			// Loaded and where the player is: an unloaded body - or one whose cell
+			// the game only keeps in its buffer - waits for the player to come
+			// back; a raise without 3D is not read yet (spec 4.11b).
 			const UInt32 ref = LookupForm(id);
-			return Read(ref + kRefNiNodeOffset) != 0 && !WalkerWithin(ref, radius, walkers, walkerCount);
+			return Read(ref + kRefNiNodeOffset) != 0 && InPlayersReach(ref) &&
+			       !WalkerWithin(ref, radius, walkers, walkerCount);
 		},
 		[](UInt32 id, VictimNow now, float seconds) {
 			g_log("Safeguard: %08X off the list after %.0f s dead - %s", id, seconds,
