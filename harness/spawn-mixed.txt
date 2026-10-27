@@ -20,7 +20,9 @@
 # flags 0 - still one base each (2, 9, 9, 3); 15:37 nested list with LVLF 2
 # ("calculate for each item in count") - 4, 4, 6, 3 walkers, all different
 # bases. The ESP is built so since (WalkersAnyWalker 0x94A); this scenario
-# with the deployed ESP now expects the mixed result.
+# with the deployed ESP now expects the mixed result - 15:54 PASS with the
+# deployed ESP f37bbed4: 3, 4, 1, 2 walkers, mixed bases, the log reading
+# "the any-walker list's flags 02 (drawn anew for each walker)".
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-mixed.txt --headless \
