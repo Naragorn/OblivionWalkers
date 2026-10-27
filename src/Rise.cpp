@@ -7,6 +7,7 @@
 #include "News.h"
 #include "SoundLogic.h"
 #include "Pose.h"
+#include "QuestVars.h"
 #include "Replace.h"
 
 #include <windows.h>
@@ -119,6 +120,18 @@ bool g_mooLooked = false;
 // up with MOO; how many walker deaths were held back, for the log.
 bool g_levelingLoaded = false;
 UInt32 g_levelingHeld = 0;
+UInt32 g_levelingIndex = 0x100;
+// The kills by the player whose experience the log checks a frame later:
+// ULVL.XP read before Ultimate Leveling's handler of the death, and after.
+struct LevelingCheck {
+	UInt32 refId;
+	bool walker;
+	double before;
+};
+LevelingCheck g_levelingChecks[4] = {};
+UInt32 g_levelingCheckCount = 0;
+UInt32 g_levelingChecksLeft = 12;
+float g_levelingCheckWait = 0.0f;
 // MOO's ESP in the load order: its archives with the meshes of the walkers'
 // MOO looks are loaded (WalkerLooks.h LookUsable).
 bool g_mooLoaded = false;
@@ -248,6 +261,11 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	}
 	if (BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
+	}
+	if (g_levelingLoaded && FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId && g_levelingChecksLeft > 0 &&
+	    g_levelingCheckCount < 4) {
+		const double* xp = QuestVariable((g_levelingIndex << 24) | kLevelingQuestLocalId, kLevelingXpVariable);
+		g_levelingChecks[g_levelingCheckCount++] = LevelingCheck{fallen.refId, walker, xp != nullptr ? *xp : -1.0};
 	}
 	if (HoldsLevelingXp(g_settings.noLevelingXp, g_levelingLoaded, walker)) {
 		const UInt32 dead = LookupForm(fallen.refId);
@@ -512,6 +530,7 @@ void FindMoo() {
 	g_mooLooked = true;
 	g_mooLoaded = false;
 	g_levelingLoaded = false;
+	g_levelingIndex = 0x100;
 	g_mooToken = 0;
 	g_mooBrain = 0;
 	const UInt32 handler = Read(kDataHandlerPointer);
@@ -524,6 +543,7 @@ void FindMoo() {
 		}
 		if (name != nullptr && SameModName(name, kLevelingEsp)) {
 			g_levelingLoaded = true;
+			g_levelingIndex = i;
 		}
 	}
 	g_log("Leveling: %s %s (NoLevelingXP=%d)", kLevelingEsp,
@@ -1258,6 +1278,30 @@ void StepSpawns(float dt) {
 
 // BlockMooResurrect: the dead walkers due a pass lose MOO's token and brain
 // (RemoveItem, the console's own; a count of 1 is what MOO gives).
+// The kills by the player a second ago (Ultimate Leveling gives the
+// experience through SetStage ULVL 10, whose result script may run later than
+// the handler): ULVL.XP now against before - a walker's should be unchanged
+// with NoLevelingXP, anyone else's grown.
+void StepLevelingChecks(float dt) {
+	if (g_levelingCheckCount == 0) {
+		g_levelingCheckWait = 0.0f;
+		return;
+	}
+	g_levelingCheckWait += dt;
+	if (g_levelingCheckWait < 1.0f) {
+		return;
+	}
+	g_levelingCheckWait = 0.0f;
+	const double* xp = QuestVariable((g_levelingIndex << 24) | kLevelingQuestLocalId, kLevelingXpVariable);
+	for (UInt32 i = 0; i < g_levelingCheckCount && g_levelingChecksLeft > 0; ++i, --g_levelingChecksLeft) {
+		const LevelingCheck& check = g_levelingChecks[i];
+		g_log("Leveling: %08X (%s) killed by the player - Ultimate Leveling's XP %.0f before, %.0f after%s",
+		      check.refId, check.walker ? "a walker" : "not a walker", check.before, xp != nullptr ? *xp : -1.0,
+		      xp == nullptr ? " (ULVL.XP not found)" : "");
+	}
+	g_levelingCheckCount = 0;
+}
+
 void StepMooStripping(float dt) {
 	UInt32 due[8];
 	UInt8 pass[8];
@@ -1426,6 +1470,7 @@ void Tick() {
 		const float frame = *reinterpret_cast<const float*>(kFrameSeconds);
 		FindWalkers();
 		FindMoo();
+		StepLevelingChecks(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);

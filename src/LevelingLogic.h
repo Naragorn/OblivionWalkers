@@ -28,6 +28,11 @@ namespace walkers {
 inline constexpr const char* kLevelingEsp = "Ultimate Leveling.esp";
 inline constexpr const char* kLevelingHoldLines[] = {"SetAV Confidence 0", "SetAV Aggression 0"};
 inline constexpr UInt32 kLevelingHoldLineCount = 2;
+// The check in the log: Ultimate Leveling's quest ULVL (its local 000ED3,
+// script ULVLScript, read in Ultimate Leveling.esp 2026-10-27) keeps the
+// experience gathered in its variable XP.
+inline constexpr UInt32 kLevelingQuestLocalId = 0x000ED3;
+inline constexpr const char* kLevelingXpVariable = "XP";
 
 // [Zombies] NoLevelingXP: a walker's death gives Ultimate Leveling nothing.
 inline bool HoldsLevelingXp(bool setting, bool levelingLoaded, bool isWalker) {

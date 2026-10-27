@@ -1,0 +1,50 @@
+# No Ultimate Leveling experience for a walker (docs/walkers-spec.md 4.3b;
+# Nadi, 2026-10-27: "teste auch no xp indem du sie auf linux installierst"):
+# with Maskar's Ultimate Leveling 1.9.5.2 in the Linux install (Nadi's own
+# Windows files: its ESP, BSA and INIs, ini_leveling_system 2 - experience
+# based), the player kills a walker (the ESP's 0x801) and then a bandit
+# (00069AD1, the control) by the console (kill player: the player the
+# killer). OblivionWalkers.log (copied into the run's folder by hand) reads
+# "Leveling: ... Confidence and Aggression to 0" for the walker and, a
+# second after each kill, "Ultimate Leveling's XP <before> before, <after>
+# after": the walker's unchanged, the bandit's grown.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/leveling-no-xp.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 11000801 1
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 300 0
+console-at moved {actor}.kill player
+console-at bandit player.placeatme 00069AD1 1
+console-at bandit-placed {actor}.moveto player 0 300 0
+console-at bandit-moved {actor}.kill player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 2
+mark moved
+wait 5
+mark dead
+wait 2
+mark bandit
+wait 4
+mark bandit-placed
+wait 2
+mark bandit-moved
+wait 5
+mark bandit-dead
+wait 3
+mark end
