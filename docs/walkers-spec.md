@@ -979,7 +979,7 @@ whole 90 s (11:54, the status lines) - the rule waits for that, and so it
 stays (Nadi chose to wait, 7a). **Open:** the raise of an unloaded body;
 the feel and the cost in the headset.
 
-### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24` (designed 2026-10-26, not built)
+### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, not built)
 
 What (Nadi, 2026-10-26): a siege is a horde of walkers before one of a
 city's gates, outside the walls only ("belagerung ist nur vor der stadt am
@@ -1016,8 +1016,11 @@ starten"):
 
 - **How a siege begins**: both - a chance a game day per city while the
   player is elsewhere, and a horde the player saw hold at a gate (4.11b);
-  a pause per city after one. The chance, the count of a siege and the
-  pause are still to be set at the build (proposed then, with their tests).
+  a pause per city after one. Set (Nadi, 2026-10-27: "1. passt"), all in
+  the INI: `[Siege] ChancePerDayPercent=10` a city and game day,
+  `WalkersMin=40`, `WalkersMax=120` in a siege (of them `WalkersAtGate` at
+  once), `PauseDays=3` a city after one. Start values, not measured: how
+  often that comes in an evening's play shows only in play.
 - **Walkers before the gate at once**: `[Siege] WalkersAtGate=24`, clamped
   to 12..100, from a larger count, the next coming as one falls; Nadi's
   Windows live INI gets 100 when the key exists. Derived from the

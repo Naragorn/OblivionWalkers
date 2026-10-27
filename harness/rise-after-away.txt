@@ -1,0 +1,66 @@
+# A body that waits while the player is away (docs/walkers-spec.md 4.1 and
+# 4.11b, "Open: the raise of an unloaded body"; Nadi, 2026-10-27: "go A"):
+# the bandit is placed in the hall, moved 150 units north and killed; 2 s
+# after the death the player leaves by coc through four other interiors
+# (ImperialDungeon01, AnvilChapelofDibella, AnvilTheCountsArms,
+# FortUrasek02 - more than the Linux INI's uInterior Cell Buffer=3, so the
+# hall is dropped from memory too, if the engine drops it) for some 60 s,
+# well past his rise (20 to 30 s), and comes back to the hall.
+#
+# What the waiting list should do (RiseLogic.h TickWaiting): while the hall
+# is not loaded the body has no 3D - "Waiting: ... is now absent (no 3D)",
+# his clock stands; back in the hall "now present", the clock goes on and he
+# gets up as a walker. If the engine frees the reference with the cell, the
+# line reads "now gone" instead and he never rises - the gap this run looks
+# for. OblivionWalkers.log (copied into the run's folder by hand) and the
+# roster lines at the marks tell which.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-after-away.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 150 0
+console-at moved killall
+console-at away-1 coc ImperialDungeon01
+console-at away-2 coc AnvilChapelofDibella
+console-at away-3 coc AnvilTheCountsArms
+console-at away-4 coc FortUrasek02
+console-at back coc TestingHall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 2
+mark dead
+wait 1
+mark away-1
+wait 15
+mark away-2
+wait 15
+mark away-3
+wait 15
+mark away-4
+wait 15
+mark back
+wait 10
+mark back-10
+wait 15
+mark back-25
+wait 15
+mark back-40
+wait 5
+mark end

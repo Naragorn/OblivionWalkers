@@ -1,0 +1,55 @@
+# The control of siege-gate-travel.txt: the same traveller through the open gate (4.12, the probe before
+# the build; Nadi, 2026-10-27: "2. ok ... go"). A siege shuts its gate with
+# the engine's Lock at 100 ("needs a key"); whether the people who travel
+# through that gate then wait, go round or stick is unverified, and decides
+# whether the design may lock the gate's both doors.
+#
+# The traveller: Oblivion.esm's Anvil patrol guard AnvilGuardCastlePatrolDay01
+# (ACHR 0000BFD8, base 0000BFD7, in AnvilWorld), whose travel package
+# AnvilGuardPatrolDayLandGateToCastle (PACK 0000BFD5, type 6 Travel, 06:00
+# for 13 hours, "must reach location") takes him to AnvilCastleGateMarker
+# (0000BFD4) in Tamriel - through the Anvil Castle Gate, the doors 00006B96
+# (AnvilWorld) and 00006FBA (Tamriel), all read off Oblivion.esm 2026-10-27.
+#
+# The player, in god mode, stands at the marker outside the gate (the city
+# not loaded, so the guard is in low process - the siege's own case: the
+# player before the gate), the hour set to 10, the guard moved to the city
+# side of the gate and his package evaluated. Here the doors are left as
+# they are (open); siege-gate-travel.txt locks them. The roster lines at the marks tell whether base
+# 0000BFD7 comes into Tamriel near the player; the pictures show where.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/siege-gate-travel-open.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready set gamehour to 10
+console-at ready player.moveto 0000BFD4
+console-at outside player.setangle z 0
+console-at outside 0000BFD8.moveto 00006B96
+console-at outside 0000BFD8.evp
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark outside
+wait 20
+mark t20
+wait 20
+mark t40
+wait 20
+mark t60
+wait 30
+mark t90
+wait 30
+mark t120
+wait 5
+mark end

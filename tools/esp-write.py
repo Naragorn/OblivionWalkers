@@ -442,7 +442,7 @@ def main() -> int:
     parser.add_argument("--out", default=str(HERE.parent / "OblivionWalkers.esp"))
     parser.add_argument("--test-walker-pool", type=int, default=0, metavar="N",
                         help="a measurement only (4.12, 2026-10-26): N persistent, initially disabled walker "
-                             "references per city in the holding cell, from 0x90E on - what such a pool "
+                             "references per city in the holding cell, after the last walker - what such a pool "
                              "costs the game before one is built; never for a deployed ESP")
     args = parser.parse_args()
     esm = load_esm_module()

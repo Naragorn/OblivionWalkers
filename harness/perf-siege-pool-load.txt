@@ -1,0 +1,57 @@
+# What a siege pool costs on a cell change and a load (4.12, the probe before
+# the build; Nadi, 2026-10-27: "3. ok ... go"). perf-siege-pool.txt found no
+# cost of 240 disabled walker references while the game stands still; a
+# cell change or a load was not measured. Two runs of this scenario, the
+# same save and path: the deployed ESP, then one written with
+# `tools/esp-write.py --test-walker-pool 30` (240 references in the holding
+# cell; Linux install only, the deployed ESP put back after).
+#
+# The player in god mode goes by coc from the hall to the game's prison
+# (ImperialDungeon01), to Anvil's Count's Arms and back to the hall, then
+# saves (WalkersPoolTest, deleted by hand after) and loads it, with OBVR's
+# profiler on. A coc or a load shows in the capture as one long frame;
+# the longest frame of each phase is the change's time:
+#   python3 tools/perf-phases.py <run> start coc-1 coc-2 coc-3 saved loaded end
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/perf-siege-pool-load.txt --headless \
+#       --run-timeout 420 --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands ReachOpens=0
+ini Render Stereo=dual
+ini Performance Enabled=1
+ini Performance GpuTiming=0
+ini Performance StartAfterSeconds=25
+ini Performance CaptureSeconds=110
+ini Performance MaxRecords=262144
+console-at ready tgm
+console-at coc-1 coc ImperialDungeon01
+console-at coc-2 coc AnvilTheCountsArms
+console-at coc-3 coc TestingHall
+console-at saved save WalkersPoolTest
+console-at loaded load WalkersPoolTest
+
+expect HandScript: finished
+expect Performance: capture 1 started
+expect Performance: export
+reject menu Container
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 18
+mark start
+wait 10
+mark coc-1
+wait 15
+mark coc-2
+wait 15
+mark coc-3
+wait 15
+mark saved
+wait 10
+mark loaded
+wait 20
+mark end
+wait 5
