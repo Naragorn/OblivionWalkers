@@ -244,6 +244,10 @@ void TestCounts() {
 	Check(walkers::SpreadCount(1, 3, 0, 3) == 1 && walkers::SpreadCount(1, 3, 1, 3) == 2 &&
 	          walkers::SpreadCount(1, 3, 2, 3) == 3,
 	      "1 to 3 over three slots: 1, 2, 3");
+	Check(walkers::SpreadCount(1, 10, 0, 5) == 1 && walkers::SpreadCount(1, 10, 1, 5) == 3 &&
+	          walkers::SpreadCount(1, 10, 2, 5) == 6 && walkers::SpreadCount(1, 10, 3, 5) == 8 &&
+	          walkers::SpreadCount(1, 10, 4, 5) == 10,
+	      "a headless walker's five entries, 1 to 10: 1, 3, 6, 8, 10 - the same span");
 	Check(walkers::SpreadCount(1, 1, 0, 3) == 1 && walkers::SpreadCount(1, 1, 2, 3) == 1, "1 to 1: always one");
 	Check(walkers::SpreadCount(2, 5, 0, 3) == 2 && walkers::SpreadCount(2, 5, 1, 3) == 4 &&
 	          walkers::SpreadCount(2, 5, 2, 3) == 5,

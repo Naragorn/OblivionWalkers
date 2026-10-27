@@ -41,6 +41,9 @@ constexpr UInt8 kExtraEditorId = 0x0A;
 constexpr UInt8 kExtraOwnership = 0x27;
 constexpr UInt32 kActorBaseEssential = 0x2;
 constexpr UInt32 kActorBaseNoLowProcessing = 0x200;
+// A creature's No Head, the record's ACBS bit (UESP Tes4Mod:Mod_File_Format/
+// CREA) in the same flags the record's essential and no-low-level bits are.
+constexpr UInt32 kActorBaseNoHead = 0x8000;
 constexpr UInt32 kActorVtableIsDead = 0x198;    // as OBVR's ActorRoster reads it: (self, 0) & 1
 constexpr UInt32 kActorVtableResurrect = 0x20C; // the console's ResurrectActor: (1, has3D, animate)
 // xOBSE's CloneForm, call by call (GameForms.cpp, GameAPI.cpp; the bytes at
@@ -87,6 +90,7 @@ UInt32 g_getUpSound = 0;
 UInt32 g_apartRefusedFor = 0;
 UInt32 g_walkers[kWalkerCount] = {};
 LookFamily g_walkerFamilies[kWalkerCount] = {};
+bool g_walkerHeadless[kWalkerCount] = {};
 UInt32 g_walkerCount = 0;
 bool g_walkersLooked = false;
 ReplaceSettings g_replace;
@@ -416,6 +420,7 @@ void FindWalkers() {
 		const UInt32 form = LookupForm(formId);
 		if (LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeCreature) {
 			g_walkerFamilies[g_walkerCount] = look.family;
+			g_walkerHeadless[g_walkerCount] = (Read(form + kActorBaseFlagsOffset) & kActorBaseNoHead) != 0;
 			g_walkers[g_walkerCount++] = formId;
 		} else {
 			g_log("Walkers: %08X is no creature (%s)", formId, LooksLikeObject(form) ? "another type" : "no form");
@@ -635,9 +640,9 @@ void Raise(UInt32 refId) {
 			const UInt32 race = Read(base + kNpcRacePointerOffset);
 			raceId = LooksLikeObject(race) ? Read(race + kFormIdOffset) : 0;
 		}
-		static UInt32 candidates[kWalkerCount];
-		const UInt32 candidateCount =
-			RiseCandidates(g_walkers, g_walkerFamilies, g_walkerCount, raceId, g_mooLoaded, candidates);
+		static UInt32 candidates[2 * kWalkerCount];
+		const UInt32 candidateCount = RiseCandidates(g_walkers, g_walkerFamilies, g_walkerHeadless, g_walkerCount,
+		                                             raceId, g_mooLoaded, candidates);
 		const UInt32 walker = PickWalker(candidates, candidateCount, NextRandom());
 		if (walker != 0 && g_console != nullptr && !g_swap.active) {
 			char line[64];

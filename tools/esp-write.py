@@ -13,7 +13,8 @@ index at runtime):
          path decided 2026-10-23) and the spawns turn into (4.6); their own
          animation folder (4.4) comes later on these records.
   0x805  LVLC WalkersZombieVariant - each walker VARIANT_SLOTS times at level
-         1 (counts 1..10, which the plugin rewrites from [Replace] MinCount
+         1, a headless one half as often (counts 1..10, which the plugin
+         rewrites from [Replace] MinCount
          and MaxCount at the start), no chance none, flags 0, like
          LL0ZombieVariant (00034095): what 4.6 puts in place of a creature.
   0x806..0x815  PACK WalkersHordeTravel00..15 - the horde's leaders (4.11):
@@ -414,9 +415,12 @@ def cell_groups(cell_form: int, cell: bytes, markers: bytes) -> bytes:
     return group(b"CELL", typed_group(block, 2, inner))
 
 
-def variant_entries(walkers: list[int]) -> list[tuple[int, int]]:
-    """Every walker VARIANT_SLOTS times, with the counts 1..VARIANT_SLOTS."""
-    return [(form, slot + 1) for form in walkers for slot in range(VARIANT_SLOTS)]
+def variant_entries(walkers: list[int], no_heads: list[bool]) -> list[tuple[int, int]]:
+    """Every walker VARIANT_SLOTS times, a headless one half as many
+    (ReplaceLogic.h VariantSlotsFor; Nadi, 2026-10-27), with the counts
+    1..slots - the plugin writes them anew from MinCount and MaxCount."""
+    return [(form, slot + 1) for form, no_head in zip(walkers, no_heads)
+            for slot in range(VARIANT_SLOTS // 2 if no_head else VARIANT_SLOTS)]
 
 
 def build_list(entries: list[tuple[int, int]]) -> bytes:
@@ -477,7 +481,8 @@ def main() -> int:
     if len(set(all_parts)) != len(all_parts):
         raise SystemExit("two walkers wear the same parts")
     list_form = index | LOCAL_LIST_ID
-    lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms)))
+    walker_no_heads = [headless(list(p)) for _, p in all_parts]
+    lists = record(b"LVLC", list_form, build_list(variant_entries(walker_forms, walker_no_heads)))
 
     travel_template = find_record(esm, buf, b"PACK", TRAVEL_TEMPLATE)
     follow_template = find_record(esm, buf, b"PACK", FOLLOW_TEMPLATE)
@@ -574,7 +579,7 @@ def main() -> int:
         raise SystemExit("the new walkers overlap the editions")
     back_list = find_record(esm, plugin, b"LVLC", list_form)
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]
-    if [(e[2], e[3]) for e in entries] != variant_entries(walker_forms) or any(e[0] != 1 for e in entries):
+    if [(e[2], e[3]) for e in entries] != variant_entries(walker_forms, walker_no_heads) or any(e[0] != 1 for e in entries):
         raise SystemExit(f"the list's entries are off: {[(f'{e[2]:08X}', e[3]) for e in entries]}")
     for i, (form, marker) in enumerate(zip(travel_forms, marker_forms)):
         back = dict(find_record(esm, plugin, b"PACK", form))

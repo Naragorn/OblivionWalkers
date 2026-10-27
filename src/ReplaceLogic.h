@@ -323,6 +323,12 @@ inline UInt32 InsertSectionLines(const char* text, UInt32 length, const char* se
 // Ten slots: MinCount=1, MaxCount=10 gives every count from 1 to 10 once.
 inline constexpr UInt32 kVariantSlots = 10;
 inline constexpr UInt32 kVariantEntriesMost = kWalkerCount * kVariantSlots;
+
+// A walker's entries in the variant list: ten, a headless one five - half
+// as often among the spawns (Nadi, 2026-10-27: "ja" to the headless ones
+// less often; 25 of the 64 looks have no head). The counts spread over the
+// entries a walker has (SpreadCount), 1 to 10 either way.
+inline UInt32 VariantSlotsFor(bool headless) { return headless ? kVariantSlots / 2 : kVariantSlots; }
 inline constexpr UInt32 kWalkersPerSpawnMost = 10;
 
 inline UInt32 SpreadCount(UInt32 minCount, UInt32 maxCount, UInt32 slot, UInt32 slots) {

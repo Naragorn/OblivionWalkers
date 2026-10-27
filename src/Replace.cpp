@@ -85,41 +85,60 @@ UInt32 TrimVariantForMoo(UInt32 variant, bool mooLoaded, LogFn log) {
 	return kept;
 }
 
-// The variant list's counts per walker slot (ReplaceLogic.h SpreadCount).
+// The variant list's counts per walker slot (ReplaceLogic.h SpreadCount),
+// spread over the entries each walker has (VariantSlotsFor: ten, a headless
+// one five).
 void WriteVariantCounts(UInt32 variant, const ReplaceSettings& settings, LogFn log) {
 	UInt32 seen[kWalkerCount] = {};
+	UInt32 total[kWalkerCount] = {};
 	UInt32 times[kWalkerCount] = {};
 	UInt32 kinds = 0;
-	UInt32 entries = 0;
-	char counts[128] = {};
-	UInt32 written = 0;
-	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && entries < kVariantEntriesMost;
-	     node = Read(node + 4)) {
-		const UInt32 data = Read(node);
-		if (!LooksLikeObject(data)) {
-			break;
-		}
-		const UInt32 form = Read(data + kListDataFormOffset);
-		UInt32 slot = 0;
+	auto kindOf = [&](UInt32 form, bool add) {
 		UInt32 k = 0;
 		for (; k < kinds && seen[k] != form; ++k) {
 		}
-		if (k == kinds && kinds < kWalkerCount) {
+		if (k == kinds && add && kinds < kWalkerCount) {
 			seen[kinds++] = form;
 		}
-		if (k < kWalkerCount) {
-			slot = times[k]++;
+		return k;
+	};
+	for (int pass = 0; pass < 2; ++pass) {
+		UInt32 entries = 0;
+		char counts[128] = {};
+		UInt32 written = 0;
+		for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && entries < kVariantEntriesMost;
+		     node = Read(node + 4)) {
+			const UInt32 data = Read(node);
+			if (!LooksLikeObject(data)) {
+				break;
+			}
+			const UInt32 k = kindOf(Read(data + kListDataFormOffset), pass == 0);
+			++entries;
+			if (k >= kWalkerCount) {
+				continue;
+			}
+			if (pass == 0) {
+				++total[k];
+				continue;
+			}
+			const UInt16 count =
+				static_cast<UInt16>(SpreadCount(settings.minCount, settings.maxCount, times[k]++, total[k]));
+			*reinterpret_cast<UInt16*>(data + kListDataCountOffset) = count;
+			if (written + 4 < sizeof(counts)) {
+				written += static_cast<UInt32>(std::snprintf(counts + written, sizeof(counts) - written, "%s%u",
+				                                              entries == 1 ? "" : " ", count));
+			}
 		}
-		const UInt16 count = static_cast<UInt16>(SpreadCount(settings.minCount, settings.maxCount, slot, kVariantSlots));
-		*reinterpret_cast<UInt16*>(data + kListDataCountOffset) = count;
-		if (written + 4 < sizeof(counts)) {
-			written += static_cast<UInt32>(std::snprintf(counts + written, sizeof(counts) - written, "%s%u",
-			                                              entries == 0 ? "" : " ", count));
+		if (pass == 1) {
+			UInt32 halved = 0;
+			for (UInt32 k = 0; k < kinds; ++k) {
+				halved += total[k] < kVariantSlots ? 1u : 0u;
+			}
+			log("Spawns: WalkersZombieVariant %08X - %u entries over %u walkers (%u of them headless, half as "
+			    "often), counts %s",
+			    FormIdOf(variant), entries, kinds, halved, counts);
 		}
-		++entries;
 	}
-	log("Spawns: WalkersZombieVariant %08X - %u entries over %u walkers, counts %s", FormIdOf(variant), entries,
-	    kinds, counts);
 }
 
 CreatureFacts FactsOf(UInt32 creature, UInt32 espIndex) {

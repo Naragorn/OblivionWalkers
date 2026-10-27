@@ -154,16 +154,29 @@ uses them only with MOO's ESP in the load order (`FindMoo`):
   ones. The rise's log line names the race, the walker and how many looks
   it was drawn from.
 - **The spawns** draw from all 64: the variant list holds the vanilla twenty
-  first, then MOO's 44, each ten times (640 entries). Without MOO the plugin
-  cuts the list before its first MOO entry (`TrimVariantForMoo`, one link),
-  so it is the 200 vanilla entries again.
+  first, then MOO's 44, each ten times, a headless one five (515 entries).
+  Without MOO the plugin cuts the list before its first MOO entry
+  (`TrimVariantForMoo`, one link), so it is the 175 vanilla entries.
 - **Pace** spreads over the families (`SpeedSlot`: record i takes slot
   i x 37 mod 64), so no race is all fast or all slow.
-- **Headless**: 25 of the 64 (5 vanilla, 20 of MOO's: its "Zombie2" and
-  "SummonZombie2" sets). With MOO about two spawns in five are headless
-  (25 of 64 records, all weighted alike) - not weighted down, noted for
-  Nadi. 4.17's rule (no headless with DieOnlyBeheaded) reads the flag, so it
-  covers MOO's too.
+- **Headless half as often** (Nadi, 2026-10-27: "ja"): 25 of the 64 have no
+  head (5 vanilla, 20 of MOO's "Zombie2" and "SummonZombie2" sets), which
+  alike would have made two spawns in five headless. A headless walker has
+  five entries in the variant list instead of ten (`VariantSlotsFor`; the
+  counts 1 to 10 spread over its five: 1, 3, 6, 8, 10), and among the
+  risen's candidates a look with a head stands twice, a headless one once
+  (`RiseCandidates`). With MOO 125 of 515 entries are headless (about one
+  spawn in four), without it 25 of 175 (one in seven). 4.17's rule (no
+  headless with DieOnlyBeheaded) reads the same flag.
+- **Does MOO replace the vanilla zombies?** No (read 2026-10-27): MOO's ESP
+  overrides none of Oblivion.esm's zombie records, and its archives hold no
+  file under meshes\creatures\zombie or textures\creatures\zombie - all
+  168 zombie meshes and 38 textures are under its own moo\zombie folders.
+  It adds zombies of its own (on its skeleton) to the leveled lists; those
+  the spawn replacement turns into walkers like any other (the
+  `Spawns: Zombie [Maskar's Oblivion Overhaul.esp ...] - walkers` lines). A
+  loose Data\meshes\creatures\zombie\skeleton.nif of 2026-10-23 in both
+  installs is from a mod not traced here; it is the skeleton, not a look.
 Not built: MOO's burning zombies, draugr, ghouls and mummies (other
 skeletons). Cost medium (as rated); test `WalkerLooksTest` (the table, the
 races, who rises as what with and without MOO, which entries the list
@@ -1280,7 +1293,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `gate-guards-twelve.txt` | sixty walkers: the pool of twelve out, two a second, in two rows, 60 of 60 each, back in together - 12:08 PASS (53 % reprojected, headless, some 110 walkers loaded) | the plugin, the ESP with the pool of twelve |
 | `gate-guards-dead.txt` | fifteen walkers, every guard killed 4 s after it comes out (`TestKillSeconds=4` by hand): the fallen left to the pool alone (no rise, no safeguard), the waiting sent, then the fallen raised and sent out again - 11:51 PASS, 42 killed, 36 raised | the plugin, the ESP with the guard pool |
 | `gate-guards-replace.txt` | thirty walkers, guards of 2 health (`HealthFactor=0.2` by hand): the pool's six out, the fallen replaced - 11:36 PASS for six out and back in; no replacement was needed (one guard fell to another's swing) | the plugin, the ESP with the guard pool |
-| `rise-moo-races.txt` | five generic people of five races killed (Argonian, Orc, High Elf, Dark Elf, Nord): each rises as his race's MOO look, the Nord as a vanilla or MOO default one (OblivionWalkers.log); one of each MOO family placed for the pictures | the plugin, the ESP with the 64 walkers, MOO loaded |
+| `rise-moo-races.txt` | five generic people of five races killed (Argonian, Orc, High Elf, Dark Elf, Nord): each rises as his race's MOO look, the Nord as a vanilla or MOO default one (OblivionWalkers.log); one of each MOO family placed for the pictures - 2026-10-27 07:32 PASS headless: the Argonian rose as 0x927, the Orc 0x935, the High Elf 0x941, the Dark Elf 0x943 (one of 16, 16, 12, 12 candidates), the Nord as vanilla 0x91C (of 47); every swap laid the MOO walker into the corpse's pose (13 and 16 ragdoll bodies) and got up; "64 walker creatures found", "515 entries over 64 walkers (25 of them headless, half as often)"; shots 06 and 10 show MOO's looks, no missing mesh | the plugin, the ESP with the 64 walkers, MOO loaded |
 | `walker-variety.txt` | the twenty walkers placed in the prison, ten and ten, their AI off: the parts in the pictures, "20 walker creatures found" and "200 entries over 20 walkers" in OblivionWalkers.log - 2026-10-27 07:13 PASS headless, both log lines there, twenty mixed walkers in shots 08 and 12 | the plugin, the ESP with the twenty walkers |
 | `news-courier.txt` | the Count's Arms broadsheet in Anvil carries the outbreak; seven walkers at Anvil's main gate bring its guards out; the Courier's office broadsheet opens on "Walkers at the Gates of Anvil!" (4.9) - 19:59 and 20:03 PASS on the log, the book not opened (the console's activate opens none); 20:07 PASS, the name in the HUD; 20:10 PASS, opened with the hand's A, the text in the picture; 2026-10-27 06:48 PASS with HeadingHoldDays 0.5 (outbreak, heading for Anvil, then the attack; the hold itself is not reached here, the attack outranks it) | the plugin, the ESP with the editions |
 | `siege-city.txt` | walkers come out of a city's doors up to the population (4.12) | the plugin |

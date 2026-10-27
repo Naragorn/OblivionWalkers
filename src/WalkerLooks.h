@@ -77,17 +77,25 @@ inline LookFamily RaceFamily(UInt32 raceId) {
 inline bool LookUsable(LookFamily family, bool mooLoaded) { return family == LookFamily::Vanilla || mooLoaded; }
 
 // The walkers one fallen of `raceId` may rise as, from the `count` found
-// (`bases`, their `families`), into `out`; their number. With MOO, a race of
-// its own: that race's looks; everyone else: the vanilla and MOO's default
-// looks. Without MOO, or none of the race's looks found: the vanilla ones.
-inline UInt32 RiseCandidates(const UInt32* bases, const LookFamily* families, UInt32 count, UInt32 raceId,
-                             bool mooLoaded, UInt32* out) {
+// (`bases`, their `families`, `headless` - ACBS No Head), into `out` (room
+// for twice `count`); their number. With MOO, a race of its own: that race's
+// looks; everyone else: the vanilla and MOO's default looks. Without MOO, or
+// none of the race's looks found: the vanilla ones. A look with a head
+// stands twice, a headless one once - half as likely (Nadi, 2026-10-27).
+inline UInt32 RiseCandidates(const UInt32* bases, const LookFamily* families, const bool* headless, UInt32 count,
+                             UInt32 raceId, bool mooLoaded, UInt32* out) {
 	const LookFamily race = RaceFamily(raceId);
 	UInt32 n = 0;
+	auto put = [&](UInt32 i) {
+		out[n++] = bases[i];
+		if (!headless[i]) {
+			out[n++] = bases[i];
+		}
+	};
 	if (mooLoaded && race != LookFamily::Vanilla) {
 		for (UInt32 i = 0; i < count; ++i) {
 			if (families[i] == race) {
-				out[n++] = bases[i];
+				put(i);
 			}
 		}
 		if (n > 0) {
@@ -96,7 +104,7 @@ inline UInt32 RiseCandidates(const UInt32* bases, const LookFamily* families, UI
 	}
 	for (UInt32 i = 0; i < count; ++i) {
 		if (families[i] == LookFamily::Vanilla || (mooLoaded && families[i] == LookFamily::MooDefault)) {
-			out[n++] = bases[i];
+			put(i);
 		}
 	}
 	return n;

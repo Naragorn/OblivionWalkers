@@ -61,7 +61,7 @@ void TestTable() {
 	      "20 vanilla, 8 MOO default, 10 Argonian, 10 Orc, 8 High Elf, 8 Dark Elf: 64");
 	Check(walkers::kWalkerLooks[63].localId == 0x949, "the last at 0x949");
 	Check(walkers::kVariantEntriesMost == 64 * walkers::kVariantSlots,
-	      "the variant list holds every walker ten times: 640 entries");
+	      "the variant list holds at most every walker ten times: 640 entries");
 }
 
 void TestRaces() {
@@ -81,10 +81,12 @@ void TestRaces() {
 struct Found {
 	UInt32 bases[12] = {};
 	LookFamily families[12] = {};
+	bool headless[12] = {};
 	UInt32 count = 0;
-	void Add(UInt32 base, LookFamily family) {
+	void Add(UInt32 base, LookFamily family, bool noHead = false) {
 		bases[count] = base;
 		families[count] = family;
+		headless[count] = noHead;
 		++count;
 	}
 };
@@ -111,26 +113,40 @@ void TestRise() {
 	f.Add(0x41, LookFamily::Orc);
 	f.Add(0x50, LookFamily::HighElf);
 	f.Add(0x60, LookFamily::DarkElf);
-	UInt32 out[12];
-	UInt32 n = walkers::RiseCandidates(f.bases, f.families, f.count, kArgonian, true, out);
-	Check(n == 2 && OnlyOf(out, n, 0x30, 0x31), "an Argonian with MOO: one of the Argonian looks");
-	n = walkers::RiseCandidates(f.bases, f.families, f.count, kOrc, true, out);
-	Check(n == 2 && OnlyOf(out, n, 0x40, 0x41), "an Orc: an Orc look");
-	n = walkers::RiseCandidates(f.bases, f.families, f.count, kHighElf, true, out);
-	const UInt32 high = n == 1 ? out[0] : 0;
-	n = walkers::RiseCandidates(f.bases, f.families, f.count, kDarkElf, true, out);
-	Check(high == 0x50 && n == 1 && out[0] == 0x60, "a High Elf and a Dark Elf: their own");
-	n = walkers::RiseCandidates(f.bases, f.families, f.count, kNord, true, out);
-	Check(n == 4 && OnlyOf(out, n, 0x10, 0x21), "a Nord with MOO: the vanilla and MOO's default looks");
-	n = walkers::RiseCandidates(f.bases, f.families, f.count, kArgonian, false, out);
-	Check(n == 2 && OnlyOf(out, n, 0x10, 0x11), "an Argonian without MOO: the vanilla looks alone");
-	n = walkers::RiseCandidates(f.bases, f.families, f.count, kNord, false, out);
-	Check(n == 2 && OnlyOf(out, n, 0x10, 0x11), "a Nord without MOO: the vanilla looks alone");
+	UInt32 out[24];
+	UInt32 n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kArgonian, true, out);
+	Check(n == 4 && OnlyOf(out, n, 0x30, 0x31), "an Argonian with MOO: one of the Argonian looks");
+	n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kOrc, true, out);
+	Check(n == 4 && OnlyOf(out, n, 0x40, 0x41), "an Orc: an Orc look");
+	n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kHighElf, true, out);
+	const UInt32 high = n == 2 ? out[0] : 0;
+	n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kDarkElf, true, out);
+	Check(high == 0x50 && n == 2 && out[0] == 0x60, "a High Elf and a Dark Elf: their own");
+	n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kNord, true, out);
+	Check(n == 8 && OnlyOf(out, n, 0x10, 0x21), "a Nord with MOO: the vanilla and MOO's default looks");
+	n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kArgonian, false, out);
+	Check(n == 4 && OnlyOf(out, n, 0x10, 0x11), "an Argonian without MOO: the vanilla looks alone");
+	n = walkers::RiseCandidates(f.bases, f.families, f.headless, f.count, kNord, false, out);
+	Check(n == 4 && OnlyOf(out, n, 0x10, 0x11), "a Nord without MOO: the vanilla looks alone");
 	Found vanillaOnly;
 	vanillaOnly.Add(0x10, LookFamily::Vanilla);
-	n = walkers::RiseCandidates(vanillaOnly.bases, vanillaOnly.families, vanillaOnly.count, kOrc, true, out);
-	Check(n == 1 && out[0] == 0x10, "an Orc with MOO but no Orc look found (an older ESP): the vanilla ones");
-	Check(walkers::RiseCandidates(f.bases, f.families, 0, kNord, true, out) == 0, "no walkers found: none");
+	n = walkers::RiseCandidates(vanillaOnly.bases, vanillaOnly.families, vanillaOnly.headless, vanillaOnly.count, kOrc, true, out);
+	Check(n == 2 && out[0] == 0x10, "an Orc with MOO but no Orc look found (an older ESP): the vanilla ones");
+	Check(walkers::RiseCandidates(f.bases, f.families, f.headless, 0, kNord, true, out) == 0, "no walkers found: none");
+	// Nadi, 2026-10-27 ("ja" to the headless ones less often): a look with
+	// a head stands twice among the candidates, a headless one once - half
+	// as likely.
+	Found mixed;
+	mixed.Add(0x30, LookFamily::Argonian);
+	mixed.Add(0x31, LookFamily::Argonian, true);
+	n = walkers::RiseCandidates(mixed.bases, mixed.families, mixed.headless, mixed.count, kArgonian, true, out);
+	UInt32 withHead = 0;
+	UInt32 without = 0;
+	for (UInt32 i = 0; i < n; ++i) {
+		withHead += out[i] == 0x30 ? 1u : 0u;
+		without += out[i] == 0x31 ? 1u : 0u;
+	}
+	Check(n == 3 && withHead == 2 && without == 1, "an Argonian: the look with a head twice, the headless one once");
 }
 
 void TestVariant() {
@@ -140,7 +156,9 @@ void TestVariant() {
 	Check(!walkers::VariantKeeps(LookFamily::Argonian, false) && !walkers::VariantKeeps(LookFamily::MooDefault, false),
 	      "without MOO the list is cut at the first MOO entry");
 	Check(walkers::VariantKeeps(LookFamily::Argonian, true) && walkers::VariantKeeps(LookFamily::MooDefault, true),
-	      "with MOO all 640 entries kept");
+	      "with MOO all entries kept");
+	Check(walkers::VariantSlotsFor(false) == 10 && walkers::VariantSlotsFor(true) == 5,
+	      "a walker with a head ten entries, a headless one five: half as often");
 	LookFamily family = LookFamily::Vanilla;
 	Check(walkers::FamilyOfLocal(0x801, family) && family == LookFamily::Vanilla &&
 	          walkers::FamilyOfLocal(0x926, family) && family == LookFamily::Argonian &&
