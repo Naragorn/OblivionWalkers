@@ -1310,6 +1310,39 @@ stand-in: the player kills a walker with a normal attack (it rises) and
 with a power attack (it stays down) - flat, and with OBVR's fast swing.
 Then with OBVR's cut: the corpse cut of OBVR's spec.
 
+### 4.18 LINK - the settings in the game's menu
+
+What (Nadi, 2026-10-27: "Link support ... dann muss ich keine inis anpassen
+sondern kanns ingame tun"; the split "ok passt für mich so"): Maskar's LINK
+(Nexus 50144, 1.4) shows 27 of the plugin's settings in its in-game menu
+(the 26 agreed and NoLevelingXP, 4.3b); the fine values stay in
+`Data\OBSE\Plugins\OblivionWalkers.ini`. LINK++ (Nexus 53352) reads mods
+made for LINK the same way (its description); not tried.
+
+How (built 2026-10-27, `LinkLogic.h`, `QuestVars.cpp`, LINK's readme 3.2/3.3
+read): the ESP holds the quest Walkers (0x94B, start game enabled) with the
+script WalkersLinkScript (0x94C) that declares the settings' variables
+(`ini_rise_enabled` ... `ini_courier`, all floats) and `ini_version`; the
+variable list is read off `LinkLogic.h` by `tools/esp-write.py`, one table
+for both. At every start the plugin writes `Data\OblivionWalkers.cfg` (the
+menu: four headers, toggles and sliders) and `Data\OblivionWalkers.ini`
+(set lines at the plugin INI's values - LINK's defaults button). At the
+first look after a load (`StartOf`): without LINK the plugin INI's values
+go into the variables, every load (the INI decides); with LINK and the
+save's `ini_version` not 1 the same once, then the save's values decide.
+Once a second with LINK the plugin reads the variables and applies a change
+at once: health and pace written on the walker records anew, the spawn
+counts into the variant list, the horde, the gate guards and the news
+configured anew; the rest is read where it is used. **Deviation, named:**
+`ini_replace_enabled` and `ini_extra_percent` take effect at the next start
+(the leveled lists are changed once a session; undoing an injection is not
+built) - the menu's description says so.
+
+Test: `LinkLogicTest` (the table, the values both ways and their ranges,
+the effects, the load's decision, both files), `QuestVarLogicTest` (a
+variable by name). Harness `link-settings.txt` (LINK in the Linux install,
+three variables set by the console). The menu itself: Nadi's.
+
 ### Later (named by Nadi, not in the first build)
 
 - Barricades (28 Days' door locks by Security skill, walkers breaking them).
