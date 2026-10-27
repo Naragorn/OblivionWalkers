@@ -402,7 +402,7 @@ UInt32 FindZombieRace() {
 	return race;
 }
 
-// The ESP's Walker creatures (RiseLogic.h kWalkerLocalIds), looked up once per
+// The ESP's Walker creatures (WalkerLooks.h kWalkerLooks), looked up once per
 // session; g_walkerCount stays 0 without the ESP.
 void FindWalkers() {
 	if (g_walkersLooked) {

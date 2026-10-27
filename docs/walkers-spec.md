@@ -979,7 +979,7 @@ whole 90 s (11:54, the status lines) - the rule waits for that, and so it
 stays (Nadi chose to wait, 7a). **Open:** the raise of an unloaded body;
 the feel and the cost in the headset.
 
-### 4.12 City siege - `[Siege] Enabled=1` (designed 2026-10-26, not built)
+### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24` (designed 2026-10-26, not built)
 
 What (Nadi, 2026-10-26): a siege is a horde of walkers before one of a
 city's gates, outside the walls only ("belagerung ist nur vor der stadt am
@@ -1010,18 +1010,25 @@ Courier reports a gate attacked. What is missing, as designed:
 4. **The Courier**: siege editions, the same pipeline as 4.9 (Nadi's note
    under 4.9).
 
-Proposed, for Nadi to decide (none of it set):
+Decided (Nadi, 2026-10-27: "1. passt 2. einstellbar von 12-100 default 24,
+für mein windows 100. 3. passt"; the build not started - "4.12 noch nich
+starten"):
 
-- How a siege begins while the player is elsewhere - a chance a game day
-  per city, or only from a horde the player saw hold at a gate, or both;
-  how many walkers; a pause per city after one.
-- How many walkers stand before the gate at once. Measured 2026-10-26
-  (`perf-walkers-in-view.txt`): some 0.18 ms of CPU a walker in view and
-  scene pass, two passes a frame in VR - 30 at once would cost some 11 ms a
-  frame (derived), which halves the rate on its own. Proposed: a few at a
-  time (say 12) from a larger count, the next coming as one falls.
-- Which gates: only the besieged one (the player leaves by another, or by
-  fast travel), or all of the city's.
+- **How a siege begins**: both - a chance a game day per city while the
+  player is elsewhere, and a horde the player saw hold at a gate (4.11b);
+  a pause per city after one. The chance, the count of a siege and the
+  pause are still to be set at the build (proposed then, with their tests).
+- **Walkers before the gate at once**: `[Siege] WalkersAtGate=24`, clamped
+  to 12..100, from a larger count, the next coming as one falls; Nadi's
+  Windows live INI gets 100 when the key exists. Derived from the
+  measurement of 2026-10-26 (`perf-walkers-in-view.txt`, some 0.18 ms of CPU
+  a walker in view and scene pass, two passes a frame in VR, Linux CPU): 24
+  in view some 8.6 ms a frame, 100 some 36 ms - the rate at 100 falls far
+  under half (said to Nadi; the walkers out of view cost less, not
+  measured). The pool in the ESP holds at least 100 (240 disabled cost
+  nothing seen, `perf-siege-pool.txt`).
+- **Which gates**: only the besieged one is shut; the player leaves by
+  another, or by fast travel.
 - Unverified: whether the game's people who travel between cities (merchants,
   quest people) wait at a locked gate or go round; a mod removed during a
   siege leaves the gate locked (the plugin's Enabled=0 should unlock it).
