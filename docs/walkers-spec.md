@@ -1044,8 +1044,27 @@ Measured first: what a pool of disabled walker references costs
 2026-10-26 20:47/20:51, one run each): **nothing seen** - 240 disabled
 walkers in the holding cell, frames 13.36 against 13.35-13.39 ms, the scene
 pass 0.87-0.90 against 0.90-0.93 ms, and none of them on the process lists.
-Not measured: their cost on a cell change or a load. The cost of a siege is
+On a cell change and a load (`perf-siege-pool-load.txt`, 2026-10-27 09:30
+deployed ESP and 09:33 with `--test-walker-pool 30`, one run each, Linux,
+the Beyond at 75 Hz): the longest frame of each coc 142.6 / 150.5 ms
+against 151.1 / 161.2 ms with the 240 references, the save's load 1420.7
+against 1439.9 ms - some 10 to 20 ms more, within what one run each can
+tell apart (derived: not a cost to design around). The cost of a siege is
 the walkers in view, not the pool.
+
+The game's travellers at a shut gate (`siege-gate-travel.txt` and its
+control `-open`, 2026-10-27 09:24 and 09:27, one run each): Anvil's patrol
+guard AnvilGuardCastlePatrolDay01 (0000BFD8), his travel package taking him
+from the city through the Anvil Castle Gate to AnvilCastleGateMarker in
+Tamriel, the player at the marker (the city not loaded, the guard in low
+process): he came out into Tamriel between 90 and 120 s with the gate open
+**and** with both doors (00006B96, 00006FBA) locked at 100. Not yet
+settled: whether the lock took - the console's answer says nothing of that;
+the rerun makes the player use the door at the end (open: he goes in;
+locked: he stays). MOO has a locks module of its own (`Maskar's Oblivion
+Overhaul for locks.ini`), not read. If the lock held, a low-process
+traveller passes a shut gate - the siege then shuts the gate for the player,
+not for the game's people.
 
 Cost: **medium to large** - the state and its tests small to medium (the
 co-save and the clock are 4.9's), the pool and bringing it out medium (the
