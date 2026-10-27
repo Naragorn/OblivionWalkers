@@ -234,6 +234,8 @@ struct LastHit {
 };
 LastHit g_lastHit;
 UInt32 g_skillLinesLeft = 24;
+UInt32 g_otherSkillLinesLeft = 6;
+UInt32 g_hitLinesLeft = 12;
 UInt32 g_originalSkillUse = 0;
 bool g_hitWatchOn = false;
 
@@ -243,7 +245,11 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	g_lastHit.frame = g_frame;
 	g_lastHit.target = reinterpret_cast<UInt32>(arg0);
 	g_lastHit.attacker = reinterpret_cast<UInt32>(arg1);
-	(void)thisObj;
+	if (g_hitLinesLeft > 0) {
+		--g_hitLinesLeft;
+		g_log("Hit: %08X hit by %08X (frame %u; this %08X)", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker),
+		      g_frame, FormIdOf(reinterpret_cast<UInt32>(thisObj)));
+	}
 }
 
 // PlayerCharacter's skill use, in its vtable slot: held back when the
@@ -258,6 +264,10 @@ void __fastcall SkillUseHook(void* self, void* edx, UInt32 skill, UInt32 use, fl
 		hit.attackerPlayer = FormIdOf(g_lastHit.attacker) == 0x14;
 	}
 	const bool hold = HoldsSkillUse(g_settings.noSkillGain, skill, hit);
+	if (!IsBlowSkill(skill) && g_otherSkillLinesLeft > 0) {
+		--g_otherSkillLinesLeft;
+		g_log("Skills: the player's skill %02X use %u (not a blow's) - trained", skill, use);
+	}
 	if (IsBlowSkill(skill) && g_skillLinesLeft > 0) {
 		--g_skillLinesLeft;
 		g_log("Skills: the player's skill %02X use %u x%.2f (from %08X) - %s; the frame's hit %s: %08X by %08X",
