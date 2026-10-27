@@ -1025,7 +1025,10 @@ starten"):
   a walker in view and scene pass, two passes a frame in VR, Linux CPU): 24
   in view some 8.6 ms a frame, 100 some 36 ms - the rate at 100 falls far
   under half (said to Nadi; the walkers out of view cost less, not
-  measured). The pool in the ESP holds at least 100 (240 disabled cost
+  measured). Measured since by the performance session
+  (`perf-walkers-crowd.txt`, Linux, the Beyond at 75 Hz, placed walkers
+  standing, 2026-10-27, one run): 25 walkers 13.7 ms frames, 50 24.2 ms,
+  100 51 ms - at 100 about a fifth of the headset's rate. The pool in the ESP holds at least 100 (240 disabled cost
   nothing seen, `perf-siege-pool.txt`).
 - **Which gates**: only the besieged one is shut; the player leaves by
   another, or by fast travel.
