@@ -12,6 +12,22 @@
 # Walkers (not checked) is lost under the ESL variant - the run shows the
 # plugin finding the light ESP, not a save's migration.
 #
+# Run 1, 2026-10-28 09:04 (20261028-090429): "ESP: OblivionWalkers.esp is not
+# among the 37 loaded mods", no walkers - the Linux install still had the
+# DLL from before the ESL code (deployed at 08:40, the ESL build at 08:56,
+# never deployed); OblivionESL itself had taken the ESP ("Registered ESL:
+# OblivionWalkers.esp -> index 0 ... Loaded at position 37").
+# Run 2, 09:06 (20261028-090631, PASS, the ESL-capable DLL, Linux with
+# Nadi's Windows mod list since 09:00): "ESP: OblivionESL is loaded
+# (ESL_GetFormIDBase found, 1 light plugins): OblivionWalkers.esp is a light
+# plugin", "Walkers: OblivionWalkers.esp is at FE000000 (a light plugin,
+# OblivionESL), 64 walker creatures found", the records FE000801.. written,
+# "Grab: 6 of 6 grab idles found", the spawn lists FE000805 / FE00094A,
+# 4055 entries in 832 lists now walkers, horde, guards and news on, "LINK:
+# loaded ... 66 of 66 variables" (LINK finds the quest of the light ESP),
+# the test grab "grabbed the right arm (the hold played: 1)". Not seen:
+# LINK's menu itself, a save carried from the plain ESP to the ESL.
+#
 # Runs on OBVR's harness, from the OBVR folder (the ESL variant copied in by
 # hand before, the plain ESP back after):
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/esl-check.txt --headless \

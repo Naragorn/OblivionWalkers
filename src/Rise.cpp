@@ -669,10 +669,20 @@ UInt32 CloneBaseRecord(UInt32 base) {
 // ESLInterface.h, 2026-10-28); else its index in the data handler's
 // mods-by-ID table, << 24; kNoEsp when it is not loaded.
 UInt32 FindEspBase() {
-	if (const HMODULE esl = GetModuleHandleA("OblivionESL")) {
+	static UInt32 eslLinesLeft = 4;
+	const HMODULE esl = GetModuleHandleA("OblivionESL");
+	if (esl != nullptr) {
 		using BaseFn = UInt32(__cdecl*)(const char* modName);
+		using CountFn = UInt32(__cdecl*)();
 		const auto base = reinterpret_cast<BaseFn>(GetProcAddress(esl, "ESL_GetFormIDBase"));
+		const auto count = reinterpret_cast<CountFn>(GetProcAddress(esl, "ESL_GetLoadedCount"));
 		const UInt32 light = base != nullptr ? base(kPluginEsp) : kNoEsp;
+		if (eslLinesLeft > 0) {
+			--eslLinesLeft;
+			g_log("ESP: OblivionESL is loaded (ESL_GetFormIDBase %s, %u light plugins): %s %s", base ? "found" : "MISSING",
+			      count != nullptr ? count() : 0u, kPluginEsp,
+			      light != kNoEsp ? "is a light plugin" : "is no light plugin of it");
+		}
 		if (light != kNoEsp) {
 			return light;
 		}

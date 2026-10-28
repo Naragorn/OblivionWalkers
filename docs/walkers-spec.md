@@ -102,8 +102,14 @@ The DLL keeps the ESP's place as the base of its IDs (`RiseLogic.h`
 24. The co-save's references resolve through xOBSE's ResolveRefID, which
 OblivionESL hooks for light plugins. Not the same for a save: a save made
 with the plain ESP loses its walkers and guard references under the ESL
-variant and the other way round (OblivionESL's own warning) - the release
-says so, a new game for a switch. LINK with an ESL-flagged ESP: not tried.
+variant and the other way round (OblivionESL's own warning). Nadi,
+2026-10-28: "A" - the release says a switch keeps the game but loses the
+walkers already risen and what they carry (the spawned ones come again
+with the cells' resets). Run 2026-10-28 09:06 (`harness/esl-check.txt`,
+PASS, Linux with the Windows mod list): the ESP found as light plugin 0
+(FE000000), 64 walkers, the grab idles, the spawn lists, horde, guards,
+news, LINK's 66 variables written, the test grab. Not seen: LINK's menu, a
+save carried over.
 
 Save discipline: nothing the plugin does at start goes into the save. List
 injection is redone every session (the engine keeps lists in memory only).
