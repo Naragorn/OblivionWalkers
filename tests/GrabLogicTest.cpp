@@ -362,6 +362,65 @@ void TestNeeded() {
 	Check(walkers::StrugglePressesNeeded(off, 5, 0.0f, 100.0f) == 0, "StrugglePresses 0: off whatever the crowd");
 }
 
+void TestShake() {
+	std::printf("Shaking a holder off in VR (OBVR's strokes)\n");
+	GrabSettings s;
+	Check(walkers::ShakeStrokesNeeded(s, 1, 100.0f, 100.0f) == 6, "one walker, fresh: 6 strokes");
+	Check(walkers::ShakeStrokesNeeded(s, 3, 25.0f, 100.0f) == 21,
+	      "the press count's crowd and tiredness: three walkers, a quarter left: 6 x 2 x 1.75 = 21");
+	GrabSettings off = s;
+	off.shakeStrokes = 0;
+	Check(walkers::ShakeStrokesNeeded(off, 1, 100.0f, 100.0f) == 0, "ShakeStrokes 0: off");
+	GrabSettings flatOff = s;
+	flatOff.strugglePresses = 0;
+	Check(walkers::ShakeStrokesNeeded(flatOff, 1, 100.0f, 100.0f) == 6, "the Block key off: the shake still counts");
+
+	GrabState g;
+	Arm arm = Arm::None;
+	s.chancePercent = 100;
+	Check(walkers::HolderOn(g, Arm::Left) == 0, "nobody holds: no holder on the left");
+	walkers::TryGrab(g, s, 0xFF001001, Arm::Right, 0, &arm);
+	walkers::TryGrab(g, s, 0xFF001002, Arm::Left, 0, &arm);
+	Check(walkers::HolderOn(g, Arm::Right) == 0xFF001001 && walkers::HolderOn(g, Arm::Left) == 0xFF001002 &&
+	          walkers::HolderOn(g, Arm::None) == 0,
+	      "the holder on each arm; no arm: none");
+
+	walkers::Struggle st;
+	Check(!walkers::StepShake(st, s, 6, 3, 0.1f, false) && st.bar == 0, "the arm not held: strokes count nothing");
+	Check(!walkers::StepShake(st, s, 6, 2, 0.1f, true) && st.bar == 2, "two strokes in one frame: both count");
+	Check(!walkers::StepShake(st, s, 6, 0, 0.3f, true) && st.bar == 2, "a frame without a stroke: the count stays");
+	Check(!walkers::StepShake(st, s, 6, 3, 0.2f, true) && st.bar == 5, "five of six");
+	Check(walkers::StepShake(st, s, 6, 1, 0.2f, true) && st.bar == 0, "the sixth: shaken off, the count from 0");
+	walkers::Struggle slow;
+	walkers::StepShake(slow, s, 6, 4, 0.1f, true);
+	walkers::StepShake(slow, s, 6, 0, 0.9f, true);
+	Check(!walkers::StepShake(slow, s, 6, 1, 0.05f, true) && slow.bar == 1,
+	      "a pause longer than StruggleGapSeconds: the count starts again");
+	walkers::Struggle many;
+	Check(walkers::StepShake(many, s, 6, 9, 0.1f, true) && many.bar == 0, "more strokes than needed at once: free once");
+	walkers::Struggle none;
+	Check(!walkers::StepShake(none, s, 0, 5, 0.1f, true) && none.bar == 0, "nothing needed (off): never free");
+
+	const UInt32 left = 1;
+	const UInt32 right = 2;
+	const UInt32 bad = 3;
+	Arm got = Arm::None;
+	Check(walkers::ShakeStrokeOf(&left, 4, got) && got == Arm::Left && walkers::ShakeStrokeOf(&right, 4, got) &&
+	          got == Arm::Right,
+	      "OBVR's stroke: the arm (1 left, 2 right)");
+	Check(!walkers::ShakeStrokeOf(&bad, 4, got) && !walkers::ShakeStrokeOf(&left, 3, got) &&
+	          !walkers::ShakeStrokeOf(nullptr, 4, got),
+	      "no such arm, too short or no data: no stroke");
+	const UInt32 on = 1;
+	const UInt32 offWord = 0;
+	bool vr = false;
+	Check(walkers::VrHelloOf(&on, 4, vr) && vr && walkers::VrHelloOf(&offWord, 4, vr) && !vr &&
+	          !walkers::VrHelloOf(&on, 2, vr),
+	      "OBVR's hello: VR on or off; too short: none");
+	Check(walkers::kGrabShakeMessage == 0x4B534757 && walkers::kGrabVrMessage == 0x52564757,
+	      "the types read 'WGSK' and 'WGVR' in memory");
+}
+
 void TestTexts() {
 	std::printf("The messages (flat)\n");
 	GrabSettings s;
@@ -390,8 +449,17 @@ void TestTexts() {
 	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Right, 0, 6, mute, text, sizeof(text)) &&
 	          std::strcmp(text, "A walker grabs your right arm! Strike it to break free.") == 0,
 	      "without the key: only the strike named");
+	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, 8, s, text, sizeof(text), true) &&
+	          std::strcmp(text, "A walker grabs your left arm! Shake it off (8).") == 0,
+	      "in VR: shake the arm, with the strokes needed");
+	GrabSettings still = s;
+	still.shakeStrokes = 0;
+	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, 6, still, text, sizeof(text), true) &&
+	          std::strcmp(text, "A walker grabs your left arm! Strike it or mash Block (6).") == 0,
+	      "in VR with ShakeStrokes 0: the flat line");
 	Check(walkers::SayFor(LetGo::Struck) == walkers::GrabSay::Free && walkers::SayFor(LetGo::Struggled) == walkers::GrabSay::Free &&
 	          walkers::SayFor(LetGo::TornFree) == walkers::GrabSay::Free && walkers::SayFor(LetGo::Asked) == walkers::GrabSay::Free &&
+	          walkers::SayFor(LetGo::Shaken) == walkers::GrabSay::Free &&
 	          walkers::SayFor(LetGo::Dead) == walkers::GrabSay::None &&
 	          walkers::SayFor(LetGo::PlayerDown) == walkers::GrabSay::None,
 	      "free said when the player broke free; a holder cut down or the player down: nothing more");
@@ -404,6 +472,8 @@ void TestRefusalNames() {
 	          std::strcmp(walkers::LetGoName(LetGo::PlayerDown), "the player is down") == 0 &&
 	          std::strcmp(walkers::LetGoName(LetGo::Struggled), "wrenched off") == 0 &&
 	          std::strcmp(walkers::LetGoName(LetGo::SwitchedOff), "the grab switched off") == 0 &&
+	          std::strcmp(walkers::LetGoName(LetGo::Shaken), "shaken off") == 0 &&
+	          std::strcmp(walkers::LetGoName(LetGo::Asked), "freed by OBVR") == 0 &&
 	          std::strcmp(walkers::ArmName(Arm::Left), "left") == 0 &&
 	          std::strcmp(walkers::RefusalName(GrabRefusal::BothArmsHeld), "both arms held") == 0,
 	      "each reason has its words");
@@ -423,6 +493,7 @@ int main() {
 	TestTestGrab();
 	TestStruggle();
 	TestNeeded();
+	TestShake();
 	TestTexts();
 	TestRefusalNames();
 	std::printf("%s (%d failed)\n", g_failures == 0 ? "PASS" : "FAIL", g_failures);

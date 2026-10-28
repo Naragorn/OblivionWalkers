@@ -35,10 +35,10 @@ inline constexpr UInt32 kLinkScriptLocalId = 0x94C;
 inline constexpr const char* kLinkVersionVariable = "ini_version";
 // Raised whenever a variable is added (2: NoSkillGain, 2026-10-27; 3: the
 // grab's three, 2026-10-28; 4: the struggle's four, 2026-10-28; 5: the
-// advanced ones, 2026-10-28), so a save of
+// advanced ones, 2026-10-28; 6: the VR shake's two, 2026-10-28), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 5.0;
+inline constexpr double kLinkVersion = 6.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -179,6 +179,9 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_grab_crowd_most", "Crowd: most", "The crowd makes breaking free at most this many times harder.", LinkKind::Slider, 1, 5, 0.5f, 1, false, LinkEffect::Live},
 	{"ini_grab_crowd_radius", "Crowd: radius", "Walkers this near count for the crowd (units).", LinkKind::Slider, 100, 1000, 50, 0, false, LinkEffect::Live},
 	{"ini_grab_struggle_gap", "Seconds between presses", "A longer pause between Block presses starts the count again.", LinkKind::Slider, 0.2f, 2, 0.1f, 1, false, LinkEffect::Live},
+	// The VR shake (2026-10-28), last so the indices stay.
+	{"ini_grab_shake_strokes", "VR: swings to shake free", "In VR, swings of the held hand that shake one walker off, fresh, 0 off.", LinkKind::Slider, 0, 20, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_shake_fatigue", "VR: fatigue per swing", "What each swing of the held hand costs.", LinkKind::Slider, 0, 10, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 
@@ -251,6 +254,8 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 63: return rise.grab.struggleCrowdMost;
 		case 64: return rise.grab.struggleCrowdRadius;
 		case 65: return rise.grab.struggleGapSeconds;
+		case 66: return rise.grab.shakeStrokes;
+		case 67: return rise.grab.shakeFatigue;
 		default: return 0.0;
 	}
 }
@@ -341,6 +346,8 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 63: rise.grab.struggleCrowdMost = fraction; break;
 		case 64: rise.grab.struggleCrowdRadius = fraction; break;
 		case 65: rise.grab.struggleGapSeconds = fraction; break;
+		case 66: rise.grab.shakeStrokes = whole; break;
+		case 67: rise.grab.shakeFatigue = fraction; break;
 		default: return false;
 	}
 	return true;

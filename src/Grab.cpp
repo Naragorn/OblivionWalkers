@@ -105,6 +105,12 @@ Struggle g_struggle;
 UInt32 g_needed = 0;
 float g_neededClock = 0.0f;
 UInt32 g_walkersNear = 0;
+// VR: OBVR's hello says whether the player plays in VR; its strokes of each
+// held hand (left, right) wait here for the tick, each arm with its count.
+bool g_vr = false;
+UInt32 g_strokes[2] = {0, 0};
+Struggle g_shake[2];
+UInt32 g_shakeNeeded = 0;
 UInt32 g_moveLines = 40;
 
 bool InText(UInt32 fn) { return fn >= kTextStart && fn < kTextEnd; }
@@ -174,7 +180,7 @@ const char* HoldName(PlayerHold hold) {
 // A line on the screen (Messages), as the console's Message prints it.
 void Say(GrabSay say, Arm arm, UInt32 bite) {
 	char text[128];
-	if (!GrabText(say, arm, bite, g_needed, *g_settings, text, sizeof(text))) {
+	if (!GrabText(say, arm, bite, g_vr ? g_shakeNeeded : g_needed, *g_settings, text, sizeof(text), g_vr)) {
 		return;
 	}
 	char line[160];
@@ -206,6 +212,7 @@ void UpdateNeeded(UInt32 player) {
 	const float fatigue = ValueOf(player, kActorValueFatigue);
 	const float base = BaseValueOf(player, kActorValueFatigue);
 	g_needed = StrugglePressesNeeded(*g_settings, g_walkersNear, fatigue, base);
+	g_shakeNeeded = ShakeStrokesNeeded(*g_settings, g_walkersNear, fatigue, base);
 }
 
 void SendState() {
@@ -364,12 +371,54 @@ void ReleaseAll(LetGo why) {
 }
 
 void OnObvrMessage(obse::MessagingInterface::Message* message) {
-	if (message == nullptr || message->type != kGrabFreeMessage) {
+	if (message == nullptr) {
 		return;
 	}
 	UInt32 refId = 0;
-	if (FreeRequestOf(message->data, message->dataLen, refId) && g_freeRequestCount < 4) {
-		g_freeRequests[g_freeRequestCount++] = refId;
+	Arm arm = Arm::None;
+	bool vr = false;
+	if (message->type == kGrabFreeMessage) {
+		if (FreeRequestOf(message->data, message->dataLen, refId) && g_freeRequestCount < 4) {
+			g_freeRequests[g_freeRequestCount++] = refId;
+		}
+	} else if (message->type == kGrabShakeMessage) {
+		if (ShakeStrokeOf(message->data, message->dataLen, arm)) {
+			++g_strokes[arm == Arm::Left ? 0 : 1];
+		}
+	} else if (message->type == kGrabVrMessage && VrHelloOf(message->data, message->dataLen, vr)) {
+		if (vr != g_vr && g_services.log != nullptr) {
+			g_services.log("Grab: OBVR says the player plays %s", vr ? "in VR - a held arm is shaken off" : "flat");
+		}
+		g_vr = vr;
+	}
+}
+
+// VR: OBVR's strokes of each held hand; enough shake that arm's holder off.
+void StepShakes(UInt32 player, float dt) {
+	for (UInt32 side = 0; side < 2; ++side) {
+		const Arm arm = side == 0 ? Arm::Left : Arm::Right;
+		const UInt32 refId = HolderOn(g_state, arm);
+		const UInt32 strokes = g_strokes[side];
+		g_strokes[side] = 0;
+		const bool freed = StepShake(g_shake[side], *g_settings, g_shakeNeeded, strokes, dt, refId != 0);
+		if (strokes > 0 && refId != 0 && g_settings->shakeStrokes > 0) {
+			if (g_settings->shakeFatigue >= 1.0f) {
+				char line[48];
+				std::snprintf(line, sizeof(line), "ModAV2 Fatigue -%d",
+				              static_cast<int>(g_settings->shakeFatigue * static_cast<float>(strokes)));
+				g_services.console(player, line);
+			}
+			g_services.log("Grab: the player shakes the %s arm (%u stroke(s), %u of %u - %u walkers near, fatigue %.0f "
+			               "of %.0f)%s",
+			               ArmName(arm), strokes, g_shake[side].bar, g_shakeNeeded, g_walkersNear,
+			               ValueOf(player, kActorValueFatigue), BaseValueOf(player, kActorValueFatigue),
+			               freed ? " - shaken off" : "");
+		}
+		if (freed) {
+			ReleaseHolder(g_state, refId);
+			LetGoOf(refId, LetGo::Shaken);
+			SendState();
+		}
 	}
 }
 
@@ -432,12 +481,13 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
 	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f StrugglePresses=%u "
 	               "StruggleCrowdStep=%.2f StruggleCrowdMost=%.1f StruggleCrowdRadius=%.0f StruggleGapSeconds=%.1f "
-	               "StruggleFatigue=%.0f Messages=%d; OBVR's free requests %s",
+	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f; OBVR's messages %s",
 	               settings->enabled ? 1 : 0, settings->chancePercent, settings->bitesToDie, settings->biteSeconds,
 	               settings->biteHealthPercent, settings->struggleHits, settings->tearFreeDistance,
 	               settings->biteResetSeconds, settings->testGrabSeconds, settings->strugglePresses,
 	               settings->struggleCrowdStep, settings->struggleCrowdMost, settings->struggleCrowdRadius,
-	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0,
+	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0, settings->shakeStrokes,
+	               settings->shakeFatigue,
 	               listening ? "listened to" : "not listened to");
 }
 
@@ -504,6 +554,7 @@ void StepGrabInGame(float dt) {
 		               ValueOf(player, kActorValueFatigue), BaseValueOf(player, kActorValueFatigue),
 		               g_struggle.bar == 0 ? " - free of one" : "");
 	}
+	StepShakes(player, dt);
 	if (TestGrabDue(*g_settings, g_testClock, dt, g_state.count > 0)) {
 		TestGrab(player);
 	}
@@ -569,6 +620,9 @@ void ResetGrabInGame() {
 	g_struggle = Struggle{};
 	g_needed = 0;
 	g_neededClock = 0.0f;
+	g_strokes[0] = g_strokes[1] = 0;
+	g_shake[0] = g_shake[1] = Struggle{};
+	g_shakeNeeded = 0;
 }
 
 }  // namespace walkers

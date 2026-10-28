@@ -43,9 +43,10 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 66,
-	      "66 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four and the 31 "
-	      "advanced ones - every INI setting but Name, StruggleControl and the test and proof switches");
+	Check(kLinkSettingCount == 68,
+	      "68 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones and the VR shake's two - every INI setting but Name, StruggleControl and the test and proof "
+	      "switches");
 	bool defaultsInRange = true;
 	walkers::RiseSettings fresh;
 	walkers::ReplaceSettings freshReplace;
@@ -119,6 +120,14 @@ void TestValues() {
 	          walkers::SetLinkValue(rise, replace, fatigue, 12.0) && rise.grab.struggleFatigue == 12.0f &&
 	          walkers::SetLinkValue(rise, replace, messages, 0.0) && !rise.grab.messages,
 	      "the struggle's settings set from the menu (presses 0: off)");
+	const int strokes = IndexOf("ini_grab_shake_strokes");
+	const int shakeFatigue = IndexOf("ini_grab_shake_fatigue");
+	Check(strokes == 66 && shakeFatigue == 67 && walkers::LinkValue(rise, replace, strokes) == 6.0 &&
+	          walkers::LinkValue(rise, replace, shakeFatigue) == 2.0,
+	      "the VR shake: 6 strokes, 2 fatigue a stroke - the INI's defaults, after all the others");
+	Check(walkers::SetLinkValue(rise, replace, strokes, 0.0) && rise.grab.shakeStrokes == 0 &&
+	          walkers::SetLinkValue(rise, replace, shakeFatigue, 4.0) && rise.grab.shakeFatigue == 4.0f,
+	      "the shake's settings set from the menu (strokes 0: off)");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -187,7 +196,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 5\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 6\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

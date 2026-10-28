@@ -1605,9 +1605,33 @@ ESP's IDLE 0x94D..0x952):
   asked again each second (a no-op while it plays).
 - OBVR: the holders go to OBVR as message 'WGRB' (count, then reference
   and arm per holder) whenever one takes hold or lets go; a 'WGFR' from
-  OBVR (one word, the holder) lets that one go - the shake of the held arm
-  in VR is OBVR's to build; until then VR players strike or tear free as
-  flat ones do.
+  OBVR (one word, the holder) lets that one go.
+- **VR shake** (Nadi, 2026-10-28: "abschütteln in vr. Ähnlich wie saints and
+  sinners"). How Saints & Sinners does it: a walker grabs either arm (two at
+  once), the held hand leaves physics and its movement drives the struggle,
+  which ends with the walker dislodged and staggering back or the player
+  bitten (Skydance on the Unreal Engine tech blog, "The Grapple"); players
+  shake the held hand up and down, or push the walker off with the free hand
+  (r/SaintsAndSinners kocc1j, Steam discussion 1742265917492234829). Split:
+  - OBVR is the sensor: once it runs it sends 'WGVR' 0x52564757 (one word, 1
+    in VR); it reads 'WGRB' and, for each held hand, sends 'WGSK'
+    0x4B534757 (one word, the arm, 1 left 2 right) at each swing of that
+    hand - a reversal of its movement after enough travel and speed, OBVR's
+    thresholds. A shove or blow of the free hand on a holder may send
+    'WGFR' (that holder), as S&S's push. Pulling the held hand toward the
+    holder is OBVR's feel, not needed for the count.
+  - Walkers decides (GrabLogic.h StepShake, ShakeStrokesNeeded): per arm,
+    `ShakeStrokes` (6) strokes times the crowd and the tiredness of the
+    presses' formula, none more than `StruggleGapSeconds` apart, shake that
+    arm's holder off (LetGo Shaken, "You break free.", its stagger); each
+    stroke costs `ShakeFatigue` (2). After 'WGVR' 1 the grab's line says
+    "Shake it off (n)". The Block key and blows still work in VR. Time
+    runs out by the bites, as flat.
+  - LINK: "VR: swings to shake free" and "VR: fatigue per swing", last in
+    the list (indices 66, 67) under the grab's advanced header - 68 in all,
+    version 6.
+  - Built in Walkers 2026-10-28, unit flows PASS; OBVR's side handed to
+    the OBVR session; the feel only in the headset.
 - LINK: "Walkers grab", "Chance to grab", "Bites you take" under the header
   Grabbed (version 3, so a save of version 2 takes the INI's values again);
   since 2026-10-28 (Nadi: "können die auch in die link settings?") also

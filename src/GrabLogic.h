@@ -51,6 +51,13 @@ struct GrabSettings {
 	UInt32 struggleControl = 6;  // xOBSE GameOSDepend.h MappableControl: kControl_Block
 	float struggleFatigue = 5.0f;
 	bool messages = true;
+	// VR (Nadi, 2026-10-28: "abschütteln in vr. Ähnlich wie saints and
+	// sinners"): OBVR sends a stroke at each swing of a held hand; this many
+	// (times the crowd and the tiredness, as the presses) shake that arm's
+	// holder off, none more than StruggleGapSeconds apart, each costing
+	// ShakeFatigue. 0: off.
+	UInt32 shakeStrokes = 6;
+	float shakeFatigue = 2.0f;
 };
 
 // Whether the test grab is due: `clock` runs while nobody holds.
@@ -103,6 +110,16 @@ inline bool Holds(const GrabState& g, UInt32 refId) {
 		}
 	}
 	return false;
+}
+
+// The holder on `arm`, 0 if none.
+inline UInt32 HolderOn(const GrabState& g, Arm arm) {
+	for (UInt32 i = 0; i < g.count && arm != Arm::None; ++i) {
+		if (g.holders[i].arm == arm) {
+			return g.holders[i].refId;
+		}
+	}
+	return 0;
 }
 
 inline bool ArmHeld(const GrabState& g, Arm arm) {
@@ -188,7 +205,7 @@ inline UInt16 HeldPlayerFlags(UInt16 flags, PlayerHold hold) {
 // A holder stands at the arm it holds.
 inline UInt16 HolderFlags(UInt16 flags) { return static_cast<UInt16>(flags & ~(kMoveSteps | kMoveWalk | kMoveRun)); }
 
-enum class LetGo : UInt8 { Dead, TornFree, Struck, Asked, Gone, SwitchedOff, PlayerDown, Struggled };
+enum class LetGo : UInt8 { Dead, TornFree, Struck, Asked, Gone, SwitchedOff, PlayerDown, Struggled, Shaken };
 
 // A holder as the game has it this frame, in the order of GrabState::holders.
 struct HolderView {
@@ -347,6 +364,33 @@ inline UInt32 GrabMessage(const GrabState& g, UInt32* words) {
 	return 4 * (1 + 2 * g.count);
 }
 
+// From OBVR ('WGSK'): one word, the arm (1 left, 2 right) whose held hand
+// swung once - a stroke of the shake.
+inline constexpr UInt32 kGrabShakeMessage = 0x4B534757;
+// From OBVR ('WGVR'), once it runs: one word, 1 when the player plays in VR -
+// the grab's line then says to shake the arm.
+inline constexpr UInt32 kGrabVrMessage = 0x52564757;
+
+inline bool ShakeStrokeOf(const void* data, UInt32 length, Arm& arm) {
+	if (data == nullptr || length < 4) {
+		return false;
+	}
+	const UInt32 word = *static_cast<const UInt32*>(data);
+	if (word != 1 && word != 2) {
+		return false;
+	}
+	arm = static_cast<Arm>(word);
+	return true;
+}
+
+inline bool VrHelloOf(const void* data, UInt32 length, bool& vr) {
+	if (data == nullptr || length < 4) {
+		return false;
+	}
+	vr = *static_cast<const UInt32*>(data) != 0;
+	return true;
+}
+
 inline bool FreeRequestOf(const void* data, UInt32 length, UInt32& refId) {
 	if (data == nullptr || length < 4) {
 		return false;
@@ -369,8 +413,9 @@ struct Struggle {
 // the crowd - one more half per walker within StruggleCrowdRadius beyond the
 // first, at most StruggleCrowdMost - times the tiredness, 1 fresh to 2 with
 // no fatigue left. The time is the bites': the last kills. 0: off.
-inline UInt32 StrugglePressesNeeded(const GrabSettings& s, UInt32 walkersNear, float fatigueNow, float fatigueBase) {
-	if (s.strugglePresses == 0) {
+inline UInt32 StruggleNeeded(UInt32 base, const GrabSettings& s, UInt32 walkersNear, float fatigueNow,
+                             float fatigueBase) {
+	if (base == 0) {
 		return 0;
 	}
 	const UInt32 extra = walkersNear > 1 ? walkersNear - 1 : 0;
@@ -379,8 +424,18 @@ inline UInt32 StrugglePressesNeeded(const GrabSettings& s, UInt32 walkersNear, f
 	float left = fatigueBase > 0.0f ? fatigueNow / fatigueBase : 1.0f;
 	left = left < 0.0f ? 0.0f : (left > 1.0f ? 1.0f : left);
 	const float tired = 2.0f - left;
-	const float n = static_cast<float>(s.strugglePresses) * crowd * tired;
+	const float n = static_cast<float>(base) * crowd * tired;
 	return static_cast<UInt32>(n + 0.5f);
+}
+
+inline UInt32 StrugglePressesNeeded(const GrabSettings& s, UInt32 walkersNear, float fatigueNow, float fatigueBase) {
+	return StruggleNeeded(s.strugglePresses, s, walkersNear, fatigueNow, fatigueBase);
+}
+
+// The strokes that shake one holder off in VR: ShakeStrokes, harder the same
+// way as the presses.
+inline UInt32 ShakeStrokesNeeded(const GrabSettings& s, UInt32 walkersNear, float fatigueNow, float fatigueBase) {
+	return StruggleNeeded(s.shakeStrokes, s, walkersNear, fatigueNow, fatigueBase);
 }
 
 inline bool StepStruggle(Struggle& st, const GrabSettings& s, UInt32 needed, bool down, float dt, bool held,
@@ -409,23 +464,52 @@ inline bool StepStruggle(Struggle& st, const GrabSettings& s, UInt32 needed, boo
 	return true;
 }
 
+// One arm's shake: `strokes` OBVR's strokes of that hand this frame, `held`
+// whether the arm is held. True when the holder is shaken off.
+inline bool StepShake(Struggle& st, const GrabSettings& s, UInt32 needed, UInt32 strokes, float dt, bool held) {
+	if (!held || needed == 0) {
+		st.bar = 0;
+		st.sinceLast = 0.0f;
+		return false;
+	}
+	st.sinceLast += dt;
+	if (strokes == 0) {
+		return false;
+	}
+	if (st.sinceLast > s.struggleGapSeconds) {
+		st.bar = 0;
+	}
+	st.sinceLast = 0.0f;
+	st.bar += strokes;
+	if (st.bar < needed) {
+		return false;
+	}
+	st.bar = 0;
+	return true;
+}
+
 enum class GrabSay : UInt8 { None, Grabbed, Rooted, Bitten, LastBite, Free };
 
 inline GrabSay SayFor(LetGo why) {
-	return why == LetGo::Struck || why == LetGo::Struggled || why == LetGo::TornFree || why == LetGo::Asked
+	return why == LetGo::Struck || why == LetGo::Struggled || why == LetGo::TornFree || why == LetGo::Asked ||
+	               why == LetGo::Shaken
 	           ? GrabSay::Free
 	           : GrabSay::None;
 }
 
 // The line on the screen; false when nothing is said (Messages 0, None).
+// `vr`: OBVR said the player plays in VR; `needed` then the strokes.
 inline bool GrabText(GrabSay say, Arm arm, UInt32 bite, UInt32 needed, const GrabSettings& s, char* out,
-                     UInt32 capacity) {
+                     UInt32 capacity, bool vr = false) {
 	if (!s.messages || capacity == 0) {
 		return false;
 	}
 	switch (say) {
 		case GrabSay::Grabbed:
-			if (s.strugglePresses > 0 && needed > 0) {
+			if (vr && s.shakeStrokes > 0 && needed > 0) {
+				std::snprintf(out, capacity, "A walker grabs your %s arm! Shake it off (%u).",
+				              arm == Arm::Left ? "left" : "right", needed);
+			} else if (s.strugglePresses > 0 && needed > 0) {
 				std::snprintf(out, capacity, "A walker grabs your %s arm! Strike it or mash Block (%u).",
 				              arm == Arm::Left ? "left" : "right", needed);
 			} else {
@@ -450,7 +534,8 @@ inline const char* LetGoName(LetGo why) {
 		case LetGo::Dead: return "cut down";
 		case LetGo::TornFree: return "torn free";
 		case LetGo::Struck: return "struck off";
-		case LetGo::Asked: return "shaken off";
+		case LetGo::Asked: return "freed by OBVR";
+		case LetGo::Shaken: return "shaken off";
 		case LetGo::SwitchedOff: return "the grab switched off";
 		case LetGo::PlayerDown: return "the player is down";
 		case LetGo::Struggled: return "wrenched off";

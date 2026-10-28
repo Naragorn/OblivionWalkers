@@ -187,6 +187,9 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.grab.struggleCrowdRadius = IniFloat("Grab", "StruggleCrowdRadius", 300.0f, path);
 	rise.grab.struggleFatigue = IniFloat("Grab", "StruggleFatigue", 5.0f, path);
 	rise.grab.messages = GetPrivateProfileIntA("Grab", "Messages", 1, path) != 0;
+	const int strokes = GetPrivateProfileIntA("Grab", "ShakeStrokes", 6, path);
+	rise.grab.shakeStrokes = strokes < 0 ? 0u : static_cast<UInt32>(strokes);
+	rise.grab.shakeFatigue = IniFloat("Grab", "ShakeFatigue", 2.0f, path);
 	const int control = GetPrivateProfileIntA("Grab", "StruggleControl", 6, path);
 	rise.grab.struggleControl = control < 0 || control > 28 ? 6u : static_cast<UInt32>(control);
 	const int getUpSound = GetPrivateProfileIntA("Rise", "SoundAtGetUpPercent", 60, path);
