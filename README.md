@@ -72,3 +72,17 @@ Own folder for now; it becomes its own repository later.
   own zombies keep MOO's behaviour. With `0`, set
   `set MOO.ini_zombie_resurrect to 0` in `Maskar's Oblivion Overhaul.ini`
   instead (MOO's own zombies stay down then too).
+
+## License
+
+**GNU General Public License v3** (`LICENSE`). Copyright (C) 2026 Naragorn.
+
+In short: use it, change it, share it, build on it. If you pass it on, pass the
+source on with it under the same license. No closed or paid-for versions. The
+license text is what counts; this is just the summary.
+
+`src/Obse.h` copies the layout of xOBSE's plugin interface structs so the
+plugin can load, like every OBSE plugin does. The ESP and the grab's
+animations are written from the game's own data on your machine
+(`tools/esp-write.py`, `tools/grab-anims.py`) and are not part of this
+repository.
