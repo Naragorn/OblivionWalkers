@@ -41,6 +41,15 @@ Own folder for now; it becomes its own repository later.
 
 ## Before a public release
 
+- **Two downloads** (Nadi, 2026-10-28): the ESL one first, needing
+  OblivionESL (Nexus 56578) and Cell Lookup Robustness (Nexus 55924), and the
+  plain ESP beside it. `tools/package-release.sh <version>` writes both into
+  `dist/` from the game's own data (the ESP and the grab's animations are
+  built on the machine, never committed), each with a README naming its
+  requirements and what a switch between the two costs (the walkers already
+  risen). The DLL in them is the one in `build-linux/`; a release DLL should
+  be built with MSVC.
+
 - **Register the opcode base.** The plugin sets opcode base `0x2B00`
   (`src/Rise.cpp`, `kOpcodeBase`): xOBSE runs a plugin's co-save callbacks
   only for one with an opcode base of its own (docs/walkers-spec.md,

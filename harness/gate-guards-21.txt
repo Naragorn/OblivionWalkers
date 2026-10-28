@@ -24,7 +24,7 @@ ini Debug GripTrace=0
 ini Performance Enabled=0
 console-at ready tgm
 console-at ready cow Tamriel -47 -7
-console-at loaded player.placeatme 11000801 105
+console-at loaded player.placeatme WalkersZombie1 105
 
 expect HandScript: finished
 reject HandScript: WARNING

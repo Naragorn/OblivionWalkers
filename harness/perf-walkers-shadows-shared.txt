@@ -29,7 +29,7 @@ console-at placed coc ImperialDungeon01
 console-at prison tcl
 console-at prison player.setrestrained 1
 console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
-console-at people player.placeatme 11000801 18
+console-at people player.placeatme WalkersZombie1 18
 console-at people-placed tai
 
 expect HandScript: finished

@@ -23,7 +23,7 @@ ini Debug GripTrace=0
 console-at ready player.additem 0001C6D1 1
 console-at ready player.equipitem 0001C6D1
 console-at ready player.setav health 5000
-console-at bandit player.placeatme 11000801 1 100 0
+console-at bandit player.placeatme WalkersZombie1 1 100 0
 console-at bandit-placed {actor}.startcombat player
 console-at bandit-done {actor}.kill
 console-at walker player.placeatme 00069AD1 1 100 0

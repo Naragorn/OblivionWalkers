@@ -31,10 +31,10 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at one player.placeatme 11000805 1 400 0
-console-at two player.placeatme 11000805 1 400 0
-console-at three player.placeatme 11000805 1 400 0
-console-at four player.placeatme 11000805 1 400 0
+console-at one player.placeatme WalkersZombieVariant 1 400 0
+console-at two player.placeatme WalkersZombieVariant 1 400 0
+console-at three player.placeatme WalkersZombieVariant 1 400 0
+console-at four player.placeatme WalkersZombieVariant 1 400 0
 
 expect HandScript: finished
 reject HandScript: WARNING

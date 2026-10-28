@@ -22,7 +22,7 @@ ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready coc AnvilChapelofDibella
 console-at arrived tgm
-console-at arrived player.placeatme 11000801 1
+console-at arrived player.placeatme WalkersZombie1 1
 
 expect HandScript: finished
 reject 11000801 x

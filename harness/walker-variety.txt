@@ -20,27 +20,27 @@ console-at placed coc ImperialDungeon01
 console-at prison tcl
 console-at prison player.setrestrained 1
 console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
-console-at first player.placeatme 11000801 1 250 0
-console-at first player.placeatme 11000802 1 250 0
-console-at first player.placeatme 11000803 1 250 0
-console-at first player.placeatme 11000804 1 250 0
-console-at first player.placeatme 1100090E 1 250 0
-console-at first player.placeatme 1100090F 1 250 0
-console-at first player.placeatme 11000910 1 250 0
-console-at first player.placeatme 11000911 1 250 0
-console-at first player.placeatme 11000912 1 250 0
-console-at first player.placeatme 11000913 1 250 0
+console-at first player.placeatme WalkersZombie1 1 250 0
+console-at first player.placeatme WalkersZombie2 1 250 0
+console-at first player.placeatme WalkersZombie3 1 250 0
+console-at first player.placeatme WalkersZombie4 1 250 0
+console-at first player.placeatme WalkersZombie5 1 250 0
+console-at first player.placeatme WalkersZombie6 1 250 0
+console-at first player.placeatme WalkersZombie7 1 250 0
+console-at first player.placeatme WalkersZombie8 1 250 0
+console-at first player.placeatme WalkersZombie9 1 250 0
+console-at first player.placeatme WalkersZombie10 1 250 0
 console-at first-placed tai
-console-at second player.placeatme 11000914 1 250 0
-console-at second player.placeatme 11000915 1 250 0
-console-at second player.placeatme 11000916 1 250 0
-console-at second player.placeatme 11000917 1 250 0
-console-at second player.placeatme 11000918 1 250 0
-console-at second player.placeatme 11000919 1 250 0
-console-at second player.placeatme 1100091A 1 250 0
-console-at second player.placeatme 1100091B 1 250 0
-console-at second player.placeatme 1100091C 1 250 0
-console-at second player.placeatme 1100091D 1 250 0
+console-at second player.placeatme WalkersZombie11 1 250 0
+console-at second player.placeatme WalkersZombie12 1 250 0
+console-at second player.placeatme WalkersZombie13 1 250 0
+console-at second player.placeatme WalkersZombie14 1 250 0
+console-at second player.placeatme WalkersZombie15 1 250 0
+console-at second player.placeatme WalkersZombie16 1 250 0
+console-at second player.placeatme WalkersZombie17 1 250 0
+console-at second player.placeatme WalkersZombie18 1 250 0
+console-at second player.placeatme WalkersZombie19 1 250 0
+console-at second player.placeatme WalkersZombie20 1 250 0
 
 expect HandScript: finished
 reject menu Container

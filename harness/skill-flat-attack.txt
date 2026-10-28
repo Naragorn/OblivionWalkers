@@ -27,7 +27,7 @@ console-at ready player.setav health 5000
 console-at placed player.placeatme 00069AD1 1 80 0
 console-at placed tai
 console-at attacked {actor}.kill
-console-at attacked player.placeatme 11000801 1 80 0
+console-at attacked player.placeatme WalkersZombie1 1 80 0
 console-at walker-attacked tai
 console-at walker-attacked {actor}.startcombat player
 
