@@ -34,10 +34,11 @@ inline constexpr UInt32 kLinkQuestLocalId = 0x94B;
 inline constexpr UInt32 kLinkScriptLocalId = 0x94C;
 inline constexpr const char* kLinkVersionVariable = "ini_version";
 // Raised whenever a variable is added (2: NoSkillGain, 2026-10-27; 3: the
-// grab's three, 2026-10-28; 4: the struggle's four, 2026-10-28), so a save of
+// grab's three, 2026-10-28; 4: the struggle's four, 2026-10-28; 5: the
+// advanced ones, 2026-10-28), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 4.0;
+inline constexpr double kLinkVersion = 5.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -71,6 +72,8 @@ struct LinkHeader {
 
 inline constexpr LinkHeader kLinkHeaders[] = {
 	{0, "The dead rise"}, {8, "Walkers"}, {16, "Spawns"}, {20, "Hordes, gate guards and news"}, {27, "Training"}, {28, "Grabbed"},
+	{35, "The dead rise - advanced"}, {41, "Walkers - advanced"}, {44, "Hordes - advanced"},
+	{52, "Gate guards - advanced"}, {54, "Safeguard and news - advanced"}, {58, "Grabbed - advanced"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -143,6 +146,39 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 20, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_messages", "Grab messages", "A line on the screen when a walker grabs or bites you.", LinkKind::Toggle, 0,
 	 1, 1, 0, false, LinkEffect::Live},
+	// The advanced ones (Nadi, 2026-10-28: every setting LINK can show is in
+	// LINK - AGENTS.md), after all the others so their indices stay.
+	{"ini_rise_drop_seconds", "Seconds before the drop", "How long the new walker waits, unseen, before it is dropped beside the corpse.", LinkKind::Slider, 0, 5, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_rise_lie_seconds", "Seconds lying", "How long the walker lies where the corpse lay before it gets up.", LinkKind::Slider, 0, 5, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_rise_match_corpse", "Match the corpse", "0 drop it anywhere, 1 lay it where the corpse lies, 2 also in its pose.", LinkKind::Slider, 0, 2, 1, 0, false, LinkEffect::Live},
+	{"ini_rise_settle_seconds", "Seconds to settle", "How long the posed walker settles unseen before it takes the corpse's place.", LinkKind::Slider, 0, 5, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_rise_keep_apart", "Keep the corpse apart", "The corpse's body is kept out of the walker's way while they change places.", LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_rise_hide_at_pose", "Hide the corpse early", "The corpse is hidden as soon as the walker is posed, not when they change places.", LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_rename_to_walker", "Call them Walker", "Walkers carry the name Walker (else Zombie). At the next start.", LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::NextStart},
+	{"ini_rename_vanilla", "Rename every zombie", "Every zombie of the game and of other mods is called Walker too. At the next start.", LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::NextStart},
+	{"ini_block_moo_resurrect", "Keep MOO from raising them", "With Maskar's Oblivion Overhaul a dead walker loses MOO's token, so MOO leaves it down.", LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_horde_join_radius", "Join radius", "A lone walker joins a leader this near (units).", LinkKind::Slider, 500, 5000, 100, 0, false, LinkEffect::Horde},
+	{"ini_horde_lead_units", "Lead distance", "The horde's marker this far ahead of its leader (units).", LinkKind::Slider, 500, 5000, 100, 0, false, LinkEffect::Horde},
+	{"ini_horde_stale_seconds", "Seconds before a new heading", "A leader no nearer its marker this long gets a new one.", LinkKind::Slider, 5, 120, 5, 0, false, LinkEffect::Horde},
+	{"ini_horde_turn_degrees", "Turn per heading", "The most a new heading turns from the last (degrees).", LinkKind::Slider, 0, 180, 5, 0, false, LinkEffect::Horde},
+	{"ini_horde_group_most", "Walkers per leader", "The most followers one leader takes.", LinkKind::Slider, 2, 16, 1, 0, false, LinkEffect::Horde},
+	{"ini_horde_city_pull", "Pull toward a city", "How far each heading leans toward the nearest city gate, 0 none, 1 straight there.", LinkKind::Slider, 0, 1, 0.05f, 2, false, LinkEffect::Horde},
+	{"ini_horde_city_range", "City range", "A horde heads for a city gate this near (units).", LinkKind::Slider, 5000, 100000, 5000, 0, false, LinkEffect::Horde},
+	{"ini_horde_gate_hold", "Hold before the gate", "A horde at a city holds this far before the gate (units).", LinkKind::Slider, 200, 3000, 100, 0, false, LinkEffect::Horde},
+	{"ini_guards_radius", "Gate radius", "Walkers this near a gate count for its guards (units).", LinkKind::Slider, 1000, 10000, 500, 0, false, LinkEffect::Horde},
+	{"ini_guards_clear_seconds", "Seconds until the guards go in", "No walker near the gate this long and the guards go back in.", LinkKind::Slider, 5, 120, 5, 0, false, LinkEffect::Horde},
+	{"ini_safeguard_after", "Safeguard: seconds dead", "The walkers' victims are dead at least this long before they get up again.", LinkKind::Slider, 0, 120, 5, 0, false, LinkEffect::Live},
+	{"ini_safeguard_radius", "Safeguard: no walker within", "They get up only with no living walker this near (units).", LinkKind::Slider, 500, 10000, 500, 0, false, LinkEffect::Live},
+	{"ini_news_recent_days", "News: days an attack is news", "An attack on a city's gates stays the news this many game days.", LinkKind::Slider, 0, 10, 0.5f, 1, false, LinkEffect::Horde},
+	{"ini_news_heading_hold", "News: days a horde is news", "A horde seen heading for a city stays the news this many game days.", LinkKind::Slider, 0, 3, 0.25f, 2, false, LinkEffect::Horde},
+	{"ini_grab_bite_seconds", "Seconds between bites", "From the grab to the first bite, and between bites.", LinkKind::Slider, 1, 10, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_grab_bite_health", "Bite damage", "What a bite before the last takes, in percent of your base health.", LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
+	{"ini_grab_struggle_hits", "Strikes to break free", "Your blows on a holder that make it let go.", LinkKind::Slider, 1, 10, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_tear_free", "Tear-free distance", "Units between you and a holder that tear your arm free.", LinkKind::Slider, 50, 500, 10, 0, false, LinkEffect::Live},
+	{"ini_grab_bite_reset", "Seconds until bites are forgotten", "Free this long, the bites you took are forgotten.", LinkKind::Slider, 0, 120, 5, 0, false, LinkEffect::Live},
+	{"ini_grab_crowd_most", "Crowd: most", "The crowd makes breaking free at most this many times harder.", LinkKind::Slider, 1, 5, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_grab_crowd_radius", "Crowd: radius", "Walkers this near count for the crowd (units).", LinkKind::Slider, 100, 1000, 50, 0, false, LinkEffect::Live},
+	{"ini_grab_struggle_gap", "Seconds between presses", "A longer pause between Block presses starts the count again.", LinkKind::Slider, 0.2f, 2, 0.1f, 1, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 
@@ -184,6 +220,37 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 32: return rise.grab.struggleCrowdStep;
 		case 33: return rise.grab.struggleFatigue;
 		case 34: return rise.grab.messages ? 1.0 : 0.0;
+		case 35: return rise.dropSeconds;
+		case 36: return rise.lieSeconds;
+		case 37: return rise.matchCorpse;
+		case 38: return rise.settleSeconds;
+		case 39: return rise.keepCorpseApart ? 1.0 : 0.0;
+		case 40: return rise.hideCorpseAtPose ? 1.0 : 0.0;
+		case 41: return rise.renameToWalker ? 1.0 : 0.0;
+		case 42: return rise.renameVanilla ? 1.0 : 0.0;
+		case 43: return rise.blockMooResurrect ? 1.0 : 0.0;
+		case 44: return rise.horde.joinRadius;
+		case 45: return rise.horde.leadUnits;
+		case 46: return rise.horde.staleSeconds;
+		case 47: return rise.horde.turnDegrees;
+		case 48: return rise.horde.groupMost;
+		case 49: return rise.horde.cityPull;
+		case 50: return rise.horde.cityRange;
+		case 51: return rise.horde.gateHoldUnits;
+		case 52: return rise.guards.radius;
+		case 53: return rise.guards.clearSeconds;
+		case 54: return rise.safeguard.afterSeconds;
+		case 55: return rise.safeguard.radius;
+		case 56: return rise.news.recentDays;
+		case 57: return rise.news.headingHoldDays;
+		case 58: return rise.grab.biteSeconds;
+		case 59: return rise.grab.biteHealthPercent;
+		case 60: return rise.grab.struggleHits;
+		case 61: return rise.grab.tearFreeDistance;
+		case 62: return rise.grab.biteResetSeconds;
+		case 63: return rise.grab.struggleCrowdMost;
+		case 64: return rise.grab.struggleCrowdRadius;
+		case 65: return rise.grab.struggleGapSeconds;
 		default: return 0.0;
 	}
 }
@@ -243,6 +310,37 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 32: rise.grab.struggleCrowdStep = fraction; break;
 		case 33: rise.grab.struggleFatigue = fraction; break;
 		case 34: rise.grab.messages = on; break;
+		case 35: rise.dropSeconds = fraction; break;
+		case 36: rise.lieSeconds = fraction; break;
+		case 37: rise.matchCorpse = static_cast<UInt8>(whole); break;
+		case 38: rise.settleSeconds = fraction; break;
+		case 39: rise.keepCorpseApart = on; break;
+		case 40: rise.hideCorpseAtPose = on; break;
+		case 41: rise.renameToWalker = on; break;
+		case 42: rise.renameVanilla = on; break;
+		case 43: rise.blockMooResurrect = on; break;
+		case 44: rise.horde.joinRadius = fraction; break;
+		case 45: rise.horde.leadUnits = fraction; break;
+		case 46: rise.horde.staleSeconds = fraction; break;
+		case 47: rise.horde.turnDegrees = fraction; break;
+		case 48: rise.horde.groupMost = whole; break;
+		case 49: rise.horde.cityPull = fraction; break;
+		case 50: rise.horde.cityRange = fraction; break;
+		case 51: rise.horde.gateHoldUnits = fraction; break;
+		case 52: rise.guards.radius = fraction; break;
+		case 53: rise.guards.clearSeconds = fraction; break;
+		case 54: rise.safeguard.afterSeconds = fraction; break;
+		case 55: rise.safeguard.radius = fraction; break;
+		case 56: rise.news.recentDays = fraction; break;
+		case 57: rise.news.headingHoldDays = fraction; break;
+		case 58: rise.grab.biteSeconds = fraction; break;
+		case 59: rise.grab.biteHealthPercent = whole; break;
+		case 60: rise.grab.struggleHits = whole; break;
+		case 61: rise.grab.tearFreeDistance = fraction; break;
+		case 62: rise.grab.biteResetSeconds = fraction; break;
+		case 63: rise.grab.struggleCrowdMost = fraction; break;
+		case 64: rise.grab.struggleCrowdRadius = fraction; break;
+		case 65: rise.grab.struggleGapSeconds = fraction; break;
 		default: return false;
 	}
 	return true;

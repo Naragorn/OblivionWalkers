@@ -9,7 +9,7 @@
 ## Settings belong in LINK
 
 - Every setting that LINK can show must be in LINK's menu as well as in the INI (Nadi, 2026-10-28: "alle settings die in link sein können sollen es auch"). A new or changed setting goes into `src/LinkLogic.h`: `kLinkSettings` (toggle or slider, range, step, a short title and description), `LinkValue` and `SetLinkValue`, a header if it opens a new group; raise `kLinkVersion`, extend `tests/LinkLogicTest.cpp`, rebuild the ESP (`tools/esp-write.py` reads the variables off the table) and deploy it.
-- What LINK cannot show stays in the INI only, and is named as such in the spec section of the feature: text values (names), lists (`[ReplaceCreatures]`), a key or control choice, and test switches (`TestGrabSeconds`, `TestKillSeconds` and the like).
+- What LINK cannot show stays in the INI only, and is named as such in the spec section of the feature: text values (names), lists (`[ReplaceCreatures]`), a key or control choice, and test, proof and fallback switches (`TestGrabSeconds`, `TestKillSeconds`, `AsCreature`, `CloneBase`, `ZombieRace`, `LookAfterSeconds`, `HoldDeathSound`).
 - A setting that needs more than a new value to take effect (records rewritten, lists rebuilt) gets its `LinkEffect`; one that only takes effect at the next start says so in its description.
 
 <!-- OPENWIKI:START -->

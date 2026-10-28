@@ -1588,8 +1588,19 @@ ESP's IDLE 0x94D..0x952):
   since 2026-10-28 (Nadi: "können die auch in die link settings?") also
   "Presses to break free" (StrugglePresses 0..10), "Harder per walker"
   (StruggleCrowdStep 0..1), "Fatigue per press" (StruggleFatigue 0..20) and
-  "Grab messages" (Messages) - version 4. The crowd's cap, radius, the gap
-  between presses and the control stay in the INI.
+  "Grab messages" (Messages) - version 4.
+- Since 2026-10-28 (Nadi: "GPL-3.0 und ja" to all of them, AGENTS.md's rule)
+  every INI setting LINK can show is in the menu: 31 more under six
+  "- advanced" headers after the others (the rise's swap timings and
+  corpse match, the names and MOO, the horde's radii and headings, the gate
+  radius and clearing time, the safeguard and the news, the grab's timings,
+  damage, strikes, distances and the crowd's cap and radius) - 66 in all,
+  version 5. **INI-only, named:** `Name` (text), `[ReplaceCreatures]` (a
+  list), `StruggleControl` (a control), the test switches `TestKillSeconds`
+  and `TestGrabSeconds`, and the proof and fallback switches `AsCreature`,
+  `CloneBase`, `ZombieRace`, `LookAfterSeconds` (the race path behind
+  AsCreature=0) and `HoldDeathSound`. `RenameToWalker` and `RenameVanilla`
+  take effect at the next start (the records are named once a session).
 
 **Deviations, named:**
 - The holder's own blows go on while it holds: the grab does not take the
