@@ -1848,6 +1848,15 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **OPEN 2026-10-28 night (Nadi, Windows, for the next day) - some walkers are peaceful**
+  ("zombies waren teilweise friedlich zu mir auch zu guards"): some walkers neither attack
+  the player nor guards. Not read yet: which ones (spawned, risen or replaced), their
+  faction, aggression and confidence as the engine has them, and whether a load or a
+  disposition change (OBVR's slap or middle finger, a yield) made them peaceful. First
+  step: the plugin's log at the next sighting plus `getav aggression` / `getfactionrank`
+  on one of them in the console; then a harness or unit flow for the rule that decides
+  their hostility.
+
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
   pool, aber es sollten 10 unterschiedliche sein"). Seen in his log too:
