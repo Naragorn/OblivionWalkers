@@ -18,6 +18,11 @@
 # marks grabbed and grabbed-2 (the test grab came at 17-18 s), so it is in no
 # picture. Not run: the game without OBVR, the mouse's Block.
 #
+# Run 2026-10-28 08:18 (20261028-081815, PASS, the dynamic count): "1 of 4 -
+# 1 walkers near, fatigue 145 of 145" .. "3 of 4", at the fourth "wrenched
+# off". The fatigue stayed 145 through the presses: god mode (tgm) keeps it
+# - the presses' cost is not seen in this run.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-struggle.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script

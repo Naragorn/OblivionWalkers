@@ -1661,7 +1661,10 @@ Built only if option 1's fixed pose does not hold up in the headset.
   quarter left 14 (`StrugglePressesNeeded`), looked at once a second; the
   number stands in the grab's line ("mash Block (8)"). The time is the
   bites' (no clock of its own, as proposed and agreed): the last kills. The
-  presses' own fatigue makes a long struggle harder. The control's state
+  presses' own fatigue makes a long struggle harder. Run 2026-10-28 08:18
+  (grab-struggle, PASS): one walker near, fatigue full - "1 of 4" .. the
+  fourth "wrenched off". Not seen: more walkers near, a tired player, the
+  presses' fatigue (god mode kept it at 145). The control's state
   is read as xOBSE's IsControlPressed reads it (OSInputGlobals at
   OSGlobals 0x00B33398 +0x20: the control map's key +0x1B7E and mouse
   button +0x1B9B, the keys +0x18F4, the buttons +0x1B2C), not behind a
