@@ -5,7 +5,7 @@ description: How a walker's hit grabs the player's arm, how the hold slows and r
 tags: [grab, combat, animation, flat, vr]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-28T07:25:28.767Z
+    at: 2026-10-28T09:48:19.681Z
 sources:
   - id: openwiki-source-c9e8e6f0f6d76658fa87e40a
     resource: repo://src/Grab.cpp
@@ -15,7 +15,7 @@ sources:
     resource: repo://src/Rise.cpp
   - id: openwiki-source-3e7b12a2e775e6053538ff99
     resource: repo://tools/grab-anims.py
-generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
+generated: { by: "claude-code", at: "2026-10-28T09:48:19.681Z" }
 ---
 
 # Grabbed by walkers

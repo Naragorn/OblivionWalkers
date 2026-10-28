@@ -5,7 +5,7 @@ description: How a fallen person becomes a walker - the death watch, the waiting
 tags: [rise, swap, pose, waiting-list, co-save, looks]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-28T07:25:28.767Z
+    at: 2026-10-28T09:48:19.681Z
 sources:
   - id: openwiki-source-242aafd6790611ca390b2a6f
     resource: repo://src/MissingLogic.h
@@ -17,7 +17,7 @@ sources:
     resource: repo://src/RiseLogic.h
   - id: openwiki-source-591fd519d61fca7102934654
     resource: repo://src/WalkerLooks.h
-generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
+generated: { by: "claude-code", at: "2026-10-28T09:48:19.681Z" }
 ---
 
 # The dead rise

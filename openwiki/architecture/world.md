@@ -5,7 +5,7 @@ description: How the leveled spawns become walkers, how idle walkers form hordes
 tags: [spawns, leveled-lists, horde, guards, safeguard, news]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-28T07:25:28.767Z
+    at: 2026-10-28T09:48:19.681Z
 sources:
   - id: openwiki-source-e931c5634d3d7f857f322d7b
     resource: repo://OblivionWalkers.ini
@@ -27,7 +27,7 @@ sources:
     resource: repo://src/SafeguardLogic.h
   - id: openwiki-source-5b58748400c85217d70bfc2b
     resource: repo://tools/esp-write.py
-generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
+generated: { by: "claude-code", at: "2026-10-28T09:48:19.681Z" }
 ---
 
 # Spawns, hordes, gate guards and news

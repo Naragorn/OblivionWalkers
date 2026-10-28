@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:fc7f58c8de6942bb6028fc7c24bbb6846e13960f156a4c735b7c80757f19f9d7",
+  "pageVersion": "sha256:d2c1a13e21b5206edab1e2fc019e519437473b545ca03fe565374508f130c8b5",
   "claims": [
     {
-      "id": "claim_3406adb698054045a3db71fd46e6535f",
+      "id": "claim_bbcbf20046be4864963c48f829ef0793",
       "statement": "tests/CMakeLists.txt builds the unit tests natively 32-bit and refuses a 64-bit build.",
       "evidence": [
         {
@@ -13,17 +13,7 @@
       ]
     },
     {
-      "id": "claim_31bd22e4ea7541269aeaebbb692dd11f",
-      "statement": "tools/build-linux.sh runs the unit tests before building the DLL.",
-      "evidence": [
-        {
-          "resource": "repo://tools/build-linux.sh",
-          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
-        }
-      ]
-    },
-    {
-      "id": "claim_b6bb023a51c44ef29f08c384a5e04340",
+      "id": "claim_ee9e2e5ea3264ba6b14219ce886a6491",
       "statement": "The top-level CMakeLists.txt lists the unit tests for the Windows build.",
       "evidence": [
         {
@@ -33,12 +23,12 @@
       ]
     },
     {
-      "id": "claim_b35b24e839494cfd921039733403f334",
+      "id": "claim_e879c84f56604408886ad3fda2321fce",
       "statement": "Harness scenarios run on OBVR's hand-script-run.py with --headless and an artifact root in the Walkers repository.",
       "evidence": [
         {
           "resource": "repo://harness/grab-anims.txt",
-          "version": "repo-file-v1:sha256:43f69a1a8e822fb5a880a5d4c3b127fd4ef1eac03a473c2e208ebca9db2716d8"
+          "version": "repo-file-v1:sha256:d06bcd316b542536234ba2301c9a7934a41fd26b7efcdcf5f11bcc7ff71c989d"
         },
         {
           "resource": "repo://harness/rise-after-away.txt",
@@ -47,18 +37,32 @@
       ]
     },
     {
-      "id": "claim_232de2ca9c194960925c4e9e1426c306",
+      "id": "claim_9879a0a26a214376867589ded8a21bd8",
+      "statement": "The scenarios name walkers by runtime ID because the console took no editor ID for them in the 2026-10-28 10:03 run.",
+      "evidence": [
+        {
+          "resource": "repo://harness/esl-check.txt",
+          "version": "repo-file-v1:sha256:53966e054e1fc49adedd8695c362d1269404d1a2432bf450b4fcda65e90c7c58"
+        },
+        {
+          "resource": "repo://harness/grab-anims.txt",
+          "version": "repo-file-v1:sha256:d06bcd316b542536234ba2301c9a7934a41fd26b7efcdcf5f11bcc7ff71c989d"
+        }
+      ]
+    },
+    {
+      "id": "claim_218d3d3395e641228e598d39b1b598f8",
       "statement": "grab-anims.txt uses the test switch TestGrabSeconds to grab before the camera.",
       "evidence": [
         {
           "resource": "repo://harness/grab-anims.txt",
-          "version": "repo-file-v1:sha256:43f69a1a8e822fb5a880a5d4c3b127fd4ef1eac03a473c2e208ebca9db2716d8"
+          "version": "repo-file-v1:sha256:d06bcd316b542536234ba2301c9a7934a41fd26b7efcdcf5f11bcc7ff71c989d"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }

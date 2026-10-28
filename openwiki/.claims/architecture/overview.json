@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:75c002067f3c27b827a9a940547ecc7658db309386945d9fa39c50503efb3aa0",
+  "pageVersion": "sha256:8071267533e0fe87e543694677d48c63a4a42c3f2a1b1eda8140d2fa55dce973",
   "claims": [
     {
-      "id": "claim_904594142be14dce8349632c187f3c72",
+      "id": "claim_cadddbfccb414b6ea38034e78e3d34c5",
       "statement": "Plugin.cpp writes OblivionWalkers.log, keeps the last session's as OblivionWalkers.log.prev, reads the INI and installs the rise.",
       "evidence": [
         {
@@ -13,7 +13,7 @@
       ]
     },
     {
-      "id": "claim_84566318bb7f4b359afd989a21f2204d",
+      "id": "claim_63ec054c060d4808a269e74a98d25319",
       "statement": "The plugin requires Oblivion 1.2.416 and xOBSE 21 or later.",
       "evidence": [
         {
@@ -23,37 +23,51 @@
       ]
     },
     {
-      "id": "claim_ab25d58b3f9945c4a9dc4d13d0871458",
+      "id": "claim_f31d341b6bbe4606809820de7cee4ce9",
       "statement": "InstallRise enqueues the frame tick, sets the save, load and new-game callbacks with opcode base 0x2B00 and configures the grab.",
       "evidence": [
         {
           "resource": "repo://src/Rise.cpp",
-          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
         }
       ]
     },
     {
-      "id": "claim_03e8a36e6b40489cb9a771431873b340",
+      "id": "claim_200d1d2af7194d808b1567f5b3af4b56",
       "statement": "The frame tick steps LINK, spawns, the walk, the grab, the horde, the safeguard and the news each main-loop pass.",
       "evidence": [
         {
           "resource": "repo://src/Rise.cpp",
-          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
         }
       ]
     },
     {
-      "id": "claim_cbbafc305d9243c6b12caf508a223aec",
+      "id": "claim_6e54ad43384949a584d1512576947d5d",
+      "statement": "FindEspBase gives the base of the ESP's form IDs, light or regular, and modules build their forms with EspFormId.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
+        },
+        {
+          "resource": "repo://src/RiseLogic.h",
+          "version": "repo-file-v1:sha256:102504d2c6762e262db6745aab002bceac5201ec70fcf83a2e12e91c75498c95"
+        }
+      ]
+    },
+    {
+      "id": "claim_eacb3bff661d42d0907bc5524d8ba1e8",
       "statement": "Console lines are run through xOBSE's RunScriptLine2 with the reference as this.",
       "evidence": [
         {
           "resource": "repo://src/Rise.cpp",
-          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
         }
       ]
     },
     {
-      "id": "claim_e62a11cc40204669a0b72e9def8e94f5",
+      "id": "claim_451ea4cf96ca42329af2300b7d6d852c",
       "statement": "The ESP is written by tools/esp-write.py from Oblivion.esm and MOO's ESP and is not committed.",
       "evidence": [
         {
@@ -62,13 +76,13 @@
         },
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }

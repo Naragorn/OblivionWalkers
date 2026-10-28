@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:9daf0c48af0937732401ddc61276467035f13aac820417f7c9693ca52e141c9f",
+  "pageVersion": "sha256:8ab7a3e386233e23af46e285f1bff7a7cd6fa431f260b2b69cec732dd4f1a0ca",
   "claims": [
     {
-      "id": "claim_923b515e16d64dff89f5904ca73b2953",
+      "id": "claim_df4fd9dd90bd452eb4d6b870900bf118",
       "statement": "Each creature and person of the leveled lists has its own line in the INI's [ReplaceCreatures], which the plugin extends with new ones.",
       "evidence": [
         {
@@ -12,12 +12,12 @@
         },
         {
           "resource": "repo://src/Replace.cpp",
-          "version": "repo-file-v1:sha256:6551b9a77f21d3acd0dcdae3cdd5a5aa0ab213bc5c8ca520d7481cc7fc9083fe"
+          "version": "repo-file-v1:sha256:512a225e3b6819068dea3dffae20ab50a97a58c19e4fc749a2b4ac0625818474"
         }
       ]
     },
     {
-      "id": "claim_0f3ddaf7700e423f81a0b3c8e76ce5ee",
+      "id": "claim_10e08f686d044b27858905b67d6a25ae",
       "statement": "A replaced entry points at WalkersZombieVariant (0x805), ten count slots of WalkersAnyWalker (0x94A), which carries the calculate-for-each-item flag.",
       "evidence": [
         {
@@ -26,12 +26,12 @@
         },
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     },
     {
-      "id": "claim_8b90e099f30240728a7fb03de4577ad8",
+      "id": "claim_0c155366de424a9a9d662b33e26d7f25",
       "statement": "The ESP holds 16 horde groups' travel and follow packages and markers.",
       "evidence": [
         {
@@ -40,12 +40,12 @@
         },
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     },
     {
-      "id": "claim_deea0605c4a54186bf5b3a13f619ef96",
+      "id": "claim_10e2244dc672441eb2861a97f31630d5",
       "statement": "Gate guards come from a pool of 21 persistent, initially disabled references per city in the ESP.",
       "evidence": [
         {
@@ -54,12 +54,12 @@
         },
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     },
     {
-      "id": "claim_3e3d4540d99942e88185236fa6e58e60",
+      "id": "claim_fe670c1577414e7b9b11796762469d7a",
       "statement": "The ESP ships 18 Courier editions as BOOK records 0x8FC..0x90D placed on Oblivion.esm's broadsheets.",
       "evidence": [
         {
@@ -72,17 +72,17 @@
         },
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     },
     {
-      "id": "claim_d44bb556559042e0a200fe0deb1e5d69",
+      "id": "claim_876f25a6009545eb886e674a0d423f99",
       "statement": "The safeguard raises those the walkers killed once no walker is near, and its list is in the co-save.",
       "evidence": [
         {
           "resource": "repo://src/Rise.cpp",
-          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
         },
         {
           "resource": "repo://src/SafeguardLogic.h",
@@ -93,6 +93,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }

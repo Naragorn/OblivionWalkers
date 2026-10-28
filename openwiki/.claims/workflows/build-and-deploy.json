@@ -1,11 +1,15 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:82c7de036de50dd6f585c8a63ae66953a9ef39359b97e5f3b6379698b8358de2",
+  "pageVersion": "sha256:02b3063efe1371025c01cbfea8e4264f272c2c856997e02f9e7b8688ef7f009b",
   "claims": [
     {
-      "id": "claim_be0f2fde210240808723986d50a2297e",
-      "statement": "build-linux.sh runs the unit tests, builds the DLL with the clang-cl toolchain into build-linux/, and with --deploy copies it into the games, refusing while Oblivion runs.",
+      "id": "claim_2d83908e06a54d97b1581741fc717465",
+      "statement": "tools/build-linux.sh runs the tests, then builds the DLL with clang-cl against xwin's winsysroot; --deploy copies it into the games, not while Oblivion runs.",
       "evidence": [
+        {
+          "resource": "repo://README.md",
+          "version": "repo-file-v1:sha256:a764f3d89898f8668a5aea0ce3c476e978b621ac625505445f8b10bb58856333"
+        },
         {
           "resource": "repo://tools/build-linux.sh",
           "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
@@ -13,37 +17,37 @@
       ]
     },
     {
-      "id": "claim_0e2481859cc346bf95a371d08a26bb47",
-      "statement": "The deploy keeps the game's existing file time of the ESP, because the load order goes by it.",
+      "id": "claim_4507242f076f45f78dfa156647348fe8",
+      "statement": "The top-level CMakeLists.txt refuses a 64-bit configuration and uses the static runtime.",
       "evidence": [
         {
-          "resource": "repo://tools/build-linux.sh",
-          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
+          "resource": "repo://CMakeLists.txt",
+          "version": "repo-file-v1:sha256:73a6df233ed89ccaad94f7143b3a6981a2725d1ab7ee2500b0daaa2c09a3026c"
         }
       ]
     },
     {
-      "id": "claim_006ae5cedeae4236b0e17f4799034ee2",
-      "statement": "The deploy copies the INI only when none is there yet.",
-      "evidence": [
-        {
-          "resource": "repo://tools/build-linux.sh",
-          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
-        }
-      ]
-    },
-    {
-      "id": "claim_bbad53ece8cf42e39ae01f90bb36c917",
+      "id": "claim_9f14bbf1f8c342d0ab88070a42e894f8",
       "statement": "esp-write.py writes OblivionWalkers.esp from Oblivion.esm and MOO's ESP and reads it back to check it.",
       "evidence": [
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     },
     {
-      "id": "claim_8b246873a0384f3eb0a0eb00c7d1fb35",
+      "id": "claim_d336f97283334c6bb88b0bf5df44ba24",
+      "statement": "esp-write.py --esl sets the header flag 0x200 and refuses a local ID past 0xFFF.",
+      "evidence": [
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
+        }
+      ]
+    },
+    {
+      "id": "claim_770364f82ef74b6badf0cc3d526b2ae9",
       "statement": "The ESP is not committed.",
       "evidence": [
         {
@@ -53,7 +57,7 @@
       ]
     },
     {
-      "id": "claim_4edd0d0f601e48d8a2acf9e0fa206f07",
+      "id": "claim_80b85bbccedb4d74a58fb7b8ab7a2489",
       "statement": "grab-anims.py reads the zombie animations from Oblivion - Meshes.bsa and writes three KFs under build-linux/meshes for both zombie skeletons.",
       "evidence": [
         {
@@ -63,18 +67,28 @@
       ]
     },
     {
-      "id": "claim_084dbe822bb94372a7d09e3a965bcb8c",
-      "statement": "The top-level CMakeLists.txt refuses a 64-bit configuration and uses the static runtime.",
+      "id": "claim_5c4a370c973341489d2366c9fbabe28a",
+      "statement": "The deploy copies the DLL, the plain ESP and the KFs into every game in WALKERS_GAME_DIRS.",
       "evidence": [
         {
-          "resource": "repo://CMakeLists.txt",
-          "version": "repo-file-v1:sha256:73a6df233ed89ccaad94f7143b3a6981a2725d1ab7ee2500b0daaa2c09a3026c"
+          "resource": "repo://tools/build-linux.sh",
+          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
+        }
+      ]
+    },
+    {
+      "id": "claim_1ab24ea87856426dbb4dcbf27ae7fad3",
+      "statement": "package-release.sh writes an ESL and an ESP zip into dist/, the ESL one naming OblivionESL and Cell Lookup Robustness as requirements.",
+      "evidence": [
+        {
+          "resource": "repo://tools/package-release.sh",
+          "version": "repo-file-v1:sha256:3a7e0c6354b1b081becb12c56f3a183457dccc3554a47c2e55d4fe4ff3f1da66"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }

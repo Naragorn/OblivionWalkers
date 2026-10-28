@@ -1,43 +1,57 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:98289ce31179d5baad4f7c2f023809a32ddd7e6b76826626cba203e277028951",
+  "pageVersion": "sha256:a83e741d4f15f57b88bf876f6bcf06c57eea674283bed0e113541c2dd9bb6d72",
   "claims": [
     {
-      "id": "claim_ca96f7ad9e1f462d95d815f0647fc98c",
+      "id": "claim_c8f7b7aa1e3f41d6a398f59a701b23f4",
       "statement": "LinkLogic.h holds the LINK menu table kLinkSettings, LinkValue/SetLinkValue and kLinkVersion.",
       "evidence": [
         {
           "resource": "repo://src/LinkLogic.h",
-          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+          "version": "repo-file-v1:sha256:cdd66c5c67b852d2fd69edcaeaedd710dc1cdd091cd0d7cac0630b7bd46b73f8"
         }
       ]
     },
     {
-      "id": "claim_f95f576e8add4a518c201356ec5c97e6",
+      "id": "claim_fc027b75f84a4839907b3c57fc03c988",
+      "statement": "The LINK menu holds 66 settings with six advanced headers, kLinkVersion 5.",
+      "evidence": [
+        {
+          "resource": "repo://src/LinkLogic.h",
+          "version": "repo-file-v1:sha256:cdd66c5c67b852d2fd69edcaeaedd710dc1cdd091cd0d7cac0630b7bd46b73f8"
+        },
+        {
+          "resource": "repo://tests/LinkLogicTest.cpp",
+          "version": "repo-file-v1:sha256:5c83057dd7ca6230ed6e6183e4cba8494502e8552bb636426a61d8b0a3926f58"
+        }
+      ]
+    },
+    {
+      "id": "claim_fa27bb04f6994062aa567e673a02e01c",
       "statement": "The ESP's quest Walkers (0x94B) with script WalkersLinkScript (0x94C) declares one variable per LINK setting, written by esp-write.py from the table.",
       "evidence": [
         {
           "resource": "repo://src/LinkLogic.h",
-          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+          "version": "repo-file-v1:sha256:cdd66c5c67b852d2fd69edcaeaedd710dc1cdd091cd0d7cac0630b7bd46b73f8"
         },
         {
           "resource": "repo://tools/esp-write.py",
-          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
         }
       ]
     },
     {
-      "id": "claim_cceff1d02f1a4e4396943dc232243884",
+      "id": "claim_8a5f146eb64a4902838967ff04dc923f",
       "statement": "StartOf takes the save's LINK values only with LINK loaded and the save's ini_version equal to kLinkVersion.",
       "evidence": [
         {
           "resource": "repo://src/LinkLogic.h",
-          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+          "version": "repo-file-v1:sha256:cdd66c5c67b852d2fd69edcaeaedd710dc1cdd091cd0d7cac0630b7bd46b73f8"
         }
       ]
     },
     {
-      "id": "claim_ac73e19505da40b7b4d1bdb542df41ae",
+      "id": "claim_9040fb10957d4be38e66e28addae4b7b",
       "statement": "Quest variables are found by name, case-insensitively, through the script's variable list.",
       "evidence": [
         {
@@ -51,7 +65,31 @@
       ]
     },
     {
-      "id": "claim_725d644979504d1dabae10be6fbcb78e",
+      "id": "claim_b4fba8e5223e4c71b30892ec84ce6e4a",
+      "statement": "esp-write.py --esl sets the TES4 header flag 0x200 for OblivionESL.",
+      "evidence": [
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:c7ab5dd4dd72a484c3f5621fd4953721b5417939f47269b49fb5b00fbaa2a6f6"
+        }
+      ]
+    },
+    {
+      "id": "claim_46bc629295924da8afc47dfb55831942",
+      "statement": "FindEspBase asks OblivionESL's ESL_GetFormIDBase first, else uses the mod index shifted by 24.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
+        },
+        {
+          "resource": "repo://src/RiseLogic.h",
+          "version": "repo-file-v1:sha256:102504d2c6762e262db6745aab002bceac5201ec70fcf83a2e12e91c75498c95"
+        }
+      ]
+    },
+    {
+      "id": "claim_b20294ffb7b94761b79af6d7ff8e6071",
       "statement": "NoLevelingXP sets a dead walker's Confidence and Aggression and eight attributes to 0 in the plugin's OnDeath handler.",
       "evidence": [
         {
@@ -61,12 +99,12 @@
       ]
     },
     {
-      "id": "claim_54d41947286645729cec7f6e34862949",
+      "id": "claim_a9275a06700c4e6fb25553103e0f3f1b",
       "statement": "NoSkillGain wraps the player's skill use at vtable slot +0x39C and the landed-hit count at +0x210.",
       "evidence": [
         {
           "resource": "repo://src/Rise.cpp",
-          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
         },
         {
           "resource": "repo://src/SkillLogic.h",
@@ -75,12 +113,12 @@
       ]
     },
     {
-      "id": "claim_42cbc4c54ddc4cb2bf7ae6c597846771",
+      "id": "claim_bcf538363e094e9cbbc7f07b1fa0eeb9",
       "statement": "The walker bases are sent to OBVR as skill exceptions (SKEX), an empty list when NoSkillGain is off.",
       "evidence": [
         {
           "resource": "repo://src/Rise.cpp",
-          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+          "version": "repo-file-v1:sha256:a5bb94d9665b75219414b0d4c106a801d705988b5f65b3434deadeebeb720b53"
         },
         {
           "resource": "repo://src/SkillLogic.h",
@@ -89,7 +127,7 @@
       ]
     },
     {
-      "id": "claim_660f9ee7488d4819986d75f41cc83355",
+      "id": "claim_3a94a368d9fb42c8ae82aca5ae784996",
       "statement": "BlockMooResurrect takes MOO's zombie token and brain off a dead walker so MOO does not raise it.",
       "evidence": [
         {
@@ -101,6 +139,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }

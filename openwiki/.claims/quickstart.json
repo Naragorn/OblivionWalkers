@@ -1,43 +1,43 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:cd45c78181271aa9aef0a33232ce4bc90c4cc54ae7e4069a5a8d670eacde0cf1",
+  "pageVersion": "sha256:035069793db3d75e8bde11ddc6cd5354e07d6be3208f3444d246badd3535be8d",
   "claims": [
     {
-      "id": "claim_2add1d9b066a43b287858b84c7dfd27d",
+      "id": "claim_e468bfc2ea504f1e83b7a31e9edf6383",
       "statement": "Oblivion Walkers is an xOBSE plugin plus a small ESP for Oblivion, built to sit beside OBVR without depending on it.",
       "evidence": [
         {
           "resource": "repo://README.md",
-          "version": "repo-file-v1:sha256:c822ec0acd7231c6814ab80368af60cdc7b53aa242dff49115879f7be7d0bf01"
+          "version": "repo-file-v1:sha256:a764f3d89898f8668a5aea0ce3c476e978b621ac625505445f8b10bb58856333"
         }
       ]
     },
     {
-      "id": "claim_2f5d3f767f974b84abeff6c1b233e536",
+      "id": "claim_811498bc5c76481da01fafa557cdd8c2",
       "statement": "docs/walkers-spec.md is the design spec with every feature's settings, cost and tests.",
       "evidence": [
         {
           "resource": "repo://README.md",
-          "version": "repo-file-v1:sha256:c822ec0acd7231c6814ab80368af60cdc7b53aa242dff49115879f7be7d0bf01"
+          "version": "repo-file-v1:sha256:a764f3d89898f8668a5aea0ce3c476e978b621ac625505445f8b10bb58856333"
         },
         {
           "resource": "repo://docs/walkers-spec.md",
-          "version": "repo-file-v1:sha256:820ff46f06a0febfc0b0d2bca2438878ff86d5746bee92b8bfbf7793903f8b52"
+          "version": "repo-file-v1:sha256:88492f7ff94f51194ea6ae4b3c559e60b4dedb6bd9593c895ead4953108a7a95"
         }
       ]
     },
     {
-      "id": "claim_db5ddfcb371c4b548c559830f67b7c5b",
+      "id": "claim_b98d13e0c9ed46c7b7606c9d04f5940d",
       "statement": "AGENTS.md requires every LINK-able setting in LINK and OBNG findings written to ../OBNG/knowledge/.",
       "evidence": [
         {
           "resource": "repo://AGENTS.md",
-          "version": "repo-file-v1:sha256:10a5e429ba8539de8655b61f0bd39f2645fe961a7af1da58422a7eb579dfb346"
+          "version": "repo-file-v1:sha256:117bff7d17b2ca2743fe177c01e2911ad3a8c549f99fe46d5a2364ffea84bfdb"
         }
       ]
     },
     {
-      "id": "claim_4e19b2d6bf8e455ba939d8be5e62c3ed",
+      "id": "claim_2451e78995734d22ac1420c9c89d1e0e",
       "statement": "Plugin.cpp holds the exports, the log and the INI reading.",
       "evidence": [
         {
@@ -49,6 +49,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }

@@ -5,7 +5,7 @@ description: The parts of Oblivion Walkers - the ESP, the DLL and the INI - and 
 tags: [architecture, xobse, tick, co-save, testing-pattern]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-28T07:25:28.767Z
+    at: 2026-10-28T09:48:19.681Z
 sources:
   - id: openwiki-source-ea70eb6c045047448e446296
     resource: repo://.gitignore
@@ -15,9 +15,11 @@ sources:
     resource: repo://src/PluginEntry.h
   - id: openwiki-source-357b60e66710e88e89e848ac
     resource: repo://src/Rise.cpp
+  - id: openwiki-source-4600e3a2d965112f438bb37e
+    resource: repo://src/RiseLogic.h
   - id: openwiki-source-5b58748400c85217d70bfc2b
     resource: repo://tools/esp-write.py
-generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
+generated: { by: "claude-code", at: "2026-10-28T09:48:19.681Z" }
 ---
 
 # Architecture overview
@@ -39,6 +41,7 @@ Spec: `docs/walkers-spec.md` section 2 (the engine facts each feature rests on) 
 - `src/Rise.cpp` - the hub. `InstallRise` takes xOBSE's interfaces (event manager, tasks, serialization, console, messaging), enqueues the frame tick, registers OnDeath and OnHit, the save/load/new-game callbacks with the opcode base 0x2B00, and configures the grab.
 - `Tick()` runs every main-loop pass: finds the ESP's walkers and MOO once, then steps leveling checks, LINK, MOO stripping, spawns, the walk, the grab, the horde and gate guards, the safeguard, the news, loot and fame, the swap in flight and the waiting list.
 - Modules beside it: `Replace.cpp` (spawn lists), `Horde.cpp` (groups, guards), `News.cpp` (the Courier), `Pose.cpp` (the walker laid into the corpse's pose), `Grab.cpp` (the grab), `QuestVars.cpp` (LINK's variables).
+- The ESP's place: `FindEspBase` gives the base its forms' IDs build on - OblivionESL's for a light (ESL-flagged) ESP, else the mod index << 24; every module gets that base and builds its forms with `RiseLogic.h EspFormId`.
 - `src/Engine.h` - the few engine accessors and addresses shared by the modules (LookupForm, the mod list).
 - `src/Obse.h` - the xOBSE interface structures the plugin uses.
 

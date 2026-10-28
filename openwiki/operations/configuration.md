@@ -5,26 +5,26 @@ description: OblivionWalkers.ini section by section, where the settings are read
 tags: [configuration, ini, link]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-28T07:25:28.767Z
+    at: 2026-10-28T09:48:19.681Z
 sources:
   - id: openwiki-source-8037e2358a2c4f9b2c722a11
     resource: repo://AGENTS.md
+  - id: openwiki-source-34b8b80a0b74c6c69ffa7337
+    resource: repo://docs/walkers-spec.md
   - id: openwiki-source-e931c5634d3d7f857f322d7b
     resource: repo://OblivionWalkers.ini
   - id: openwiki-source-138be82cdc66d8461b6a02f4
     resource: repo://src/LinkLogic.h
   - id: openwiki-source-0211f2f5f95441e40340330f
     resource: repo://src/Plugin.cpp
-  - id: openwiki-source-3ceeb7b5df15f6df319782cc
-    resource: repo://tools/build-linux.sh
-generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
+generated: { by: "claude-code", at: "2026-10-28T09:48:19.681Z" }
 ---
 
 # Configuration
 
 ## The INI
 
-`OblivionWalkers.ini` sits beside the DLL in `Data/OBSE/Plugins` and is read once when the game starts (`src/Plugin.cpp ReadSettings`; the deploy copies it only when none is there, so a player's INI is never overwritten). Every key is documented in the file itself; the spec section of each feature names its keys.
+`OblivionWalkers.ini` sits beside the DLL in `Data/OBSE/Plugins` and is read once when the game starts (`src/Plugin.cpp ReadSettings`). Every key is documented in the file itself; the spec section of each feature names its keys.
 
 | Section | Feature | Spec |
 | --- | --- | --- |
@@ -40,7 +40,9 @@ generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
 
 ## The LINK menu
 
-With Maskar's LINK loaded the settings in `src/LinkLogic.h kLinkSettings` show in LINK's in-game menu, grouped under headers (The dead rise, Walkers, Spawns, Hordes, Training, Grabbed). The plugin writes `Data\OblivionWalkers.cfg` and `Data\OblivionWalkers.ini` for LINK at every start; the values live in the save, read once a second. Who wins at a load is in [Other mods](../architecture/integrations.md).
+With Maskar's LINK loaded the settings in `src/LinkLogic.h kLinkSettings` show in LINK's in-game menu - 66 of them, grouped under headers (The dead rise, Walkers, Spawns, Hordes gate guards and news, Training, Grabbed), then the fine ones under six "- advanced" headers. The plugin writes `Data\OblivionWalkers.cfg` and `Data\OblivionWalkers.ini` for LINK at every start; the values live in the save, read once a second. Who wins at a load is in [Other mods](../architecture/integrations.md).
+
+INI-only, by the rule below: `Name` (text), `[ReplaceCreatures]` (a list), `StruggleControl` (a control), the test switches `TestKillSeconds` and `TestGrabSeconds`, and the proof and fallback switches `AsCreature`, `CloneBase`, `ZombieRace`, `LookAfterSeconds`, `HoldDeathSound`.
 
 ## Rule
 

@@ -3,9 +3,6 @@ type: quickstart
 title: Oblivion Walkers quickstart
 description: Entry point to the Oblivion Walkers wiki - what the mod is, how the repository is laid out, the rules for changes, and which page answers which task.
 tags: [quickstart, overview, navigation]
-verified:
-  - by: openwiki/0.7.2
-    at: 2026-10-28T07:25:28.767Z
 sources:
   - id: openwiki-source-8037e2358a2c4f9b2c722a11
     resource: repo://AGENTS.md
@@ -15,7 +12,10 @@ sources:
     resource: repo://README.md
   - id: openwiki-source-0211f2f5f95441e40340330f
     resource: repo://src/Plugin.cpp
-generated: { by: "claude-code", at: "2026-10-28T07:25:28.767Z" }
+generated: { by: "claude-code", at: "2026-10-28T09:48:19.681Z" }
+verified:
+  - by: openwiki/0.7.2
+    at: 2026-10-28T09:48:19.681Z
 ---
 
 # Oblivion Walkers quickstart
@@ -28,7 +28,7 @@ Oblivion Walkers is a zombie apocalypse for The Elder Scrolls IV: Oblivion (2006
 | --- | --- |
 | `src/` | the plugin DLL; `Plugin.cpp` the exports, log and INI, `Rise.cpp` the hub and frame tick, `*Logic.h` the pure decisions |
 | `tests/` | one unit-test program per Logic header, built 32-bit natively |
-| `tools/` | `build-linux.sh` (tests, DLL, deploy), `esp-write.py` (the ESP), `grab-anims.py` (the grab's KFs), the data readers (`esm-spawns.py`, `city-gates.py`, `courier-refs.py`, `courier-editions.py`, `ini-creatures.py`) |
+| `tools/` | `build-linux.sh` (tests, DLL, deploy), `esp-write.py` (the ESP, plain or ESL), `grab-anims.py` (the grab's KFs), `package-release.sh` (the ESL and ESP downloads), the data readers (`esm-spawns.py`, `city-gates.py`, `courier-refs.py`, `courier-editions.py`, `ini-creatures.py`) |
 | `harness/` | scenarios for OBVR's hand-script harness, each with its run history |
 | `docs/walkers-spec.md` | the design spec: engine facts, every feature with its settings, cost, decisions and tests, open questions and bugs |
 | `OblivionWalkers.ini` | the INI as deployed, documented key by key |

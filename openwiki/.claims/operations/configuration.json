@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:5668f51384fda0c78653670be7caac1fdc3d6bc499b3cd013f229e3ae6ed3cc0",
+  "pageVersion": "sha256:8c6248b86ac712d4c2b3af0f13a51973b6d2fd50d88486b475c3691466d6a735",
   "claims": [
     {
-      "id": "claim_7af296527e8f4d92b484c8557ba0e02a",
+      "id": "claim_5f51266bc57e41018047c17b2efb372e",
       "statement": "OblivionWalkers.ini is read once when the game starts by ReadSettings in Plugin.cpp.",
       "evidence": [
         {
@@ -17,7 +17,7 @@
       ]
     },
     {
-      "id": "claim_20a05f3fa863478b929fbd7f00b47581",
+      "id": "claim_57e5da8e2ff84bb194121bc5847c4821",
       "statement": "The INI's sections are Rise, Zombies, Replace, Horde, Guards, Safeguard, News, Grab and ReplaceCreatures.",
       "evidence": [
         {
@@ -27,38 +27,42 @@
       ]
     },
     {
-      "id": "claim_62b51dc117ed49088a598dd1037f6352",
-      "statement": "The deploy copies the INI only when none is there yet.",
-      "evidence": [
-        {
-          "resource": "repo://tools/build-linux.sh",
-          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
-        }
-      ]
-    },
-    {
-      "id": "claim_e075c4f5aa59465b98b94575cc3ddb73",
-      "statement": "The LINK headers are The dead rise, Walkers, Spawns, Hordes gate guards and news, Training and Grabbed.",
+      "id": "claim_a7b9fb797a654364a56ba579b3e80ff4",
+      "statement": "The LINK menu holds 66 settings, the fine ones under six advanced headers.",
       "evidence": [
         {
           "resource": "repo://src/LinkLogic.h",
-          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+          "version": "repo-file-v1:sha256:cdd66c5c67b852d2fd69edcaeaedd710dc1cdd091cd0d7cac0630b7bd46b73f8"
         }
       ]
     },
     {
-      "id": "claim_6d57f0a7b2b4455486978a844d579619",
-      "statement": "AGENTS.md requires every setting LINK can show to be in LINK, with text values, lists, control choices and test switches INI-only.",
+      "id": "claim_6b99ab16cb934daa95c76318bf6c8e9a",
+      "statement": "Name, ReplaceCreatures, StruggleControl, the test switches and the proof and fallback switches stay INI-only.",
       "evidence": [
         {
           "resource": "repo://AGENTS.md",
-          "version": "repo-file-v1:sha256:10a5e429ba8539de8655b61f0bd39f2645fe961a7af1da58422a7eb579dfb346"
+          "version": "repo-file-v1:sha256:117bff7d17b2ca2743fe177c01e2911ad3a8c549f99fe46d5a2364ffea84bfdb"
+        },
+        {
+          "resource": "repo://docs/walkers-spec.md",
+          "version": "repo-file-v1:sha256:88492f7ff94f51194ea6ae4b3c559e60b4dedb6bd9593c895ead4953108a7a95"
+        }
+      ]
+    },
+    {
+      "id": "claim_2186f9acdac743c2af0b3ea6beeed212",
+      "statement": "AGENTS.md requires every setting LINK can show to be in LINK.",
+      "evidence": [
+        {
+          "resource": "repo://AGENTS.md",
+          "version": "repo-file-v1:sha256:117bff7d17b2ca2743fe177c01e2911ad3a8c549f99fe46d5a2364ffea84bfdb"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-28T07:25:28.767Z"
+    "at": "2026-10-28T09:48:19.681Z"
   }
 }
