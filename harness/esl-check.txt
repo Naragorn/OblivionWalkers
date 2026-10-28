@@ -8,9 +8,9 @@
 # OblivionESL), 64 walker creatures found", the horde and news configured,
 # "Grab: 6 of 6 grab idles found", the spawn lists replaced, and the test
 # grab as in grab-anims.txt; Oblivion/OblivionESL.log names the plugin.
-# The harness save was made with the plain ESP: what it holds of Walkers
-# (none placed in it, read 2026-10-28) would be lost - the run shows the
-# loading of a new state, not a save's migration.
+# The harness save was made with the plain ESP: whatever it holds of
+# Walkers (not checked) is lost under the ESL variant - the run shows the
+# plugin finding the light ESP, not a save's migration.
 #
 # Runs on OBVR's harness, from the OBVR folder (the ESL variant copied in by
 # hand before, the plain ESP back after):
