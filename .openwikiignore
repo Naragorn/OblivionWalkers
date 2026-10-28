@@ -4,8 +4,8 @@
 artifacts/
 
 # Build directories and the ESP written from Bethesda's data
-build/
-build-*/
+/build/
+/build-*/
 OblivionWalkers.esp
 
 # Scratch left by tools and Python
