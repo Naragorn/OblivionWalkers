@@ -475,7 +475,7 @@ void StepGrabInGame(float dt) {
 		char line[48];
 		std::snprintf(line, sizeof(line), "ModAV2 Fatigue -%d", static_cast<int>(g_settings->struggleFatigue));
 		g_services.console(player, line);
-		g_services.log("Grab: the player struggles (Block pressed, %u of %u)%s", g_struggle.bar,
+		g_services.log("Grab: the player struggles (control %u pressed, %u of %u)%s", g_settings->struggleControl, g_struggle.bar,
 		               g_settings->strugglePresses, g_struggle.bar == 0 ? " - free of one" : "");
 	}
 	if (TestGrabDue(*g_settings, g_testClock, dt, g_state.count > 0)) {

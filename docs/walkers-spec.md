@@ -1657,7 +1657,10 @@ Built only if option 1's fixed pose does not hold up in the headset.
   button +0x1B9B, the keys +0x18F4, the buttons +0x1B2C), not behind a
   menu. Works for VR players too, with whatever OBVR sends as Block.
 Test: `GrabLogicTest` (the struggle's flows, the texts); harness
-`grab-struggle.txt`.
+`grab-struggle.txt` 2026-10-28 08:09 PASS - six presses of the harness's E
+(StruggleControl 13, Jump) counted 1..5 of 6, the sixth "wrenched off",
+"You break free." on the screen. Not run: the game without OBVR, the
+mouse's Block, the grab's own line in a picture.
 
 Test: `GrabLogicTest` (every flow of side, grab, hold, bites, damage, let
 go, forgetting, the message), `LinkLogicTest` (the three settings).

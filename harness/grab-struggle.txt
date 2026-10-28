@@ -9,6 +9,14 @@
 # Whether a harness key reaches the game's own input state headless is what
 # this run also tells.
 #
+# Run 2026-10-28 08:09 (artifacts/hand-script/grab-struggle/20261028-080917,
+# PASS): the harness's E reached the game's input headless ("key 45 down");
+# "the player struggles (Block pressed, 1 of 6)" .. "5 of 6", at the sixth
+# "lets go - wrenched off (the let-go played: 1)"; the picture at grabbed-2
+# shows "You break free." top left. The grab's own line fell between the
+# marks grabbed and grabbed-2 (the test grab came at 17-18 s), so it is in no
+# picture. Not run: the game without OBVR, the mouse's Block.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-struggle.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
