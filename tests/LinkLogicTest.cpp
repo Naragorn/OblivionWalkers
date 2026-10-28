@@ -43,8 +43,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 31,
-	      "31 settings: the 26 agreed, NoLevelingXP, NoSkillGain and the grab's three (on, chance, bites)");
+	Check(kLinkSettingCount == 35,
+	      "35 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three (on, chance, bites) and the "
+	      "struggle's four (presses, crowd, fatigue, messages)");
 	Check(unique && prefixed && ranged, "each its own variable, named ini_..., a range from low to high");
 	Check(std::strcmp(walkers::kLinkQuestEditorId, "Walkers") == 0 && walkers::kLinkQuestLocalId == 0x94B &&
 	          walkers::kLinkScriptLocalId == 0x94C,
@@ -92,6 +93,19 @@ void TestValues() {
 	Check(walkers::SetLinkValue(rise, replace, bites, 0.0) && rise.grab.bitesToDie == 1 &&
 	          walkers::SetLinkValue(rise, replace, bites, 50.0) && rise.grab.bitesToDie == 10,
 	      "the bites held to 1..10");
+	const int presses = IndexOf("ini_grab_struggle_presses");
+	const int crowd = IndexOf("ini_grab_struggle_crowd");
+	const int fatigue = IndexOf("ini_grab_struggle_fatigue");
+	const int messages = IndexOf("ini_grab_messages");
+	Check(presses >= 0 && crowd >= 0 && fatigue >= 0 && messages >= 0 &&
+	          walkers::LinkValue(rise, replace, presses) == 4.0 && walkers::LinkValue(rise, replace, crowd) == 0.5 &&
+	          walkers::LinkValue(rise, replace, fatigue) == 5.0 && walkers::LinkValue(rise, replace, messages) == 1.0,
+	      "the struggle: 4 presses, 0.5 per walker more, 5 fatigue a press, the lines on - the INI's defaults");
+	Check(walkers::SetLinkValue(rise, replace, presses, 0.0) && rise.grab.strugglePresses == 0 &&
+	          walkers::SetLinkValue(rise, replace, crowd, 1.0) && rise.grab.struggleCrowdStep == 1.0f &&
+	          walkers::SetLinkValue(rise, replace, fatigue, 12.0) && rise.grab.struggleFatigue == 12.0f &&
+	          walkers::SetLinkValue(rise, replace, messages, 0.0) && !rise.grab.messages,
+	      "the struggle's settings set from the menu (presses 0: off)");
 	Check(!walkers::SetLinkValue(rise, replace, kLinkSettingCount, 1.0) &&
 	          walkers::LinkValue(rise, replace, kLinkSettingCount) == 0.0,
 	      "no such setting: nothing");
@@ -151,7 +165,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 3\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 4\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

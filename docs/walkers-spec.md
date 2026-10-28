@@ -1584,7 +1584,12 @@ ESP's IDLE 0x94D..0x952):
   in VR is OBVR's to build; until then VR players strike or tear free as
   flat ones do.
 - LINK: "Walkers grab", "Chance to grab", "Bites you take" under the header
-  Grabbed (version 3, so a save of version 2 takes the INI's values again).
+  Grabbed (version 3, so a save of version 2 takes the INI's values again);
+  since 2026-10-28 (Nadi: "können die auch in die link settings?") also
+  "Presses to break free" (StrugglePresses 0..10), "Harder per walker"
+  (StruggleCrowdStep 0..1), "Fatigue per press" (StruggleFatigue 0..20) and
+  "Grab messages" (Messages) - version 4. The crowd's cap, radius, the gap
+  between presses and the control stay in the INI.
 
 **Deviations, named:**
 - The holder's own blows go on while it holds: the grab does not take the

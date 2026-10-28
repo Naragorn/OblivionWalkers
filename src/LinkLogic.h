@@ -34,9 +34,10 @@ inline constexpr UInt32 kLinkQuestLocalId = 0x94B;
 inline constexpr UInt32 kLinkScriptLocalId = 0x94C;
 inline constexpr const char* kLinkVersionVariable = "ini_version";
 // Raised whenever a variable is added (2: NoSkillGain, 2026-10-27; 3: the
-// grab's three, 2026-10-28), so a save of the version before takes the
-// plugin INI's values again - the new variable would read 0 otherwise.
-inline constexpr double kLinkVersion = 3.0;
+// grab's three, 2026-10-28; 4: the struggle's four, 2026-10-28), so a save of
+// the version before takes the plugin INI's values again - the new variable
+// would read 0 otherwise.
+inline constexpr double kLinkVersion = 4.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -134,6 +135,14 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkEffect::Live},
 	{"ini_grab_bites", "Bites you take", "The last of these bites kills. Strike a holder twice to break free.",
 	 LinkKind::Slider, 1, 10, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_struggle_presses", "Presses to break free", "Block presses to wrench one walker off, fresh, 0 off.",
+	 LinkKind::Slider, 0, 10, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_struggle_crowd", "Harder per walker", "Each walker around you beyond the first adds this much.",
+	 LinkKind::Slider, 0, 1, 0.1f, 1, false, LinkEffect::Live},
+	{"ini_grab_struggle_fatigue", "Fatigue per press", "What each press costs; tired, you need up to twice the presses.",
+	 LinkKind::Slider, 0, 20, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_messages", "Grab messages", "A line on the screen when a walker grabs or bites you.", LinkKind::Toggle, 0,
+	 1, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 
@@ -171,6 +180,10 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 28: return rise.grab.enabled ? 1.0 : 0.0;
 		case 29: return rise.grab.chancePercent;
 		case 30: return rise.grab.bitesToDie;
+		case 31: return rise.grab.strugglePresses;
+		case 32: return rise.grab.struggleCrowdStep;
+		case 33: return rise.grab.struggleFatigue;
+		case 34: return rise.grab.messages ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -226,6 +239,10 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 28: rise.grab.enabled = on; break;
 		case 29: rise.grab.chancePercent = whole; break;
 		case 30: rise.grab.bitesToDie = whole; break;
+		case 31: rise.grab.strugglePresses = whole; break;
+		case 32: rise.grab.struggleCrowdStep = fraction; break;
+		case 33: rise.grab.struggleFatigue = fraction; break;
+		case 34: rise.grab.messages = on; break;
 		default: return false;
 	}
 	return true;
