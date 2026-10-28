@@ -1443,6 +1443,108 @@ now 0". Seen too: the first write comes before the save's quest data is
 read and is done again after it (two such lines) - harmless. Not run: the
 menu itself (Nadi's, Windows).
 
+### 4.19 Grabbed and overwhelmed - `[Grab]` (feasibility study 2026-10-28, not built)
+
+What (Nadi, 2026-10-28: "wenn von zuvielen zombies umzingelt, greifen oder
+halten die einen fest und iwann ist man tot... also so wie Saints and
+Sinners VR"): a walker that reaches the player grabs an arm and holds it;
+held, the player is slowed, then rooted; not freed in time, the walker
+bites; held by too many, the player dies.
+
+**The reference, read 2026-10-28:**
+
+- Skydance's tech blog (unrealengine.com, 2020-04-24, P. Akemann): walkers
+  grab the player "by either arm (including two Walkers at once)"; player
+  and walkers are then "locked into a common animation state", the player's
+  hand is taken out of physics and its motion drives a 2D blendspace "to
+  simulate the struggle to escape"; it ends with the walker dislodged and
+  staggering back, or the player bitten. The player can at the same time
+  grab a walker's head with the other hand, which holds it still for a stab.
+  The walkers themselves are animated (mocap and hand-made), with an active
+  ragdoll on the upper body only while no grab or stab connects them.
+- Game Developer, "Designing around panic" (2020-04-08): a walker AI decides
+  "who grabs you on which arm"; an earlier build let a third grab the neck,
+  dropped as "too much for the player"; shaking a walker off was made simple
+  and clearly explained.
+- Players (r/PSVR "How do I shake off zombies", r/SaintsAndSinners "What
+  actually kills you", Steam discussion 1742265917492234829): free yourself
+  by a wide shake or pull of the held arm ("range of movement is more
+  important than speed"), by pushing the walker off or braining it with the
+  other hand; a walker hurts you over time while you fight it off.
+
+**What already exists to build on** (read in this repo and OBVR):
+
+| Piece | Where | Status |
+| --- | --- | --- |
+| A walker's landed hit on the player passes AttackHandling 0x005FEBF0 with the walker as attacker (EDI at the armor site) | 4.3, `SkillUseStub` | **measured** ("HELD BACK" for walker hits, 2026-10-27) - the natural trigger of a grab |
+| Messages between Walkers and OBVR | 4.3 SKEX, xOBSE MessagingInterface | built one way (Walkers to OBVR); the way back is not |
+| `SetRestrained 1`: the actor does not move but keeps thinking; on the player it blocks turning left/right, not up/down | CS wiki SetRestrained | **read**, not tried on a walker in combat |
+| `PlayIdle idle forceIdle` (xOBSE): an IDLE record's KF on any actor, queued through ActorAnimData | CS wiki PlayIdle, deepwiki llde/xOBSE `Cmd_PlayIdle_Execute` | **read**; a KF can only come through an IDLE record |
+| Custom KF: an animation-only export, the sequence named `SpecialIdle_<name>`, bone priority set high | CS wiki "Blender/Creating a Character Animation", "Exporting Character Animations from Blender" | **read** (old tutorials; whether today's Blender NifTools addon exports Oblivion KF cleanly: **not verified**) |
+| Stagger, shove, hand position and speed, hand-to-body contact, the input gate of the player's movement | OBVR (CombatRing, Shove, MeleeHits, 0x0040DC61) | built in OBVR |
+| The bite's disease | 4.14 | designed |
+
+**A design, for Nadi to decide:**
+
+1. **Grab** (`GrabLogic.h`, pure): a walker's landed hit on the player
+   becomes, by `[Grab] ChancePercent`, a grab of the arm on its side
+   instead of the blow's damage. Two arms, so at most two holders (S&S's
+   choice); a third and further walkers around a held player count as
+   "pressing in".
+2. **Held**: one holder slows the player (`SlowPercent`), two root him
+   (VR: OBVR's input gate; flat: `SetRestrained` on the player, or the
+   plugin's own movement hook if the turn block feels bad). The holder is
+   restrained before the player, faces him, and plays the hold.
+3. **Bite**: a holder not shaken off within `BiteSeconds` bites - damage
+   and the infection chance of 4.14 - and holds on.
+4. **Overwhelmed**: two holders and `OverwhelmCount` (3?) walkers in
+   reach for `OverwhelmSeconds` - the player dies (the engine's own death;
+   god mode and essential respected).
+5. **Free**: VR - OBVR pulls the held hand toward the holder (the spring
+   it already has for weapon weight) and frees it at a wide shake or pull of
+   that hand, at a shove or a head blow from the other hand; the walker
+   staggers back (OBVR's shove). Flat - attack or block presses fill a
+   struggle bar, each costing fatigue; a power attack frees one holder.
+   Both: killing the holder frees.
+
+**The animations - the real question:**
+
+| Option | What it gives | Cost and why |
+| --- | --- | --- |
+| A. None new: the holder restrained, its attack held back, its own idle | the mechanics, no look of a grab | **cheap** - two console-level calls; looks like a walker standing at the player |
+| B. Two or three KF made by a script: hold (arms forward, clutching, leaning in), bite (head lunge), maybe pull | a believable grab from a few keyframes per arm and head bone; IDLE records from `tools/esp-write.py`, `PlayIdle` from the plugin | **medium** - pyffi is installed on Linux and writes NIF/KF; new are the KF writer and the poses; risk: whether the engine plays a script-made KF without fixing in NifSkope (NonAccum, priorities, text keys), the look of hand-set keys |
+| C. Hand-made in Blender | the best look, like S&S's | **large** - an animator's work; the addon's Oblivion KF export not verified |
+| D. Walker's arms bent toward the player's real arm each frame (IK on the walker's skeleton) | in VR the hands sit on the arm wherever it is | **large** - OBVR moves the player's bones, never another actor's; new per-frame bone writing on NPCs, its cost with many walkers unmeasured |
+
+The player needs no animation in VR (OBVR draws his own arms); flat in
+first person a camera shake and the HUD bar would do, a struggle idle for
+third person is optional.
+
+**Cost, whole:**
+
+| Part | Cost | Why |
+| --- | --- | --- |
+| `GrabLogic.h` (arms, holders, timers, bite, overwhelm, struggle) | small | pure logic, flows unit-testable |
+| Grab at the walker's landed hit | small | the AttackHandling site is hooked already (4.3) |
+| Holding walker and player (restrain, face, keep its attack back) | medium | engine unknown: whether a restrained walker in combat keeps swinging and turning; 4.16's attack tempo may help |
+| Animations | B medium / C large / D large | see above |
+| OBVR: pulled hand, shake to free, messages back to Walkers | medium | builds on OBVR's spring, shove and contacts; feel only in the headset |
+| Flat struggle, bite, death | small | fatigue, damage, Kill, 4.14's disease |
+| Harness: walkers around a held player, freed and overwhelmed | medium | OBVR's harness, headless; the feel needs Nadi |
+
+Together **large**, mostly for the animations and the VR feel.
+Recommended: A first, as a spike, then B - A answers the engine's unknowns
+for little and is a playable grab already; B gives the look without an
+animator; C or D only if B looks wrong in the headset. The cheapest step
+that settles the open unknown: a harness run in which a walker reaches the
+held player with `SetRestrained 1` on both (does it keep attacking or
+turning?), and a scan of the vanilla idle KFs for a pose with the arms
+forward that B could start from.
+
+Open, Nadi's to decide: instant death when overwhelmed, or bites until
+dead; the third walker at the neck (S&S dropped it); whether a grab should
+also come from the walkers' own attack start rather than a landed hit.
+
 ### Later (named by Nadi, not in the first build)
 
 - Barricades (28 Days' door locks by Security skill, walkers breaking them).
