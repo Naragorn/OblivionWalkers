@@ -1648,10 +1648,20 @@ Built only if option 1's fixed pose does not hold up in the headset.
   Message, "A walker grabs your left arm! Strike it or mash Block.", "Two
   walkers hold you - you cannot move!", "Bitten! (2 of 3)", "The walkers
   overwhelm you.", "You break free." (`GrabText`).
-- B, wrenching free by the key (`StrugglePresses=6`, `StruggleGapSeconds=0.8`,
-  `StruggleFatigue=5`, `StruggleControl=6` Block): six presses of the control,
+- B, wrenching free by the key (`StrugglePresses=4`, `StruggleCrowdStep=0.5`,
+  `StruggleCrowdMost=3`, `StruggleCrowdRadius=300`, `StruggleGapSeconds=0.8`,
+  `StruggleFatigue=5`, `StruggleControl=6` Block): presses of the control,
   none more than 0.8 s apart, and the longest holder lets go ("wrenched
-  off"); each press costs 5 fatigue (`ModAV2 Fatigue`). The control's state
+  off"); each press costs 5 fatigue (`ModAV2 Fatigue`). How many (Nadi,
+  2026-10-28: "wieviel ausdauer man noch hat und wie viele walker einen
+  umzingeln umso schwerer wenn man es nicht in zeit schafft -> death",
+  then "go" on the formula): 4 x crowd (1 + 0.5 per walker within 300
+  units beyond the first, at most x3) x tiredness (1 fresh to 2 with no
+  fatigue left) - one walker fresh 4, three 8, five 12, three with a
+  quarter left 14 (`StrugglePressesNeeded`), looked at once a second; the
+  number stands in the grab's line ("mash Block (8)"). The time is the
+  bites' (no clock of its own, as proposed and agreed): the last kills. The
+  presses' own fatigue makes a long struggle harder. The control's state
   is read as xOBSE's IsControlPressed reads it (OSInputGlobals at
   OSGlobals 0x00B33398 +0x20: the control map's key +0x1B7E and mouse
   button +0x1B9B, the keys +0x18F4, the buttons +0x1B2C), not behind a

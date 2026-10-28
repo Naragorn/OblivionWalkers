@@ -1709,6 +1709,23 @@ UInt32 NearestWalkerToPlayer(float radius) {
 	return best;
 }
 
+// The grab's struggle (GrabLogic.h StrugglePressesNeeded): the living
+// walkers within `radius` of the player, in the same interior or worldspace.
+UInt32 WalkersNearPlayer(float radius) {
+	static HordeCandidate walkers[kHordeCandidatesMost];
+	const UInt32 count = HordeCandidates(walkers, kHordeCandidatesMost);
+	const UInt32 player = LookupForm(0x14);
+	UInt32 within = 0;  // not "near": a Windows macro
+	for (UInt32 i = 0; i < count && LooksLikeObject(player); ++i) {
+		if (!walkers[i].alive) {
+			continue;
+		}
+		const float d = NearestWalkerDistance(player, &walkers[i], 1);
+		within += d >= 0.0f && d <= radius ? 1u : 0u;
+	}
+	return within;
+}
+
 // NoLoot: the engine's SetDestroyed on each walker that died since the last
 // frame - the CS wiki: on an actor it "prevents the actor from being
 // activated for conversation, looting, or pick pocketing".
@@ -2098,6 +2115,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.highProcess = &HighProcessOf;
 	grab.roll = &NextRandom;
 	grab.nearestWalker = &NearestWalkerToPlayer;
+	grab.walkersNear = &WalkersNearPlayer;
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	return true;

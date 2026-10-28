@@ -302,70 +302,92 @@ void TestTestGrab() {
 
 void TestStruggle() {
 	std::printf("Wrenching free by the key (flat)\n");
-	GrabSettings s;  // 6 presses, none more than 0.8 s apart
+	GrabSettings s;  // 6 presses needed here, none more than 0.8 s apart
 	walkers::Struggle st;
 	bool pressed = false;
-	Check(!walkers::StepStruggle(st, s, true, 0.1f, false, &pressed) && !pressed && st.bar == 0.0f,
+	Check(!walkers::StepStruggle(st, s, 6, true, 0.1f, false, &pressed) && !pressed && st.bar == 0.0f,
 	      "nobody holds: the key does nothing");
-	Check(!walkers::StepStruggle(st, s, true, 0.1f, true, &pressed) && !pressed,
+	Check(!walkers::StepStruggle(st, s, 6, true, 0.1f, true, &pressed) && !pressed,
 	      "held while the key was already down: no press (a press is the key going down)");
-	walkers::StepStruggle(st, s, false, 0.05f, true, &pressed);
+	walkers::StepStruggle(st, s, 6, false, 0.05f, true, &pressed);
 	bool freed = false;
 	UInt32 presses = 0;
 	for (UInt32 i = 0; i < 20 && !freed; ++i) {
-		freed = walkers::StepStruggle(st, s, true, 0.05f, true, &pressed);
+		freed = walkers::StepStruggle(st, s, 6, true, 0.05f, true, &pressed);
 		presses += pressed ? 1u : 0u;
 		if (!freed) {
-			walkers::StepStruggle(st, s, false, 0.05f, true, &pressed);
+			walkers::StepStruggle(st, s, 6, false, 0.05f, true, &pressed);
 		}
 	}
 	Check(freed && presses == 6 && st.bar == 0.0f, "six quick presses (ten a second): free, the bar empty again");
 	walkers::Struggle slow;
-	walkers::StepStruggle(slow, s, false, 0.0f, true, &pressed);
+	walkers::StepStruggle(slow, s, 6, false, 0.0f, true, &pressed);
 	freed = false;
 	for (UInt32 i = 0; i < 20 && !freed; ++i) {
-		freed = walkers::StepStruggle(slow, s, true, 0.05f, true, &pressed);
-		walkers::StepStruggle(slow, s, false, 0.95f, true, &pressed);
+		freed = walkers::StepStruggle(slow, s, 6, true, 0.05f, true, &pressed);
+		walkers::StepStruggle(slow, s, 6, false, 0.95f, true, &pressed);
 	}
 	Check(!freed && slow.bar <= 1.0f, "one press a second: each gap empties the bar - mash it");
 	walkers::Struggle off;
 	GrabSettings none = s;
 	none.strugglePresses = 0;
-	walkers::StepStruggle(off, none, false, 0.0f, true, &pressed);
-	Check(!walkers::StepStruggle(off, none, true, 0.05f, true, &pressed) && !pressed, "StrugglePresses 0: off");
+	walkers::StepStruggle(off, none, 6, false, 0.0f, true, &pressed);
+	Check(!walkers::StepStruggle(off, none, 6, true, 0.05f, true, &pressed) && !pressed, "StrugglePresses 0: off");
 	walkers::Struggle drop;
-	walkers::StepStruggle(drop, s, false, 0.0f, true, &pressed);
-	walkers::StepStruggle(drop, s, true, 0.0f, true, &pressed);
-	walkers::StepStruggle(drop, s, false, 0.0f, false, &pressed);
+	walkers::StepStruggle(drop, s, 6, false, 0.0f, true, &pressed);
+	walkers::StepStruggle(drop, s, 6, true, 0.0f, true, &pressed);
+	walkers::StepStruggle(drop, s, 6, false, 0.0f, false, &pressed);
 	Check(drop.bar == 0.0f, "let go meanwhile: the bar starts empty at the next grab");
+}
+
+void TestNeeded() {
+	std::printf("How many presses (Nadi, 2026-10-28: the more walkers and the less stamina, the harder)\n");
+	GrabSettings s;  // 4 at the base, half again per walker more, at most x3; up to x2 tired
+	Check(walkers::StrugglePressesNeeded(s, 1, 100.0f, 100.0f) == 4, "one walker, fresh: 4");
+	Check(walkers::StrugglePressesNeeded(s, 2, 100.0f, 100.0f) == 6, "two walkers: 6");
+	Check(walkers::StrugglePressesNeeded(s, 3, 100.0f, 100.0f) == 8, "three: 8");
+	Check(walkers::StrugglePressesNeeded(s, 5, 100.0f, 100.0f) == 12 &&
+	          walkers::StrugglePressesNeeded(s, 20, 100.0f, 100.0f) == 12,
+	      "five: 12, and no more for a crowd (x3 at most)");
+	Check(walkers::StrugglePressesNeeded(s, 1, 50.0f, 100.0f) == 6, "half the stamina: x1.5");
+	Check(walkers::StrugglePressesNeeded(s, 1, 0.0f, 100.0f) == 8 &&
+	          walkers::StrugglePressesNeeded(s, 1, -20.0f, 100.0f) == 8,
+	      "none left (or below): x2");
+	Check(walkers::StrugglePressesNeeded(s, 3, 25.0f, 100.0f) == 14, "three walkers, a quarter left: 4 x 2 x 1.75 = 14");
+	Check(walkers::StrugglePressesNeeded(s, 0, 100.0f, 100.0f) == 4, "none counted (the holder itself not seen): as one");
+	Check(walkers::StrugglePressesNeeded(s, 1, 100.0f, 0.0f) == 4 && walkers::StrugglePressesNeeded(s, 1, 150.0f, 100.0f) == 4,
+	      "stamina not read, or above its base: fresh");
+	GrabSettings off = s;
+	off.strugglePresses = 0;
+	Check(walkers::StrugglePressesNeeded(off, 5, 0.0f, 100.0f) == 0, "StrugglePresses 0: off whatever the crowd");
 }
 
 void TestTexts() {
 	std::printf("The messages (flat)\n");
 	GrabSettings s;
 	char text[128];
-	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, s, text, sizeof(text)) &&
-	          std::strcmp(text, "A walker grabs your left arm! Strike it or mash Block.") == 0,
+	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, 6, s, text, sizeof(text)) &&
+	          std::strcmp(text, "A walker grabs your left arm! Strike it or mash Block (6).") == 0,
 	      "the first holder: which arm, and how to get free");
-	Check(walkers::GrabText(walkers::GrabSay::Rooted, Arm::Right, 0, s, text, sizeof(text)) &&
+	Check(walkers::GrabText(walkers::GrabSay::Rooted, Arm::Right, 0, 6, s, text, sizeof(text)) &&
 	          std::strcmp(text, "Two walkers hold you - you cannot move!") == 0,
 	      "the second: rooted");
-	Check(walkers::GrabText(walkers::GrabSay::Bitten, Arm::Left, 2, s, text, sizeof(text)) &&
+	Check(walkers::GrabText(walkers::GrabSay::Bitten, Arm::Left, 2, 6, s, text, sizeof(text)) &&
 	          std::strcmp(text, "Bitten! (2 of 3)") == 0,
 	      "a bite: which of how many");
-	Check(walkers::GrabText(walkers::GrabSay::LastBite, Arm::Left, 3, s, text, sizeof(text)) &&
+	Check(walkers::GrabText(walkers::GrabSay::LastBite, Arm::Left, 3, 6, s, text, sizeof(text)) &&
 	          std::strcmp(text, "The walkers overwhelm you.") == 0,
 	      "the last");
-	Check(walkers::GrabText(walkers::GrabSay::Free, Arm::Left, 0, s, text, sizeof(text)) &&
+	Check(walkers::GrabText(walkers::GrabSay::Free, Arm::Left, 0, 6, s, text, sizeof(text)) &&
 	          std::strcmp(text, "You break free.") == 0,
 	      "free");
 	GrabSettings quiet = s;
 	quiet.messages = false;
-	Check(!walkers::GrabText(walkers::GrabSay::Bitten, Arm::Left, 1, quiet, text, sizeof(text)),
+	Check(!walkers::GrabText(walkers::GrabSay::Bitten, Arm::Left, 1, 6, quiet, text, sizeof(text)),
 	      "Messages 0: nothing said");
 	GrabSettings mute = s;
 	mute.strugglePresses = 0;
-	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Right, 0, mute, text, sizeof(text)) &&
+	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Right, 0, 6, mute, text, sizeof(text)) &&
 	          std::strcmp(text, "A walker grabs your right arm! Strike it to break free.") == 0,
 	      "without the key: only the strike named");
 	Check(walkers::SayFor(LetGo::Struck) == walkers::GrabSay::Free && walkers::SayFor(LetGo::Struggled) == walkers::GrabSay::Free &&
@@ -400,6 +422,7 @@ int main() {
 	TestMessage();
 	TestTestGrab();
 	TestStruggle();
+	TestNeeded();
 	TestTexts();
 	TestRefusalNames();
 	std::printf("%s (%d failed)\n", g_failures == 0 ? "PASS" : "FAIL", g_failures);

@@ -35,6 +35,7 @@ constexpr UInt8 kIdleSection = 0x04;  // the ESP's ANAM, Special Idle (tools/esp
 constexpr UInt32 kActorVtableActorValueF = 0x288;
 constexpr UInt32 kGetBaseActorValue = 0x005F1910;
 constexpr UInt32 kActorValueHealth = 8;
+constexpr UInt32 kActorValueFatigue = 10;  // as OBVR's PlayerStagger reads it (GetActorValue_F 0xA)
 constexpr UInt32 kGodModeGet = 0x0065D820;
 // The control's state as xOBSE's IsControlPressed reads it (deepwiki on
 // llde/xOBSE, GameOSDepend.h, 2026-10-28): OSInputGlobals' keyboard state
@@ -99,6 +100,11 @@ PlayerHold g_lastHold = PlayerHold::Free;
 UInt32 g_refusalLines = 12;
 float g_testClock = 0.0f;
 Struggle g_struggle;
+// The presses needed now (StrugglePressesNeeded), looked at once a second
+// while held - the walkers near are counted off the process lists.
+UInt32 g_needed = 0;
+float g_neededClock = 0.0f;
+UInt32 g_walkersNear = 0;
 UInt32 g_moveLines = 40;
 
 bool InText(UInt32 fn) { return fn >= kTextStart && fn < kTextEnd; }
@@ -139,20 +145,22 @@ bool PlayIdle(UInt32 actor, GrabAnim anim) {
 	return true;
 }
 
-float HealthOf(UInt32 actor) {
+float ValueOf(UInt32 actor, UInt32 av) {
 	const UInt32 fn = Read(Read(actor) + kActorVtableActorValueF);
 	if (!InText(fn)) {
 		return -1.0f;
 	}
 	using GetFn = float(__fastcall*)(void* self, void* edx, UInt32 av);
-	return reinterpret_cast<GetFn>(fn)(reinterpret_cast<void*>(actor), nullptr, kActorValueHealth);
+	return reinterpret_cast<GetFn>(fn)(reinterpret_cast<void*>(actor), nullptr, av);
 }
 
-float BaseHealthOf(UInt32 actor) {
+float BaseValueOf(UInt32 actor, UInt32 av) {
 	using GetBaseFn = SInt32(__fastcall*)(void* self, void* edx, UInt32 av);
-	return static_cast<float>(
-		reinterpret_cast<GetBaseFn>(kGetBaseActorValue)(reinterpret_cast<void*>(actor), nullptr, kActorValueHealth));
+	return static_cast<float>(reinterpret_cast<GetBaseFn>(kGetBaseActorValue)(reinterpret_cast<void*>(actor), nullptr, av));
 }
+
+float HealthOf(UInt32 actor) { return ValueOf(actor, kActorValueHealth); }
+float BaseHealthOf(UInt32 actor) { return BaseValueOf(actor, kActorValueHealth); }
 
 bool GodMode() {
 	using GetFn = bool(__cdecl*)();
@@ -166,7 +174,7 @@ const char* HoldName(PlayerHold hold) {
 // A line on the screen (Messages), as the console's Message prints it.
 void Say(GrabSay say, Arm arm, UInt32 bite) {
 	char text[128];
-	if (!GrabText(say, arm, bite, *g_settings, text, sizeof(text))) {
+	if (!GrabText(say, arm, bite, g_needed, *g_settings, text, sizeof(text))) {
 		return;
 	}
 	char line[160];
@@ -190,6 +198,14 @@ bool ControlDown(UInt32 control) {
 bool MenuMode() {
 	using MenuFn = bool(__cdecl*)();
 	return reinterpret_cast<MenuFn>(kIsMenuMode)();
+}
+
+// The presses needed now: the walkers near, the player's fatigue.
+void UpdateNeeded(UInt32 player) {
+	g_walkersNear = g_services.walkersNear != nullptr ? g_services.walkersNear(g_settings->struggleCrowdRadius) : 1;
+	const float fatigue = ValueOf(player, kActorValueFatigue);
+	const float base = BaseValueOf(player, kActorValueFatigue);
+	g_needed = StrugglePressesNeeded(*g_settings, g_walkersNear, fatigue, base);
 }
 
 void SendState() {
@@ -254,6 +270,7 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 			return;
 		}
 		const bool played = PlayIdle(hit.attacker, kHold);
+		UpdateNeeded(player);
 		Say(g_state.count >= 2 ? GrabSay::Rooted : GrabSay::Grabbed, arm, 0);
 		g_services.log("Grab: walker %08X holds the player's %s arm (it stood on the %s, rolled %u of %u; the hold "
 		               "played: %d); %u hold, the player %s; bites so far %u of %u",
@@ -414,10 +431,12 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	}
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
 	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f StrugglePresses=%u "
-	               "StruggleGapSeconds=%.1f StruggleFatigue=%.0f Messages=%d; OBVR's free requests %s",
+	               "StruggleCrowdStep=%.2f StruggleCrowdMost=%.1f StruggleCrowdRadius=%.0f StruggleGapSeconds=%.1f "
+	               "StruggleFatigue=%.0f Messages=%d; OBVR's free requests %s",
 	               settings->enabled ? 1 : 0, settings->chancePercent, settings->bitesToDie, settings->biteSeconds,
 	               settings->biteHealthPercent, settings->struggleHits, settings->tearFreeDistance,
 	               settings->biteResetSeconds, settings->testGrabSeconds, settings->strugglePresses,
+	               settings->struggleCrowdStep, settings->struggleCrowdMost, settings->struggleCrowdRadius,
 	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0,
 	               listening ? "listened to" : "not listened to");
 }
@@ -465,7 +484,12 @@ void StepGrabInGame(float dt) {
 	// Flat: mashing the Block key wrenches the longest holder off.
 	bool pressed = false;
 	const bool down = g_state.count > 0 && !MenuMode() && ControlDown(g_settings->struggleControl);
-	if (StepStruggle(g_struggle, *g_settings, down, dt, g_state.count > 0, &pressed)) {
+	g_neededClock += dt;
+	if (g_state.count > 0 && (g_needed == 0 || g_neededClock >= 1.0f)) {
+		g_neededClock = 0.0f;
+		UpdateNeeded(player);
+	}
+	if (StepStruggle(g_struggle, *g_settings, g_needed, down, dt, g_state.count > 0, &pressed)) {
 		const UInt32 refId = g_state.holders[0].refId;
 		ReleaseHolder(g_state, refId);
 		LetGoOf(refId, LetGo::Struggled);
@@ -475,8 +499,10 @@ void StepGrabInGame(float dt) {
 		char line[48];
 		std::snprintf(line, sizeof(line), "ModAV2 Fatigue -%d", static_cast<int>(g_settings->struggleFatigue));
 		g_services.console(player, line);
-		g_services.log("Grab: the player struggles (control %u pressed, %u of %u)%s", g_settings->struggleControl, g_struggle.bar,
-		               g_settings->strugglePresses, g_struggle.bar == 0 ? " - free of one" : "");
+		g_services.log("Grab: the player struggles (control %u pressed, %u of %u - %u walkers near, fatigue %.0f of %.0f)%s",
+		               g_settings->struggleControl, g_struggle.bar, g_needed, g_walkersNear,
+		               ValueOf(player, kActorValueFatigue), BaseValueOf(player, kActorValueFatigue),
+		               g_struggle.bar == 0 ? " - free of one" : "");
 	}
 	if (TestGrabDue(*g_settings, g_testClock, dt, g_state.count > 0)) {
 		TestGrab(player);
@@ -541,6 +567,8 @@ void ResetGrabInGame() {
 	g_lastHold = PlayerHold::Free;
 	g_testClock = 0.0f;
 	g_struggle = Struggle{};
+	g_needed = 0;
+	g_neededClock = 0.0f;
 }
 
 }  // namespace walkers

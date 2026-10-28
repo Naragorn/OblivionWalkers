@@ -40,10 +40,13 @@ struct GrabSettings {
 	// animations can be looked at. 0 (the default): never.
 	float testGrabSeconds = 0.0f;
 	// Flat (Nadi, 2026-10-28, "go A + B"): mashing the Block key wrenches the
-	// longest holder off - StrugglePresses presses, none more than
-	// StruggleGapSeconds apart (0: off); each press costs StruggleFatigue.
+	// longest holder off - none more than StruggleGapSeconds apart, each
+	// costing StruggleFatigue; how many, StrugglePressesNeeded (0: off).
 	// Messages: a line on the screen at a grab, a bite and breaking free.
-	UInt32 strugglePresses = 6;
+	UInt32 strugglePresses = 4;         // at the base: one walker, fresh
+	float struggleCrowdStep = 0.5f;     // times this more per walker near beyond the first
+	float struggleCrowdMost = 3.0f;     // the crowd's factor at most
+	float struggleCrowdRadius = 300.0f; // units: the walkers counted
 	float struggleGapSeconds = 0.8f;
 	UInt32 struggleControl = 6;  // xOBSE GameOSDepend.h MappableControl: kControl_Block
 	float struggleFatigue = 5.0f;
@@ -361,11 +364,31 @@ struct Struggle {
 	bool wasDown = false;
 };
 
-inline bool StepStruggle(Struggle& st, const GrabSettings& s, bool down, float dt, bool held, bool* pressed) {
+// The presses that wrench a holder off (Nadi, 2026-10-28: "wieviel ausdauer
+// man noch hat und wie viele walker einen umzingeln"): StrugglePresses times
+// the crowd - one more half per walker within StruggleCrowdRadius beyond the
+// first, at most StruggleCrowdMost - times the tiredness, 1 fresh to 2 with
+// no fatigue left. The time is the bites': the last kills. 0: off.
+inline UInt32 StrugglePressesNeeded(const GrabSettings& s, UInt32 walkersNear, float fatigueNow, float fatigueBase) {
+	if (s.strugglePresses == 0) {
+		return 0;
+	}
+	const UInt32 extra = walkersNear > 1 ? walkersNear - 1 : 0;
+	float crowd = 1.0f + s.struggleCrowdStep * static_cast<float>(extra);
+	crowd = crowd > s.struggleCrowdMost ? s.struggleCrowdMost : crowd;
+	float left = fatigueBase > 0.0f ? fatigueNow / fatigueBase : 1.0f;
+	left = left < 0.0f ? 0.0f : (left > 1.0f ? 1.0f : left);
+	const float tired = 2.0f - left;
+	const float n = static_cast<float>(s.strugglePresses) * crowd * tired;
+	return static_cast<UInt32>(n + 0.5f);
+}
+
+inline bool StepStruggle(Struggle& st, const GrabSettings& s, UInt32 needed, bool down, float dt, bool held,
+                         bool* pressed) {
 	*pressed = false;
 	const bool press = down && !st.wasDown;
 	st.wasDown = down;
-	if (!held || s.strugglePresses == 0) {
+	if (!held || s.strugglePresses == 0 || needed == 0) {
 		st.bar = 0;
 		st.sinceLast = 0.0f;
 		return false;
@@ -379,7 +402,7 @@ inline bool StepStruggle(Struggle& st, const GrabSettings& s, bool down, float d
 		st.bar = 0;
 	}
 	st.sinceLast = 0.0f;
-	if (++st.bar < s.strugglePresses) {
+	if (++st.bar < needed) {
 		return false;
 	}
 	st.bar = 0;
@@ -395,14 +418,20 @@ inline GrabSay SayFor(LetGo why) {
 }
 
 // The line on the screen; false when nothing is said (Messages 0, None).
-inline bool GrabText(GrabSay say, Arm arm, UInt32 bite, const GrabSettings& s, char* out, UInt32 capacity) {
+inline bool GrabText(GrabSay say, Arm arm, UInt32 bite, UInt32 needed, const GrabSettings& s, char* out,
+                     UInt32 capacity) {
 	if (!s.messages || capacity == 0) {
 		return false;
 	}
 	switch (say) {
 		case GrabSay::Grabbed:
-			std::snprintf(out, capacity, "A walker grabs your %s arm! Strike it%s.", arm == Arm::Left ? "left" : "right",
-			              s.strugglePresses > 0 ? " or mash Block" : " to break free");
+			if (s.strugglePresses > 0 && needed > 0) {
+				std::snprintf(out, capacity, "A walker grabs your %s arm! Strike it or mash Block (%u).",
+				              arm == Arm::Left ? "left" : "right", needed);
+			} else {
+				std::snprintf(out, capacity, "A walker grabs your %s arm! Strike it to break free.",
+				              arm == Arm::Left ? "left" : "right");
+			}
 			return true;
 		case GrabSay::Rooted: std::snprintf(out, capacity, "Two walkers hold you - you cannot move!"); return true;
 		case GrabSay::Bitten: std::snprintf(out, capacity, "Bitten! (%u of %u)", bite, s.bitesToDie); return true;

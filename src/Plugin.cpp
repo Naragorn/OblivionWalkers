@@ -178,9 +178,13 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.grab.tearFreeDistance = IniFloat("Grab", "TearFreeDistance", 160.0f, path);
 	rise.grab.biteResetSeconds = IniFloat("Grab", "BiteResetSeconds", 30.0f, path);
 	rise.grab.testGrabSeconds = IniFloat("Grab", "TestGrabSeconds", 0.0f, path);
-	const int presses = GetPrivateProfileIntA("Grab", "StrugglePresses", 6, path);
+	const int presses = GetPrivateProfileIntA("Grab", "StrugglePresses", 4, path);
 	rise.grab.strugglePresses = presses < 0 ? 0u : static_cast<UInt32>(presses);
 	rise.grab.struggleGapSeconds = IniFloat("Grab", "StruggleGapSeconds", 0.8f, path);
+	rise.grab.struggleCrowdStep = IniFloat("Grab", "StruggleCrowdStep", 0.5f, path);
+	rise.grab.struggleCrowdMost = IniFloat("Grab", "StruggleCrowdMost", 3.0f, path);
+	rise.grab.struggleCrowdMost = rise.grab.struggleCrowdMost < 1.0f ? 1.0f : rise.grab.struggleCrowdMost;
+	rise.grab.struggleCrowdRadius = IniFloat("Grab", "StruggleCrowdRadius", 300.0f, path);
 	rise.grab.struggleFatigue = IniFloat("Grab", "StruggleFatigue", 5.0f, path);
 	rise.grab.messages = GetPrivateProfileIntA("Grab", "Messages", 1, path) != 0;
 	const int control = GetPrivateProfileIntA("Grab", "StruggleControl", 6, path);

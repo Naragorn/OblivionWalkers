@@ -2,9 +2,10 @@
 # 4.19, flat; Nadi, 2026-10-28: "go A + B"): the test switch grabs (the run's
 # plugin INI has [Grab] TestGrabSeconds=15, StruggleControl=13 - Jump, the E
 # key in the harness save - because the harness presses keys, not the
-# mouse's Block). Six presses of E, a tenth of a second apart, should read
-# "the player struggles (Block pressed, 1 of 6)" .. and "lets go - wrenched
-# off"; the pictures at grabbed and free show the lines "A walker grabs your
+# mouse's Block). Six presses of E, a tenth of a second apart; with one
+# walker near and the fatigue full 4 are needed (since 2026-10-28 08:14,
+# StrugglePressesNeeded): "the player struggles (control 13 pressed, 1 of 4
+# - 1 walkers near, fatigue ...)" .. and "lets go - wrenched off"; the pictures at grabbed and free show the lines "A walker grabs your
 # right arm! Strike it or mash Block." and "You break free." top left.
 # Whether a harness key reaches the game's own input state headless is what
 # this run also tells.
