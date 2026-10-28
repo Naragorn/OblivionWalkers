@@ -12,7 +12,7 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at ready player.placeatme 25000801 1 150 0
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1 150 0
 
 expect HandScript: finished
 reject HandScript: WARNING

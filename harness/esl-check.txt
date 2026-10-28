@@ -37,7 +37,7 @@ ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
 console-at ready player.setangle z 0
-console-at placed player.placeatme FE000801 1 100 0
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 100 0
 
 expect HandScript: finished
 reject HandScript: WARNING

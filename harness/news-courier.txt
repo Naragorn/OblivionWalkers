@@ -26,7 +26,7 @@ ini Performance Enabled=0
 console-at ready tgm
 console-at ready coc AnvilTheCountsArms
 console-at inn cow Tamriel -47 -7
-console-at outside player.placeatme 25000801 7
+console-at outside player.placeatme {form:OblivionWalkers.esp:801} 7
 console-at attacked coc ICMarketDistrictBlackHorseCourier
 
 expect HandScript: finished

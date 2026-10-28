@@ -20,27 +20,27 @@ console-at placed coc ImperialDungeon01
 console-at prison tcl
 console-at prison player.setrestrained 1
 console-at prison SetNumericINISetting "fVanityModeAutoDelay:Camera" 100000
-console-at first player.placeatme 25000801 1 250 0
-console-at first player.placeatme 25000802 1 250 0
-console-at first player.placeatme 25000803 1 250 0
-console-at first player.placeatme 25000804 1 250 0
-console-at first player.placeatme 2500090E 1 250 0
-console-at first player.placeatme 2500090F 1 250 0
-console-at first player.placeatme 25000910 1 250 0
-console-at first player.placeatme 25000911 1 250 0
-console-at first player.placeatme 25000912 1 250 0
-console-at first player.placeatme 25000913 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:801} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:802} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:803} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:804} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:90E} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:90F} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:910} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:911} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:912} 1 250 0
+console-at first player.placeatme {form:OblivionWalkers.esp:913} 1 250 0
 console-at first-placed tai
-console-at second player.placeatme 25000914 1 250 0
-console-at second player.placeatme 25000915 1 250 0
-console-at second player.placeatme 25000916 1 250 0
-console-at second player.placeatme 25000917 1 250 0
-console-at second player.placeatme 25000918 1 250 0
-console-at second player.placeatme 25000919 1 250 0
-console-at second player.placeatme 2500091A 1 250 0
-console-at second player.placeatme 2500091B 1 250 0
-console-at second player.placeatme 2500091C 1 250 0
-console-at second player.placeatme 2500091D 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:914} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:915} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:916} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:917} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:918} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:919} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:91A} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:91B} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:91C} 1 250 0
+console-at second player.placeatme {form:OblivionWalkers.esp:91D} 1 250 0
 
 expect HandScript: finished
 reject menu Container

@@ -21,9 +21,9 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at ready player.placeatme 25000801 1
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1
 console-at killed {actor}.kill player
-console-at control player.placeatme 25000802 1
+console-at control player.placeatme {form:OblivionWalkers.esp:802} 1
 console-at control2 killall
 
 expect HandScript: finished
