@@ -1491,10 +1491,10 @@ bites; held by too many, the player dies.
    instead of the blow's damage. Two arms, so at most two holders (S&S's
    choice); a third and further walkers around a held player count as
    "pressing in".
-2. **Held**: one holder slows the player (`SlowPercent`), two root him
+2. **Held**: one holder slows the player (`SlowPercent`), two root the player
    (VR: OBVR's input gate; flat: `SetRestrained` on the player, or the
    plugin's own movement hook if the turn block feels bad). The holder is
-   restrained before the player, faces him, and plays the hold.
+   restrained before the player, faces the player and plays the hold.
 3. **Bite**: a holder not shaken off within `BiteSeconds` bites - damage
    and the infection chance of 4.14 - and holds on.
 4. **Overwhelmed**: two holders and `OverwhelmCount` (3?) walkers in
@@ -1516,7 +1516,7 @@ bites; held by too many, the player dies.
 | C. Hand-made in Blender | the best look, like S&S's | **large** - an animator's work; the addon's Oblivion KF export not verified |
 | D. Walker's arms bent toward the player's real arm each frame (IK on the walker's skeleton) | in VR the hands sit on the arm wherever it is | **large** - OBVR moves the player's bones, never another actor's; new per-frame bone writing on NPCs, its cost with many walkers unmeasured |
 
-The player needs no animation in VR (OBVR draws his own arms); flat in
+The player needs no animation in VR (OBVR draws the player's arms); flat in
 first person a camera shake and the HUD bar would do, a struggle idle for
 third person is optional.
 
