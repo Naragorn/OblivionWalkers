@@ -34,6 +34,12 @@
 # ID again, at the load index of Nadi's mod list since 2026-10-28 (0x25 on
 # both installs, read in the log: "OblivionWalkers.esp is at 25000000").
 #
+# Since OBVR's {form:<plugin>:<local hex>} token (OBVR 3a5c0fe0, 2026-10-28)
+# every scenario names the walkers that way - no load index, light or
+# regular. Run 2026-10-28 11:30 (20261028-113026, PASS): the token became
+# "player.placeatme 25000801 1 100 0", the walker placed, the test grab
+# "grabbed the right arm (the hold played: 1)".
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-anims.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
