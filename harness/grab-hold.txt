@@ -17,6 +17,28 @@
 # Not run here: the player's blows on a holder (StruggleHits) - the harness
 # swings no weapon into a walker; covered by GrabLogicTest only.
 #
+# Runs 2026-10-28 (artifacts/hand-script/grab-hold/, OblivionWalkers.log in
+# each folder; [Grab] ChancePercent=100 in the Linux plugin INI for the runs,
+# taken out after):
+# - 06:58 (one walker before, one at the left later): grabs, "the hold
+#   played: 1", bites 1-3 every 4 s ("ModAV2 Health -10", the last -49; god
+#   mode kept the health at 50), after the last both "let go - the player is
+#   down" and the bites start at 0 again; held and not pushed "slowed moved 0
+#   units"; pulled back on the stick "slowed to a walk moved 51 units ...
+#   (flags now 0102)" - walk and backward, the run taken away - then "lets
+#   go - torn free (the let-go played: 1)". The runner's "walked 457.7 units"
+#   came out the same in every run and does not match the log: not used.
+# - 07:01 (both at the player's sides at once): "2 hold, the player rooted",
+#   rooted and not pushed "moved 0 units (flags now 0000)"; the stick's push
+#   fell into a time with one holder ("slowed to a walk moved 81 units"),
+#   torn free.
+# - 07:04 (the stick pushed 1.5 s every 4.5 s): one walker only came to the
+#   player; slowed 117 units/s on the stick, torn free.
+# Not seen: the rooted player pushing the stick (derived to hold: the same
+# per-frame write keeps the slowed player at a walk against the input), and
+# the animations' look - the holders stood at the player's sides, out of the
+# pictures; "played: 1" says only that the idle was queued.
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-hold.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
@@ -24,8 +46,8 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at ready player.placeatme 11000801 1 150 0
-console-at second player.placeatme 1100090E 1 120 2
+console-at ready player.placeatme 11000801 1 100 2
+console-at ready player.placeatme 1100090E 1 100 3
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -35,26 +57,46 @@ right pos 0.20 -0.40 -0.30
 left pos -0.20 -0.40 -0.30
 wait 1
 mark ready
-wait 14
-mark held-1
+wait 3
 left stick 0 -1
-wait 4
-mark back-1
+wait 1.5
 left stick 0 0
-wait 10
-mark again
-wait 1
-mark second
-wait 14
-mark held-2
+mark pulse-1
+wait 3
 left stick 0 -1
-wait 4
-mark back-2
+wait 1.5
 left stick 0 0
-wait 14
-mark bites
-wait 6
+mark pulse-2
+wait 3
+left stick 0 -1
+wait 1.5
+left stick 0 0
+mark pulse-3
+wait 3
+left stick 0 -1
+wait 1.5
+left stick 0 0
+mark pulse-4
+wait 3
+left stick 0 -1
+wait 1.5
+left stick 0 0
+mark pulse-5
+wait 3
+left stick 0 -1
+wait 1.5
+left stick 0 0
+mark pulse-6
+wait 3
+left stick 0 -1
+wait 1.5
+left stick 0 0
+mark pulse-7
+wait 3
+left stick 0 -1
+wait 1.5
+left stick 0 0
+mark pulse-8
+wait 4
 mark end
 
-moved held-1 back-1 40
-still held-2 back-2 20

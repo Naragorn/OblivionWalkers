@@ -1599,12 +1599,19 @@ ESP's IDLE 0x94D..0x952):
   fight hours ago does not count; Nadi's to change.
 - No infection from a bite: 4.14 is not built.
 
-**Not yet seen in the game:** whether the flags written in the frame tick
-hold against the player's own input (the walk of 4.4 holds against a
-walker's AI; the player's input may write them again before the move), and
-whether the engine plays the script-made KFs (NonAccum, priorities) and
-ends the hold's loop with the let-go - `harness/grab-hold.txt` is the run
-for both.
+**Seen in the game** (`harness/grab-hold.txt`, three runs 2026-10-28 06:58-07:04,
+Linux, god mode): the grab at the first landed hit, left and right arm by
+side, "2 hold, the player rooted"; the bites every 4 s, the third the last,
+then both let go and the count starts anew; the slowed player on the stick
+backward at a walk ("moved 51 / 81 / 117 units in the last 1.0 s (flags now
+0102)") - the per-frame write holds against the player's own input - and
+torn free at 160 units; the idle queue taking each of the three idles
+("played: 1"). **Not seen:** the rooted player pushing the stick (derived:
+the same write), a bite's damage (god mode keeps the health), the lethal
+bite without god mode, the player's blows on a holder, MOO's skeleton, and
+the animations' look - the holders stood beside the camera, out of the
+pictures; "played" says the idle was queued, not how it looks. That is the
+headset's (or a run with the walker before the camera).
 
 Test: `GrabLogicTest` (every flow of side, grab, hold, bites, damage, let
 go, forgetting, the message), `LinkLogicTest` (the three settings).
