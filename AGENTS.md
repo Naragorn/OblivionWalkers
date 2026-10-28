@@ -6,6 +6,10 @@
 - Whenever work here turns up a finding that would matter to OBNG - how the engine does something, where it does it, what it costs, or how a modern engine would do it instead - write it there as you go, not only at the end.
 - One file per topic, as `../OBNG/README.md` describes: what was read in the EXE (addresses), what was measured in the game, and what a modern engine does instead, each with its source. Add to an existing topic file before starting a new one, and mark what is read, measured, derived or unverified.
 
+## Reading Oblivion.exe
+
+- Every function of the EXE is already decompiled: `../OBNG/re/export/rea-all/functions/0x<address>.c` (`/run/media/nadi/Games/Modding/OBNG/re/export/rea-all/` on Linux, `D:\Modding\OBNG\re\export\rea-all\` on Windows; on the shared disk only, not in Git - `../OBNG/re/README.md` says how it was made). Grep it before starting a Ghidra or REA session, and start one only for what the files do not answer (assembly, cross-references, data).
+
 ## Settings belong in LINK
 
 - Every setting that LINK can show must be in LINK's menu as well as in the INI (Nadi, 2026-10-28: "alle settings die in link sein können sollen es auch"). A new or changed setting goes into `src/LinkLogic.h`: `kLinkSettings` (toggle or slider, range, step, a short title and description), `LinkValue` and `SetLinkValue`, a header if it opens a new group; raise `kLinkVersion`, extend `tests/LinkLogicTest.cpp`, rebuild the ESP (`tools/esp-write.py` reads the variables off the table) and deploy it.
