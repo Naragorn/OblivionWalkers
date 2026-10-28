@@ -28,11 +28,11 @@ console-at ready player.placeatme 00069AD3 1
 console-at ready player.placeatme 00069AD8 1
 console-at ready tgm
 console-at placed killall
-console-at looks player.placeatme WalkersZombie21 1 250 0
-console-at looks player.placeatme WalkersZombie29 1 250 0
-console-at looks player.placeatme WalkersZombie39 1 250 0
-console-at looks player.placeatme WalkersZombie50 1 250 0
-console-at looks player.placeatme WalkersZombie60 1 250 0
+console-at looks player.placeatme 2500091E 1 250 0
+console-at looks player.placeatme 25000926 1 250 0
+console-at looks player.placeatme 25000930 1 250 0
+console-at looks player.placeatme 2500093B 1 250 0
+console-at looks player.placeatme 25000945 1 250 0
 console-at looks-placed tai
 
 expect HandScript: finished

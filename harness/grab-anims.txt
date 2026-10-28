@@ -27,6 +27,13 @@
 # camera. Not right yet: the hands do not close on the player's arm - the
 # arms reach wide past the body (the walk's pose), from about a metre.
 #
+# Run 2026-10-28 10:03 (20261028-100356): the console's placeatme by editor
+# ID (WalkersZombie1) placed nothing - "the interface answered 0", "Grab:
+# test - no living walker within 4000 units": the console takes no editor
+# ID for these creatures. The scenarios name the walkers by their runtime
+# ID again, at the load index of Nadi's mod list since 2026-10-28 (0x25 on
+# both installs, read in the log: "OblivionWalkers.esp is at 25000000").
+#
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-anims.txt --headless \
 #       --artifact-root ../OblivionWalkers/artifacts/hand-script
@@ -35,7 +42,7 @@ ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
 console-at ready player.setangle z 0
-console-at placed player.placeatme WalkersZombie1 1 100 0
+console-at placed player.placeatme 25000801 1 100 0
 
 expect HandScript: finished
 reject HandScript: WARNING

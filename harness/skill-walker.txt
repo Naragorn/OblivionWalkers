@@ -18,7 +18,7 @@ ini Hands WeaponStopsAtBodies=1
 ini Hands WeaponLetGoMetres=0.30
 ini Hands WeaponHitStop=1
 ini Hands PushPeople=0
-console-at ready player.placeatme WalkersZombie1 1 120 0
+console-at ready player.placeatme 25000801 1 120 0
 console-at ready player.additem 00000C0C 1
 console-at ready player.equipitem 00000C0C
 console-at ready tai

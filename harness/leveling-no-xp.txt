@@ -23,7 +23,7 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at ready player.placeatme WalkersZombie1 1
+console-at ready player.placeatme 25000801 1
 console-at placed player.setangle z 0
 console-at placed {actor}.moveto player 0 300 0
 console-at moved {actor}.kill player

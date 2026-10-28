@@ -25,7 +25,7 @@ ini Performance Enabled=0
 console-at ready set MOO.ini_zombie_brain to 0
 console-at ready set MOO.ini_zombie_resurrect to 100
 console-at ready tgm
-console-at ready player.placeatme WalkersZombie21 1
+console-at ready player.placeatme 2500091E 1
 console-at placed set MOO.ini_zombie_brain to 0
 console-at placed set MOO.ini_zombie_resurrect to 100
 console-at placed player.setangle z 0

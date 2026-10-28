@@ -46,8 +46,8 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at ready player.placeatme WalkersZombie1 1 100 2
-console-at ready player.placeatme WalkersZombie5 1 100 3
+console-at ready player.placeatme 25000801 1 100 2
+console-at ready player.placeatme 2500090E 1 100 3
 
 expect HandScript: finished
 reject HandScript: WARNING

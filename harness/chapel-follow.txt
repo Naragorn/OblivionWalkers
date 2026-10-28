@@ -19,7 +19,7 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 console-at ready tgm
-console-at ready player.placeatme WalkersZombie1 1
+console-at ready player.placeatme 25000801 1
 console-at seen {actor}.moveto 0000C0F6
 console-at moved player.moveto 0000C0F6
 
