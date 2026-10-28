@@ -288,6 +288,18 @@ void TestMessage() {
 	      "a request too short or without data: none");
 }
 
+void TestTestGrab() {
+	std::printf("The test switch\n");
+	GrabSettings s;
+	float clock = 0.0f;
+	Check(!walkers::TestGrabDue(s, clock, 10.0f, false), "TestGrabSeconds 0 (the default): never");
+	s.testGrabSeconds = 5.0f;
+	Check(!walkers::TestGrabDue(s, clock, 4.0f, false) && walkers::TestGrabDue(s, clock, 1.0f, false) && clock == 0.0f,
+	      "TestGrabSeconds 5: due after 5 s free, the clock from 0 again");
+	Check(!walkers::TestGrabDue(s, clock, 6.0f, true) && clock == 0.0f, "while a walker holds: never, the clock stands at 0");
+	Check(walkers::TestGrabDue(s, clock, 5.0f, false), "free again for 5 s: due again");
+}
+
 void TestRefusalNames() {
 	std::printf("The log's words\n");
 	Check(std::strcmp(walkers::LetGoName(LetGo::TornFree), "torn free") == 0 &&
@@ -310,6 +322,7 @@ int main() {
 	TestLetGo();
 	TestBitesForgotten();
 	TestMessage();
+	TestTestGrab();
 	TestRefusalNames();
 	std::printf("%s (%d failed)\n", g_failures == 0 ? "PASS" : "FAIL", g_failures);
 	return g_failures == 0 ? 0 : 1;

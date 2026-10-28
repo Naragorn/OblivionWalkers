@@ -81,6 +81,7 @@ float g_moveX = 0.0f;
 float g_moveY = 0.0f;
 PlayerHold g_lastHold = PlayerHold::Free;
 UInt32 g_refusalLines = 12;
+float g_testClock = 0.0f;
 UInt32 g_moveLines = 40;
 
 bool InText(UInt32 fn) { return fn >= kTextStart && fn < kTextEnd; }
@@ -261,6 +262,32 @@ void Bite(const GrabEvent& ev, UInt32 player) {
 	}
 }
 
+// The test switch: the nearest walker moved before the player (the player's
+// heading, 80 units on), turned to face the player, and grabbing as at a hit.
+void TestGrab(UInt32 player) {
+	const UInt32 walker = g_services.nearestWalker != nullptr ? g_services.nearestWalker(4000.0f) : 0;
+	if (walker == 0) {
+		g_services.log("Grab: test - no living walker within 4000 units");
+		return;
+	}
+	const float heading = FloatAt(player + kRefRotZOffset);
+	char line[96];
+	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", 80.0f * std::sin(heading), 80.0f * std::cos(heading));
+	const bool moved = g_services.console(walker, line);
+	std::snprintf(line, sizeof(line), "SetAngle z %.1f", heading * 57.29578f + 180.0f);
+	const bool turned = g_services.console(walker, line);
+	const UInt32 refId = FormIdOf(walker);
+	Arm arm = Arm::None;
+	const GrabRefusal r = TryGrab(g_state, *g_settings, refId, Arm::Right, 0, &arm);
+	const bool played = r == GrabRefusal::None && PlayIdle(walker, kHold);
+	g_services.log("Grab: test - walker %08X moved before the player (%d) and turned to face it (%d): %s the %s arm "
+	               "(the hold played: %d)",
+	               refId, moved ? 1 : 0, turned ? 1 : 0, RefusalName(r), ArmName(arm), played ? 1 : 0);
+	if (r == GrabRefusal::None) {
+		SendState();
+	}
+}
+
 void ReleaseAll(LetGo why) {
 	while (g_state.count > 0) {
 		const UInt32 refId = g_state.holders[0].refId;
@@ -337,10 +364,10 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 		listening = g_messaging->RegisterListener(pluginHandle, kObvr, &OnObvrMessage);
 	}
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
-	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f; OBVR's free requests %s",
+	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f; OBVR's free requests %s",
 	               settings->enabled ? 1 : 0, settings->chancePercent, settings->bitesToDie, settings->biteSeconds,
 	               settings->biteHealthPercent, settings->struggleHits, settings->tearFreeDistance,
-	               settings->biteResetSeconds, listening ? "listened to" : "not listened to");
+	               settings->biteResetSeconds, settings->testGrabSeconds, listening ? "listened to" : "not listened to");
 }
 
 void ConfigureGrabIdles(UInt32 espIndex) {
@@ -382,6 +409,9 @@ void StepGrabInGame(float dt) {
 	g_freeRequestCount = 0;
 	if (!g_settings->enabled && g_state.count > 0) {
 		ReleaseAll(LetGo::SwitchedOff);
+	}
+	if (TestGrabDue(*g_settings, g_testClock, dt, g_state.count > 0)) {
+		TestGrab(player);
 	}
 	HolderView views[kGrabHolders];
 	const float px = FloatAt(player + kRefPositionOffset);
@@ -441,6 +471,7 @@ void ResetGrabInGame() {
 		a = HolderAnim{};
 	}
 	g_lastHold = PlayerHold::Free;
+	g_testClock = 0.0f;
 }
 
 }  // namespace walkers

@@ -1443,7 +1443,7 @@ now 0". Seen too: the first write comes before the save's quest data is
 read and is done again after it (two such lines) - harmless. Not run: the
 menu itself (Nadi's, Windows).
 
-### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=50`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=160`, `BiteResetSeconds=30` (built 2026-10-28, A + B)
+### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=50`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=160`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
 
 What (Nadi, 2026-10-28: "wenn von zuvielen zombies umzingelt, greifen oder
 halten die einen fest und iwann ist man tot... also so wie Saints and
@@ -1610,8 +1610,21 @@ torn free at 160 units; the idle queue taking each of the three idles
 the same write), a bite's damage (god mode keeps the health), the lethal
 bite without god mode, the player's blows on a holder, MOO's skeleton, and
 the animations' look - the holders stood beside the camera, out of the
-pictures; "played" says the idle was queued, not how it looks. That is the
-headset's (or a run with the walker before the camera).
+pictures; "played" says the idle was queued, not how it looks.
+
+**The animations in the picture** (`harness/grab-anims.txt`, 2026-10-28
+07:36, with the test switch `[Grab] TestGrabSeconds` - the nearest walker
+moved 80 units before the player, turned to face it, grabbing as at a hit;
+a run waiting for a landed hit had the walker wander off): the engine plays
+all three script-made KFs. The hold: upper body bent forward, both arms
+raised and reaching, swaying; the bite: the head lunges at the camera; the
+let-go: the stagger carries it back, and the hold's loop ends - it walks
+off as itself. **Not right yet:** the hands do not close on the player's
+arm - Walk01ArmsUp's arms reach wide past the body, from about a metre.
+The next step, Nadi's to decide: bring the arms closer together and lower
+in the hold KF (a turn on the clavicles and upper arms written by
+grab-anims.py, small, its look only in the pictures), or option D
+(the walker's hands on the player's real arm, large).
 
 Test: `GrabLogicTest` (every flow of side, grab, hold, bites, damage, let
 go, forgetting, the message), `LinkLogicTest` (the three settings).

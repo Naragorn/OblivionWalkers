@@ -34,7 +34,25 @@ struct GrabSettings {
 	UInt32 struggleHits = 2;       // the player's blows on a holder that free the arm (0 counts as 1)
 	float tearFreeDistance = 160.0f;  // units between player and holder that tear the arm free
 	float biteResetSeconds = 30.0f;   // free this long, the bites are forgotten
+	// A test switch (harness/grab-anims.txt): free this long, the nearest
+	// walker is moved before the player and grabs as at a hit - so the
+	// animations can be looked at. 0 (the default): never.
+	float testGrabSeconds = 0.0f;
 };
+
+// Whether the test grab is due: `clock` runs while nobody holds.
+inline bool TestGrabDue(const GrabSettings& s, float& clock, float dt, bool anyoneHolds) {
+	if (s.testGrabSeconds <= 0.0f || anyoneHolds) {
+		clock = 0.0f;
+		return false;
+	}
+	clock += dt;
+	if (clock < s.testGrabSeconds) {
+		return false;
+	}
+	clock = 0.0f;
+	return true;
+}
 
 enum class Arm : UInt8 { None = 0, Left = 1, Right = 2 };
 

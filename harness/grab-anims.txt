@@ -1,0 +1,149 @@
+# The grab's animations in the picture (docs/walkers-spec.md 4.19; Nadi,
+# 2026-10-28: "mach ein harness wo du den zombie vor der kamera ...
+# festhälst damit die anim getestet werden kann"): one walker (0x801)
+# placed near the player in god mode; the plugin's test switch (the run's
+# plugin INI has [Grab] TestGrabSeconds=15 and ChancePercent=100) moves it
+# 80 units before the player after 15 s free, turns it to face the player
+# and grabs as at a hit - so the holder stands before the camera. (Run 1,
+# 07:33, waited for a landed hit instead: the walker wandered off at 22
+# units/s and never hit, no grab, nothing to see.) A picture every
+# second while it holds and bites (a bite every 4 s; the third is the last
+# and the holder lets go - "the player is down", god mode keeps the player),
+# 15 s later it grabs again and the stick pulls the player back until torn
+# free: the let-go's stagger in the pictures every half second after pull.
+# OblivionWalkers.log (copied into the run's folder) gives each grab, bite
+# and let-go its line, to lay beside the pictures.
+#
+# Run 2, 2026-10-28 07:36 (artifacts/hand-script/grab-anims/20261028-073622,
+# PASS; the contact sheets sheet-*.png there): "test - walker FF000EE7 moved
+# before the player (1) and turned to face it (1): grabbed the right arm
+# (the hold played: 1)". Seen in the pictures: the hold - the walker stands
+# before the camera, upper body bent forward, both arms raised and reaching
+# out wide toward the player, swaying (hold-1..10); the bites - the head
+# lunges at the camera and fills the picture (pull-4..6); after the last
+# bite the let-go's stagger carries it back a few metres (hold-11, 12), it
+# walks off as itself - the hold's loop ended - and comes back; grabbed
+# again by its own hit (ChancePercent 100) it stands close, head at the
+# camera. Not right yet: the hands do not close on the player's arm - the
+# arms reach wide past the body (the walk's pose), from about a metre.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-anims.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setangle z 0
+console-at placed player.placeatme 11000801 1 100 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 1
+mark placed
+wait 1
+mark hold-1
+wait 1
+mark hold-2
+wait 1
+mark hold-3
+wait 1
+mark hold-4
+wait 1
+mark hold-5
+wait 1
+mark hold-6
+wait 1
+mark hold-7
+wait 1
+mark hold-8
+wait 1
+mark hold-9
+wait 1
+mark hold-10
+wait 1
+mark hold-11
+wait 1
+mark hold-12
+wait 1
+mark hold-13
+wait 1
+mark hold-14
+wait 1
+mark hold-15
+wait 1
+mark hold-16
+wait 1
+mark hold-17
+wait 1
+mark hold-18
+wait 1
+mark hold-19
+wait 1
+mark hold-20
+wait 1
+mark hold-21
+wait 1
+mark hold-22
+wait 1
+mark hold-23
+wait 1
+mark hold-24
+wait 1
+mark hold-25
+wait 1
+mark hold-26
+wait 1
+mark hold-27
+wait 1
+mark hold-28
+wait 1
+mark hold-29
+wait 1
+mark hold-30
+wait 1
+mark hold-31
+wait 1
+mark hold-32
+wait 1
+mark hold-33
+wait 1
+mark hold-34
+wait 1
+mark hold-35
+wait 4
+mark again
+left stick 0 -1
+wait 0.5
+mark pull-1
+wait 0.5
+mark pull-2
+wait 0.5
+mark pull-3
+wait 0.5
+mark pull-4
+wait 0.5
+mark pull-5
+wait 0.5
+mark pull-6
+wait 0.5
+mark pull-7
+wait 0.5
+mark pull-8
+wait 0.5
+mark pull-9
+wait 0.5
+mark pull-10
+left stick 0 0
+wait 1
+mark letgo-1
+wait 1
+mark letgo-2
+wait 1
+mark end

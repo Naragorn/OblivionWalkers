@@ -23,6 +23,7 @@ struct GrabServices {
 	bool (*onMooSkeleton)(UInt32 ref);
 	UInt32 (*highProcess)(UInt32 actor);
 	UInt32 (*roll)();
+	UInt32 (*nearestWalker)(float radius);  // the test switch's walker, 0 for none
 	LogFn log;
 };
 
