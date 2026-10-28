@@ -18,6 +18,7 @@
 // the message below). Free for BiteResetSeconds, the bites are forgotten.
 
 #include <cmath>
+#include <cstdio>
 
 #include "Types.h"
 
@@ -38,6 +39,15 @@ struct GrabSettings {
 	// walker is moved before the player and grabs as at a hit - so the
 	// animations can be looked at. 0 (the default): never.
 	float testGrabSeconds = 0.0f;
+	// Flat (Nadi, 2026-10-28, "go A + B"): mashing the Block key wrenches the
+	// longest holder off - StrugglePresses presses, none more than
+	// StruggleGapSeconds apart (0: off); each press costs StruggleFatigue.
+	// Messages: a line on the screen at a grab, a bite and breaking free.
+	UInt32 strugglePresses = 6;
+	float struggleGapSeconds = 0.8f;
+	UInt32 struggleControl = 6;  // xOBSE GameOSDepend.h MappableControl: kControl_Block
+	float struggleFatigue = 5.0f;
+	bool messages = true;
 };
 
 // Whether the test grab is due: `clock` runs while nobody holds.
@@ -175,7 +185,7 @@ inline UInt16 HeldPlayerFlags(UInt16 flags, PlayerHold hold) {
 // A holder stands at the arm it holds.
 inline UInt16 HolderFlags(UInt16 flags) { return static_cast<UInt16>(flags & ~(kMoveSteps | kMoveWalk | kMoveRun)); }
 
-enum class LetGo : UInt8 { Dead, TornFree, Struck, Asked, Gone, SwitchedOff, PlayerDown };
+enum class LetGo : UInt8 { Dead, TornFree, Struck, Asked, Gone, SwitchedOff, PlayerDown, Struggled };
 
 // A holder as the game has it this frame, in the order of GrabState::holders.
 struct HolderView {
@@ -342,6 +352,66 @@ inline bool FreeRequestOf(const void* data, UInt32 length, UInt32& refId) {
 	return true;
 }
 
+// The struggle by the key: `down` the key's state this frame. True when the
+// bar is full - the longest holder lets go. `*pressed` when the key went
+// down this frame (a press costs fatigue).
+struct Struggle {
+	UInt32 bar = 0;
+	float sinceLast = 0.0f;
+	bool wasDown = false;
+};
+
+inline bool StepStruggle(Struggle& st, const GrabSettings& s, bool down, float dt, bool held, bool* pressed) {
+	*pressed = false;
+	const bool press = down && !st.wasDown;
+	st.wasDown = down;
+	if (!held || s.strugglePresses == 0) {
+		st.bar = 0;
+		st.sinceLast = 0.0f;
+		return false;
+	}
+	st.sinceLast += dt;
+	if (!press) {
+		return false;
+	}
+	*pressed = true;
+	if (st.sinceLast > s.struggleGapSeconds) {
+		st.bar = 0;
+	}
+	st.sinceLast = 0.0f;
+	if (++st.bar < s.strugglePresses) {
+		return false;
+	}
+	st.bar = 0;
+	return true;
+}
+
+enum class GrabSay : UInt8 { None, Grabbed, Rooted, Bitten, LastBite, Free };
+
+inline GrabSay SayFor(LetGo why) {
+	return why == LetGo::Struck || why == LetGo::Struggled || why == LetGo::TornFree || why == LetGo::Asked
+	           ? GrabSay::Free
+	           : GrabSay::None;
+}
+
+// The line on the screen; false when nothing is said (Messages 0, None).
+inline bool GrabText(GrabSay say, Arm arm, UInt32 bite, const GrabSettings& s, char* out, UInt32 capacity) {
+	if (!s.messages || capacity == 0) {
+		return false;
+	}
+	switch (say) {
+		case GrabSay::Grabbed:
+			std::snprintf(out, capacity, "A walker grabs your %s arm! Strike it%s.", arm == Arm::Left ? "left" : "right",
+			              s.strugglePresses > 0 ? " or mash Block" : " to break free");
+			return true;
+		case GrabSay::Rooted: std::snprintf(out, capacity, "Two walkers hold you - you cannot move!"); return true;
+		case GrabSay::Bitten: std::snprintf(out, capacity, "Bitten! (%u of %u)", bite, s.bitesToDie); return true;
+		case GrabSay::LastBite: std::snprintf(out, capacity, "The walkers overwhelm you."); return true;
+		case GrabSay::Free: std::snprintf(out, capacity, "You break free."); return true;
+		default: return false;
+	}
+}
+
 inline const char* ArmName(Arm arm) {
 	return arm == Arm::Left ? "left" : (arm == Arm::Right ? "right" : "no");
 }
@@ -354,6 +424,7 @@ inline const char* LetGoName(LetGo why) {
 		case LetGo::Asked: return "shaken off";
 		case LetGo::SwitchedOff: return "the grab switched off";
 		case LetGo::PlayerDown: return "the player is down";
+		case LetGo::Struggled: return "wrenched off";
 		default: return "gone";
 	}
 }

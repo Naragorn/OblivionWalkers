@@ -178,6 +178,13 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.grab.tearFreeDistance = IniFloat("Grab", "TearFreeDistance", 160.0f, path);
 	rise.grab.biteResetSeconds = IniFloat("Grab", "BiteResetSeconds", 30.0f, path);
 	rise.grab.testGrabSeconds = IniFloat("Grab", "TestGrabSeconds", 0.0f, path);
+	const int presses = GetPrivateProfileIntA("Grab", "StrugglePresses", 6, path);
+	rise.grab.strugglePresses = presses < 0 ? 0u : static_cast<UInt32>(presses);
+	rise.grab.struggleGapSeconds = IniFloat("Grab", "StruggleGapSeconds", 0.8f, path);
+	rise.grab.struggleFatigue = IniFloat("Grab", "StruggleFatigue", 5.0f, path);
+	rise.grab.messages = GetPrivateProfileIntA("Grab", "Messages", 1, path) != 0;
+	const int control = GetPrivateProfileIntA("Grab", "StruggleControl", 6, path);
+	rise.grab.struggleControl = control < 0 || control > 28 ? 6u : static_cast<UInt32>(control);
 	const int getUpSound = GetPrivateProfileIntA("Rise", "SoundAtGetUpPercent", 60, path);
 	rise.soundAtGetUpPercent = getUpSound < 0 ? 0u : static_cast<UInt32>(getUpSound);
 	rise.lieSeconds = IniFloat("Rise", "LieSeconds", 1.0f, path);

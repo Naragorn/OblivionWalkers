@@ -1633,6 +1633,32 @@ come in before the body, the hands low and together at the player's
 middle, no longer reaching wide past it. Whether it reads as holding an
 arm is the headset's; option D stays the fallback.
 
+**Option D, noted for later** (Nadi, 2026-10-28: "notiere option d"): the
+walker's hands bent onto the player's real arm every frame - IK on the
+walker's own skeleton, nothing VR in it. The target differs: in VR the
+player's arm bones as OBVR sets them from the controller (read off the
+player's skeleton, no message needed); flat the arm bone of the player's
+own animation - little to see in first person, a hold on the arm in third.
+Cost **large** either way: writing another actor's bones each frame is new
+(OBVR writes the player's only), its cost with many walkers unmeasured.
+Built only if option 1's fixed pose does not hold up in the headset.
+
+**Flat (A + B, Nadi 2026-10-28: "go A + B"):**
+- A, the lines on the screen (`Messages=1`): through the console's
+  Message, "A walker grabs your left arm! Strike it or mash Block.", "Two
+  walkers hold you - you cannot move!", "Bitten! (2 of 3)", "The walkers
+  overwhelm you.", "You break free." (`GrabText`).
+- B, wrenching free by the key (`StrugglePresses=6`, `StruggleGapSeconds=0.8`,
+  `StruggleFatigue=5`, `StruggleControl=6` Block): six presses of the control,
+  none more than 0.8 s apart, and the longest holder lets go ("wrenched
+  off"); each press costs 5 fatigue (`ModAV2 Fatigue`). The control's state
+  is read as xOBSE's IsControlPressed reads it (OSInputGlobals at
+  OSGlobals 0x00B33398 +0x20: the control map's key +0x1B7E and mouse
+  button +0x1B9B, the keys +0x18F4, the buttons +0x1B2C), not behind a
+  menu. Works for VR players too, with whatever OBVR sends as Block.
+Test: `GrabLogicTest` (the struggle's flows, the texts); harness
+`grab-struggle.txt`.
+
 Test: `GrabLogicTest` (every flow of side, grab, hold, bites, damage, let
 go, forgetting, the message), `LinkLogicTest` (the three settings).
 

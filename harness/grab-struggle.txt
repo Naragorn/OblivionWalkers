@@ -1,0 +1,64 @@
+# Wrenching free by the key and the lines on the screen (docs/walkers-spec.md
+# 4.19, flat; Nadi, 2026-10-28: "go A + B"): the test switch grabs (the run's
+# plugin INI has [Grab] TestGrabSeconds=15, StruggleControl=13 - Jump, the E
+# key in the harness save - because the harness presses keys, not the
+# mouse's Block). Six presses of E, a tenth of a second apart, should read
+# "the player struggles (Block pressed, 1 of 6)" .. and "lets go - wrenched
+# off"; the pictures at grabbed and free show the lines "A walker grabs your
+# right arm! Strike it or mash Block." and "You break free." top left.
+# Whether a harness key reaches the game's own input state headless is what
+# this run also tells.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-struggle.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setangle z 0
+console-at placed player.placeatme 11000801 1 100 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 1
+mark placed
+wait 3
+mark grabbed
+wait 1
+mark grabbed-2
+key E 1
+wait 0.05
+key E 0
+wait 0.05
+key E 1
+wait 0.05
+key E 0
+wait 0.05
+key E 1
+wait 0.05
+key E 0
+wait 0.05
+key E 1
+wait 0.05
+key E 0
+wait 0.05
+key E 1
+wait 0.05
+key E 0
+wait 0.05
+key E 1
+wait 0.05
+key E 0
+wait 0.05
+mark free
+wait 1
+mark free-2
+wait 2
+mark end
