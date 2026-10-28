@@ -263,7 +263,7 @@ void Bite(const GrabEvent& ev, UInt32 player) {
 }
 
 // The test switch: the nearest walker moved before the player (the player's
-// heading, 80 units on), turned to face the player, and grabbing as at a hit.
+// heading, 62 units on: the grip's hands about 45 ahead of it meet the body), turned to face the player, and grabbing as at a hit.
 void TestGrab(UInt32 player) {
 	const UInt32 walker = g_services.nearestWalker != nullptr ? g_services.nearestWalker(4000.0f) : 0;
 	if (walker == 0) {
@@ -272,7 +272,7 @@ void TestGrab(UInt32 player) {
 	}
 	const float heading = FloatAt(player + kRefRotZOffset);
 	char line[96];
-	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", 80.0f * std::sin(heading), 80.0f * std::cos(heading));
+	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", 62.0f * std::sin(heading), 62.0f * std::cos(heading));
 	const bool moved = g_services.console(walker, line);
 	std::snprintf(line, sizeof(line), "SetAngle z %.1f", heading * 57.29578f + 180.0f);
 	const bool turned = g_services.console(walker, line);

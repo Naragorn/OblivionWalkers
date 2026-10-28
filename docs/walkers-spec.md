@@ -1621,10 +1621,17 @@ raised and reaching, swaying; the bite: the head lunges at the camera; the
 let-go: the stagger carries it back, and the hold's loop ends - it walks
 off as itself. **Not right yet:** the hands do not close on the player's
 arm - Walk01ArmsUp's arms reach wide past the body, from about a metre.
-The next step, Nadi's to decide: bring the arms closer together and lower
-in the hold KF (a turn on the clavicles and upper arms written by
-grab-anims.py, small, its look only in the pictures), or option D
-(the walker's hands on the player's real arm, large).
+Nadi, 2026-10-28: "ok erstmal 1., 2. können wir machen wenn 1.
+shice ist". **Option 1 built** (`tools/grab-anims.py` GRIP_TARGETS): each
+upper arm turned, one turn for the whole loop, so the shoulder-to-hand line
+points 50 units ahead at chest height, the hands 24 apart - read off the
+skeleton and the keys offline: the left hand from (-24, 43, 101) to (-12,
+45, 90), the right from (25, 26, 88) to (12, 32, 94); the sway kept (keyed
+interpolators at the B-spline's own times). The test walker stands 62
+units before the player. Run 2026-10-28 07:47 (grab-anims, PASS): the arms
+come in before the body, the hands low and together at the player's
+middle, no longer reaching wide past it. Whether it reads as holding an
+arm is the headset's; option D stays the fallback.
 
 Test: `GrabLogicTest` (every flow of side, grab, hold, bites, damage, let
 go, forgetting, the message), `LinkLogicTest` (the three settings).

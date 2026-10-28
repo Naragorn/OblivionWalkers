@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import math
 import struct
 import sys
 import zlib
@@ -197,16 +198,220 @@ def write_kf(kf) -> bytes:
     return stream.getvalue()
 
 
+# The grip (Nadi, 2026-10-28, option 1 after the pictures of 07:36: the hands
+# reached wide past the body): Walk01ArmsUp's hands, read off its control
+# points on the zombie skeleton, lie some 55 units apart - the left about
+# (-25, 48, 95), the right (28, 25, 85) in the walker's frame (+y ahead, +z
+# up, its left at -x). Each upper arm is turned, by one turn for the whole
+# loop, so the shoulder-to-hand line points at these: the hands 24 units
+# apart, 50 ahead, at chest height - closing on the arm before it. The
+# sway of the loop is kept (the turn is the same at every key).
+GRIP_TARGETS = {"Bip01 L UpperArm": (-12.0, 50.0, 88.0), "Bip01 R UpperArm": (12.0, 50.0, 88.0)}
+HANDS = {"Bip01 L UpperArm": "Bip01 L Hand", "Bip01 R UpperArm": "Bip01 R Hand"}
+
+
+def mat_mul(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+
+
+def mat_vec(a, v):
+    return [sum(a[i][k] * v[k] for k in range(3)) for i in range(3)]
+
+
+def mat_t(a):
+    return [[a[j][i] for j in range(3)] for i in range(3)]
+
+
+def quat_mat(w, x, y, z):
+    """A unit quaternion as the matrix that turns a point (point' = R point)."""
+    return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
+
+
+def mat_quat(m):
+    trace = m[0][0] + m[1][1] + m[2][2]
+    if trace > 0:
+        s = math.sqrt(trace + 1.0) * 2
+        return (0.25 * s, (m[2][1] - m[1][2]) / s, (m[0][2] - m[2][0]) / s, (m[1][0] - m[0][1]) / s)
+    i = max(range(3), key=lambda k: m[k][k])
+    j, k = (i + 1) % 3, (i + 2) % 3
+    s = math.sqrt(1.0 + m[i][i] - m[j][j] - m[k][k]) * 2
+    q = [0.0, 0.0, 0.0]
+    q[i] = 0.25 * s
+    q[j] = (m[j][i] + m[i][j]) / s
+    q[k] = (m[k][i] + m[i][k]) / s
+    return ((m[k][j] - m[j][k]) / s, q[0], q[1], q[2])
+
+
+def turn_between(u, v):
+    """The turn that brings direction u onto direction v (Rodrigues)."""
+    nu = math.sqrt(sum(a * a for a in u))
+    nv = math.sqrt(sum(a * a for a in v))
+    u = [a / nu for a in u]
+    v = [a / nv for a in v]
+    axis = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+    s = math.sqrt(sum(a * a for a in axis))
+    c = sum(a * b for a, b in zip(u, v))
+    if s < 1e-9:
+        return [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    x, y, z = (a / s for a in axis)
+    t = 1 - c
+    return [[t * x * x + c, t * x * y - s * z, t * x * z + s * y],
+            [t * x * y + s * z, t * y * y + c, t * y * z - s * x],
+            [t * x * z - s * y, t * y * z + s * x, t * z * z + c]]
+
+
+class Skeleton:
+    """The zombie skeleton's bones at rest: each one's parent and local
+    turn, place and scale. pyffi hands a NIF rotation as stored, the
+    transpose of the turn of a point (the feet came out at the floor only
+    so, read 2026-10-28)."""
+
+    def __init__(self, raw: bytes):
+        nif = NifFormat.Data()
+        nif.read(io.BytesIO(raw))
+        self.parent = {}
+        self.rest = {}
+
+        def walk(node, parent):
+            name = node.name.decode("latin-1")
+            r = node.rotation
+            self.parent[name] = parent
+            self.rest[name] = ([[r.m_11, r.m_21, r.m_31], [r.m_12, r.m_22, r.m_32], [r.m_13, r.m_23, r.m_33]],
+                               [node.translation.x, node.translation.y, node.translation.z], node.scale)
+            for child in node.children:
+                if isinstance(child, NifFormat.NiNode):
+                    walk(child, name)
+
+        walk(nif.roots[0], None)
+
+    def world(self, local: dict) -> dict:
+        out = {}
+
+        def at(name):
+            if name not in out:
+                turn, place, scale = local.get(name, self.rest[name])
+                parent = self.parent[name]
+                if parent is None:
+                    out[name] = (turn, place)
+                else:
+                    pturn, pplace = at(parent)
+                    moved = mat_vec(pturn, [scale * a for a in place])
+                    out[name] = (mat_mul(pturn, turn), [a + b for a, b in zip(pplace, moved)])
+            return out[name]
+
+        for name in self.rest:
+            at(name)
+        return out
+
+
+def keyed(block):
+    """A bone's keys as (time, quaternion w x y z, place or None), from a
+    B-spline or a keyed interpolator; [] for none."""
+    interp = block.interpolator
+    if isinstance(interp, NifFormat.NiBSplineCompTransformInterpolator):
+        times = list(interp.get_times())
+        turns = list(interp.get_rotations())
+        places = list(interp.get_translations())
+        return [(t, turns[i] if i < len(turns) else None, places[i] if i < len(places) else None)
+                for i, t in enumerate(times)]
+    if isinstance(interp, NifFormat.NiTransformInterpolator):
+        data = interp.data
+        if data is not None and data.num_rotation_keys and data.quaternion_keys:
+            return [(k.time, (k.value.w, k.value.x, k.value.y, k.value.z), None) for k in data.quaternion_keys]
+        q = interp.rotation
+        if q.w > -1e30:
+            return [(0.0, (q.w, q.x, q.y, q.z), None)]
+    return []
+
+
+def pose_at(skeleton: Skeleton, keys: dict, time: float) -> dict:
+    """The local turns and places at the key nearest `time` of each bone."""
+    local = {}
+    for name, ks in keys.items():
+        if not ks or name not in skeleton.rest:
+            continue
+        _, quat, place = min(ks, key=lambda k: abs(k[0] - time))
+        turn, rest_place, scale = skeleton.rest[name]
+        local[name] = (quat_mat(*quat) if quat is not None else turn,
+                       list(place) if place is not None else rest_place, scale)
+    return local
+
+
+def grip_arms(blocks: list, skeleton: Skeleton) -> dict:
+    """The upper arms turned toward GRIP_TARGETS: a keyed interpolator per
+    arm, at the B-spline's own key times, each key the old local turn under
+    the same world turn of the whole loop. Returns the new interpolators by
+    bone and the hands' mean places before and after, for the log."""
+    keys = {name_of(b): keyed(b) for b in blocks}
+    result = {}
+    for arm, target in GRIP_TARGETS.items():
+        arm_keys = keys[arm]
+        poses = [pose_at(skeleton, keys, t) for t, _, _ in arm_keys]
+        worlds = [skeleton.world(p) for p in poses]
+        shoulder = [sum(w[arm][1][i] for w in worlds) / len(worlds) for i in range(3)]
+        hand = [sum(w[HANDS[arm]][1][i] for w in worlds) / len(worlds) for i in range(3)]
+        turn = turn_between([h - s for h, s in zip(hand, shoulder)], [t - s for t, s in zip(target, shoulder)])
+        new_keys = []
+        for (time, _, _), pose, world in zip(arm_keys, poses, worlds):
+            parent_turn = world[skeleton.parent[arm]][0]
+            local_turn = pose[arm][0]
+            new_local = mat_mul(mat_t(parent_turn), mat_mul(turn, mat_mul(parent_turn, local_turn)))
+            new_keys.append((time, mat_quat(new_local)))
+            pose[arm] = (new_local, pose[arm][1], pose[arm][2])
+        after = [skeleton.world(p)[HANDS[arm]][1] for p in poses]
+        moved = [sum(a[i] for a in after) / len(after) for i in range(3)]
+        result[arm] = (new_keys, skeleton.rest[arm][1], hand, moved)
+    return result
+
+
+def keyed_interpolator(keys: list, place: list):
+    """A NiTransformInterpolator with linear quaternion keys and the bone's
+    rest place."""
+    data = NifFormat.NiTransformData()
+    data.rotation_type = 1  # linear
+    data.num_rotation_keys = len(keys)
+    data.quaternion_keys.update_size()
+    for k, (time, (w, x, y, z)) in zip(data.quaternion_keys, keys):
+        k.time = time
+        k.value.w, k.value.x, k.value.y, k.value.z = w, x, y, z
+    interp = NifFormat.NiTransformInterpolator()
+    interp.translation.x, interp.translation.y, interp.translation.z = place
+    w, x, y, z = keys[0][1]
+    interp.rotation.w, interp.rotation.x, interp.rotation.y, interp.rotation.z = w, x, y, z
+    interp.scale = 1.0
+    interp.data = data
+    return interp
+
+
+GRIP_LINES: list[str] = []
+
+
+def gripped(snaps: list, grips: dict) -> list:
+    for s in snaps:
+        name = name_of(s)
+        if name in grips:
+            keys, place, _, _ = grips[name]
+            s.set("interpolator", keyed_interpolator(keys, place))
+    return snaps
+
+
 def build(files: dict[str, bytes]) -> dict[str, bytes]:
     walk_raw = files[SOURCE + "specialanims\\walk01armsup.kf"]
+    skeleton = Skeleton(files[SOURCE + "skeleton.nif"])
     hold_kf, hold = read_kf(walk_raw)
-    upper = [snap(b) for b in hold.controlled_blocks if is_arm(name_of(b)) or name_of(b) in BITE_BONES]
+    grips = grip_arms(list(hold.controlled_blocks), skeleton)
+    for arm, (_, _, before, after) in grips.items():
+        GRIP_LINES.append(f"{HANDS[arm]}: from ({before[0]:.0f}, {before[1]:.0f}, {before[2]:.0f}) to "
+                          f"({after[0]:.0f}, {after[1]:.0f}, {after[2]:.0f}), aimed at {GRIP_TARGETS[arm]}")
+    upper = gripped([snap(b) for b in hold.controlled_blocks if is_arm(name_of(b)) or name_of(b) in BITE_BONES], grips)
     finish(hold, "SpecialIdle_WalkersGrabHold", CYCLE_LOOP, HOLD_PRIORITY, upper)
 
     bite_kf, bite = read_kf(files[SOURCE + "handtohandattackforwardpower.kf"])
     _, arms_source = read_kf(walk_raw)
     lunge = [snap(b) for b in bite.controlled_blocks if name_of(b) in BITE_BONES]
-    arms = [adopt(snap(b), bite) for b in arms_source.controlled_blocks if is_arm(name_of(b))]
+    arms = gripped([adopt(snap(b), bite) for b in arms_source.controlled_blocks if is_arm(name_of(b))], grips)
     finish(bite, "SpecialIdle_WalkersGrabBite", CYCLE_CLAMP, HOLD_PRIORITY, lunge + arms)
 
     letgo_kf, letgo = read_kf(files[SOURCE + "stagger.kf"])
@@ -248,7 +453,7 @@ def main() -> int:
         target.mkdir(parents=True, exist_ok=True)
         for key, raw in written.items():
             (target / OUTPUTS[key]).write_bytes(raw)
-    print("\n".join(lines))
+    print("\n".join(GRIP_LINES + lines))
     print(f"written into {', '.join(str(Path(args.out) / f) for f in FOLDERS)}")
     return 0
 
