@@ -33,8 +33,9 @@ struct GrabServices {
 void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, obse::MessagingInterface* messaging,
                    UInt32 pluginHandle);
 
-// The ESP's load index, once it is known (its grab idles, 0x94D..0x952).
-void ConfigureGrabIdles(UInt32 espIndex);
+// The ESP's base (RiseLogic.h EspFormId), once it is known (its grab
+// idles, 0x94D..0x952).
+void ConfigureGrabIdles(UInt32 espBase);
 
 // xOBSE's OnHit, as the rise hands it on: `target` hit by `attacker`.
 void GrabOnHit(UInt32 target, UInt32 attacker);

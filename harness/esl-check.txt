@@ -1,0 +1,57 @@
+# The ESP as a light plugin (docs/walkers-spec.md 3, ESL; Nadi, 2026-10-28:
+# "esl als erstes mit requirements zu oblivionesl und als esp"): the run's
+# Linux install carries the ESL-flagged OblivionWalkers.esp
+# (tools/esp-write.py --esl, build-linux/esl/) instead of the plain one,
+# OblivionESL loads it as light plugin 0, so its forms are FE000xxx - the
+# console lines below name the walker as FE000801. OblivionWalkers.log should
+# read "Walkers: OblivionWalkers.esp is at FE000000 (a light plugin,
+# OblivionESL), 64 walker creatures found", the horde and news configured,
+# "Grab: 6 of 6 grab idles found", the spawn lists replaced, and the test
+# grab as in grab-anims.txt; Oblivion/OblivionESL.log names the plugin.
+# The harness save was made with the plain ESP: what it holds of Walkers
+# (none placed in it, read 2026-10-28) would be lost - the run shows the
+# loading of a new state, not a save's migration.
+#
+# Runs on OBVR's harness, from the OBVR folder (the ESL variant copied in by
+# hand before, the plain ESP back after):
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/esl-check.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setangle z 0
+console-at placed player.placeatme FE000801 1 100 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 1
+mark placed
+wait 1
+mark hold-1
+wait 1
+mark hold-2
+wait 1
+mark hold-3
+wait 1
+mark hold-4
+wait 1
+mark hold-5
+wait 1
+mark hold-6
+wait 1
+mark hold-7
+wait 1
+mark hold-8
+wait 1
+mark hold-9
+wait 1
+mark hold-10
+wait 2
+mark end

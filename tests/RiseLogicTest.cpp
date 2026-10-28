@@ -312,7 +312,8 @@ void TestRequeue() {
 
 void TestEspRace() {
 	std::printf("The ESP's race by load index and name\n");
-	Check(walkers::ZombieRaceFormId(0x0B) == 0x0B000800 && walkers::ZombieRaceFormId(1) == 0x01000800,
+	Check(walkers::ZombieRaceFormId(walkers::EspBaseOfIndex(0x0B)) == 0x0B000800 &&
+	          walkers::ZombieRaceFormId(walkers::EspBaseOfIndex(1)) == 0x01000800,
 	      "local ID 0x800 under the mod index");
 	Check(walkers::SameModName("OblivionWalkers.esp", "oblivionwalkers.ESP"), "names compare without case");
 	Check(!walkers::SameModName("OblivionWalkers.esp", "OblivionWalkers.esm"), "a different extension is another file");
@@ -442,8 +443,30 @@ void TestSwap() {
 	          walkers::PickWalker(bases, 3, 0xFFFFFFFF) == 0x0B000801,
 	      "one of the walkers by the random number");
 	Check(walkers::PickWalker(bases, 0, 7) == 0, "none without walkers");
-	Check(walkers::EspFormId(0x0B, 0x801) == 0x0B000801 && walkers::kWalkerLooks[3].localId == 0x804,
+	Check(walkers::EspFormId(walkers::EspBaseOfIndex(0x0B), 0x801) == 0x0B000801 &&
+	          walkers::kWalkerLooks[3].localId == 0x804,
 	      "the walkers' IDs under the ESP's index (the looks: WalkerLooksTest)");
+}
+
+void TestEspPlace() {
+	std::printf("The ESP as a regular plugin or a light one (OblivionESL)\n");
+	using walkers::kNoEsp;
+	const UInt32 regular = walkers::EspBaseOfIndex(0x11);
+	Check(regular == 0x11000000 && walkers::EspBaseOfIndex(0xFF) == kNoEsp && walkers::EspBaseOfIndex(0x100) == kNoEsp,
+	      "a regular plugin: its index in the high byte; none past 0xFE");
+	const UInt32 light = 0xFE003000;  // OblivionESL's base for light index 3: 0xFE | 3 << 12
+	Check(walkers::EspFormId(light, 0x801) == 0xFE003801 && walkers::EspFormId(regular, 0x801) == 0x11000801,
+	      "a form: the base with the local ID - the same locals (0x800..0x952) both ways");
+	Check(walkers::EspFormId(kNoEsp, 0x801) == 0, "no ESP: no form");
+	Check(walkers::IsEspForm(light, 0xFE003801) && !walkers::IsEspForm(light, 0xFE004801) &&
+	          !walkers::IsEspForm(light, 0x11000801),
+	      "ours when light: the same light index only");
+	Check(walkers::IsEspForm(regular, 0x11000801) && !walkers::IsEspForm(regular, 0x12000801) &&
+	          !walkers::IsEspForm(regular, 0xFE003801) && !walkers::IsEspForm(kNoEsp, 0x11000801),
+	      "ours when regular: the same index only; nothing without the ESP");
+	Check(walkers::EspLocalOf(light, 0xFE00383F) == 0x83F && walkers::EspLocalOf(regular, 0x1100083F) == 0x83F,
+	      "the local ID back, either way");
+	Check(walkers::kMaxEspLocalId < 0x1000, "every local ID the ESP uses fits a light plugin (0x800..0xFFF)");
 }
 
 void TestRisenWatch() {
@@ -795,6 +818,7 @@ int main() {
 	TestWalkOnly();
 	TestRequeue();
 	TestEspRace();
+	TestEspPlace();
 	TestSwap();
 	TestRisenWatch();
 	TestImage();

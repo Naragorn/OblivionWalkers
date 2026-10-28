@@ -68,7 +68,7 @@ const GrabSettings* g_settings = nullptr;
 GrabServices g_services{};
 obse::MessagingInterface* g_messaging = nullptr;
 UInt32 g_pluginHandle = 0;
-UInt32 g_espIndex = 0x100;
+UInt32 g_espBase = 0xFFFFFFFF;  // kNoEsp
 GrabState g_state;
 
 // The hits xOBSE's OnHit handed on, carried out at the next frame: nothing
@@ -112,12 +112,12 @@ bool InText(UInt32 fn) { return fn >= kTextStart && fn < kTextEnd; }
 UInt32 Player() { return LookupForm(kPlayerRefId); }
 
 UInt32 IdleFor(UInt32 actor, GrabAnim anim) {
-	if (g_espIndex > 0xFF) {
+	if (g_espBase == kNoEsp) {
 		return 0;
 	}
 	const UInt32 refId = FormIdOf(actor);
 	const UInt32 skeleton = g_services.onMooSkeleton != nullptr && g_services.onMooSkeleton(refId) ? 1u : 0u;
-	const UInt32 form = LookupForm((g_espIndex << 24) | (kGrabIdleLocalFirst + skeleton * kAnims + anim));
+	const UInt32 form = LookupForm(EspFormId(g_espBase, kGrabIdleLocalFirst + skeleton * kAnims + anim));
 	return LooksLikeObject(form) ? form : 0;
 }
 
@@ -441,11 +441,11 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	               listening ? "listened to" : "not listened to");
 }
 
-void ConfigureGrabIdles(UInt32 espIndex) {
-	g_espIndex = espIndex;
+void ConfigureGrabIdles(UInt32 espBase) {
+	g_espBase = espBase;
 	UInt32 found = 0;
-	for (UInt32 i = 0; i < 2 * kAnims && espIndex <= 0xFF; ++i) {
-		const UInt32 form = LookupForm((espIndex << 24) | (kGrabIdleLocalFirst + i));
+	for (UInt32 i = 0; i < 2 * kAnims && espBase != kNoEsp; ++i) {
+		const UInt32 form = LookupForm(EspFormId(espBase, kGrabIdleLocalFirst + i));
 		found += LooksLikeObject(form) ? 1u : 0u;
 	}
 	g_services.log("Grab: %u of %u grab idles found in the ESP", found, 2 * kAnims);

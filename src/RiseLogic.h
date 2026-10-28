@@ -363,8 +363,29 @@ inline UInt32 PickWalker(const UInt32* bases, UInt32 count, UInt32 random) {
 // race first, then the Walker creatures (WalkerLooks.h kWalkerLooks). The
 // mod index is the ESP's load index at runtime.
 inline constexpr UInt32 kZombieRaceLocalId = 0x800;
-inline UInt32 ZombieRaceFormId(UInt32 modIndex) { return (modIndex << 24) | kZombieRaceLocalId; }
-inline UInt32 EspFormId(UInt32 modIndex, UInt32 localId) { return (modIndex << 24) | localId; }
+//
+// Since 2026-10-28 (Nadi: "esl als erstes ... und als esp") the ESP may be
+// ESL-flagged and loaded by OblivionESL as a light plugin: its forms are
+// then 0xFE000000 | light index << 12 | local ID (OblivionESL's
+// ESLInterface.h, read on GitHub googlepox/OblivionESL 2026-10-28). So the
+// plugin keeps the ESP's place as the base its IDs build on: index << 24
+// regular, OblivionESL's ESL_GetFormIDBase light, kNoEsp without the ESP.
+// Every local ID the ESP uses lies in 0x800..0xFFF, the range a light
+// plugin has (tools/esp-write.py checks it), so one mask of 0xFFF serves
+// both ways - also for a regular plugin at index 0xFE.
+inline constexpr UInt32 kNoEsp = 0xFFFFFFFF;
+inline constexpr UInt32 kMaxEspLocalId = 0x952;  // the last grab idle (tools/esp-write.py)
+inline constexpr UInt32 kEspLocalMask = 0x00000FFF;
+
+inline UInt32 EspBaseOfIndex(UInt32 index) { return index > 0xFE ? kNoEsp : index << 24; }
+inline UInt32 EspFormId(UInt32 base, UInt32 localId) {
+	return base == kNoEsp ? 0u : base | (localId & kEspLocalMask);
+}
+inline bool IsEspForm(UInt32 base, UInt32 formId) {
+	return base != kNoEsp && (formId & ~kEspLocalMask) == base;
+}
+inline UInt32 EspLocalOf(UInt32 /*base*/, UInt32 formId) { return formId & kEspLocalMask; }
+inline UInt32 ZombieRaceFormId(UInt32 base) { return EspFormId(base, kZombieRaceLocalId); }
 
 // Mod file names compare without case, as the engine's own list does; a
 // name longer than a Windows path is no name.

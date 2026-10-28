@@ -663,41 +663,52 @@ UInt32 CloneBaseRecord(UInt32 base) {
 	return clone;
 }
 
-// OblivionWalkers.esp's runtime index from the data handler's mods-by-ID
-// table; 0x100 when the ESP is not loaded.
-UInt32 FindEspIndex() {
+// OblivionWalkers.esp's place at runtime as the base of its forms' IDs
+// (RiseLogic.h EspFormId): ESL-flagged and loaded by OblivionESL, the base
+// its export ESL_GetFormIDBase gives (0xFE | light index << 12; its
+// ESLInterface.h, 2026-10-28); else its index in the data handler's
+// mods-by-ID table, << 24; kNoEsp when it is not loaded.
+UInt32 FindEspBase() {
+	if (const HMODULE esl = GetModuleHandleA("OblivionESL")) {
+		using BaseFn = UInt32(__cdecl*)(const char* modName);
+		const auto base = reinterpret_cast<BaseFn>(GetProcAddress(esl, "ESL_GetFormIDBase"));
+		const UInt32 light = base != nullptr ? base(kPluginEsp) : kNoEsp;
+		if (light != kNoEsp) {
+			return light;
+		}
+	}
 	const UInt32 handler = Read(kDataHandlerPointer);
 	if (!LooksLikeObject(handler)) {
 		g_log("ESP: no data handler at %08X", kDataHandlerPointer);
-		return 0x100;
+		return kNoEsp;
 	}
 	const UInt32 count = Read(handler + kDataHandlerModCountOffset);
 	for (UInt32 i = 0; i < count && i < 0xFF; ++i) {
 		const char* name = ModNameAt(i);
 		if (name != nullptr && SameModName(name, kPluginEsp)) {
-			return i;
+			return EspBaseOfIndex(i);
 		}
 	}
-	g_log("ESP: %s is not among the %u loaded mods", kPluginEsp, count);
-	return 0x100;
+	g_log("ESP: %s is not among the %u loaded mods, nor a light plugin of OblivionESL", kPluginEsp, count);
+	return kNoEsp;
 }
 
 // The ESP's Walker race at its local ID 0x800. 0 when the ESP is not loaded
 // or the record there is no race; the log says which.
 UInt32 FindZombieRace() {
-	const UInt32 index = FindEspIndex();
-	if (index > 0xFF) {
+	const UInt32 base = FindEspBase();
+	if (base == kNoEsp) {
 		g_log("Race: no ESP, the clone keeps his race");
 		return 0;
 	}
-	const UInt32 formId = ZombieRaceFormId(index);
+	const UInt32 formId = ZombieRaceFormId(base);
 	const UInt32 race = LookupForm(formId);
 	if (!LooksLikeObject(race) || Read8(race + kFormTypeOffset) != kFormTypeRace) {
-		g_log("Race: %s is mod %02X, but %08X is no race (%s): the clone keeps his race", kPluginEsp, index,
+		g_log("Race: %s is at %08X, but %08X is no race (%s): the clone keeps his race", kPluginEsp, base,
 		      formId, LooksLikeObject(race) ? "another type" : "no form");
 		return 0;
 	}
-	g_log("Race: %s is mod %02X, the Walker race %08X found", kPluginEsp, index, formId);
+	g_log("Race: %s is at %08X, the Walker race %08X found", kPluginEsp, base, formId);
 	return race;
 }
 
@@ -709,13 +720,13 @@ void FindWalkers() {
 	}
 	g_walkersLooked = true;
 	g_walkerCount = 0;
-	const UInt32 index = FindEspIndex();
-	if (index > 0xFF) {
+	const UInt32 base = FindEspBase();
+	if (base == kNoEsp) {
 		g_log("Walkers: no ESP, the fallen get up as themselves");
 		return;
 	}
 	for (const WalkerLook& look : kWalkerLooks) {
-		const UInt32 formId = EspFormId(index, look.localId);
+		const UInt32 formId = EspFormId(base, look.localId);
 		const UInt32 form = LookupForm(formId);
 		if (LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeCreature) {
 			g_walkerFamilies[g_walkerCount] = look.family;
@@ -725,11 +736,12 @@ void FindWalkers() {
 			g_log("Walkers: %08X is no creature (%s)", formId, LooksLikeObject(form) ? "another type" : "no form");
 		}
 	}
-	g_log("Walkers: %s is mod %02X, %u walker creatures found", kPluginEsp, index, g_walkerCount);
-	ConfigureHorde(g_settings.horde, index, g_log);
+	g_log("Walkers: %s is at %08X (%s), %u walker creatures found", kPluginEsp, base,
+	      (base >> 24) == 0xFE ? "a light plugin, OblivionESL" : "a regular plugin", g_walkerCount);
+	ConfigureHorde(g_settings.horde, base, g_log);
 	ConfigureGuards(g_settings.guards, g_log);
-	ConfigureNews(g_settings.news, index, g_log);
-	ConfigureGrabIdles(index);
+	ConfigureNews(g_settings.news, base, g_log);
+	ConfigureGrabIdles(base);
 }
 
 // Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
@@ -1486,9 +1498,9 @@ void StepSpawns(float dt) {
 		g_spawnsDone = true;
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
-		RenameZombies(g_walkers, g_walkerCount, FindEspIndex(), g_settings, g_log);
+		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
 		if (g_replace.enabled) {
-			ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
 		}
 		return;
 	}
@@ -1498,7 +1510,7 @@ void StepSpawns(float dt) {
 	g_spawnsAgainSeconds -= dt;
 	if (g_spawnsAgainSeconds <= 0.0f) {
 		g_spawnsAgainSeconds = -1.0f;
-		ReplaceSpawns(FindEspIndex(), g_replace, g_iniPath, g_mooLoaded, g_log);
+		ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
 	}
 }
 
@@ -1541,12 +1553,12 @@ void ApplyLinkEffect(LinkEffect effect) {
 			ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
 			break;
 		case LinkEffect::SpawnCounts:
-			RewriteVariantCounts(FindEspIndex(), g_replace, g_log);
+			RewriteVariantCounts(FindEspBase(), g_replace, g_log);
 			break;
 		case LinkEffect::Horde:
-			ConfigureHorde(g_settings.horde, FindEspIndex(), g_log);
+			ConfigureHorde(g_settings.horde, FindEspBase(), g_log);
 			ConfigureGuards(g_settings.guards, g_log);
-			ConfigureNews(g_settings.news, FindEspIndex(), g_log);
+			ConfigureNews(g_settings.news, FindEspBase(), g_log);
 			break;
 		default:
 			break;
@@ -1566,7 +1578,7 @@ void StepLink(float dt) {
 	if (!g_exceptionsSent || g_exceptionsSetting != g_settings.noSkillGain) {
 		SendSkillExceptions();
 	}
-	const UInt32 quest = EspFormId(FindEspIndex(), kLinkQuestLocalId);
+	const UInt32 quest = EspFormId(FindEspBase(), kLinkQuestLocalId);
 	double* version = QuestVariable(quest, kLinkVersionVariable);
 	if (version == nullptr) {
 		return;

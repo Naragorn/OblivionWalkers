@@ -13,7 +13,7 @@ namespace walkers {
 
 // The settings and the ESP's load index, once a session (the editions are
 // the ESP's books). An index above 0xFF: no news.
-void ConfigureNews(const NewsSettings& settings, UInt32 espIndex, LogFn log);
+void ConfigureNews(const NewsSettings& settings, UInt32 espBase, LogFn log);
 
 // Walkers at `city`'s gate and its guards out (Horde.cpp), now.
 void NoteGateAttack(UInt32 city);

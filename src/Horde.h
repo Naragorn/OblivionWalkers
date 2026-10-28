@@ -30,9 +30,10 @@ using DeadFn = bool (*)(UInt32 actor);
 // second only (the process lists are long).
 using CandidatesFn = UInt32 (*)(HordeCandidate* out, UInt32 most);
 
-// The settings and the ESP's load index, once a session (the packages and
-// markers are the ESP's, tools/esp-write.py). An index above 0xFF: no horde.
-void ConfigureHorde(const HordeSettings& settings, UInt32 espIndex, LogFn log);
+// The settings and the ESP's base (RiseLogic.h EspFormId), once a session
+// (the packages and markers are the ESP's, tools/esp-write.py). kNoEsp: no
+// horde.
+void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log);
 
 // The gate guards' settings, once a session, after ConfigureHorde (the
 // pool is the ESP's). Without the ESP's guards: no guards.

@@ -16,14 +16,14 @@ namespace walkers {
 // variant list's counts are written from MinCount/MaxCount first. Run again,
 // it only takes the entries still pointing at a creature. Returns the
 // entries replaced by this run.
-UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
+UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log);
 
 // The walker records' health at `percent` of their own, from the values
 // they had at the first call - the record in memory only.
 // The variant list's count slots written anew from MinCount and MaxCount
 // (LINK's menu, 4.18); nothing without the ESP's lists.
-void RewriteVariantCounts(UInt32 espIndex, const ReplaceSettings& settings, LogFn log);
+void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, LogFn log);
 
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log);
 
@@ -33,7 +33,7 @@ void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, Lo
 // The walkers' name (4.2): Name on the ESP's walker records (the game's
 // "Zombie" with RenameToWalker=0), and with RenameVanilla every other
 // creature's "Zombie" too (ReplaceLogic.h RenamedZombie) - in memory only.
-void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espIndex, const RiseSettings& settings, LogFn log);
+void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espBase, const RiseSettings& settings, LogFn log);
 
 void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log);
 

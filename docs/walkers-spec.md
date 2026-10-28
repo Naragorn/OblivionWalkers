@@ -86,6 +86,25 @@ Three parts:
 3. **`OblivionWalkers.ini`** - every switch, read at start and on change
    (hot reload every few seconds, as OBVR's ReloadGate does).
 
+**ESL** (Nadi, 2026-10-28: "für den nexusmods release bieten wir beides: esl
+als erstes mit requirements zu oblivionesl und als esp"; MOO and the other
+mods' lookups not touched - "moo usw beachten wir aber nicht"): the same
+records as an ESL-flagged ESP for OblivionESL (Nexus 56578; it needs xOBSE
+22.13, and Cell Lookup Robustness because the ESP has a cell, the horde's
+holding cell with its markers and guard pool). `tools/esp-write.py --esl`
+sets the header flag 0x200 (the TES4Edit custom build's; OblivionESL also
+takes 0x80000, ESLHooks.cpp) - one byte differs from the plain ESP. No
+compacting: every local ID already lies in 0x800..0xFFF (0x800..0x952,
+~340 records of the 2048 allowed); the script refuses an ID past 0xFFF.
+The DLL keeps the ESP's place as the base of its IDs (`RiseLogic.h`
+`EspFormId`, `IsEspForm`, `FindEspBase`): OblivionESL's export
+`ESL_GetFormIDBase` first (0xFE | light index << 12), else the mod index <<
+24. The co-save's references resolve through xOBSE's ResolveRefID, which
+OblivionESL hooks for light plugins. Not the same for a save: a save made
+with the plain ESP loses its walkers and guard references under the ESL
+variant and the other way round (OblivionESL's own warning) - the release
+says so, a new game for a switch. LINK with an ESL-flagged ESP: not tried.
+
 Save discipline: nothing the plugin does at start goes into the save. List
 injection is redone every session (the engine keeps lists in memory only).
 What *must* persist (who is waiting to rise, the scenario's state, the city

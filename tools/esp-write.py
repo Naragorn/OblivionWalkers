@@ -245,14 +245,25 @@ def group(label: bytes, records: bytes) -> bytes:
     return b"GRUP" + struct.pack("<I", 20 + len(records)) + label + struct.pack("<II", 0, 0) + records
 
 
-def header(num_records: int, next_object_id: int, masters: list[str]) -> bytes:
+# The ESL flag OblivionESL (Nexus 56578, github.com/googlepox/OblivionESL
+# ESLHooks.cpp, read 2026-10-28) reads off the TES4 record's flags: 0x200 as
+# the TES4Edit custom build sets it (0x80000 is its own, also taken). With
+# it OblivionESL loads the ESP as a light plugin, its forms at 0xFE |
+# light index << 12 | local ID - every local ID must lie in 0x800..0xFFF and
+# there may be 2048 records at most.
+ESL_FLAG = 0x200
+LIGHT_LOCAL_LAST = 0xFFF
+LIGHT_RECORDS_MOST = 2048
+
+
+def header(num_records: int, next_object_id: int, masters: list[str], flags: int = 0) -> bytes:
     data = subrecord(b"HEDR", struct.pack("<fiI", 1.0, num_records, next_object_id))
     data += subrecord(b"CNAM", zstring(AUTHOR))
     data += subrecord(b"SNAM", zstring(DESCRIPTION))
     for master in masters:
         data += subrecord(b"MAST", zstring(master))
         data += subrecord(b"DATA", struct.pack("<Q", 0))
-    return record(b"TES4", 0, data)
+    return record(b"TES4", 0, data, flags)
 
 
 def find_record(esm, buf: bytes, kind: bytes, form_id: int) -> list[tuple[bytes, bytes]]:
@@ -527,6 +538,9 @@ def main() -> int:
     parser.add_argument("esm", help="Oblivion.esm")
     parser.add_argument("moo", help="Maskar's Oblivion Overhaul.esp - the parts of the walkers' MOO looks")
     parser.add_argument("--out", default=str(HERE.parent / "OblivionWalkers.esp"))
+    parser.add_argument("--esl", action="store_true",
+                        help="ESL-flag the ESP for OblivionESL (Nadi, 2026-10-28: the release offers it first, "
+                             "the plain ESP beside it); the same records and IDs")
     parser.add_argument("--test-walker-pool", type=int, default=0, metavar="N",
                         help="a measurement only (4.12, 2026-10-26): N persistent, initially disabled walker "
                              "references per city in the holding cell, after the last walker - what such a pool "
@@ -642,10 +656,17 @@ def main() -> int:
     groups = 5 + 5 + 1 + 2 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms))
+    next_id = LOCAL_TEST_POOL_FIRST + test_pool
+    if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
+        raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
+    if next_id - 1 > LIGHT_LOCAL_LAST and not args.test_walker_pool:
+        raise SystemExit(f"the last local ID {next_id - 1:03X} is past 0xFFF: the ESL variant (and the plugin's "
+                         "0xFFF mask, RiseLogic.h kEspLocalMask) would break")
     plugin = header(num_records=groups + records,
-                    next_object_id=LOCAL_TEST_POOL_FIRST + test_pool,
-                    masters=masters) + body
+                    next_object_id=next_id,
+                    masters=masters, flags=ESL_FLAG if args.esl else 0) + body
     out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(plugin)
 
     # Read it back with the ESM parser: every record under its new IDs, every
@@ -742,7 +763,9 @@ def main() -> int:
     if (pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F
             or pool_local_id(7, 11) != 0x89E):
         raise SystemExit("the pool's first banks moved: a save made with a smaller pool would lose its guards")
-    print(f"{out}: {len(plugin)} bytes - RACE {race_form:08X} {RACE_EDID}, CREA "
+    if struct.unpack_from("<I", plugin, 8)[0] != (ESL_FLAG if args.esl else 0):
+        raise SystemExit("the header's flags read back wrong")
+    print(f"{out}: {len(plugin)} bytes{' (ESL-flagged)' if args.esl else ''} - RACE {race_form:08X} {RACE_EDID}, CREA "
           + ", ".join(f"{f:08X}" for f in walker_forms)
           + f" WalkersZombie1..{len(walker_forms)} '{WALKER_NAME}' ({len(MOO_DONORS)} of MOO's looks, "
           + f"{sum(1 for _, p in all_parts if headless(list(p)))} headless), "

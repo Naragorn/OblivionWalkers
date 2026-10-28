@@ -122,19 +122,19 @@ void WriteVariantCounts(UInt32 variant, UInt32 anyWalker, const ReplaceSettings&
 	    flags, (flags & kListCalcEach) != 0 ? "drawn anew for each walker" : "one draw copied - an older ESP");
 }
 
-CreatureFacts FactsOf(UInt32 creature, UInt32 espIndex) {
+CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
 	CreatureFacts facts;
 	facts.type = Read8(creature + kCreatureTypeOffset);
 	facts.confidence = Read8(creature + kCreatureConfidenceOffset);
 	facts.flags = Read(creature + kActorBaseFlagsOffset);
 	facts.scripted = Read(creature + kScriptOffset) != 0;
-	facts.ours = (FormIdOf(creature) >> 24) == espIndex;
+	facts.ours = IsEspForm(espBase, FormIdOf(creature));
 	facts.person = Read8(creature + kFormTypeOffset) == kFormTypeNpc;
 	return facts;
 }
 
 // On or off for one creature: the INI's line, or a new one by its kind.
-bool Decide(UInt32 creature, UInt32 espIndex, const char* section, std::vector<char>& added, UInt32& addedUsed,
+bool Decide(UInt32 creature, UInt32 espBase, const char* section, std::vector<char>& added, UInt32& addedUsed,
             UInt32& newLines, LogFn log) {
 	const auto known = g_decided.find(creature);
 	if (known != g_decided.end()) {
@@ -147,7 +147,7 @@ bool Decide(UInt32 creature, UInt32 espIndex, const char* section, std::vector<c
 		g_decided[creature] = false;
 		return false;
 	}
-	const CreatureFacts facts = FactsOf(creature, espIndex);
+	const CreatureFacts facts = FactsOf(creature, espBase);
 	const CreatureKind kind = ClassifyCreature(facts);
 	if (kind == CreatureKind::Walker) {
 		g_decided[creature] = false;
@@ -272,39 +272,39 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 
 }  // namespace
 
-void RewriteVariantCounts(UInt32 espIndex, const ReplaceSettings& settings, LogFn log) {
-	if (espIndex > 0xFF) {
+void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, LogFn log) {
+	if (espBase == kNoEsp) {
 		return;
 	}
-	const UInt32 variant = LookupForm(EspFormId(espIndex, kVariantLocalId));
-	const UInt32 anyWalker = LookupForm(EspFormId(espIndex, kAnyWalkerLocalId));
+	const UInt32 variant = LookupForm(EspFormId(espBase, kVariantLocalId));
+	const UInt32 anyWalker = LookupForm(EspFormId(espBase, kAnyWalkerLocalId));
 	if (LooksLikeObject(variant) && Read8(variant + kFormTypeOffset) == kFormTypeLeveledCreature &&
 	    LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
 		WriteVariantCounts(variant, anyWalker, settings, log);
 	}
 }
 
-UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
+UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log) {
-	if (espIndex > 0xFF) {
+	if (espBase == kNoEsp) {
 		log("Spawns: no ESP, the lists as they are");
 		return 0;
 	}
-	const UInt32 variant = LookupForm(EspFormId(espIndex, kVariantLocalId));
+	const UInt32 variant = LookupForm(EspFormId(espBase, kVariantLocalId));
 	if (!LooksLikeObject(variant) || Read8(variant + kFormTypeOffset) != kFormTypeLeveledCreature) {
-		log("Spawns: %08X is no leveled creature list - the lists as they are", EspFormId(espIndex, kVariantLocalId));
+		log("Spawns: %08X is no leveled creature list - the lists as they are", EspFormId(espBase, kVariantLocalId));
 		return 0;
 	}
 	static bool s_countsWritten = false;
 	if (!s_countsWritten) {
 		s_countsWritten = true;
-		const UInt32 anyWalker = LookupForm(EspFormId(espIndex, kAnyWalkerLocalId));
+		const UInt32 anyWalker = LookupForm(EspFormId(espBase, kAnyWalkerLocalId));
 		if (LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
 			TrimAnyWalkerForMoo(anyWalker, mooLoaded, log);
 			WriteVariantCounts(variant, anyWalker, settings, log);
 		} else {
 			log("Spawns: %08X is no leveled creature list (an older ESP) - the variant list's counts as written",
-			    EspFormId(espIndex, kAnyWalkerLocalId));
+			    EspFormId(espBase, kAnyWalkerLocalId));
 		}
 	}
 	std::vector<char> section(kSectionBytes, '\0');
@@ -353,7 +353,7 @@ UInt32 ReplaceSpawns(UInt32 espIndex, const ReplaceSettings& settings, const cha
 				if (targetType != kFormTypeCreature && targetType != kFormTypeNpc) {
 					continue;
 				}
-				if (Decide(target, espIndex, section.data(), added, addedUsed, newLines, log)) {
+				if (Decide(target, espBase, section.data(), added, addedUsed, newLines, log)) {
 					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = variant;
 					++replaced;
 					touched = true;
@@ -428,7 +428,7 @@ const char* FullNameOf(UInt32 form) {
 
 }  // namespace
 
-void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espIndex, const RiseSettings& settings, LogFn log) {
+void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espBase, const RiseSettings& settings, LogFn log) {
 	const char* const name = settings.renameToWalker ? settings.walkerName : "Zombie";
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 walker = LookupForm(walkerIds[i]);
@@ -450,7 +450,7 @@ void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espIndex, const
 		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
 			const UInt32 form = Read(entry + kMapEntryFormOffset);
 			if (!LooksLikeObject(form) || Read8(form + kFormTypeOffset) != kFormTypeCreature ||
-			    (FormIdOf(form) >> 24) == espIndex) {
+			    IsEspForm(espBase, FormIdOf(form))) {
 				continue;
 			}
 			const char* before = FullNameOf(form);

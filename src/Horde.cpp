@@ -50,7 +50,7 @@ constexpr float kStepSeconds = 1.0f;
 
 HordeSettings g_settings;
 HordeState g_state;
-UInt32 g_espIndex = 0x100;
+UInt32 g_espBase = kNoEsp;
 UInt32 g_seed = 0x9E3779B9u;
 float g_clock = 0.0f;
 bool g_ready = false;
@@ -218,13 +218,13 @@ bool GuardLogDue() {
 }
 
 UInt32 GuardRecordOf(UInt32 city) {
-	const UInt32 form = LookupForm(EspFormId(g_espIndex, kGuardNpcLocalId + city));
+	const UInt32 form = LookupForm(EspFormId(g_espBase, kGuardNpcLocalId + city));
 	return LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeNpc ? form : 0;
 }
 
 // The pool guard's reference; 0 unless it is one of the city's guard.
 UInt32 PoolGuard(UInt32 city, UInt32 slot) {
-	const UInt32 ref = LookupForm(EspFormId(g_espIndex, PoolLocalId(city, slot)));
+	const UInt32 ref = LookupForm(EspFormId(g_espBase, PoolLocalId(city, slot)));
 	const UInt32 record = GuardRecordOf(city);
 	return LooksLikeObject(ref) && record != 0 && Read(ref + kRefBaseFormOffset) == record ? ref : 0;
 }
@@ -421,26 +421,26 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 
 }  // namespace
 
-void ConfigureHorde(const HordeSettings& settings, UInt32 espIndex, LogFn log) {
+void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log) {
 	g_settings = settings;
-	g_espIndex = espIndex;
+	g_espBase = espBase;
 	g_ready = false;
 	if (!settings.enabled) {
 		return;
 	}
-	if (espIndex > 0xFF) {
+	if (espBase == kNoEsp) {
 		log("Horde: no ESP - the walkers keep their own AI");
 		return;
 	}
 	g_settings.gates = HordeGates();
 	g_settings.gateCount = kCityGateCount;
-	g_settings.travelBase = EspFormId(espIndex, kTravelLocalId);
-	g_settings.followBase = EspFormId(espIndex, kFollowLocalId);
+	g_settings.travelBase = EspFormId(espBase, kTravelLocalId);
+	g_settings.followBase = EspFormId(espBase, kFollowLocalId);
 	UInt32 missing = 0;
 	for (UInt32 g = 0; g < kHordeGroups; ++g) {
 		missing += PackageForm(g_settings.travelBase + g) == 0 ? 1u : 0u;
 		missing += PackageForm(g_settings.followBase + g) == 0 ? 1u : 0u;
-		missing += LooksLikeObject(LookupForm(EspFormId(espIndex, kMarkerLocalId + g))) ? 0u : 1u;
+		missing += LooksLikeObject(LookupForm(EspFormId(espBase, kMarkerLocalId + g))) ? 0u : 1u;
 	}
 	if (missing != 0) {
 		log("Horde: %u of the ESP's horde records are missing (an older OblivionWalkers.esp?) - the walkers keep "
@@ -463,7 +463,7 @@ void ConfigureGuards(const GuardSettings& settings, LogFn log) {
 	if (!settings.enabled) {
 		return;
 	}
-	if (g_espIndex > 0xFF) {
+	if (g_espBase == kNoEsp) {
 		log("Guards: no ESP - no guards come out");
 		return;
 	}
@@ -488,7 +488,7 @@ void ConfigureGuards(const GuardSettings& settings, LogFn log) {
 bool IsGateGuard(UInt32 refId) {
 	UInt32 city = 0;
 	UInt32 slot = 0;
-	return g_espIndex <= 0xFF && (refId >> 24) == g_espIndex && PoolSlotOf(refId & 0x00FFFFFF, city, slot);
+	return IsEspForm(g_espBase, refId) && PoolSlotOf(EspLocalOf(g_espBase, refId), city, slot);
 }
 
 int HordeHeadingCity() {
@@ -647,7 +647,7 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 	for (UInt32 i = 0; i < ordered; ++i) {
 		const HordeOrder& o = orders[i];
 		if (o.kind == HordeOrder::MoveMarker) {
-			const UInt32 marker = LookupForm(EspFormId(g_espIndex, kMarkerLocalId + o.group));
+			const UInt32 marker = LookupForm(EspFormId(g_espBase, kMarkerLocalId + o.group));
 			const UInt32 leader = LookupForm(o.walker);
 			if (!LooksLikeObject(marker) || !LooksLikeObject(leader)) {
 				continue;

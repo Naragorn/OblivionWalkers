@@ -65,19 +65,19 @@ const char* EditionText(const Edition& edition) {
 
 float GameDaysNow() { return GameTime(); }
 
-void ConfigureNews(const NewsSettings& settings, UInt32 espIndex, LogFn log) {
+void ConfigureNews(const NewsSettings& settings, UInt32 espBase, LogFn log) {
 	g_settings = settings;
 	g_ready = false;
 	if (!settings.courier) {
 		return;
 	}
-	if (espIndex > 0xFF) {
+	if (espBase == kNoEsp) {
 		log("News: no ESP - the Courier keeps its old news");
 		return;
 	}
 	UInt32 missing = 0;
 	for (UInt32 i = 0; i < kEditionCount; ++i) {
-		const UInt32 book = LookupForm(EspFormId(espIndex, kEditionLocalId + i));
+		const UInt32 book = LookupForm(EspFormId(espBase, kEditionLocalId + i));
 		g_editions[i] = LooksLikeObject(book) && Read8(book + kFormTypeOffset) == kFormTypeBook ? book : 0;
 		missing += g_editions[i] == 0 ? 1u : 0u;
 	}
