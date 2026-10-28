@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "Bytes.h"
+#include "GrabLogic.h"
 #include "GuardLogic.h"
 #include "HordeLogic.h"
 #include "MissingLogic.h"
@@ -112,6 +113,9 @@ struct RiseSettings {
 	// 2026-10-26: the vanilla broadsheets only, "attacked" = guards out at
 	// the gate.
 	NewsSettings news;
+	// [Grab] (4.19, GrabLogic.h): a walker's hit may grab an arm - Nadi,
+	// 2026-10-28: the bites the player takes settable, 3 by default.
+	GrabSettings grab;
 	// [Zombies] Walk: the walkers never run (4.4) - a run their AI asks for
 	// becomes a walk, every frame, on the HighProcess movement flags.
 	bool walkOnly = true;

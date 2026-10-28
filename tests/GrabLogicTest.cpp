@@ -1,0 +1,316 @@
+// Every flow of being grabbed by walkers (docs/walkers-spec.md 4.19; Nadi,
+// 2026-10-28: "go a + b", the bites the player takes settable, 3 by default,
+// no third walker at the neck, a grab only at a landed hit): which arm, who
+// may grab, held and rooted, the bites, letting go, the message to OBVR.
+
+#include "GrabLogic.h"
+
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+
+namespace {
+
+int g_failures = 0;
+
+void Check(bool condition, const char* what) {
+	std::printf("  %s  %s\n", condition ? "ok  " : "FAIL", what);
+	if (!condition) {
+		++g_failures;
+	}
+}
+
+using walkers::Arm;
+using walkers::GrabEvent;
+using walkers::GrabRefusal;
+using walkers::GrabSettings;
+using walkers::GrabState;
+using walkers::HolderView;
+using walkers::LetGo;
+using walkers::PlayerHold;
+
+constexpr float kPi = 3.14159265f;
+
+void TestSide() {
+	std::printf("Which side a walker stands on\n");
+	// Heading 0 looks along +y; its right is +x.
+	Check(walkers::SideOf(0.0f, 50.0f, 80.0f) == Arm::Right, "facing north, a walker ahead and to the east: right");
+	Check(walkers::SideOf(0.0f, -50.0f, 80.0f) == Arm::Left, "facing north, ahead and to the west: left");
+	Check(walkers::SideOf(kPi / 2.0f, 0.0f, -70.0f) == Arm::Right,
+	      "facing east (heading pi/2), a walker to the south: right");
+	Check(walkers::SideOf(kPi / 2.0f, 0.0f, 70.0f) == Arm::Left, "facing east, to the north: left");
+	Check(walkers::SideOf(0.0f, 0.0f, 80.0f) == Arm::Right, "straight ahead: the right arm (the weapon arm first)");
+}
+
+void TestGrab() {
+	std::printf("Who may grab\n");
+	GrabSettings s;
+	GrabState g;
+	Arm arm = Arm::None;
+	Check(walkers::TryGrab(g, s, 0xFF000A01, Arm::Right, 10, &arm) == GrabRefusal::None && arm == Arm::Right &&
+	          g.count == 1,
+	      "a landed hit, rolled under the chance: the walker holds the arm on its side");
+	Check(walkers::Holds(g, 0xFF000A01) && !walkers::Holds(g, 0xFF000A02), "the holder is known, another is not");
+	Check(walkers::TryGrab(g, s, 0xFF000A01, Arm::Left, 10, &arm) == GrabRefusal::AlreadyHolding && g.count == 1,
+	      "the holder hits again: it holds already, nothing new");
+	Check(walkers::TryGrab(g, s, 0xFF000A02, Arm::Right, 10, &arm) == GrabRefusal::None && arm == Arm::Left &&
+	          g.count == 2,
+	      "a second walker on the held right side: it takes the free left arm");
+	Check(walkers::TryGrab(g, s, 0xFF000A03, Arm::Left, 0, &arm) == GrabRefusal::BothArmsHeld && g.count == 2,
+	      "a third: both arms held, no grab (no walker at the neck, Nadi 2026-10-28)");
+	GrabState fresh;
+	Check(walkers::TryGrab(fresh, s, 0xFF000A04, Arm::Left, 50, &arm) == GrabRefusal::NotRolled && fresh.count == 0,
+	      "rolled 50 against a chance of 50: no grab, the hit is only a hit");
+	Check(walkers::TryGrab(fresh, s, 0xFF000A04, Arm::Left, 49, &arm) == GrabRefusal::None,
+	      "rolled 49 against 50: grabbed");
+	GrabSettings off;
+	off.enabled = false;
+	GrabState none;
+	Check(walkers::TryGrab(none, off, 0xFF000A05, Arm::Left, 0, &arm) == GrabRefusal::Off && none.count == 0,
+	      "the setting off: never");
+	GrabSettings never;
+	never.chancePercent = 0;
+	Check(walkers::TryGrab(none, never, 0xFF000A05, Arm::Left, 0, &arm) == GrabRefusal::NotRolled,
+	      "a chance of 0: never");
+	GrabSettings always;
+	always.chancePercent = 100;
+	Check(walkers::TryGrab(none, always, 0xFF000A05, Arm::Left, 99, &arm) == GrabRefusal::None,
+	      "a chance of 100: always");
+	GrabState odd;
+	Check(walkers::TryGrab(odd, s, 0, Arm::Left, 0, &arm) == GrabRefusal::NoWalker && odd.count == 0,
+	      "no reference: nothing");
+	Check(walkers::ArmFor(g, Arm::Right) == Arm::None && walkers::ArmFor(GrabState{}, Arm::None) == Arm::Right,
+	      "no free arm: none; no side known: the right");
+}
+
+void TestHold() {
+	std::printf("Held and rooted\n");
+	GrabSettings s;
+	s.chancePercent = 100;
+	GrabState g;
+	Arm arm = Arm::None;
+	Check(walkers::HoldOf(g) == PlayerHold::Free, "nobody holds: free");
+	walkers::TryGrab(g, s, 0xFF000B01, Arm::Left, 0, &arm);
+	Check(walkers::HoldOf(g) == PlayerHold::Slowed, "one holder: slowed");
+	walkers::TryGrab(g, s, 0xFF000B02, Arm::Left, 0, &arm);
+	Check(walkers::HoldOf(g) == PlayerHold::Rooted, "two holders: rooted");
+	using walkers::kMoveBackward;
+	using walkers::kMoveForward;
+	using walkers::kMoveLeft;
+	using walkers::kMoveRight;
+	using walkers::kMoveRun;
+	using walkers::kMoveWalk;
+	const UInt16 running = kMoveForward | kMoveLeft | kMoveRun;
+	Check(walkers::HeldPlayerFlags(running, PlayerHold::Free) == running, "free: the player's flags untouched");
+	Check(walkers::HeldPlayerFlags(running, PlayerHold::Slowed) == (kMoveForward | kMoveLeft | kMoveWalk),
+	      "slowed: the run becomes a walk, the direction kept");
+	Check(walkers::HeldPlayerFlags(kMoveBackward | kMoveWalk, PlayerHold::Slowed) == (kMoveBackward | kMoveWalk),
+	      "slowed and walking already: as it was");
+	Check(walkers::HeldPlayerFlags(running | kMoveRight | kMoveBackward | 0x0400, PlayerHold::Rooted) == 0x0400,
+	      "rooted: no step in any direction, no run or walk; anything else kept");
+	Check(walkers::HolderFlags(kMoveForward | kMoveRun | 0x0400) == 0x0400,
+	      "the holder: no step and no pace either, it stands at the arm it holds");
+}
+
+HolderView Near(float distance = 80.0f) { return HolderView{true, false, distance}; }
+
+void TestBites() {
+	std::printf("The bites\n");
+	GrabSettings s;  // a bite every 4 s, the third kills
+	s.chancePercent = 100;
+	GrabState g;
+	Arm arm = Arm::None;
+	walkers::TryGrab(g, s, 0xFF000C01, Arm::Right, 0, &arm);
+	GrabEvent ev[8];
+	HolderView one[1] = {Near()};
+	Check(walkers::StepGrab(g, s, 3.9f, one, ev, 8) == 0, "held 3.9 s: no bite yet");
+	UInt32 n = walkers::StepGrab(g, s, 0.2f, one, ev, 8);
+	Check(n == 1 && ev[0].kind == GrabEvent::Bite && ev[0].refId == 0xFF000C01 && ev[0].biteNumber == 1 &&
+	          !ev[0].lethal && g.bites == 1,
+	      "at 4 s: the first bite, not the last");
+	n = walkers::StepGrab(g, s, 4.0f, one, ev, 8);
+	Check(n == 1 && ev[0].biteNumber == 2 && !ev[0].lethal, "4 s later the second");
+	n = walkers::StepGrab(g, s, 4.0f, one, ev, 8);
+	Check(n == 1 && ev[0].biteNumber == 3 && ev[0].lethal, "the third: the last the player takes (BitesToDie 3)");
+	GrabSettings five = s;
+	five.bitesToDie = 5;
+	GrabState g5;
+	walkers::TryGrab(g5, five, 0xFF000C02, Arm::Right, 0, &arm);
+	UInt32 lethalAt = 0;
+	for (UInt32 i = 1; i <= 6 && lethalAt == 0; ++i) {
+		if (walkers::StepGrab(g5, five, 4.0f, one, ev, 8) == 1 && ev[0].lethal) {
+			lethalAt = i;
+		}
+	}
+	Check(lethalAt == 5, "BitesToDie 5: the fifth bite is the last");
+	GrabState two;
+	walkers::TryGrab(two, s, 0xFF000C03, Arm::Right, 0, &arm);
+	walkers::StepGrab(two, s, 2.0f, one, ev, 8);
+	walkers::TryGrab(two, s, 0xFF000C04, Arm::Left, 0, &arm);
+	HolderView both[2] = {Near(), Near()};
+	n = walkers::StepGrab(two, s, 2.0f, both, ev, 8);
+	Check(n == 1 && ev[0].refId == 0xFF000C03, "two holders: each bites on its own clock, the first at its 4 s");
+	n = walkers::StepGrab(two, s, 2.0f, both, ev, 8);
+	Check(n == 1 && ev[0].refId == 0xFF000C04 && two.bites == 2,
+	      "the second at its own 4 s - two holders bite twice as often");
+	GrabState after;
+	walkers::TryGrab(after, s, 0xFF000C05, Arm::Right, 0, &arm);
+	walkers::TryGrab(after, s, 0xFF000C06, Arm::Left, 0, &arm);
+	n = walkers::StepGrab(after, s, 8.0f, both, ev, 8);
+	Check(n == 2 && after.bites == 2 && !ev[0].lethal && !ev[1].lethal, "a long frame: each holder bites once");
+	n = walkers::StepGrab(after, s, 4.0f, both, ev, 8);
+	Check(n == 1 && ev[0].lethal && after.bites == 3, "the lethal bite ends the step: no bite after the last");
+	Check(walkers::StepGrab(after, s, 4.0f, both, ev, 8) == 0, "and none after it, ever, until the state is reset");
+	GrabState capped;
+	walkers::TryGrab(capped, s, 0xFF000C07, Arm::Right, 0, &arm);
+	walkers::TryGrab(capped, s, 0xFF000C08, Arm::Left, 0, &arm);
+	Check(walkers::StepGrab(capped, s, 4.0f, both, ev, 1) == 1, "no more events than the caller holds");
+}
+
+void TestBiteDamage() {
+	std::printf("What a bite takes\n");
+	GrabSettings s;  // 20 % of the base health
+	bool kills = false;
+	Check(std::fabs(walkers::BiteDamage(s, 200.0f, 150.0f, false, false, &kills) - 40.0f) < 0.01f && !kills,
+	      "base 200, at 150: a bite takes 40");
+	Check(std::fabs(walkers::BiteDamage(s, 200.0f, 30.0f, false, false, &kills) - 30.0f) < 0.01f && kills,
+	      "at 30: the bite takes the rest - low health dies before the last bite (never below 0)");
+	Check(std::fabs(walkers::BiteDamage(s, 200.0f, 150.0f, true, false, &kills) - 150.0f) < 0.01f && kills,
+	      "the last bite: all that is left");
+	Check(std::fabs(walkers::BiteDamage(s, 200.0f, 150.0f, true, true, &kills) - 149.0f) < 0.01f && !kills,
+	      "the last bite in god mode: one point is left, the player lives");
+	Check(std::fabs(walkers::BiteDamage(s, 200.0f, 30.0f, false, true, &kills) - 29.0f) < 0.01f && !kills,
+	      "a bite at low health in god mode: one point left");
+	Check(walkers::BiteDamage(s, 200.0f, 0.5f, false, true, &kills) == 0.0f && !kills,
+	      "god mode under one point: nothing taken");
+	Check(walkers::BiteDamage(s, 200.0f, -1.0f, false, false, &kills) == 0.0f && !kills,
+	      "health not read: nothing taken");
+	GrabSettings none = s;
+	none.biteHealthPercent = 0;
+	Check(walkers::BiteDamage(none, 200.0f, 150.0f, false, false, &kills) == 0.0f && !kills,
+	      "BiteHealthPercent 0: a bite takes nothing, only the last kills");
+}
+
+void TestLetGo() {
+	std::printf("Letting go\n");
+	GrabSettings s;  // two hits free, torn free beyond 160
+	s.chancePercent = 100;
+	GrabState g;
+	Arm arm = Arm::None;
+	walkers::TryGrab(g, s, 0xFF000D01, Arm::Right, 0, &arm);
+	walkers::TryGrab(g, s, 0xFF000D02, Arm::Left, 0, &arm);
+	Check(!walkers::OnStruck(g, s, 0xFF000D01) && g.count == 2, "the player's first blow on a holder: still held");
+	Check(walkers::OnStruck(g, s, 0xFF000D01) && g.count == 1 && !walkers::Holds(g, 0xFF000D01),
+	      "the second blow: it lets go (StruggleHits 2)");
+	Check(!walkers::OnStruck(g, s, 0xFF000D09), "a blow on a walker that holds nothing: nothing");
+	GrabEvent ev[8];
+	HolderView dead[1] = {HolderView{true, true, 80.0f}};
+	UInt32 n = walkers::StepGrab(g, s, 0.1f, dead, ev, 8);
+	Check(n == 1 && ev[0].kind == GrabEvent::Release && ev[0].why == LetGo::Dead && ev[0].arm == Arm::Left &&
+	          g.count == 0,
+	      "a holder cut down: it lets go");
+	walkers::TryGrab(g, s, 0xFF000D03, Arm::Right, 0, &arm);
+	HolderView far[1] = {HolderView{true, false, 161.0f}};
+	n = walkers::StepGrab(g, s, 0.1f, far, ev, 8);
+	Check(n == 1 && ev[0].why == LetGo::TornFree && g.count == 0,
+	      "the player 161 units from the holder: torn free (with one holder the player can still walk)");
+	walkers::TryGrab(g, s, 0xFF000D04, Arm::Right, 0, &arm);
+	HolderView gone[1] = {HolderView{false, false, 0.0f}};
+	n = walkers::StepGrab(g, s, 0.1f, gone, ev, 8);
+	Check(n == 1 && ev[0].why == LetGo::Gone && g.count == 0, "a holder not found any more: gone");
+	walkers::TryGrab(g, s, 0xFF000D05, Arm::Right, 0, &arm);
+	walkers::TryGrab(g, s, 0xFF000D06, Arm::Left, 0, &arm);
+	HolderView mixed[2] = {HolderView{true, true, 80.0f}, Near()};
+	n = walkers::StepGrab(g, s, 0.1f, mixed, ev, 8);
+	Check(n == 1 && g.count == 1 && g.holders[0].refId == 0xFF000D06,
+	      "the first of two lets go: the other moves up, its view next step at index 0");
+	Check(walkers::ReleaseHolder(g, 0xFF000D06) && g.count == 0 && !walkers::ReleaseHolder(g, 0xFF000D06),
+	      "let go when asked (OBVR's shake); asked again: nothing");
+	GrabSettings one = s;
+	one.struggleHits = 1;
+	walkers::TryGrab(g, one, 0xFF000D07, Arm::Right, 0, &arm);
+	Check(walkers::OnStruck(g, one, 0xFF000D07), "StruggleHits 1: one blow frees");
+	GrabSettings zero = s;
+	zero.struggleHits = 0;
+	walkers::TryGrab(g, zero, 0xFF000D08, Arm::Right, 0, &arm);
+	Check(walkers::OnStruck(g, zero, 0xFF000D08), "StruggleHits 0 counts as 1: a blow frees");
+}
+
+void TestBitesForgotten() {
+	std::printf("The bites forgotten\n");
+	GrabSettings s;  // 30 s free and the bites are forgotten
+	s.chancePercent = 100;
+	GrabState g;
+	Arm arm = Arm::None;
+	GrabEvent ev[4];
+	HolderView one[1] = {Near()};
+	walkers::TryGrab(g, s, 0xFF000E01, Arm::Right, 0, &arm);
+	walkers::StepGrab(g, s, 4.0f, one, ev, 4);
+	walkers::StepGrab(g, s, 4.0f, one, ev, 4);
+	walkers::ReleaseHolder(g, 0xFF000E01);
+	Check(g.bites == 2, "two bites, then free");
+	walkers::StepGrab(g, s, 29.0f, nullptr, ev, 4);
+	Check(g.bites == 2, "29 s free: still two");
+	walkers::TryGrab(g, s, 0xFF000E02, Arm::Right, 0, &arm);
+	walkers::StepGrab(g, s, 0.5f, one, ev, 4);
+	walkers::ReleaseHolder(g, 0xFF000E02);
+	walkers::StepGrab(g, s, 29.0f, nullptr, ev, 4);
+	Check(g.bites == 2, "grabbed again in between: the free time starts anew");
+	walkers::StepGrab(g, s, 1.5f, nullptr, ev, 4);
+	Check(g.bites == 0, "30 s free in one go: forgotten, the next grab starts from no bite");
+	walkers::TryGrab(g, s, 0xFF000E03, Arm::Right, 0, &arm);
+	const UInt32 n = walkers::StepGrab(g, s, 4.0f, one, ev, 4);
+	Check(n == 1 && ev[0].biteNumber == 1, "a new holder's first bite comes after its full 4 s and counts 1");
+	walkers::ResetGrab(g);
+	Check(g.count == 0 && g.bites == 0, "a load or a new game: nobody holds, no bite counts");
+}
+
+void TestMessage() {
+	std::printf("The message to OBVR\n");
+	GrabSettings s;
+	s.chancePercent = 100;
+	GrabState g;
+	Arm arm = Arm::None;
+	UInt32 words[walkers::kGrabMessageWords];
+	Check(walkers::GrabMessage(g, words) == 4 && words[0] == 0, "nobody holds: the count 0 alone");
+	walkers::TryGrab(g, s, 0xFF000F01, Arm::Right, 0, &arm);
+	walkers::TryGrab(g, s, 0xFF000F02, Arm::Left, 0, &arm);
+	const UInt32 bytes = walkers::GrabMessage(g, words);
+	Check(bytes == 20 && words[0] == 2 && words[1] == 0xFF000F01 && words[2] == 2 && words[3] == 0xFF000F02 &&
+	          words[4] == 1,
+	      "two holders: the count, then each reference with its arm (1 left, 2 right)");
+	Check(walkers::kGrabStateMessage == 0x42524757 && walkers::kGrabFreeMessage == 0x52464757,
+	      "the types read 'WGRB' and 'WGFR' in memory");
+	const UInt32 request = 0xFF000F02;
+	UInt32 ref = 0;
+	Check(walkers::FreeRequestOf(&request, 4, ref) && ref == 0xFF000F02, "OBVR's free request: the holder to free");
+	Check(!walkers::FreeRequestOf(&request, 3, ref) && !walkers::FreeRequestOf(nullptr, 4, ref),
+	      "a request too short or without data: none");
+}
+
+void TestRefusalNames() {
+	std::printf("The log's words\n");
+	Check(std::strcmp(walkers::LetGoName(LetGo::TornFree), "torn free") == 0 &&
+	          std::strcmp(walkers::LetGoName(LetGo::Struck), "struck off") == 0 &&
+	          std::strcmp(walkers::LetGoName(LetGo::PlayerDown), "the player is down") == 0 &&
+	          std::strcmp(walkers::LetGoName(LetGo::SwitchedOff), "the grab switched off") == 0 &&
+	          std::strcmp(walkers::ArmName(Arm::Left), "left") == 0 &&
+	          std::strcmp(walkers::RefusalName(GrabRefusal::BothArmsHeld), "both arms held") == 0,
+	      "each reason has its words");
+}
+
+}  // namespace
+
+int main() {
+	TestSide();
+	TestGrab();
+	TestHold();
+	TestBites();
+	TestBiteDamage();
+	TestLetGo();
+	TestBitesForgotten();
+	TestMessage();
+	TestRefusalNames();
+	std::printf("%s (%d failed)\n", g_failures == 0 ? "PASS" : "FAIL", g_failures);
+	return g_failures == 0 ? 0 : 1;
+}

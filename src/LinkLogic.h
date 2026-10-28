@@ -33,10 +33,10 @@ inline constexpr const char* kLinkQuestEditorId = "Walkers";
 inline constexpr UInt32 kLinkQuestLocalId = 0x94B;
 inline constexpr UInt32 kLinkScriptLocalId = 0x94C;
 inline constexpr const char* kLinkVersionVariable = "ini_version";
-// Raised whenever a variable is added (2: NoSkillGain, 2026-10-27), so a save
-// of the version before takes the plugin INI's values again - the new
-// variable would read 0 otherwise.
-inline constexpr double kLinkVersion = 2.0;
+// Raised whenever a variable is added (2: NoSkillGain, 2026-10-27; 3: the
+// grab's three, 2026-10-28), so a save of the version before takes the
+// plugin INI's values again - the new variable would read 0 otherwise.
+inline constexpr double kLinkVersion = 3.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -69,7 +69,7 @@ struct LinkHeader {
 };
 
 inline constexpr LinkHeader kLinkHeaders[] = {
-	{0, "The dead rise"}, {8, "Walkers"}, {16, "Spawns"}, {20, "Hordes, gate guards and news"}, {27, "Training"},
+	{0, "The dead rise"}, {8, "Walkers"}, {16, "Spawns"}, {20, "Hordes, gate guards and news"}, {27, "Training"}, {28, "Grabbed"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -128,6 +128,12 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 1, 0, false, LinkEffect::Horde},
 	{"ini_no_skill_gain", "No skill from walkers", "Blows on and from walkers train no skill (weapon, block, armor).",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_enabled", "Walkers grab", "A walker's hit may grab an arm: one slows you, two hold you, they bite.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_chance", "Chance to grab", "How often a walker's hit grabs an arm.", LinkKind::Slider, 0, 100, 5, 0, true,
+	 LinkEffect::Live},
+	{"ini_grab_bites", "Bites you take", "The last of these bites kills. Strike a holder twice to break free.",
+	 LinkKind::Slider, 1, 10, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 
@@ -162,6 +168,9 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 25: return rise.safeguard.enabled ? 1.0 : 0.0;
 		case 26: return rise.news.courier ? 1.0 : 0.0;
 		case 27: return rise.noSkillGain ? 1.0 : 0.0;
+		case 28: return rise.grab.enabled ? 1.0 : 0.0;
+		case 29: return rise.grab.chancePercent;
+		case 30: return rise.grab.bitesToDie;
 		default: return 0.0;
 	}
 }
@@ -214,6 +223,9 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 25: rise.safeguard.enabled = on; break;
 		case 26: rise.news.courier = on; break;
 		case 27: rise.noSkillGain = on; break;
+		case 28: rise.grab.enabled = on; break;
+		case 29: rise.grab.chancePercent = whole; break;
+		case 30: rise.grab.bitesToDie = whole; break;
 		default: return false;
 	}
 	return true;

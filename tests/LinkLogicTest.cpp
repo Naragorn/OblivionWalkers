@@ -43,7 +43,8 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 28, "28 settings: the 26 agreed, NoLevelingXP and NoSkillGain");
+	Check(kLinkSettingCount == 31,
+	      "31 settings: the 26 agreed, NoLevelingXP, NoSkillGain and the grab's three (on, chance, bites)");
 	Check(unique && prefixed && ranged, "each its own variable, named ini_..., a range from low to high");
 	Check(std::strcmp(walkers::kLinkQuestEditorId, "Walkers") == 0 && walkers::kLinkQuestLocalId == 0x94B &&
 	          walkers::kLinkScriptLocalId == 0x94C,
@@ -78,6 +79,19 @@ void TestValues() {
 	Check(walkers::SetLinkValue(rise, replace, maxCount, 4.0) && replace.maxCount == 4, "a spawn setting");
 	Check(walkers::SetLinkValue(rise, replace, courier, 0.0) && !rise.news.courier, "a news setting");
 	Check(walkers::SetLinkValue(rise, replace, guardsHealth, 2.5) && rise.guards.healthFactor == 2.5f, "a guard setting");
+	const int grab = IndexOf("ini_grab_enabled");
+	const int grabChance = IndexOf("ini_grab_chance");
+	const int bites = IndexOf("ini_grab_bites");
+	Check(grab >= 0 && grabChance >= 0 && bites >= 0 && walkers::LinkValue(rise, replace, grab) == 1.0 &&
+	          walkers::LinkValue(rise, replace, grabChance) == 50.0 && walkers::LinkValue(rise, replace, bites) == 3.0,
+	      "the grab: on, a chance of 50, three bites - the INI's defaults");
+	Check(walkers::SetLinkValue(rise, replace, grab, 0.0) && !rise.grab.enabled &&
+	          walkers::SetLinkValue(rise, replace, grabChance, 80.0) && rise.grab.chancePercent == 80 &&
+	          walkers::SetLinkValue(rise, replace, bites, 5.0) && rise.grab.bitesToDie == 5,
+	      "the grab's settings set from the menu");
+	Check(walkers::SetLinkValue(rise, replace, bites, 0.0) && rise.grab.bitesToDie == 1 &&
+	          walkers::SetLinkValue(rise, replace, bites, 50.0) && rise.grab.bitesToDie == 10,
+	      "the bites held to 1..10");
 	Check(!walkers::SetLinkValue(rise, replace, kLinkSettingCount, 1.0) &&
 	          walkers::LinkValue(rise, replace, kLinkSettingCount) == 0.0,
 	      "no such setting: nothing");
@@ -108,8 +122,10 @@ void TestEffects() {
 	          kLinkSettings[IndexOf("ini_courier")].effect == LinkEffect::Horde,
 	      "horde, guards and news: configured anew");
 	Check(kLinkSettings[IndexOf("ini_rise_enabled")].effect == LinkEffect::Live &&
-	          kLinkSettings[IndexOf("ini_no_skill_gain")].effect == LinkEffect::Live,
-	      "the rise and the skills: read where they are used");
+	          kLinkSettings[IndexOf("ini_no_skill_gain")].effect == LinkEffect::Live &&
+	          kLinkSettings[IndexOf("ini_grab_enabled")].effect == LinkEffect::Live &&
+	          kLinkSettings[IndexOf("ini_grab_bites")].effect == LinkEffect::Live,
+	      "the rise, the skills and the grab: read where they are used");
 }
 
 void TestStart() {
@@ -135,7 +151,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 2\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 3\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

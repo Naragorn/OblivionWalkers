@@ -19,7 +19,7 @@ target_include_directories(logic INTERFACE src)
 add_library(plugin_entry STATIC src/PluginEntry.cpp)
 target_include_directories(plugin_entry PUBLIC src)
 
-add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp src/News.cpp src/QuestVars.cpp)
+add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp src/News.cpp src/QuestVars.cpp src/Grab.cpp)
 target_include_directories(rise PUBLIC src)
 
 add_library(OblivionWalkers SHARED src/Plugin.cpp)

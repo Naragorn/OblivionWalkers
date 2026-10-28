@@ -1,0 +1,60 @@
+# Grabbed by walkers (docs/walkers-spec.md 4.19): a walker (0x801) placed
+# before the player in god mode; its first landed hit grabs (the run's
+# plugin INI has [Grab] ChancePercent=100). OblivionWalkers.log (copied into
+# the run's folder by hand) should read:
+#   - "Grab: walker ... holds the player's right arm ... the hold played: 1",
+#     the player "slowed to a walk";
+#   - at back-1 the player walks backward on the stick: "the player slowed to
+#     a walk moved N units" with N above 0, and once 160 units off "lets go -
+#     torn free" (the let-go played);
+#   - the walker comes after the player and grabs again; a second walker
+#     (0x90E) placed at the player's left takes the left arm: "rooted";
+#   - at back-2 the stick backward again: "the player rooted moved 0 units"
+#     (still), then the bites every 4 s, "bite 1 of 3" .. "bite 3 of 3, the
+#     last" - god mode leaves a point - and both let go ("the player is
+#     down"), then grab anew.
+# The pictures at the marks show the hold (arms forward), the bite, the let-go.
+# Not run here: the player's blows on a holder (StruggleHits) - the harness
+# swings no weapon into a walker; covered by GrabLogicTest only.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/grab-hold.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 11000801 1 150 0
+console-at second player.placeatme 1100090E 1 120 2
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 14
+mark held-1
+left stick 0 -1
+wait 4
+mark back-1
+left stick 0 0
+wait 10
+mark again
+wait 1
+mark second
+wait 14
+mark held-2
+left stick 0 -1
+wait 4
+mark back-2
+left stick 0 0
+wait 14
+mark bites
+wait 6
+mark end
+
+moved held-1 back-1 40
+still held-2 back-2 20

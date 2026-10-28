@@ -66,6 +66,11 @@ index at runtime):
          MODT and the ACBS arm flags go with the arms) - with the donor's
          NIFZ and, without a head among the parts, ACBS's No Head (0x8000,
          UESP Tes4Mod:Mod_File_Format/CREA): the walkers' stats stay one.
+  0x94D..0x952  IDLE WalkersGrab{Hold,Bite,LetGo}{Zombie,Moo} - the grab's
+         animations (4.19, tools/grab-anims.py) beneath each zombie
+         skeleton's IdleAnims, after the zombie's IdleSway (0002ACCD) in the
+         idle tree, each with a condition never true (GetRandomPercent < 0)
+         so no zombie plays them but by the plugin.
   0x91E..0x949  CREA WalkersZombie21..64 "Walker" - MOO's looks (Nadi,
          2026-10-27): the part sets on Maskar's Oblivion Overhaul's zombie
          skeleton, its default 0x91E..0x925, Argonian 0x926..0x92F, Orc
@@ -147,7 +152,21 @@ LOCAL_LINK_QUEST_ID = 0x94B  # LinkLogic.h kLinkQuestLocalId
 LOCAL_LINK_SCRIPT_ID = 0x94C  # LinkLogic.h kLinkScriptLocalId
 LINK_QUEST_EDID = "Walkers"  # LinkLogic.h kLinkQuestEditorId
 LINK_SCRIPT_EDID = "WalkersLinkScript"
-LOCAL_TEST_POOL_FIRST = 0x94D
+# IDLE WalkersGrab* (4.19, GrabLogic.h): the grab's three animations
+# (tools/grab-anims.py) for each zombie skeleton, the vanilla one's first.
+GRAB_ANIMS = [("Hold", "WalkersGrabHold.kf"), ("Bite", "WalkersGrabBite.kf"), ("LetGo", "WalkersGrabLetGo.kf")]
+GRAB_SKELETONS = [("Zombie", "Creatures\\Zombie\\IdleAnims"), ("Moo", "MOO\\zombie\\IdleAnims")]
+LOCAL_GRAB_IDLE_FIRST = 0x94D  # Grab.cpp kGrabIdleLocalFirst: hold, bite, let go; then MOO's three
+# The zombie skeleton's last idle in Oblivion.esm (CreaturesZombieIdleAnimsIdleSway,
+# read 2026-10-28): the grab's idles follow it in the idle tree.
+ZOMBIE_LAST_IDLE = 0x0002ACCD
+# A condition never true, GetRandomPercent (77) < 0, so the idle manager never
+# picks them for a zombie on its own - the plugin plays them (CTDA as
+# Oblivion.esm's: type and compare (0x80 less than), value, function, two
+# parameters, unused).
+NEVER = struct.pack("<B3xfIIII", 0x80, 0.0, 77, 0, 0, 0)
+IDLE_SPECIAL = 0x04  # ANAM: the animation group section Special Idle, as the zombie's IdleSway
+LOCAL_TEST_POOL_FIRST = LOCAL_GRAB_IDLE_FIRST + len(GRAB_ANIMS) * len(GRAB_SKELETONS)
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -475,6 +494,15 @@ def build_link_script(names: list[str]) -> bytes:
     return out
 
 
+def build_grab_idle(edid: str, path: str, previous: int) -> bytes:
+    """EDID, MODL (the KF beneath the skeleton's folder), MODB, the never-true
+    condition, ANAM, DATA (no parent, the sibling before it) - as Oblivion.esm's
+    zombie idles."""
+    return (subrecord(b"EDID", zstring(edid)) + subrecord(b"MODL", zstring(path))
+            + subrecord(b"MODB", struct.pack("<f", 0.0)) + subrecord(b"CTDA", NEVER)
+            + subrecord(b"ANAM", bytes([IDLE_SPECIAL])) + subrecord(b"DATA", struct.pack("<II", 0, previous)))
+
+
 def build_link_quest(script_form: int) -> bytes:
     """The quest LINK's settings live in: EDID, SCRI its script, DATA flags
     1 (start game enabled) and priority 0, like ULVLOBSEInit."""
@@ -593,6 +621,15 @@ def main() -> int:
     edition_forms = [index | local for local in LOCAL_EDITION_IDS]
     books = b"".join(record(b"BOOK", form, build_edition(broadsheet, edid, title, text))
                      for form, (edid, title, text) in zip(edition_forms, edition_texts))
+    idle_forms = []
+    idles = b""
+    for k, (skeleton, folder) in enumerate(GRAB_SKELETONS):
+        previous = ZOMBIE_LAST_IDLE if k == 0 else 0
+        for a, (anim, kf) in enumerate(GRAB_ANIMS):
+            form = index | (LOCAL_GRAB_IDLE_FIRST + k * len(GRAB_ANIMS) + a)
+            idles += record(b"IDLE", form, build_grab_idle(f"WalkersGrab{anim}{skeleton}", f"{folder}\\{kf}", previous))
+            idle_forms.append(form)
+            previous = form
     link_names = link_variables()
     link_script_form = index | LOCAL_LINK_SCRIPT_ID
     link_quest_form = index | LOCAL_LINK_QUEST_ID
@@ -601,10 +638,10 @@ def main() -> int:
             + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool)
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
-            + group(b"PACK", packages))
-    groups = 5 + 5 + 1 + 2
+            + group(b"PACK", packages) + group(b"IDLE", idles))
+    groups = 5 + 5 + 1 + 2 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2)
+               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms))
     plugin = header(num_records=groups + records,
                     next_object_id=LOCAL_TEST_POOL_FIRST + test_pool,
                     masters=masters) + body
@@ -693,6 +730,13 @@ def main() -> int:
         back = dict(find_record(esm, plugin, b"BOOK", form))
         if back[b"FULL"].rstrip(b"\0").decode("latin-1") != title or back[b"MODL"] != dict(broadsheet)[b"MODL"]:
             raise SystemExit(f"edition {edid} reads back wrong")
+    for form in idle_forms:
+        back = dict(find_record(esm, plugin, b"IDLE", form))
+        if back[b"CTDA"] != NEVER or not back[b"MODL"].rstrip(b"\0").lower().endswith(b".kf") \
+                or back[b"ANAM"] != bytes([IDLE_SPECIAL]):
+            raise SystemExit(f"grab idle {form:08X} reads back wrong")
+    if LOCAL_GRAB_IDLE_FIRST != LOCAL_LINK_SCRIPT_ID + 1:
+        raise SystemExit("the grab's idles are not right after the LINK script")
     if LOCAL_EDITION_IDS[0] <= LOCAL_POOL_IDS[-1]:
         raise SystemExit("the editions overlap the guard pool")
     if (pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F
@@ -707,6 +751,7 @@ def main() -> int:
           + f"PACK {travel_forms[0]:08X}.. travel and {follow_forms[0]:08X}.. follow x{HORDE_GROUPS}, CELL {cell_form:08X} "
           + f"{CELL_EDID} with markers {marker_forms[0]:08X}..{marker_forms[-1]:08X} and {len(pool_forms)} pool guards "
           + f"{pool_forms[0]:08X}..{pool_forms[-1]:08X} of NPC_ {guard_forms[0]:08X}..{guard_forms[-1]:08X}; "
+          + f"IDLE {idle_forms[0]:08X}..{idle_forms[-1]:08X} the grab's animations; "
           "every other subrecord as the originals'")
     return 0
 

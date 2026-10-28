@@ -1443,7 +1443,7 @@ now 0". Seen too: the first write comes before the save's quest data is
 read and is done again after it (two such lines) - harmless. Not run: the
 menu itself (Nadi's, Windows).
 
-### 4.19 Grabbed and overwhelmed - `[Grab]` (feasibility study 2026-10-28, not built)
+### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=50`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=160`, `BiteResetSeconds=30` (built 2026-10-28, A + B)
 
 What (Nadi, 2026-10-28: "wenn von zuvielen zombies umzingelt, greifen oder
 halten die einen fest und iwann ist man tot... also so wie Saints and
@@ -1544,6 +1544,70 @@ forward that B could start from.
 Open, Nadi's to decide: instant death when overwhelmed, or bites until
 dead; the third walker at the neck (S&S dropped it); whether a grab should
 also come from the walkers' own attack start rather than a landed hit.
+
+Decided (Nadi, 2026-10-28: "go a + b. 1) einstellbar wieviele bisse player
+aushält, default 3 2) nein 3) treffer"): the player takes `BitesToDie`
+bites, the last kills; no walker at the neck; a grab only at a landed hit.
+
+**Built 2026-10-28** (`GrabLogic.h`, `Grab.cpp`, `tools/grab-anims.py`, the
+ESP's IDLE 0x94D..0x952):
+
+- The grab: xOBSE's OnHit (the rise's handler) hands each hit on; at the
+  next frame a walker's hit on the player grabs by the chance the arm on
+  the walker's side (`SideOf`: the player's heading at +0x28), the other
+  when that one is held, none when both are. The player's landed blows on a
+  holder count toward `StruggleHits`.
+- Held: every frame the holder's HighProcess movement flags (+0x1FC) lose
+  every step and pace (it stands), the player's lose the run with one
+  holder and every step with two (`HeldPlayerFlags`) - nothing is in the
+  save, a load starts free.
+- The bites: each holder on its own clock; the damage through xOBSE's
+  `ModAV2 Health -N` (the damage modifier, its docs via deepwiki), a bite
+  that leaves nothing through `Kill <holder>`; god mode (0x0065D820, as
+  OBVR reads it) leaves a point. After the last bite every holder lets go.
+- The animations (option B): `tools/grab-anims.py` reads the zombie's own
+  KFs out of Oblivion - Meshes.bsa and writes WalkersGrabHold.kf
+  (Walk01ArmsUp's upper body, a loop at priority 70), WalkersGrabBite.kf
+  (the forward power attack's spine, neck and head with the hold's arms, a
+  clamp of 1.67 s) and WalkersGrabLetGo.kf (Stagger whole) beneath
+  Creatures\Zombie\IdleAnims and MOO\zombie\IdleAnims (MOO's zombie
+  skeleton has the same 69 bones by name, read with pyffi). The ESP's IDLE
+  records name them, follow the zombie's IdleSway (0002ACCD) in the idle
+  tree and carry a condition never true (GetRandomPercent < 0), so no
+  zombie picks them on its own. The plugin plays them as xOBSE's PlayIdle
+  does (the anim data from the actor's virtual +0x164, then 0x00477DB0
+  thiscall (idle, actor, 4, 3), "ret 10h" read with llvm-objdump), the hold
+  asked again each second (a no-op while it plays).
+- OBVR: the holders go to OBVR as message 'WGRB' (count, then reference
+  and arm per holder) whenever one takes hold or lets go; a 'WGFR' from
+  OBVR (one word, the holder) lets that one go - the shake of the held arm
+  in VR is OBVR's to build; until then VR players strike or tear free as
+  flat ones do.
+- LINK: "Walkers grab", "Chance to grab", "Bites you take" under the header
+  Grabbed (version 3, so a save of version 2 takes the INI's values again).
+
+**Deviations, named:**
+- The holder's own blows go on while it holds: the grab does not take the
+  hit's damage away (the design's "instead of the blow's damage"); the hold
+  at priority 70 covers its swing. Taking the damage away needs a hook in
+  the hit's damage path - not looked for.
+- A power attack does not free a holder at once: OnHit does not say whether
+  the blow was a power attack; every landed blow counts toward StruggleHits.
+- A bite at low health can kill before the last bite: a bite is damage, the
+  count is when death comes at the latest.
+- The bites are forgotten after BiteResetSeconds free - my choice, so a
+  fight hours ago does not count; Nadi's to change.
+- No infection from a bite: 4.14 is not built.
+
+**Not yet seen in the game:** whether the flags written in the frame tick
+hold against the player's own input (the walk of 4.4 holds against a
+walker's AI; the player's input may write them again before the move), and
+whether the engine plays the script-made KFs (NonAccum, priorities) and
+ends the hold's loop with the let-go - `harness/grab-hold.txt` is the run
+for both.
+
+Test: `GrabLogicTest` (every flow of side, grab, hold, bites, damage, let
+go, forgetting, the message), `LinkLogicTest` (the three settings).
 
 ### Later (named by Nadi, not in the first build)
 

@@ -1,6 +1,7 @@
 #include "Rise.h"
 
 #include "Engine.h"
+#include "Grab.h"
 #include "Horde.h"
 #include "LevelingLogic.h"
 #include "LinkLogic.h"
@@ -224,6 +225,22 @@ bool IsWalkerRef(UInt32 ref) {
 
 bool ConsoleOn(UInt32 ref, const char* line);
 
+// Whether the walker `refId` wears one of MOO's looks - MOO's zombie
+// skeleton, whose idles lie beneath MOO\zombie (the grab, 4.19).
+bool OnMooSkeleton(UInt32 refId) {
+	const UInt32 ref = LookupForm(refId);
+	if (!LooksLikeObject(ref)) {
+		return false;
+	}
+	const UInt32 baseId = FormIdOf(Read(ref + kRefBaseFormOffset));
+	for (UInt32 w = 0; w < g_walkerCount; ++w) {
+		if (g_walkers[w] == baseId) {
+			return g_walkerFamilies[w] != LookFamily::Vanilla;
+		}
+	}
+	return false;
+}
+
 // NoSkillGain (SkillLogic.h): the frame's last hit, from xOBSE's OnHit, and
 // the player's skill use behind it.
 UInt32 g_frame = 0;
@@ -245,6 +262,7 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	g_lastHit.frame = g_frame;
 	g_lastHit.target = reinterpret_cast<UInt32>(arg0);
 	g_lastHit.attacker = reinterpret_cast<UInt32>(arg1);
+	GrabOnHit(g_lastHit.target, g_lastHit.attacker);
 	if (g_hitLinesLeft > 0) {
 		--g_hitLinesLeft;
 		g_log("Hit: %08X hit by %08X (frame %u; this %08X)", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker),
@@ -711,6 +729,7 @@ void FindWalkers() {
 	ConfigureHorde(g_settings.horde, index, g_log);
 	ConfigureGuards(g_settings.guards, g_log);
 	ConfigureNews(g_settings.news, index, g_log);
+	ConfigureGrabIdles(index);
 }
 
 // Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
@@ -1799,6 +1818,7 @@ void Tick() {
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepGrabInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
 		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
@@ -1877,6 +1897,7 @@ void OnLoad(void*) {
 	g_safeguardClock = 0.0f;
 	g_unclaimedCount = 0;
 	ResetHorde();
+	ResetGrabInGame();
 	CurrentNews() = NewsState{};
 	g_banished.clear();
 	if (g_replace.enabled) {
@@ -1965,6 +1986,7 @@ void OnNewGame(void*) {
 	g_safeguardClock = 0.0f;
 	g_unclaimedCount = 0;
 	ResetHorde();
+	ResetGrabInGame();
 	CurrentNews() = NewsState{};
 	g_banished.clear();
 	if (g_replace.enabled) {
@@ -2046,6 +2068,15 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 		g_serialization = nullptr;
 		log("No serialization interface: the waiting list lives for the session only");
 	}
+	GrabServices grab{};
+	grab.console = &ConsoleOn;
+	grab.dead = &IsDead;
+	grab.isWalker = &IsWalkerRef;
+	grab.onMooSkeleton = &OnMooSkeleton;
+	grab.highProcess = &HighProcessOf;
+	grab.roll = &NextRandom;
+	grab.log = log;
+	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	return true;
 }
 

@@ -6,8 +6,12 @@
 #
 #   tools/build-linux.sh            tests, then the DLL into build-linux/
 #   tools/build-linux.sh --deploy   also copy the DLL (and the INI, if none is
-#                                   there yet) into every game's Data/OBSE/Plugins
-#                                   - refused while Oblivion runs
+#                                   there yet) into every game's Data/OBSE/Plugins,
+#                                   the ESP (tools/esp-write.py, its file time in
+#                                   the game kept - the load order goes by it) and
+#                                   the grab's animations (tools/grab-anims.py,
+#                                   build-linux/meshes) into its Data - refused
+#                                   while Oblivion runs
 #
 # The games: WALKERS_GAME_DIRS (colon-separated) or the two Steam copies on
 # this machine, the Linux one and the Windows one.
@@ -17,6 +21,27 @@ deploy=0
 if [[ "${1:-}" == "--deploy" ]]; then
 	deploy=1
 fi
+
+# A folder beneath `base`, each part matched without regard to case (the
+# games hold both Meshes and meshes; Windows sees one): the part as written
+# if it is there, else any spelling of it, else made as written.
+resolve_dir() {
+	local base="$1" rel="$2" part found
+	IFS='/' read -r -a parts <<< "$rel"
+	for part in "${parts[@]}"; do
+		if [[ -d "$base/$part" ]]; then
+			base="$base/$part"
+			continue
+		fi
+		found="$(find "$base" -mindepth 1 -maxdepth 1 -type d -iname "$part" -print -quit)"
+		if [[ -z "$found" ]]; then
+			mkdir -p "$base/$part"
+			found="$base/$part"
+		fi
+		base="$found"
+	done
+	printf '%s\n' "$base"
+}
 
 # The game, if it runs: the process whose program is Oblivion.exe (under
 # Proton its name reads "Main", so pgrep -x does not find it).
@@ -58,5 +83,21 @@ if [[ $deploy -eq 1 ]]; then
 		cp "$root/build-linux/OblivionWalkers.dll" "$plugins/"
 		[[ -f "$plugins/OblivionWalkers.ini" ]] || cp "$root/OblivionWalkers.ini" "$plugins/"
 		echo "Deployed to $plugins"
+		if [[ -f "$root/OblivionWalkers.esp" ]]; then
+			esp="$game/Data/OblivionWalkers.esp"
+			stamp=""
+			[[ -f "$esp" ]] && stamp="$(stat -c %Y "$esp")"
+			cp "$root/OblivionWalkers.esp" "$esp"
+			[[ -n "$stamp" ]] && touch -d "@$stamp" "$esp"
+			echo "ESP to $esp (sha256 $(sha256sum "$esp" | cut -c1-8))"
+		fi
+		if [[ -d "$root/build-linux/meshes" ]]; then
+			while IFS= read -r -d '' kf; do
+				rel="${kf#"$root/build-linux/meshes/"}"
+				dir="$(resolve_dir "$game/Data" "Meshes/$(dirname "$rel")")"
+				cp "$kf" "$dir/"
+				echo "  $dir/$(basename "$kf")"
+			done < <(find "$root/build-linux/meshes" -type f -name '*.kf' -print0)
+		fi
 	done
 fi
