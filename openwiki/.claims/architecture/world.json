@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:9daf0c48af0937732401ddc61276467035f13aac820417f7c9693ca52e141c9f",
+  "claims": [
+    {
+      "id": "claim_923b515e16d64dff89f5904ca73b2953",
+      "statement": "Each creature and person of the leveled lists has its own line in the INI's [ReplaceCreatures], which the plugin extends with new ones.",
+      "evidence": [
+        {
+          "resource": "repo://OblivionWalkers.ini",
+          "version": "repo-file-v1:sha256:4f75b7c50423bdfdc077de27ecfbe50fcdb2c6326dcc89081cb4cd6560e79359"
+        },
+        {
+          "resource": "repo://src/Replace.cpp",
+          "version": "repo-file-v1:sha256:6551b9a77f21d3acd0dcdae3cdd5a5aa0ab213bc5c8ca520d7481cc7fc9083fe"
+        }
+      ]
+    },
+    {
+      "id": "claim_0f3ddaf7700e423f81a0b3c8e76ce5ee",
+      "statement": "A replaced entry points at WalkersZombieVariant (0x805), ten count slots of WalkersAnyWalker (0x94A), which carries the calculate-for-each-item flag.",
+      "evidence": [
+        {
+          "resource": "repo://src/ReplaceLogic.h",
+          "version": "repo-file-v1:sha256:a317c0871811111f728d1d960750fc7a098bffc388e50136d13678d882329990"
+        },
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+        }
+      ]
+    },
+    {
+      "id": "claim_8b90e099f30240728a7fb03de4577ad8",
+      "statement": "The ESP holds 16 horde groups' travel and follow packages and markers.",
+      "evidence": [
+        {
+          "resource": "repo://src/HordeLogic.h",
+          "version": "repo-file-v1:sha256:03ea73b16a5de9cf6f22e35e16229e2359a732451bddca02d2b082eecae231de"
+        },
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+        }
+      ]
+    },
+    {
+      "id": "claim_deea0605c4a54186bf5b3a13f619ef96",
+      "statement": "Gate guards come from a pool of 21 persistent, initially disabled references per city in the ESP.",
+      "evidence": [
+        {
+          "resource": "repo://src/GuardLogic.h",
+          "version": "repo-file-v1:sha256:bcc099a37072e2d309ac73e4c25e5444773d421fa6d12e4702231e95d3465cf5"
+        },
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+        }
+      ]
+    },
+    {
+      "id": "claim_3e3d4540d99942e88185236fa6e58e60",
+      "statement": "The ESP ships 18 Courier editions as BOOK records 0x8FC..0x90D placed on Oblivion.esm's broadsheets.",
+      "evidence": [
+        {
+          "resource": "repo://src/CourierRefs.h",
+          "version": "repo-file-v1:sha256:b13526406af82125357fbaaa36a66b3c18ac9565c716226ae92ce2e75c1ba14b"
+        },
+        {
+          "resource": "repo://src/NewsLogic.h",
+          "version": "repo-file-v1:sha256:bf6b87cbf55ab6039f04eff9f35e17e4d6f25e7db55684ca2460c5a564d685ff"
+        },
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+        }
+      ]
+    },
+    {
+      "id": "claim_d44bb556559042e0a200fe0deb1e5d69",
+      "statement": "The safeguard raises those the walkers killed once no walker is near, and its list is in the co-save.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        },
+        {
+          "resource": "repo://src/SafeguardLogic.h",
+          "version": "repo-file-v1:sha256:69673c1697f1cdcc393abe37b5793459141d2f69c987ca5ba118856556ec585b"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

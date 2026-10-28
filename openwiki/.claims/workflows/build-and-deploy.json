@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:82c7de036de50dd6f585c8a63ae66953a9ef39359b97e5f3b6379698b8358de2",
+  "claims": [
+    {
+      "id": "claim_be0f2fde210240808723986d50a2297e",
+      "statement": "build-linux.sh runs the unit tests, builds the DLL with the clang-cl toolchain into build-linux/, and with --deploy copies it into the games, refusing while Oblivion runs.",
+      "evidence": [
+        {
+          "resource": "repo://tools/build-linux.sh",
+          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
+        }
+      ]
+    },
+    {
+      "id": "claim_0e2481859cc346bf95a371d08a26bb47",
+      "statement": "The deploy keeps the game's existing file time of the ESP, because the load order goes by it.",
+      "evidence": [
+        {
+          "resource": "repo://tools/build-linux.sh",
+          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
+        }
+      ]
+    },
+    {
+      "id": "claim_006ae5cedeae4236b0e17f4799034ee2",
+      "statement": "The deploy copies the INI only when none is there yet.",
+      "evidence": [
+        {
+          "resource": "repo://tools/build-linux.sh",
+          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
+        }
+      ]
+    },
+    {
+      "id": "claim_bbad53ece8cf42e39ae01f90bb36c917",
+      "statement": "esp-write.py writes OblivionWalkers.esp from Oblivion.esm and MOO's ESP and reads it back to check it.",
+      "evidence": [
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+        }
+      ]
+    },
+    {
+      "id": "claim_8b246873a0384f3eb0a0eb00c7d1fb35",
+      "statement": "The ESP is not committed.",
+      "evidence": [
+        {
+          "resource": "repo://.gitignore",
+          "version": "repo-file-v1:sha256:dc43b11418f411289dc81e3b16abf59d432ef94b3501347106cff5e5ffa10b55"
+        }
+      ]
+    },
+    {
+      "id": "claim_4edd0d0f601e48d8a2acf9e0fa206f07",
+      "statement": "grab-anims.py reads the zombie animations from Oblivion - Meshes.bsa and writes three KFs under build-linux/meshes for both zombie skeletons.",
+      "evidence": [
+        {
+          "resource": "repo://tools/grab-anims.py",
+          "version": "repo-file-v1:sha256:5359c1ab347fc390953f9e5226e0ff0a184b460925fb0e684bafb604689811a4"
+        }
+      ]
+    },
+    {
+      "id": "claim_084dbe822bb94372a7d09e3a965bcb8c",
+      "statement": "The top-level CMakeLists.txt refuses a 64-bit configuration and uses the static runtime.",
+      "evidence": [
+        {
+          "resource": "repo://CMakeLists.txt",
+          "version": "repo-file-v1:sha256:73a6df233ed89ccaad94f7143b3a6981a2725d1ab7ee2500b0daaa2c09a3026c"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

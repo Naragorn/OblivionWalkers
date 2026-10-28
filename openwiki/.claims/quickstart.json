@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:cd45c78181271aa9aef0a33232ce4bc90c4cc54ae7e4069a5a8d670eacde0cf1",
+  "claims": [
+    {
+      "id": "claim_2add1d9b066a43b287858b84c7dfd27d",
+      "statement": "Oblivion Walkers is an xOBSE plugin plus a small ESP for Oblivion, built to sit beside OBVR without depending on it.",
+      "evidence": [
+        {
+          "resource": "repo://README.md",
+          "version": "repo-file-v1:sha256:c822ec0acd7231c6814ab80368af60cdc7b53aa242dff49115879f7be7d0bf01"
+        }
+      ]
+    },
+    {
+      "id": "claim_2f5d3f767f974b84abeff6c1b233e536",
+      "statement": "docs/walkers-spec.md is the design spec with every feature's settings, cost and tests.",
+      "evidence": [
+        {
+          "resource": "repo://README.md",
+          "version": "repo-file-v1:sha256:c822ec0acd7231c6814ab80368af60cdc7b53aa242dff49115879f7be7d0bf01"
+        },
+        {
+          "resource": "repo://docs/walkers-spec.md",
+          "version": "repo-file-v1:sha256:820ff46f06a0febfc0b0d2bca2438878ff86d5746bee92b8bfbf7793903f8b52"
+        }
+      ]
+    },
+    {
+      "id": "claim_db5ddfcb371c4b548c559830f67b7c5b",
+      "statement": "AGENTS.md requires every LINK-able setting in LINK and OBNG findings written to ../OBNG/knowledge/.",
+      "evidence": [
+        {
+          "resource": "repo://AGENTS.md",
+          "version": "repo-file-v1:sha256:10a5e429ba8539de8655b61f0bd39f2645fe961a7af1da58422a7eb579dfb346"
+        }
+      ]
+    },
+    {
+      "id": "claim_4e19b2d6bf8e455ba939d8be5e62c3ed",
+      "statement": "Plugin.cpp holds the exports, the log and the INI reading.",
+      "evidence": [
+        {
+          "resource": "repo://src/Plugin.cpp",
+          "version": "repo-file-v1:sha256:fe32ddd263e86ccaf5f29e8d457491a5523b82a245822d593372608039de1286"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

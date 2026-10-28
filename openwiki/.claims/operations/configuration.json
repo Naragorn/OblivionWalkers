@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:5668f51384fda0c78653670be7caac1fdc3d6bc499b3cd013f229e3ae6ed3cc0",
+  "claims": [
+    {
+      "id": "claim_7af296527e8f4d92b484c8557ba0e02a",
+      "statement": "OblivionWalkers.ini is read once when the game starts by ReadSettings in Plugin.cpp.",
+      "evidence": [
+        {
+          "resource": "repo://OblivionWalkers.ini",
+          "version": "repo-file-v1:sha256:4f75b7c50423bdfdc077de27ecfbe50fcdb2c6326dcc89081cb4cd6560e79359"
+        },
+        {
+          "resource": "repo://src/Plugin.cpp",
+          "version": "repo-file-v1:sha256:fe32ddd263e86ccaf5f29e8d457491a5523b82a245822d593372608039de1286"
+        }
+      ]
+    },
+    {
+      "id": "claim_20a05f3fa863478b929fbd7f00b47581",
+      "statement": "The INI's sections are Rise, Zombies, Replace, Horde, Guards, Safeguard, News, Grab and ReplaceCreatures.",
+      "evidence": [
+        {
+          "resource": "repo://OblivionWalkers.ini",
+          "version": "repo-file-v1:sha256:4f75b7c50423bdfdc077de27ecfbe50fcdb2c6326dcc89081cb4cd6560e79359"
+        }
+      ]
+    },
+    {
+      "id": "claim_62b51dc117ed49088a598dd1037f6352",
+      "statement": "The deploy copies the INI only when none is there yet.",
+      "evidence": [
+        {
+          "resource": "repo://tools/build-linux.sh",
+          "version": "repo-file-v1:sha256:cf015ad932f3cb6c77b37f81e2e01748bed55dba8b8ed0faa5fee7b8c4801fbb"
+        }
+      ]
+    },
+    {
+      "id": "claim_e075c4f5aa59465b98b94575cc3ddb73",
+      "statement": "The LINK headers are The dead rise, Walkers, Spawns, Hordes gate guards and news, Training and Grabbed.",
+      "evidence": [
+        {
+          "resource": "repo://src/LinkLogic.h",
+          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+        }
+      ]
+    },
+    {
+      "id": "claim_6d57f0a7b2b4455486978a844d579619",
+      "statement": "AGENTS.md requires every setting LINK can show to be in LINK, with text values, lists, control choices and test switches INI-only.",
+      "evidence": [
+        {
+          "resource": "repo://AGENTS.md",
+          "version": "repo-file-v1:sha256:10a5e429ba8539de8655b61f0bd39f2645fe961a7af1da58422a7eb579dfb346"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

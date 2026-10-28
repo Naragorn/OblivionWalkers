@@ -1,0 +1,12 @@
+# Paths OpenWiki never reads (https://github.com/langchain-ai/openwiki#ignoring-paths)
+
+# Harness run output: screenshots and logs, untracked
+artifacts/
+
+# Build directories and the ESP written from Bethesda's data
+build/
+build-*/
+OblivionWalkers.esp
+
+# Scratch left by tools and Python
+**/__pycache__/

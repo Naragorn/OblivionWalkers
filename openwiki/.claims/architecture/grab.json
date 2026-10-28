@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:ac76a8476354c30ce9ef3ef77259d9afa91f91e9665ba0975e381554109d20a1",
+  "claims": [
+    {
+      "id": "claim_293bdf6bc74a4ff6823dfb965b5a7a88",
+      "statement": "OnHit in Rise.cpp hands each hit to GrabOnHit, which queues it for the next frame.",
+      "evidence": [
+        {
+          "resource": "repo://src/Grab.cpp",
+          "version": "repo-file-v1:sha256:59cc5951250feb4fdc97e24f9521d09cc6cea59c321968684716a975fc616bb0"
+        },
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        }
+      ]
+    },
+    {
+      "id": "claim_97ec32ad929f4b85b4465b575feab22b",
+      "statement": "TryGrab grabs the arm on the walker's side, the other when that one is held, and refuses a third holder.",
+      "evidence": [
+        {
+          "resource": "repo://src/GrabLogic.h",
+          "version": "repo-file-v1:sha256:f6b6d8d3cd1a8f622d3c2ff65cb26b4c23f66c4264a948d82440053262a202b6"
+        }
+      ]
+    },
+    {
+      "id": "claim_47d1e27fb4d84677b858112bb201deaa",
+      "statement": "One holder turns the player's run into a walk; two clear every step from the player's movement flags.",
+      "evidence": [
+        {
+          "resource": "repo://src/Grab.cpp",
+          "version": "repo-file-v1:sha256:59cc5951250feb4fdc97e24f9521d09cc6cea59c321968684716a975fc616bb0"
+        },
+        {
+          "resource": "repo://src/GrabLogic.h",
+          "version": "repo-file-v1:sha256:f6b6d8d3cd1a8f622d3c2ff65cb26b4c23f66c4264a948d82440053262a202b6"
+        }
+      ]
+    },
+    {
+      "id": "claim_9f8e7bd9d89f483bbfd060c96290795a",
+      "statement": "The presses needed to wrench a holder off are StrugglePresses times the crowd times the tiredness.",
+      "evidence": [
+        {
+          "resource": "repo://src/GrabLogic.h",
+          "version": "repo-file-v1:sha256:f6b6d8d3cd1a8f622d3c2ff65cb26b4c23f66c4264a948d82440053262a202b6"
+        }
+      ]
+    },
+    {
+      "id": "claim_6ba5c7671e2c42caa4132f7f47dbb633",
+      "statement": "grab-anims.py writes WalkersGrabHold.kf, WalkersGrabBite.kf and WalkersGrabLetGo.kf from the zombie's Walk01ArmsUp, HandToHandAttackForwardPower and Stagger animations.",
+      "evidence": [
+        {
+          "resource": "repo://tools/grab-anims.py",
+          "version": "repo-file-v1:sha256:5359c1ab347fc390953f9e5226e0ff0a184b460925fb0e684bafb604689811a4"
+        }
+      ]
+    },
+    {
+      "id": "claim_c544cadc4cdd4373abd679fee6d2f661",
+      "statement": "Grab.cpp queues an idle through the actor's anim data (virtual +0x164) and 0x00477DB0, as xOBSE's PlayIdle does.",
+      "evidence": [
+        {
+          "resource": "repo://src/Grab.cpp",
+          "version": "repo-file-v1:sha256:59cc5951250feb4fdc97e24f9521d09cc6cea59c321968684716a975fc616bb0"
+        }
+      ]
+    },
+    {
+      "id": "claim_1f79eb3eb4324233824c0666501d533d",
+      "statement": "A bite's damage goes through ModAV2 Health; a bite that leaves nothing runs Kill; god mode leaves a point.",
+      "evidence": [
+        {
+          "resource": "repo://src/Grab.cpp",
+          "version": "repo-file-v1:sha256:59cc5951250feb4fdc97e24f9521d09cc6cea59c321968684716a975fc616bb0"
+        },
+        {
+          "resource": "repo://src/GrabLogic.h",
+          "version": "repo-file-v1:sha256:f6b6d8d3cd1a8f622d3c2ff65cb26b4c23f66c4264a948d82440053262a202b6"
+        }
+      ]
+    },
+    {
+      "id": "claim_e79fe02c48c84beba9792561d274b43d",
+      "statement": "The holders are sent to OBVR as message WGRB and a WGFR message from OBVR lets a holder go.",
+      "evidence": [
+        {
+          "resource": "repo://src/Grab.cpp",
+          "version": "repo-file-v1:sha256:59cc5951250feb4fdc97e24f9521d09cc6cea59c321968684716a975fc616bb0"
+        },
+        {
+          "resource": "repo://src/GrabLogic.h",
+          "version": "repo-file-v1:sha256:f6b6d8d3cd1a8f622d3c2ff65cb26b4c23f66c4264a948d82440053262a202b6"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

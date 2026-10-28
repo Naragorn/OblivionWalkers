@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:98289ce31179d5baad4f7c2f023809a32ddd7e6b76826626cba203e277028951",
+  "claims": [
+    {
+      "id": "claim_ca96f7ad9e1f462d95d815f0647fc98c",
+      "statement": "LinkLogic.h holds the LINK menu table kLinkSettings, LinkValue/SetLinkValue and kLinkVersion.",
+      "evidence": [
+        {
+          "resource": "repo://src/LinkLogic.h",
+          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+        }
+      ]
+    },
+    {
+      "id": "claim_f95f576e8add4a518c201356ec5c97e6",
+      "statement": "The ESP's quest Walkers (0x94B) with script WalkersLinkScript (0x94C) declares one variable per LINK setting, written by esp-write.py from the table.",
+      "evidence": [
+        {
+          "resource": "repo://src/LinkLogic.h",
+          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+        },
+        {
+          "resource": "repo://tools/esp-write.py",
+          "version": "repo-file-v1:sha256:eb9521758917586a6fc89f68ea2576485056bfd4f1fa99372b0ecd45a2762e0d"
+        }
+      ]
+    },
+    {
+      "id": "claim_cceff1d02f1a4e4396943dc232243884",
+      "statement": "StartOf takes the save's LINK values only with LINK loaded and the save's ini_version equal to kLinkVersion.",
+      "evidence": [
+        {
+          "resource": "repo://src/LinkLogic.h",
+          "version": "repo-file-v1:sha256:030a555bebc2bc5d6d7ec6aa72bd3498a418fff808a4fa201b610c0fffcfc384"
+        }
+      ]
+    },
+    {
+      "id": "claim_ac73e19505da40b7b4d1bdb542df41ae",
+      "statement": "Quest variables are found by name, case-insensitively, through the script's variable list.",
+      "evidence": [
+        {
+          "resource": "repo://src/QuestVarLogic.h",
+          "version": "repo-file-v1:sha256:d334ca63d38f9dfbb24579b7c6d5aca71792b29884fb6dec0dd45722ff2e095b"
+        },
+        {
+          "resource": "repo://src/QuestVars.cpp",
+          "version": "repo-file-v1:sha256:8b05914b6b7ce44c62d25a379e2f204fe710bd9342c2e37da28b3f668a2c6b03"
+        }
+      ]
+    },
+    {
+      "id": "claim_725d644979504d1dabae10be6fbcb78e",
+      "statement": "NoLevelingXP sets a dead walker's Confidence and Aggression and eight attributes to 0 in the plugin's OnDeath handler.",
+      "evidence": [
+        {
+          "resource": "repo://src/LevelingLogic.h",
+          "version": "repo-file-v1:sha256:b8d6a2b7b9e01414f884f33c3437c59f5a32e03a901a2d638b4581222e31b758"
+        }
+      ]
+    },
+    {
+      "id": "claim_54d41947286645729cec7f6e34862949",
+      "statement": "NoSkillGain wraps the player's skill use at vtable slot +0x39C and the landed-hit count at +0x210.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        },
+        {
+          "resource": "repo://src/SkillLogic.h",
+          "version": "repo-file-v1:sha256:44da25c3e1dd3804093efea48643690a9618e3eb2666b5493e0a73ae5cabeb16"
+        }
+      ]
+    },
+    {
+      "id": "claim_42cbc4c54ddc4cb2bf7ae6c597846771",
+      "statement": "The walker bases are sent to OBVR as skill exceptions (SKEX), an empty list when NoSkillGain is off.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        },
+        {
+          "resource": "repo://src/SkillLogic.h",
+          "version": "repo-file-v1:sha256:44da25c3e1dd3804093efea48643690a9618e3eb2666b5493e0a73ae5cabeb16"
+        }
+      ]
+    },
+    {
+      "id": "claim_660f9ee7488d4819986d75f41cc83355",
+      "statement": "BlockMooResurrect takes MOO's zombie token and brain off a dead walker so MOO does not raise it.",
+      "evidence": [
+        {
+          "resource": "repo://src/MooLogic.h",
+          "version": "repo-file-v1:sha256:221d53a46980e746dea8d6785355ff169b6515890d7432ac8262f712342e93ba"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:b68ec2294d3e5f2c57e54a4eb4b913b539c112bc4d074368f436f6f4b405bd21",
+  "claims": [
+    {
+      "id": "claim_678e8927348e44679fc7034f18d2dee2",
+      "statement": "OnDeath only notes the fallen; the decision who rises is in RiseLogic.h.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        },
+        {
+          "resource": "repo://src/RiseLogic.h",
+          "version": "repo-file-v1:sha256:51d45df90b7c7c6c79ea27145e0ecaab56f707130fd63b75eb26bb62a0c151fc"
+        }
+      ]
+    },
+    {
+      "id": "claim_c5a9c9505b684fde9d41395d04a5fc40",
+      "statement": "A waiting body's clock runs only while it is present in the player's cells; a missing body is kept for three game days.",
+      "evidence": [
+        {
+          "resource": "repo://src/MissingLogic.h",
+          "version": "repo-file-v1:sha256:b5310e7de9d41b9e1c7139c984ef6e4509d00524ae271681f55b0434c0427064"
+        },
+        {
+          "resource": "repo://src/RiseLogic.h",
+          "version": "repo-file-v1:sha256:51d45df90b7c7c6c79ea27145e0ecaab56f707130fd63b75eb26bb62a0c151fc"
+        }
+      ]
+    },
+    {
+      "id": "claim_5f142ecd78984b6590c680161bfbbbcb",
+      "statement": "The swap places, drops, poses and exchanges a Walker creature with the corpse, then raises it with the engine's Resurrect at vtable +0x20C.",
+      "evidence": [
+        {
+          "resource": "repo://src/PoseLogic.h",
+          "version": "repo-file-v1:sha256:57dd16fbc27aecd249fb616b88ec319ca0e5e8b4fea78a04ba75863324662c0b"
+        },
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        },
+        {
+          "resource": "repo://src/RiseLogic.h",
+          "version": "repo-file-v1:sha256:51d45df90b7c7c6c79ea27145e0ecaab56f707130fd63b75eb26bb62a0c151fc"
+        }
+      ]
+    },
+    {
+      "id": "claim_ab35aacafe4e4660a04d04fc7e5f40d3",
+      "statement": "WalkerLooks.h lists 64 walker creatures, 44 of them on MOO's zombie skeleton.",
+      "evidence": [
+        {
+          "resource": "repo://src/WalkerLooks.h",
+          "version": "repo-file-v1:sha256:0173ef3b73a5784c3e50ff1eeff3062d86499ee10ef63d76d1d3711118786345"
+        }
+      ]
+    },
+    {
+      "id": "claim_458461a7edd444c9ba4f12c79a545881",
+      "statement": "Walk turns a run into a walk in a walker's HighProcess movement flags every frame.",
+      "evidence": [
+        {
+          "resource": "repo://src/Rise.cpp",
+          "version": "repo-file-v1:sha256:abce94f20930d262915980e634fdb80a160027bfd26cbcc1656a0cb12e1a8686"
+        },
+        {
+          "resource": "repo://src/RiseLogic.h",
+          "version": "repo-file-v1:sha256:51d45df90b7c7c6c79ea27145e0ecaab56f707130fd63b75eb26bb62a0c151fc"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-10-28T07:25:28.767Z"
+  }
+}

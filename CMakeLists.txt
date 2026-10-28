@@ -70,3 +70,27 @@ add_test(NAME NewsLogicTest COMMAND NewsLogicTest)
 add_executable(PluginEntryTest tests/PluginEntryTest.cpp)
 target_link_libraries(PluginEntryTest PRIVATE plugin_entry)
 add_test(NAME PluginEntryTest COMMAND PluginEntryTest)
+
+add_executable(GrabLogicTest tests/GrabLogicTest.cpp)
+target_link_libraries(GrabLogicTest PRIVATE logic)
+add_test(NAME GrabLogicTest COMMAND GrabLogicTest)
+
+add_executable(LevelingLogicTest tests/LevelingLogicTest.cpp)
+target_link_libraries(LevelingLogicTest PRIVATE logic)
+add_test(NAME LevelingLogicTest COMMAND LevelingLogicTest)
+
+add_executable(LinkLogicTest tests/LinkLogicTest.cpp)
+target_link_libraries(LinkLogicTest PRIVATE logic)
+add_test(NAME LinkLogicTest COMMAND LinkLogicTest)
+
+add_executable(QuestVarLogicTest tests/QuestVarLogicTest.cpp)
+target_link_libraries(QuestVarLogicTest PRIVATE logic)
+add_test(NAME QuestVarLogicTest COMMAND QuestVarLogicTest)
+
+add_executable(SkillLogicTest tests/SkillLogicTest.cpp)
+target_link_libraries(SkillLogicTest PRIVATE logic)
+add_test(NAME SkillLogicTest COMMAND SkillLogicTest)
+
+add_executable(WalkerLooksTest tests/WalkerLooksTest.cpp)
+target_link_libraries(WalkerLooksTest PRIVATE logic)
+add_test(NAME WalkerLooksTest COMMAND WalkerLooksTest)

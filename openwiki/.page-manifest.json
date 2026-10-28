@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "pages": {
+    "/openwiki/architecture/grab.md": {
+      "pageVersion": "sha256:ac76a8476354c30ce9ef3ef77259d9afa91f91e9665ba0975e381554109d20a1",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/architecture/integrations.md": {
+      "pageVersion": "sha256:98289ce31179d5baad4f7c2f023809a32ddd7e6b76826626cba203e277028951",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/architecture/overview.md": {
+      "pageVersion": "sha256:75c002067f3c27b827a9a940547ecc7658db309386945d9fa39c50503efb3aa0",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/architecture/rise.md": {
+      "pageVersion": "sha256:b68ec2294d3e5f2c57e54a4eb4b913b539c112bc4d074368f436f6f4b405bd21",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/architecture/world.md": {
+      "pageVersion": "sha256:9daf0c48af0937732401ddc61276467035f13aac820417f7c9693ca52e141c9f",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/operations/configuration.md": {
+      "pageVersion": "sha256:5668f51384fda0c78653670be7caac1fdc3d6bc499b3cd013f229e3ae6ed3cc0",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/quickstart.md": {
+      "pageVersion": "sha256:cd45c78181271aa9aef0a33232ce4bc90c4cc54ae7e4069a5a8d670eacde0cf1",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/testing/tests-and-harness.md": {
+      "pageVersion": "sha256:fc7f58c8de6942bb6028fc7c24bbb6846e13960f156a4c735b7c80757f19f9d7",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    },
+    "/openwiki/workflows/build-and-deploy.md": {
+      "pageVersion": "sha256:82c7de036de50dd6f585c8a63ae66953a9ef39359b97e5f3b6379698b8358de2",
+      "completedBy": "claude-code",
+      "completedRunId": "bf3188da-f698-4acf-b6d9-9d8fa8f9785a",
+      "gitHead": "47baf8bbaea92bf591f7f11871f992d5e6972f95",
+      "sourceFingerprint": "sha256:1de816afdf66a3bb3bf0ad680b551e4085f6e05f695bc072dba5deb8c03dc902"
+    }
+  }
+}
