@@ -1570,6 +1570,9 @@ void ApplyLinkEffect(LinkEffect effect) {
 			ConfigureGuards(g_settings.guards, g_log);
 			ConfigureNews(g_settings.news, FindEspBase(), g_log);
 			break;
+		case LinkEffect::Spawns:
+			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
+			break;
 		default:
 			break;
 	}
@@ -1616,7 +1619,7 @@ void StepLink(float dt) {
 	if (!g_linkLoaded) {
 		return;
 	}
-	bool effects[5] = {};
+	bool effects[kLinkEffectCount] = {};
 	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
 		const double* var = QuestVariable(quest, kLinkSettings[i].var);
 		if (var == nullptr || !SetLinkValue(g_settings, g_replace, i, *var)) {
@@ -1627,7 +1630,7 @@ void StepLink(float dt) {
 		g_log("LINK: %s now %.*f%s", kLinkSettings[i].var, static_cast<int>(kLinkSettings[i].decimals),
 		      LinkValue(g_settings, g_replace, i), effect == LinkEffect::NextStart ? " - takes effect at the next start" : "");
 	}
-	for (UInt32 e = 0; e < 5; ++e) {
+	for (UInt32 e = 0; e < kLinkEffectCount; ++e) {
 		if (effects[e]) {
 			ApplyLinkEffect(static_cast<LinkEffect>(e));
 		}

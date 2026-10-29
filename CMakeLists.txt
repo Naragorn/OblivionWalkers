@@ -35,6 +35,10 @@ add_executable(ReplaceLogicTest tests/ReplaceLogicTest.cpp)
 target_link_libraries(ReplaceLogicTest PRIVATE logic)
 add_test(NAME ReplaceLogicTest COMMAND ReplaceLogicTest)
 
+add_executable(CategoryLogicTest tests/CategoryLogicTest.cpp)
+target_link_libraries(CategoryLogicTest PRIVATE logic)
+add_test(NAME CategoryLogicTest COMMAND CategoryLogicTest)
+
 add_executable(PoseLogicTest tests/PoseLogicTest.cpp)
 target_link_libraries(PoseLogicTest PRIVATE logic)
 add_test(NAME PoseLogicTest COMMAND PoseLogicTest)

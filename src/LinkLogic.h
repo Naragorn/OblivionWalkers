@@ -35,10 +35,11 @@ inline constexpr UInt32 kLinkScriptLocalId = 0x94C;
 inline constexpr const char* kLinkVersionVariable = "ini_version";
 // Raised whenever a variable is added (2: NoSkillGain, 2026-10-27; 3: the
 // grab's three, 2026-10-28; 4: the struggle's four, 2026-10-28; 5: the
-// advanced ones, 2026-10-28; 6: the VR shake's two, 2026-10-28), so a save of
+// advanced ones, 2026-10-28; 6: the VR shake's two, 2026-10-28; 7: the 45
+// replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 6.0;
+inline constexpr double kLinkVersion = 7.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -48,8 +49,10 @@ enum class LinkEffect : UInt8 {
 	WalkerRecords,  // health and pace written on the 64 walker records anew
 	SpawnCounts,    // the variant list's count slots written anew
 	Horde,          // the horde, the gate guards and the news configured anew
+	Spawns,         // the lists' entries pointed at the walkers or back at their own anew
 	NextStart,      // the leveled lists are changed once a session: at the next start
 };
+inline constexpr UInt32 kLinkEffectCount = 6;
 
 struct LinkSetting {
 	const char* var;  // nullptr: a header
@@ -74,6 +77,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{0, "The dead rise"}, {8, "Walkers"}, {16, "Spawns"}, {20, "Hordes, gate guards and news"}, {27, "Training"}, {28, "Grabbed"},
 	{35, "The dead rise - advanced"}, {41, "Walkers - advanced"}, {44, "Hordes - advanced"},
 	{52, "Gate guards - advanced"}, {54, "Safeguard and news - advanced"}, {58, "Grabbed - advanced"},
+	{68, "Spawns - which creatures become walkers"}, {68 + kFirstPersonCategory, "Spawns - which people become walkers"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -108,8 +112,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 100, 1, 0, false, LinkEffect::Live},
 	{"ini_no_leveling_xp", "No experience for walkers", "With Ultimate Leveling or Oblivion XP a walker's death gives no experience.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_replace_enabled", "Walkers replace spawns", "Creatures of the leveled lists become walkers. At the next start.",
-	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::NextStart},
+	{"ini_replace_enabled", "Walkers replace spawns", "The creatures and people of the categories below become walkers.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 	{"ini_min_count", "Walkers per spawn, fewest", "The fewest walkers a spawn point gives.", LinkKind::Slider, 1, 10,
 	 1, 0, false, LinkEffect::SpawnCounts},
 	{"ini_max_count", "Walkers per spawn, most", "The most walkers a spawn point gives.", LinkKind::Slider, 1, 10, 1, 0,
@@ -182,11 +186,62 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	// The VR shake (2026-10-28), last so the indices stay.
 	{"ini_grab_shake_strokes", "VR: swings to shake free", "In VR, swings of the held hand that shake one walker off, fresh, 0 off.", LinkKind::Slider, 0, 20, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_shake_fatigue", "VR: fatigue per swing", "What each swing of the held hand costs.", LinkKind::Slider, 0, 10, 1, 0, false, LinkEffect::Live},
+	// The replacement's categories (4.6a, 2026-10-29), one toggle each in
+	// kReplaceCategories' order from kLinkCategoryFirst on.
+	{"ini_cat_skeletons", kReplaceCategories[0].title, kReplaceCategories[0].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_zombies", kReplaceCategories[1].title, kReplaceCategories[1].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_ghosts", kReplaceCategories[2].title, kReplaceCategories[2].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_liches", kReplaceCategories[3].title, kReplaceCategories[3].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_shambles", kReplaceCategories[4].title, kReplaceCategories[4].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_skinnedhounds", kReplaceCategories[5].title, kReplaceCategories[5].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_atronachs", kReplaceCategories[6].title, kReplaceCategories[6].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_clannfears", kReplaceCategories[7].title, kReplaceCategories[7].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_daedroths", kReplaceCategories[8].title, kReplaceCategories[8].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_scamps", kReplaceCategories[9].title, kReplaceCategories[9].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_spiderdaedra", kReplaceCategories[10].title, kReplaceCategories[10].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_xivilai", kReplaceCategories[11].title, kReplaceCategories[11].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_hungers", kReplaceCategories[12].title, kReplaceCategories[12].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_goblins", kReplaceCategories[13].title, kReplaceCategories[13].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_trolls", kReplaceCategories[14].title, kReplaceCategories[14].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_ogres", kReplaceCategories[15].title, kReplaceCategories[15].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_minotaurs", kReplaceCategories[16].title, kReplaceCategories[16].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_landdreughs", kReplaceCategories[17].title, kReplaceCategories[17].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_imps", kReplaceCategories[18].title, kReplaceCategories[18].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_spriggans", kReplaceCategories[19].title, kReplaceCategories[19].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_wisps", kReplaceCategories[20].title, kReplaceCategories[20].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_wolves", kReplaceCategories[21].title, kReplaceCategories[21].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_bears", kReplaceCategories[22].title, kReplaceCategories[22].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_mountainlions", kReplaceCategories[23].title, kReplaceCategories[23].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_boars", kReplaceCategories[24].title, kReplaceCategories[24].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_rats", kReplaceCategories[25].title, kReplaceCategories[25].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_mudcrabs", kReplaceCategories[26].title, kReplaceCategories[26].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_tameanimals", kReplaceCategories[27].title, kReplaceCategories[27].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_slaughterfish", kReplaceCategories[28].title, kReplaceCategories[28].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_elytra", kReplaceCategories[29].title, kReplaceCategories[29].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_gnarls", kReplaceCategories[30].title, kReplaceCategories[30].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_grummites", kReplaceCategories[31].title, kReplaceCategories[31].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_baliwogs", kReplaceCategories[32].title, kReplaceCategories[32].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_scalons", kReplaceCategories[33].title, kReplaceCategories[33].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_vampires", kReplaceCategories[34].title, kReplaceCategories[34].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_necromancers", kReplaceCategories[35].title, kReplaceCategories[35].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_conjurers", kReplaceCategories[36].title, kReplaceCategories[36].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_bandits", kReplaceCategories[37].title, kReplaceCategories[37].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_marauders", kReplaceCategories[38].title, kReplaceCategories[38].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_dremora", kReplaceCategories[39].title, kReplaceCategories[39].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_mythicdawn", kReplaceCategories[40].title, kReplaceCategories[40].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_adventurers", kReplaceCategories[41].title, kReplaceCategories[41].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_zealots", kReplaceCategories[42].title, kReplaceCategories[42].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_heretics", kReplaceCategories[43].title, kReplaceCategories[43].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_cat_knightsoforder", kReplaceCategories[44].title, kReplaceCategories[44].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
+inline constexpr UInt32 kLinkCategoryFirst = 68;
 
 // The setting's current value as LINK holds it: 0 or 1 for a toggle.
 inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace, UInt32 i) {
+	if (i >= kLinkCategoryFirst && i < kLinkCategoryFirst + kReplaceCategoryCount) {
+		return replace.categories[i - kLinkCategoryFirst] ? 1.0 : 0.0;
+	}
 	switch (i) {
 		case 0: return rise.enabled ? 1.0 : 0.0;
 		case 1: return rise.chancePercent;
@@ -279,6 +334,10 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 	const bool on = v >= 0.5;
 	const UInt32 whole = static_cast<UInt32>(v);
 	const float fraction = static_cast<float>(v);
+	if (i >= kLinkCategoryFirst && i < kLinkCategoryFirst + kReplaceCategoryCount) {
+		replace.categories[i - kLinkCategoryFirst] = on;
+		return true;
+	}
 	switch (i) {
 		case 0: rise.enabled = on; break;
 		case 1: rise.chancePercent = whole; break;

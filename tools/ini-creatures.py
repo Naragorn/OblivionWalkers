@@ -2,9 +2,12 @@
 """Writes [ReplaceCreatures] of OblivionWalkers.ini from the game's own files.
 
 Every creature and person a leveled creature list (LVLC) of the given files
-can spawn gets its line, as the plugin writes one at the game's start
-(src/ReplaceLogic.h FormatReplaceKey, ClassifyCreature, DefaultOn): the name,
-the file that made the record and its local ID, the note, 1 or 0. A mod's
+can spawn and no category of [ReplaceCategories] takes gets its line, as the
+plugin writes one at the game's start (src/ReplaceLogic.h FormatReplaceKey,
+ClassifyCreature, DefaultOn, WritesLine): the name, the file that made the
+record and its local ID, the note, 1 or 0. The categories are read off
+src/CategoryLogic.h's kReplaceCategories (a creature's by its model's folder,
+a person's by Oblivion.esm's factions), as the plugin matches them. A mod's
 creatures are not in the shipped list - the plugin appends their lines at
 the first start with the mod.
 
@@ -24,6 +27,8 @@ The record fields, as the plugin reads them off the loaded records:
   CREA DATA byte 0             type (0 creature, 1 daedra, 2 undead)
   SCRI                         a script
   FULL                         the name
+  MODL                         the model, its last folder the category's
+  SNAM (uint32 first)          a faction, for a person's category
 """
 
 from __future__ import annotations
@@ -49,6 +54,43 @@ TYPE_CREATURE = 0
 HARMLESS_CONFIDENCE_MOST = 25
 NOTES = {"replace": "", "harmless": " harmless animal", "swims": " swims only", "scripted": " has a script",
          "person": " person"}
+
+
+TYPES = {"kAnyCreatureType": None, "kCreatureTypeCreature": 0, "kCreatureTypeDaedra": 1, "kCreatureTypeUndead": 2}
+
+
+def read_categories() -> list[dict]:
+    """src/CategoryLogic.h's kReplaceCategories, in its order."""
+    text = (Path(__file__).resolve().parent.parent / "src" / "CategoryLogic.h").read_text()
+    rows = re.findall(r'\{"([A-Za-z]+)", "[^"]*", "[^"]*",\s*(nullptr|"[^"]*"),\s*(\w+),\s*\{([^}]*)\},\s*(true|false)\}',
+                      text)
+    if not rows:
+        raise SystemExit("CategoryLogic.h's categories are not readable")
+    return [{"key": key, "folders": None if folders == "nullptr" else folders.strip('"').split("|"),
+             "type": TYPES[kind], "factions": [int(f, 16) for f in re.findall(r"0x([0-9A-Fa-f]+)", factions)]}
+            for key, folders, kind, factions, _on in rows]
+
+
+def folder_matches(folders: list[str], folder: str) -> bool:
+    return any(folder.startswith(name[:-1]) if name.endswith("*") else folder == name for name in folders)
+
+
+def category_of(rec: dict, categories: list[dict]) -> str | None:
+    """CategoryLogic.h CreatureCategory and PersonCategory."""
+    if rec["person"]:
+        for c in categories:
+            if c["folders"] is None and any(("Oblivion.esm", f) in rec["factions"] for f in c["factions"]):
+                return c["key"]
+        return None
+    parts = rec["model"].replace("/", "\\").split("\\")
+    if len(parts) < 2 or not parts[-2]:
+        return None
+    folder = parts[-2].lower()
+    for c in categories:
+        if c["folders"] is not None and (c["type"] is None or c["type"] == rec["type"]) and \
+                folder_matches(c["folders"], folder):
+            return c["key"]
+    return None
 
 
 def classify(rec: dict) -> str:
@@ -94,7 +136,7 @@ def read_file(path: Path, records: dict, lists: dict) -> None:
             lists[origin_of(form_id)] = entries
             return
         rec = {"person": typ == b"NPC_", "name": "", "flags": 0, "confidence": 0, "type": TYPE_CREATURE,
-               "scripted": False}
+               "scripted": False, "model": "", "factions": []}
         for st, sd in esm.subrecords(data):
             if st == b"FULL":
                 rec["name"] = sd.rstrip(b"\0").decode("latin-1")
@@ -106,6 +148,10 @@ def read_file(path: Path, records: dict, lists: dict) -> None:
                 rec["type"] = sd[0]
             elif st == b"SCRI" and len(sd) >= 4:
                 rec["scripted"] = struct.unpack_from("<I", sd, 0)[0] != 0
+            elif st == b"MODL":
+                rec["model"] = sd.rstrip(b"\0").decode("latin-1")
+            elif st == b"SNAM" and len(sd) >= 4:
+                rec["factions"].append(origin_of(struct.unpack_from("<I", sd, 0)[0]))
         records[origin_of(form_id)] = rec
 
     esm.walk(buf, 0, len(buf), [], on_record)
@@ -128,17 +174,25 @@ def main() -> int:
         read_file(path, records, lists)
         used.append(name)
 
+    categories = read_categories()
     spawned = {target for entries in lists.values() for target in entries if target in records}
     order = {name: i for i, name in enumerate(used)}
     lines = []
     kinds: dict[str, int] = {}
+    taken: dict[str, int] = {}
     for origin, local in sorted(spawned, key=lambda k: (order.get(k[0], 99), records[k]["name"].lower(), k[1])):
         rec = records[(origin, local)]
+        category = category_of(rec, categories)
+        if category is not None:
+            taken[category] = taken.get(category, 0) + 1
+            continue
         kind = classify(rec)
         kinds[kind] = kinds.get(kind, 0) + 1
         lines.append(f"{key_of(rec['name'], origin, local, kind)}={1 if kind == 'replace' else 0}")
-    print(f"{len(lists)} leveled lists in {', '.join(used)}; {len(lines)} creatures and people they spawn: " +
+    print(f"{len(lists)} leveled lists in {', '.join(used)}; {sum(taken.values())} creatures and people in "
+          f"{len(taken)} categories, {len(lines)} without one: " +
           ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())), file=sys.stderr)
+    print("categories: " + ", ".join(f"{c['key']} {taken.get(c['key'], 0)}" for c in categories), file=sys.stderr)
 
     if args.ini is None:
         print("\n".join(lines))

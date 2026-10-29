@@ -158,6 +158,12 @@ void TestSection() {
 	Check(walkers::FindReplaceSwitch(section, "Oblivion.esm", 0x000B7F) == -1, "no line: not in the INI yet");
 	Check(walkers::FindReplaceSwitch(section, "Knights.esp", 0x06E912) == -1, "the same ID of another mod: not it");
 	Check(walkers::FindReplaceSwitch("\0", "Oblivion.esm", 1) == -1, "an empty section: nothing");
+	const char commented[] = "; Bregor the Cremator [Oblivion.esm 080D25]=0 keeps him\0"
+	                         "# Wolf [Oblivion.esm 06E912]=0\0  ; Imp [Oblivion.esm 01E649]=0\0\0";
+	Check(walkers::FindReplaceSwitch(commented, "Oblivion.esm", 0x080D25) == -1 &&
+	          walkers::FindReplaceSwitch(commented, "Oblivion.esm", 0x06E912) == -1 &&
+	          walkers::FindReplaceSwitch(commented, "Oblivion.esm", 0x01E649) == -1,
+	      "a comment that reads like a line (; or #, blanks before it): no switch");
 
 	char buffer[64] = {};
 	UInt32 used = 0;

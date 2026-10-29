@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "CategoryLogic.h"
 #include "RiseLogic.h"
 #include "Types.h"
 
@@ -23,12 +24,15 @@ struct ReplaceSettings {
 	// [Replace] ExtraPercent (4.13): walker entries added beside a list's own,
 	// so this share of its picks becomes walkers (ExtraEntries). 0: none.
 	UInt32 extraPercent = 0;
-};
+	// [ReplaceCategories] (4.6a): one switch per kReplaceCategories entry.
+	bool categories[kReplaceCategoryCount];
 
-// TESCreature::type (xOBSE GameForms.h, at +0x104 in 1.2).
-inline constexpr UInt8 kCreatureTypeCreature = 0;
-inline constexpr UInt8 kCreatureTypeDaedra = 1;
-inline constexpr UInt8 kCreatureTypeUndead = 2;
+	ReplaceSettings() {
+		for (UInt32 k = 0; k < kReplaceCategoryCount; ++k) {
+			categories[k] = kReplaceCategories[k].defaultOn;
+		}
+	}
+};
 // TESActorBaseData flags of a creature (xOBSE GameForms.h).
 inline constexpr UInt32 kCreatureSwims = 0x10;
 inline constexpr UInt32 kCreatureFlies = 0x20;
@@ -75,6 +79,37 @@ inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 }
 
 inline bool DefaultOn(CreatureKind kind) { return kind == CreatureKind::Replace; }
+
+// What a creature's or person's entry in a leveled list points at (4.6a):
+// true the walkers, false itself. `category` from CreatureCategory or
+// PersonCategory; `line` its [ReplaceCreatures] switch and `exception` its
+// [ReplaceExceptions] one (FindReplaceSwitch: 1, 0, -1 none). [Replace]
+// Enabled=0 keeps every one; an exception decides over all else; a category
+// decides for its own, but never turns a creature with a script (a quest or
+// the arena may count on it) or one that only swims; the line decides for
+// one without a category, and without a line its kind.
+inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& facts, UInt8 category, int line,
+                      int exception) {
+	if (!settings.enabled || facts.ours) {
+		return false;
+	}
+	if (exception >= 0) {
+		return exception != 0;
+	}
+	if (category < kReplaceCategoryCount) {
+		const bool swimsOnly =
+			(facts.flags & kCreatureSwims) != 0 && (facts.flags & (kCreatureWalks | kCreatureFlies)) == 0;
+		return settings.categories[category] && !facts.scripted && !swimsOnly;
+	}
+	if (line >= 0) {
+		return line != 0;
+	}
+	return DefaultOn(ClassifyCreature(facts));
+}
+
+// A new [ReplaceCreatures] line only for one without a category: the
+// category is the switch of the others.
+inline bool WritesLine(UInt8 category) { return category >= kReplaceCategoryCount; }
 
 // The note behind a creature's INI key, so the file says why a line is 0.
 inline const char* KindNote(CreatureKind kind) {
@@ -172,8 +207,13 @@ inline bool ParseReplaceKey(const char* key, char* mod, UInt32 modCapacity, UInt
 // (a value that is no number reads 0), -1 when no line names it yet.
 inline int FindReplaceSwitch(const char* section, const char* mod, UInt32 localId) {
 	for (const char* line = section; *line != '\0'; line += std::strlen(line) + 1) {
+		// A comment may read like a line ([ReplaceExceptions]' example).
+		const char* first = line;
+		while (*first == ' ' || *first == '\t') {
+			++first;
+		}
 		const char* equals = std::strchr(line, '=');
-		if (equals == nullptr) {
+		if (equals == nullptr || *first == ';' || *first == '#') {
 			continue;
 		}
 		char key[256];

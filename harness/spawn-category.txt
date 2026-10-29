@@ -1,0 +1,47 @@
+# A category switched in LINK takes at once (docs/walkers-spec.md 4.6a;
+# Nadi, 2026-10-29: "eig will ich sofort"): with LINK active, the console
+# sets Walkers.ini_cat_goblins as LINK's menu would. Goblins=1 (the default):
+# LL0Goblin100 (00084B2C: CreatureGoblin1 twice, CreatureGoblin1Archer)
+# placed at the player gives walkers (base 0x00080x of the ESP's index), no
+# goblin. Then ini_cat_goblins to 0: within a second the plugin's log reads
+# "LINK: ini_cat_goblins now 0" and "Spawns: ... entries back to their own",
+# and the same list placed again gives goblins (0001FCB1 or 00084B29).
+#
+# Needs LINK.esp active in the install (Linux: only for this run, its
+# date after OblivionWalkers.esp - obvr memory). OblivionWalkers.log copied
+# into the run's folder by hand.
+#
+# Not run yet (2026-10-29: the game was running on Windows; the Linux install
+# not reachable from there).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/spawn-category.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 00084B2C 1
+console-at off set Walkers.ini_cat_goblins to 0
+console-at off-2 killall
+console-at goblins player.placeatme 00084B2C 3
+
+expect HandScript: finished
+expect 00080
+expect 0001FCB1
+reject HandScript: WARNING
+
+wait 12
+mark ready
+wait 6
+mark walkers
+mark off
+wait 3
+mark off-2
+wait 2
+mark goblins
+wait 6
+mark counted
+wait 1
+mark end
+wait 1

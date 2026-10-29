@@ -121,6 +121,20 @@ bool ReadSettings(walkers::Settings* settings) {
 	replace.maxCount = most < 1 ? 1u : static_cast<UInt32>(most);
 	const int extra = GetPrivateProfileIntA("Replace", "ExtraPercent", 0, path);
 	replace.extraPercent = extra < 0 ? 0u : static_cast<UInt32>(extra);
+	char categories[1024];
+	UInt32 categoriesUsed = 0;
+	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
+		const walkers::ReplaceCategory& c = walkers::kReplaceCategories[k];
+		replace.categories[k] = GetPrivateProfileIntA("ReplaceCategories", c.key, c.defaultOn ? 1 : 0, path) != 0;
+		const int n = std::snprintf(categories + categoriesUsed, sizeof(categories) - categoriesUsed, "%s%s=%d",
+		                            k == 0 ? "" : " ", c.key, replace.categories[k] ? 1 : 0);
+		if (n > 0 && categoriesUsed + static_cast<UInt32>(n) < sizeof(categories)) {
+			categoriesUsed += static_cast<UInt32>(n);
+		}
+	}
+	categories[categoriesUsed] = '\0';
+	Log("Settings from %s: [Replace] Enabled=%d MinCount=%u MaxCount=%u; [ReplaceCategories] %s", path,
+	    replace.enabled ? 1 : 0, replace.minCount, replace.maxCount, categories);
 	std::snprintf(settings->iniPath, sizeof(settings->iniPath), "%s", path);
 	rise.dropSeconds = IniFloat("Rise", "DropSeconds", 1.5f, path);
 	if (rise.dropSeconds < 0.0f) {

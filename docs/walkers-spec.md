@@ -790,6 +790,73 @@ hedge wizard.
 Cost: **small** with the count working (the injection is bookkeeping over
 records already in memory); **medium** on the fallback.
 
+### 4.6a Replacement by category - `[ReplaceCategories] Skeletons=1` ... `KnightsOfOrder=0`, `[ReplaceExceptions]`
+
+What (Nadi, 2026-10-29: "nicht jede eintrag einzeln mit 1 zu replacen
+sondern in LINK ingame die kategorie enablen so wie F4 Zombie walkers. Also
+1 für Skeletons und alle skeletons egal wie die im CS heissen werden
+ersetzt"; option A, people too, "eig will ich sofort"): one switch per kind
+of creature or person, in the INI and in LINK's menu, that takes every
+record of that kind - the game's and every mod's, whatever it is called -
+and takes at once when switched in LINK.
+
+How (built 2026-10-29, `CategoryLogic.h`, `ReplaceLogic.h` `ReplaceOn`,
+`Replace.cpp`):
+- A creature's category is the last folder of its model (TESActorBase's
+  TESModel at +0xAC, its path at +0xB0 - xOBSE GameForms.h), matched against
+  a table of 34 creature categories; the dog's folder splits by type (undead:
+  the skinned hounds, else wolves and dogs). A person's is the first of 11
+  categories one of its factions (TESActorBaseData's list inline at +0x3C)
+  is an Oblivion.esm faction of: Vampires before the cults, Necromancers
+  before Conjurers.
+- Read in Oblivion.esm (`tools/esm-spawns.py`, 2026-10-29): the leveled
+  lists spawn from 39 model folders, each with its category (one test runs
+  them all); every skeleton - Skeleton, Champion, Guardian, Hero, Bregor the
+  Cremator - is `Creatures\Skeleton\`; 381 people, a vampire's class one of
+  some twenty, but every vampire in VampireFaction 033F53. In MOO's ESP the
+  same holds: `MOO\Skeleton\` (51), `MOO\Zombie\` (102), `MOO\Goblin\`, and
+  its people in the game's factions (703 vampires, 229 bandits, 320 cult
+  mages in both cults). MOO itself tells its zombies by the path `\Zombie\`.
+  Over Oblivion.esm, Knights and the DLCs (`tools/ini-creatures.py`): 692 of
+  the 726 records take a category; 34 people stay without one (Bruma
+  Militia, the Turnkeys, Fort Ontus' mages, the Vitharn ghosts, Mehrunes
+  Razor's Drothmeri and laborers).
+- What an entry points at (`ReplaceOn`): `[Replace] Enabled=0` keeps all;
+  an exception line decides over all else; a category decides for its own,
+  but never turns a creature with a script or one that only swims (as the
+  lines kept them); `[ReplaceCreatures]` decides only for one without a
+  category, and only those get a new line there - a categorized one's line
+  counts for nothing. The shipped section is cut to the 34.
+- The defaults keep what the lines did: creature categories on but the
+  tame animals (deer, sheep, wild horses) and the slaughterfish, people
+  off. One record changes: the Goblin Rat Farmer (the goblin's model,
+  confidence 25 or less, a "harmless animal" before) becomes a walker with
+  Goblins=1.
+- At once: every pass remembers what each entry (its ListData) named
+  before it pointed at the walkers, and points every entry as the settings
+  say now - at the walkers or back at its own. A change of `Enabled` or a
+  category in LINK runs a pass (`LinkEffect::Spawns`); the main menu and
+  five seconds after a load run one as before. An extra entry (4.13) named
+  nothing of its own and stays; `ExtraPercent` still takes at the next
+  start. Spawns already standing stay until their cell resets - the lists
+  decide only what spawns next.
+- LINK: 45 toggles from index 68 under two headers, "ini_cat_<key>",
+  version 7 (a save of 6 takes the plugin INI's values once more).
+
+Test: `CategoryLogicTest` (the folder, the match, every vanilla folder,
+the factions and their order, the table and its defaults, every flow of
+`ReplaceOn`), `LinkLogicTest` (the toggles, their order, effect and the
+version), `ReplaceLogicTest` (a comment that reads like a line is none).
+Harness `spawn-category.txt` (Goblins on, then off through the quest
+variable: walkers, then goblins) - written, not run yet.
+
+Open: not run in the game. A mod's own folder (MOO's harpies, draugr,
+mummies, ghouls) or own faction is no category: its line decides, as
+before.
+
+Cost: **medium** (as rated): the table and decision new and unit-tested,
+the engine reads two offsets of xOBSE's layout, the pass reused.
+
 ### 4.7 Zombies avoid chapels - `[Zombies] AvoidChapels=1`
 
 What: no walker spawns or rises in a chapel cell, and hordes do not path
@@ -1450,10 +1517,11 @@ save's `ini_version` not 1 the same once, then the save's values decide.
 Once a second with LINK the plugin reads the variables and applies a change
 at once: health and pace written on the walker records anew, the spawn
 counts into the variant list, the horde, the gate guards and the news
-configured anew; the rest is read where it is used. **Deviation, named:**
-`ini_replace_enabled` and `ini_extra_percent` take effect at the next start
-(the leveled lists are changed once a session; undoing an injection is not
-built) - the menu's description says so.
+configured anew; the rest is read where it is used. Since 2026-10-29
+`ini_replace_enabled` and the categories' toggles point the lists' entries
+anew at once (4.6a). **Deviation, named:** `ini_extra_percent` takes effect
+at the next start (its entries are added once a session) - the menu's
+description says so.
 
 Test: `LinkLogicTest` (the table, the values both ways and their ranges,
 the effects, the load's decision, both files), `QuestVarLogicTest` (a
@@ -1644,8 +1712,8 @@ ESP's IDLE 0x94D..0x952):
   corpse match, the names and MOO, the horde's radii and headings, the gate
   radius and clearing time, the safeguard and the news, the grab's timings,
   damage, strikes, distances and the crowd's cap and radius) - 66 in all,
-  version 5. **INI-only, named:** `Name` (text), `[ReplaceCreatures]` (a
-  list), `StruggleControl` (a control), the test switches `TestKillSeconds`
+  version 5. **INI-only, named:** `Name` (text), `[ReplaceCreatures]` and
+  `[ReplaceExceptions]` (lists; their categories are in the menu, 4.6a), `StruggleControl` (a control), the test switches `TestKillSeconds`
   and `TestGrabSeconds`, and the proof and fallback switches `AsCreature`,
   `CloneBase`, `ZombieRace`, `LookAfterSeconds` (the race path behind
   AsCreature=0) and `HoldDeathSound`. `RenameToWalker` and `RenameVanilla`

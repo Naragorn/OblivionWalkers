@@ -9,13 +9,15 @@
 
 namespace walkers {
 
-// Every leveled creature list in memory: an entry whose creature
-// [ReplaceCreatures] switches on (a new creature gets its line, on or off by
-// ClassifyCreature) points at the ESP's WalkersZombieVariant from now on, for
-// the session - the engine then spawns walkers at its own spawn points. The
-// variant list's counts are written from MinCount/MaxCount first. Run again,
-// it only takes the entries still pointing at a creature. Returns the
-// entries replaced by this run.
+// Every leveled creature list in memory: an entry whose creature or person
+// ReplaceLogic.h's ReplaceOn switches on - by its category
+// ([ReplaceCategories]), an exception ([ReplaceExceptions]) or, without a
+// category, its [ReplaceCreatures] line (a new one written by its kind) -
+// points at the ESP's WalkersZombieVariant, the engine then spawns walkers at
+// its own spawn points; one switched off points at its own again. The
+// variant list's counts are written from MinCount/MaxCount at the first run.
+// Run again - after a load, at a change in LINK - it points every entry as the
+// settings say now. Returns the entries pointed at the walkers by this run.
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log);
 

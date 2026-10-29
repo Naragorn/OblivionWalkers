@@ -21,6 +21,7 @@ void Check(bool condition, const char* what) {
 
 using walkers::kLinkSettingCount;
 using walkers::kLinkSettings;
+using walkers::LinkSetting;
 
 int IndexOf(const char* var) {
 	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
@@ -43,10 +44,22 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 68,
-	      "68 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones and the VR shake's two - every INI setting but Name, StruggleControl and the test and proof "
-	      "switches");
+	Check(kLinkSettingCount == 113,
+	      "113 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two and the 45 replacement categories - every INI setting but Name, "
+	      "StruggleControl, the lists and the test and proof switches");
+	bool categories = walkers::kLinkCategoryFirst == 68;
+	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
+		std::string var = "ini_cat_";
+		for (const char* p = walkers::kReplaceCategories[k].key; *p != '\0'; ++p) {
+			var += static_cast<char>(*p >= 'A' && *p <= 'Z' ? *p + 32 : *p);
+		}
+		const LinkSetting& s = kLinkSettings[walkers::kLinkCategoryFirst + k];
+		categories = categories && var == s.var && s.kind == walkers::LinkKind::Toggle &&
+		             std::strcmp(s.title, walkers::kReplaceCategories[k].title) == 0;
+	}
+	Check(categories,
+	      "from 68 on a toggle per category, in the table's order: ini_cat_<key in small letters>, its title");
 	bool defaultsInRange = true;
 	walkers::RiseSettings fresh;
 	walkers::ReplaceSettings freshReplace;
@@ -137,6 +150,17 @@ void TestValues() {
 	          kLinkSettings[pull].effect == walkers::LinkEffect::Horde,
 	      "an advanced one each way: the city pull (configured anew with the horde), the corpse match; the rename at "
 	      "the next start");
+	const int skeletons = IndexOf("ini_cat_skeletons");
+	const int bandits = IndexOf("ini_cat_bandits");
+	const UInt32 skeletonIndex = static_cast<UInt32>(skeletons) - walkers::kLinkCategoryFirst;
+	const UInt32 banditIndex = static_cast<UInt32>(bandits) - walkers::kLinkCategoryFirst;
+	Check(skeletons >= 0 && bandits >= 0 && walkers::LinkValue(rise, replace, skeletons) == 1.0 &&
+	          walkers::LinkValue(rise, replace, bandits) == 0.0,
+	      "the categories read off the settings: Skeletons on, Bandits off - the defaults");
+	Check(walkers::SetLinkValue(rise, replace, skeletons, 0.0) && !replace.categories[skeletonIndex] &&
+	          walkers::SetLinkValue(rise, replace, bandits, 1.0) && replace.categories[banditIndex] &&
+	          !walkers::SetLinkValue(rise, replace, bandits, 1.0),
+	      "a category switched from the menu, the same again no change");
 	Check(!walkers::SetLinkValue(rise, replace, kLinkSettingCount, 1.0) &&
 	          walkers::LinkValue(rise, replace, kLinkSettingCount) == 0.0,
 	      "no such setting: nothing");
@@ -159,9 +183,18 @@ void TestEffects() {
 	Check(kLinkSettings[IndexOf("ini_min_count")].effect == LinkEffect::SpawnCounts &&
 	          kLinkSettings[IndexOf("ini_max_count")].effect == LinkEffect::SpawnCounts,
 	      "the counts: the variant list's slots anew");
-	Check(kLinkSettings[IndexOf("ini_replace_enabled")].effect == LinkEffect::NextStart &&
-	          kLinkSettings[IndexOf("ini_extra_percent")].effect == LinkEffect::NextStart,
-	      "the replacement itself and the extra spawns: at the next start (the lists are changed once a session)");
+	Check(kLinkSettings[IndexOf("ini_replace_enabled")].effect == LinkEffect::Spawns &&
+	          kLinkSettings[IndexOf("ini_cat_skeletons")].effect == LinkEffect::Spawns &&
+	          kLinkSettings[IndexOf("ini_cat_bandits")].effect == LinkEffect::Spawns,
+	      "the replacement and its categories: the lists' entries pointed anew at once (Nadi, 2026-10-29: \"eig will "
+	      "ich sofort\")");
+	Check(kLinkSettings[IndexOf("ini_extra_percent")].effect == LinkEffect::NextStart,
+	      "the extra spawns: at the next start (entries added once a session)");
+	bool counted = true;
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		counted = counted && static_cast<UInt32>(kLinkSettings[i].effect) < walkers::kLinkEffectCount;
+	}
+	Check(counted && walkers::kLinkEffectCount == 6, "six effects, each setting's among them");
 	Check(kLinkSettings[IndexOf("ini_horde_enabled")].effect == LinkEffect::Horde &&
 	          kLinkSettings[IndexOf("ini_guards_enabled")].effect == LinkEffect::Horde &&
 	          kLinkSettings[IndexOf("ini_courier")].effect == LinkEffect::Horde,
@@ -196,7 +229,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 6\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 7\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

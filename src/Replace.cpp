@@ -43,14 +43,35 @@ constexpr UInt32 kActorBaseHealthOffset = 0x84;
 // TESAttributes at +0x88, its attr[8] at +4 of that: Speed the fifth.
 constexpr UInt32 kActorBaseSpeedOffset = 0x90;
 constexpr UInt32 kFullNameOffset = 0xA4;
+// TESModel at +0xAC, its nifPath (a BSStringT, the text first) at +4 of it
+// (xOBSE GameForms.h TESActorBase): a creature's skeleton,
+// "Creatures\Skeleton\Skeleton.NIF" (CategoryLogic.h).
+constexpr UInt32 kModelPathOffset = 0xB0;
+// TESActorBaseData at +0x24, its factionList inline at +0x18 of it: a
+// FactionListEntry {data, next}, data {faction, rank} (xOBSE GameForms.h).
+constexpr UInt32 kFactionListOffset = 0x3C;
+constexpr UInt32 kFactionsMost = 32;
 constexpr UInt32 kScriptOffset = 0xC8;
 constexpr UInt32 kCreatureTypeOffset = 0x104;
 constexpr UInt32 kVariantLocalId = 0x805;  // the ESP's WalkersZombieVariant
 constexpr const char* kSection = "ReplaceCreatures";
+constexpr const char* kExceptionSection = "ReplaceExceptions";
 constexpr UInt32 kSectionBytes = 1u << 19;
 
-// A creature's decision, made once per session: on or off.
-std::unordered_map<UInt32, bool> g_decided;
+// What the session knows of a creature or person, read once: its facts, its
+// category and its two INI switches (ReplaceLogic.h ReplaceOn). What its
+// entries point at is decided anew from these at every pass, so a category
+// switched in LINK takes at once (Nadi, 2026-10-29).
+struct Known {
+	CreatureFacts facts;
+	UInt8 category = kNoCategory;
+	int line = -1;
+	int exception = -1;
+};
+std::unordered_map<UInt32, Known> g_known;
+// The creature or person each list entry (its ListData) named before it
+// pointed at the walkers - so a pass can point it back.
+std::unordered_map<UInt32, UInt32> g_original;
 // The lists that got their extra walker entries this session (4.13).
 std::unordered_set<UInt32> g_extraDone;
 // The engine's own heap, as xOBSE's TESLeveledList::CreateData and
@@ -133,43 +154,68 @@ CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
 	return facts;
 }
 
-// On or off for one creature: the INI's line, or a new one by its kind.
-bool Decide(UInt32 creature, UInt32 espBase, const char* section, std::vector<char>& added, UInt32& addedUsed,
-            UInt32& newLines, LogFn log) {
-	const auto known = g_decided.find(creature);
-	if (known != g_decided.end()) {
-		return known->second;
+// A creature's category by its model's folder, a person's by its factions.
+UInt8 CategoryOf(UInt32 creature, const CreatureFacts& facts) {
+	if (facts.person) {
+		UInt32 factions[kFactionsMost];
+		UInt32 count = 0;
+		for (UInt32 node = creature + kFactionListOffset; LooksLikeObject(node) && count < kFactionsMost;
+		     node = Read(node + 4)) {
+			const UInt32 data = Read(node);
+			if (!LooksLikeObject(data)) {
+				break;
+			}
+			factions[count++] = FormIdOf(Read(data));
+		}
+		return PersonCategory(factions, count);
 	}
+	const UInt32 path = Read(creature + kModelPathOffset);
+	return CreatureCategory(LooksLikeObject(path) ? reinterpret_cast<const char*>(path) : nullptr, facts.type);
+}
+
+// What the session knows of one creature or person, read at its first sight:
+// a new line in [ReplaceCreatures] for one without a category, by its kind.
+const Known& Learn(UInt32 creature, UInt32 espBase, const ReplaceSettings& settings, const char* section,
+                   const char* exceptions, std::vector<char>& added, UInt32& addedUsed, UInt32& newLines, LogFn log) {
+	const auto found = g_known.find(creature);
+	if (found != g_known.end()) {
+		return found->second;
+	}
+	Known& known = g_known[creature];
 	const UInt32 formId = FormIdOf(creature);
 	const char* mod = ModNameAt(formId >> 24);
+	known.facts = FactsOf(creature, espBase);
 	if (mod == nullptr) {
-		// A created record (FF) or one of no loaded mod: no line to name it.
-		g_decided[creature] = false;
-		return false;
+		// A created record (FF) or one of no loaded mod: no line names it, and
+		// it stays itself.
+		known.exception = 0;
+		return known;
 	}
-	const CreatureFacts facts = FactsOf(creature, espBase);
-	const CreatureKind kind = ClassifyCreature(facts);
+	const CreatureKind kind = ClassifyCreature(known.facts);
 	if (kind == CreatureKind::Walker) {
-		g_decided[creature] = false;
-		return false;
+		return known;
 	}
+	known.category = CategoryOf(creature, known.facts);
+	known.line = FindReplaceSwitch(section, mod, formId);
+	known.exception = FindReplaceSwitch(exceptions, mod, formId);
 	const UInt32 name = Read(creature + kFullNameOffset);
 	char key[160];
 	FormatReplaceKey(key, sizeof(key), LooksLikeObject(name) ? reinterpret_cast<const char*>(name) : nullptr, mod,
 	                 formId, kind);
-	int on = FindReplaceSwitch(section, mod, formId);
-	const bool fresh = on < 0;
+	const bool fresh = known.line < 0 && WritesLine(known.category);
 	if (fresh) {
-		on = DefaultOn(kind) ? 1 : 0;
-		if (AppendSectionLine(added.data(), static_cast<UInt32>(added.size()), &addedUsed, key, on)) {
+		known.line = DefaultOn(kind) ? 1 : 0;
+		if (AppendSectionLine(added.data(), static_cast<UInt32>(added.size()), &addedUsed, key, known.line)) {
 			++newLines;
 		}
 	}
 	char note[64];
-	FormatFacts(note, sizeof(note), facts);
-	log("Spawns: %s - %s - %s%s", key, note, on != 0 ? "walkers" : "kept", fresh ? " (new in the INI)" : "");
-	g_decided[creature] = on != 0;
-	return on != 0;
+	FormatFacts(note, sizeof(note), known.facts);
+	const bool on = ReplaceOn(settings, known.facts, known.category, known.line, known.exception);
+	log("Spawns: %s - %s - %s - %s%s%s", key, note,
+	    known.category < kReplaceCategoryCount ? kReplaceCategories[known.category].key : "no category",
+	    on ? "walkers" : "kept", known.exception >= 0 ? " (an exception)" : "", fresh ? " (new in the INI)" : "");
+	return known;
 }
 
 // The new lines into the INI file itself, the rest of it byte for byte
@@ -257,6 +303,9 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 			if (data == nullptr || entry == nullptr) {
 				return added;
 			}
+			// A new entry of ours points at the walkers from the start: it
+			// never named a creature of its own.
+			g_original.erase(reinterpret_cast<UInt32>(data));
 			*reinterpret_cast<UInt16*>(data) = groups[g].level;
 			*reinterpret_cast<UInt16*>(data + 2) = 0;
 			*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = variant;
@@ -308,11 +357,13 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 		}
 	}
 	std::vector<char> section(kSectionBytes, '\0');
+	std::vector<char> exceptions(kSectionBytes, '\0');
 	if (iniPath != nullptr && iniPath[0] != '\0') {
 		const DWORD read = GetPrivateProfileSectionA(kSection, section.data(), kSectionBytes, iniPath);
 		if (read >= kSectionBytes - 2) {
 			log("Spawns: [%s] is longer than %u bytes - read as far as it went", kSection, kSectionBytes);
 		}
+		GetPrivateProfileSectionA(kExceptionSection, exceptions.data(), kSectionBytes, iniPath);
 	}
 	std::vector<char> added(kSectionBytes, '\0');
 	UInt32 addedUsed = 0;
@@ -324,6 +375,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 	UInt32 lists = 0;
 	UInt32 listsTouched = 0;
 	UInt32 replaced = 0;
+	UInt32 restored = 0;
+	UInt32 walkerEntries = 0;
 	UInt32 extraAdded = 0;
 	UInt32 extraLists = 0;
 	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
@@ -347,15 +400,34 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 				if (!LooksLikeObject(target)) {
 					continue;
 				}
-				// A creature or a person: Oblivion's leveled creature lists hold
-				// both (LL1BanditBossLvl100 holds NPC_ records only).
-				const UInt8 targetType = Read8(target + kFormTypeOffset);
-				if (targetType != kFormTypeCreature && targetType != kFormTypeNpc) {
-					continue;
+				UInt32 own = target;
+				if (target == variant) {
+					// Ours from an earlier pass - or an extra entry (4.13), which
+					// named nothing of its own and stays.
+					const auto original = g_original.find(data);
+					if (original == g_original.end()) {
+						continue;
+					}
+					own = original->second;
+				} else {
+					// A creature or a person: Oblivion's leveled creature lists
+					// hold both (LL1BanditBossLvl100 holds NPC_ records only).
+					const UInt8 targetType = Read8(target + kFormTypeOffset);
+					if (targetType != kFormTypeCreature && targetType != kFormTypeNpc) {
+						continue;
+					}
+					g_original[data] = target;
 				}
-				if (Decide(target, espBase, section.data(), added, addedUsed, newLines, log)) {
-					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = variant;
-					++replaced;
+				const Known& known = Learn(own, espBase, settings, section.data(), exceptions.data(), added,
+				                           addedUsed, newLines, log);
+				const bool on = ReplaceOn(settings, known.facts, known.category, known.line, known.exception);
+				const UInt32 wanted = on ? variant : own;
+				if (wanted != target) {
+					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = wanted;
+					++(on ? replaced : restored);
+				}
+				if (on) {
+					++walkerEntries;
 					touched = true;
 				} else {
 					++kept;
@@ -373,12 +445,14 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 		}
 	}
 	UInt32 on = 0;
-	for (const auto& decided : g_decided) {
-		on += decided.second ? 1 : 0;
+	for (const auto& known : g_known) {
+		const Known& k = known.second;
+		on += ReplaceOn(settings, k.facts, k.category, k.line, k.exception) ? 1 : 0;
 	}
-	log("Spawns: %u forms, %u leveled creature lists - %u entries in %u lists now walkers; %u creatures decided, %u "
-	    "of them walkers",
-	    forms, lists, replaced, listsTouched, static_cast<UInt32>(g_decided.size()), on);
+	log("Spawns: %u forms, %u leveled creature lists (Enabled=%d) - %u entries in %u lists point at the walkers, %u of "
+	    "them new, %u entries back to their own; %u creatures and people known, %u of them walkers",
+	    forms, lists, settings.enabled ? 1 : 0, walkerEntries, listsTouched, replaced, restored,
+	    static_cast<UInt32>(g_known.size()), on);
 	if (settings.extraPercent > 0) {
 		log("Spawns: ExtraPercent=%u - %u walker entries added beside the lists' own, in %u lists (%u lists had theirs "
 		    "this session)",
