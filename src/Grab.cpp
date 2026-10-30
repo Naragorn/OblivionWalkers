@@ -476,6 +476,16 @@ void HoldFlags(UInt32 player, float dt) {
 	}
 }
 
+// xOBSE's own messages: at PostLoad every plugin is loaded, OBVR's listener now.
+void OnObseMessage(obse::MessagingInterface::Message* message) {
+	if (message == nullptr || !ListenToObvrAt(message->type) || g_messaging == nullptr) {
+		return;
+	}
+	const bool listening = g_messaging->RegisterListener(g_pluginHandle, kObvr, &OnObvrMessage);
+	g_services.log("Grab: OBVR's messages %s (xOBSE's PostLoad)",
+	               listening ? "listened to" : "not listened to - OBVR is not loaded");
+}
+
 }  // namespace
 
 void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, obse::MessagingInterface* messaging,
@@ -487,7 +497,7 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	ResetGrabInGame();
 	bool listening = false;
 	if (g_messaging != nullptr && g_messaging->RegisterListener != nullptr) {
-		listening = g_messaging->RegisterListener(pluginHandle, kObvr, &OnObvrMessage);
+		listening = g_messaging->RegisterListener(pluginHandle, "OBSE", &OnObseMessage);
 	}
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
 	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f StrugglePresses=%u "
@@ -499,7 +509,7 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	               settings->struggleCrowdStep, settings->struggleCrowdMost, settings->struggleCrowdRadius,
 	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0, settings->shakeStrokes,
 	               settings->shakeFatigue,
-	               listening ? "listened to" : "not listened to");
+	               listening ? "listened to once xOBSE has loaded every plugin" : "not listened to (no xOBSE messages)");
 }
 
 void ConfigureGrabIdles(UInt32 espBase) {

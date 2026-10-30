@@ -371,6 +371,14 @@ inline UInt32 GrabBiteMessage(const GrabEvent& bite, const GrabSettings& s, UInt
 	return 4 * kGrabBiteWords;
 }
 
+// OBVR's listener is registered at xOBSE's PostLoad (0), not at the plugin's
+// load: xOBSE refuses a sender not yet loaded (PluginManager::RegisterListener,
+// "is target loaded?"; PluginAPI.h: "Calling RegisterListener() ... during
+// plugin load is not advised"). Found by OBVR, 2026-10-30: "OBVR's messages
+// not listened to" in every log, its 'WGVR' and 'WGSK' undelivered.
+inline constexpr UInt32 kObseMessagePostLoad = 0;
+inline bool ListenToObvrAt(UInt32 obseMessageType) { return obseMessageType == kObseMessagePostLoad; }
+
 // From OBVR ('WGSK'): one word, the arm (1 left, 2 right) whose held hand
 // swung once - a stroke of the shake.
 inline constexpr UInt32 kGrabShakeMessage = 0x4B534757;

@@ -289,6 +289,9 @@ void TestMessage() {
 	Check(walkers::GrabBiteMessage(last, s, bite) == 16 && bite[0] == 1 && bite[1] == 3 && bite[3] == 1,
 	      "the last bite: the lethal word 1");
 	Check(walkers::kGrabBiteMessage == 0x54424757, "the type reads 'WGBT' in memory");
+	Check(walkers::ListenToObvrAt(0), "xOBSE's PostLoad (0): every plugin is loaded, OBVR's listener now");
+	Check(!walkers::ListenToObvrAt(9) && !walkers::ListenToObvrAt(1),
+	      "any other message of xOBSE (PostPostLoad 9, ExitGame 1): not again");
 	const UInt32 request = 0xFF000F02;
 	UInt32 ref = 0;
 	Check(walkers::FreeRequestOf(&request, 4, ref) && ref == 0xFF000F02, "OBVR's free request: the holder to free");
