@@ -425,6 +425,7 @@ struct Fallen {
 	bool racePlayable = false;  // his race's playable byte (TESRace+0x70)
 	bool raceHuman = false;     // one of Oblivion.esm's four human races (IsHumanRace)
 	bool inChapel = false;      // he fell in a chapel (IsChapelCell of his cell)
+	bool headOff = false;       // OBVR cut his head off before the death (EndLogic.h HeadNotes)
 };
 
 // A chapel (4.7): a cell the Nine Divines own (Oblivion.esm's NineDivines
@@ -491,6 +492,7 @@ enum class DeathVerdict : UInt8 {
 	AlreadyWaiting,   // the same reference died again before rising
 	ChanceMissed,     // the ChancePercent roll
 	InChapel,         // AvoidChapels=1 and he fell in a chapel
+	HeadOff,          // OBVR cut his head off: no walker with a head from him
 	ListFull,         // kWaitingMost references wait already
 };
 
@@ -516,6 +518,8 @@ inline const char* VerdictText(DeathVerdict verdict) {
 			return "stays down (the chance roll)";
 		case DeathVerdict::InChapel:
 			return "stays down (in a chapel, AvoidChapels=1)";
+		case DeathVerdict::HeadOff:
+			return "stays down (his head is off)";
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
 	}
@@ -582,6 +586,9 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 	}
 	if (fallen.essential) {
 		return DeathVerdict::Essential;
+	}
+	if (fallen.headOff) {
+		return DeathVerdict::HeadOff;
 	}
 	if (settings.onlyGeneric && !fallen.generic) {
 		return DeathVerdict::NotGeneric;

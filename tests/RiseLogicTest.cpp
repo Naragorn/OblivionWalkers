@@ -298,6 +298,23 @@ void TestWalkOnly() {
 	Check(walkers::WalkInsteadOfRun(0x0230) == 0x0130, "the other bits kept");
 }
 
+void TestHeadOff() {
+	std::printf("A person whose head is off\n");
+	walkers::WaitingList list;
+	walkers::RiseSettings s;
+	walkers::Fallen f;
+	f.refId = 0xFF000F82;
+	f.baseId = 0x00069AD1;
+	f.character = true;
+	f.generic = true;
+	f.racePlayable = true;
+	f.headOff = true;
+	Check(walkers::NoteDeath(list, s, f, 0, 0.0f) == walkers::DeathVerdict::HeadOff && list.count == 0,
+	      "OBVR cut the head before the death: he stays down");
+	f.headOff = false;
+	Check(walkers::NoteDeath(list, s, f, 0, 0.0f) == walkers::DeathVerdict::Waits, "with his head: he waits to rise");
+}
+
 void TestRequeue() {
 	std::printf("A due rise put back\n");
 	walkers::WaitingList list;
@@ -822,6 +839,7 @@ int main() {
 	TestPresenceAt();
 	TestMissing();
 	TestWalkOnly();
+	TestHeadOff();
 	TestRequeue();
 	TestEspRace();
 	TestEspPlace();

@@ -107,18 +107,21 @@ inline bool HeadOf(const void* data, UInt32 length, UInt32& refId, HeadKind& kin
 
 // What a head off does to the reference.
 enum class HeadAction : UInt8 {
-	Ignore,      // no walker
-	EndWaiting,  // it lies to rise again: off the list, the end
+	Ignore,      // no walker, none waiting: noted already, its death keeps it down
+	EndWaiting,  // it lies to rise (again): off the list, the end
 	Kill,        // alive still: killed (its death then finds the head noted)
 	Note,        // dead, not waiting: noted for its death watch
 };
 
+// A person waiting to rise as a walker leaves the list too: a corpse
+// without a head would get up as a walker with one (OBVR's
+// dismember-walker.txt, 2026-10-30 19:14) - whatever DieOnlyBeheaded says.
 inline HeadAction HeadActionFor(bool walker, bool waiting, bool dead) {
-	if (!walker) {
-		return HeadAction::Ignore;
-	}
 	if (waiting) {
 		return HeadAction::EndWaiting;
+	}
+	if (!walker) {
+		return HeadAction::Ignore;
 	}
 	return dead ? HeadAction::Note : HeadAction::Kill;
 }

@@ -468,6 +468,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		CellFacts(ref, &cellId, &cellOwner);
 		fallen.inChapel = IsChapelCell(cellId, cellOwner);
 		fallen.refId = Read(ref + kFormIdOffset);
+		fallen.headOff = HeadNoted(g_heads, fallen.refId);
 		fallen.character = Read(ref) == kVtblCharacter;
 		const UInt32 base = Read(ref + kRefBaseFormOffset);
 		if (LooksLikeObject(base)) {
@@ -501,8 +502,12 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 			headless = g_walkerHeadless[w];
 		}
 	}
+	// The swap's own unseen kill of the walker it placed (4.1): the swap
+	// raises it, not 4.17 (OBVR's dismember-walker.txt, 2026-10-30 19:14:
+	// "down - it gets up again" for the swap's walker).
+	const bool swapKill = g_swap.active && fallen.refId == g_swap.zombieId;
 	WalkerFall fall = WalkerFall::EndedRuleOff;
-	if (walker) {
+	if (walker && !swapKill) {
 		FallFacts facts;
 		facts.headless = headless;
 		facts.headNoted = HeadNoted(g_heads, fallen.refId);
@@ -513,7 +518,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	}
 	// A walker that gets up again keeps its corpse searchable and counts for
 	// no fame yet: both at its end (spec 4.17 point 7).
-	const bool walkerUp = walker && !Ends(fall);
+	const bool walkerUp = walker && !swapKill && !Ends(fall);
 	if (!walkerUp && BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
 	}
@@ -556,7 +561,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	const UInt32 roll = NextRandom() % 100;
 	const float unit = static_cast<float>(NextRandom() % 10001) / 10000.0f;
 	const DeathVerdict verdict = NoteDeath(g_list, g_settings, fallen, roll, unit);
-	if (walker && g_settings.end.dieOnlyBeheaded) {
+	if (walker && !swapKill && g_settings.end.dieOnlyBeheaded) {
 		const float seconds = RiseAgainIn(g_settings.end, unit);
 		const bool queued = walkerUp && Requeue(g_list, fallen.refId, fallen.baseId, seconds);
 		g_log("End: walker %08X (base %08X, killer %08X) %s%s; %u waiting", fallen.refId, fallen.baseId,
@@ -1850,18 +1855,19 @@ void StepHeads() {
 		const HeadAction action = HeadActionFor(walker, waiting, walker && IsDead(ref));
 		if (action == HeadAction::EndWaiting) {
 			Unlist(g_list, refId);
-			if (BlocksLoot(g_settings.noLoot, true, IsRisen(g_risenSet, refId)) && g_lootlessCount < 32) {
+			if (walker && BlocksLoot(g_settings.noLoot, true, IsRisen(g_risenSet, refId)) && g_lootlessCount < 32) {
 				g_lootless[g_lootlessCount++] = refId;
 			}
-			if (g_settings.famePerKills > 0 && CountWalkerKill(g_fame, g_settings.famePerKills)) {
+			if (walker && g_settings.famePerKills > 0 && CountWalkerKill(g_fame, g_settings.famePerKills)) {
 				++g_famePending;
 			}
-			g_log("End: walker %08X ended - its head is off, it gets up no more; %u waiting", refId, g_list.count);
+			g_log("End: %s %08X ended - its head is off, it gets up no more; %u waiting", walker ? "walker" : "the dead",
+			      refId, g_list.count);
 		} else if (action == HeadAction::Kill) {
 			const bool killed = ConsoleOn(ref, "Kill");
 			g_log("End: walker %08X lost its head alive - killed (handed to xOBSE: %d)", refId, killed ? 1 : 0);
 		} else if (action == HeadAction::Ignore) {
-			g_log("End: %08X is no walker - its head is OBVR's alone", refId);
+			g_log("End: %08X is no walker and waits for no rise - noted, its death keeps it down", refId);
 		}
 	}
 	g_headsDueCount = 0;

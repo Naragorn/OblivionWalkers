@@ -89,7 +89,11 @@ void TestMessages() {
 
 void TestHeadAction() {
 	std::printf("What a head off does\n");
-	Check(walkers::HeadActionFor(false, false, true) == HeadAction::Ignore, "not a walker: nothing");
+	Check(walkers::HeadActionFor(false, false, true) == HeadAction::Ignore,
+	      "not a walker, not waiting: nothing more (noted, so its death keeps it down)");
+	Check(walkers::HeadActionFor(false, true, true) == HeadAction::EndWaiting,
+	      "a person lying to rise as a walker: off the list - no walker with a head from a headless corpse "
+	      "(OBVR's dismember-walker.txt, 2026-10-30 19:14)");
 	Check(walkers::HeadActionFor(true, true, true) == HeadAction::EndWaiting,
 	      "a walker lying to rise again: off the list, the end");
 	Check(walkers::HeadActionFor(true, false, false) == HeadAction::Kill,
