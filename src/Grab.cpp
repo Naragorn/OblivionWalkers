@@ -174,7 +174,7 @@ bool GodMode() {
 }
 
 const char* HoldName(PlayerHold hold) {
-	return hold == PlayerHold::Rooted ? "rooted" : (hold == PlayerHold::Slowed ? "slowed to a walk" : "free");
+	return hold == PlayerHold::Rooted ? "rooted" : "free";
 }
 
 // A line on the screen (Messages), as the console's Message prints it.
@@ -213,6 +213,16 @@ void UpdateNeeded(UInt32 player) {
 	const float base = BaseValueOf(player, kActorValueFatigue);
 	g_needed = StrugglePressesNeeded(*g_settings, g_walkersNear, fatigue, base);
 	g_shakeNeeded = ShakeStrokesNeeded(*g_settings, g_walkersNear, fatigue, base);
+}
+
+// A bite to OBVR, which shows it on the body in VR.
+void SendBite(const GrabEvent& ev) {
+	if (g_messaging == nullptr) {
+		return;
+	}
+	UInt32 words[kGrabBiteWords];
+	const UInt32 bytes = GrabBiteMessage(ev, *g_settings, words);
+	g_messaging->Dispatch(g_pluginHandle, kGrabBiteMessage, words, bytes, kObvr);
 }
 
 void SendState() {
@@ -310,6 +320,7 @@ void Bite(const GrabEvent& ev, UInt32 player) {
 		a->biteLeft = kBiteAnimSeconds;
 	}
 	Say(ev.lethal ? GrabSay::LastBite : GrabSay::Bitten, ev.arm, ev.biteNumber);
+	SendBite(ev);
 	const float now = HealthOf(player);
 	const float base = BaseHealthOf(player);
 	const bool god = GodMode();

@@ -1536,7 +1536,7 @@ now 0". Seen too: the first write comes before the save's quest data is
 read and is done again after it (two such lines) - harmless. Not run: the
 menu itself (Nadi's, Windows).
 
-### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=50`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=160`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
+### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=50`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=1000`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
 
 What (Nadi, 2026-10-28: "wenn von zuvielen zombies umzingelt, greifen oder
 halten die einen fest und iwann ist man tot... also so wie Saints and
@@ -1584,7 +1584,7 @@ bites; held by too many, the player dies.
    instead of the blow's damage. Two arms, so at most two holders (S&S's
    choice); a third and further walkers around a held player count as
    "pressing in".
-2. **Held**: one holder slows the player (`SlowPercent`), two root the player
+2. **Held**: a holder roots the player (one already since 2026-10-30)
    (VR: OBVR's input gate; flat: `SetRestrained` on the player, or the
    plugin's own movement hook if the turn block feels bad). The holder is
    restrained before the player, faces the player and plays the hold.
@@ -1698,6 +1698,22 @@ ESP's IDLE 0x94D..0x952):
   - LINK: "VR: swings to shake free" and "VR: fatigue per swing", last in
     the list (indices 66, 67) under the grab's advanced header - 68 in all,
     version 6.
+- **One holder roots, no line in VR** (Nadi, 2026-10-30, at the headset: "griff
+  kommt zwar aber ich kann einfach weg. und die notification zeile bringts
+  auch nicht. sains & sinners machts besser mit der einblendung"; "go A. go
+  B"). A: one holder already roots the player (PlayerHold has no Slowed any
+  more); walking off frees no one - `TearFreeDistance` is 1000 by default,
+  only a jump apart (a door, a teleport) lets go; free by blows, Block, the
+  shake or the holder's death. LINK "Let-go distance" 100..3000, version 8.
+  B: after 'WGVR' 1 no line is said at all (GrabText false); instead Walkers
+  sends OBVR 'WGBT' 0x54424757 at each bite (four words: the arm, the bite,
+  BitesToDie, 1 for the last), and OBVR shows grab and bite on the body: a
+  jolt in the held hand at 'WGRB', a stronger one and a red flash at
+  'WGBT', its stick movement locked while 'WGRB' counts a holder (the
+  engine's movement flags do not reach OBVR's own locomotion - not
+  verified, OBVR's to check). The room itself cannot be locked. The holder's
+  hands on the player's arm (IK on the walker's skeleton) is the next,
+  larger step, not built.
   - Built in Walkers 2026-10-28, unit flows PASS; OBVR's side handed to
     the OBVR session; the feel only in the headset.
 - LINK: "Walkers grab", "Chance to grab", "Bites you take" under the header

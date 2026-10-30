@@ -91,7 +91,7 @@ void TestHold() {
 	Arm arm = Arm::None;
 	Check(walkers::HoldOf(g) == PlayerHold::Free, "nobody holds: free");
 	walkers::TryGrab(g, s, 0xFF000B01, Arm::Left, 0, &arm);
-	Check(walkers::HoldOf(g) == PlayerHold::Slowed, "one holder: slowed");
+	Check(walkers::HoldOf(g) == PlayerHold::Rooted, "one holder: rooted already (Nadi, 2026-10-30: walked away)");
 	walkers::TryGrab(g, s, 0xFF000B02, Arm::Left, 0, &arm);
 	Check(walkers::HoldOf(g) == PlayerHold::Rooted, "two holders: rooted");
 	using walkers::kMoveBackward;
@@ -102,10 +102,6 @@ void TestHold() {
 	using walkers::kMoveWalk;
 	const UInt16 running = kMoveForward | kMoveLeft | kMoveRun;
 	Check(walkers::HeldPlayerFlags(running, PlayerHold::Free) == running, "free: the player's flags untouched");
-	Check(walkers::HeldPlayerFlags(running, PlayerHold::Slowed) == (kMoveForward | kMoveLeft | kMoveWalk),
-	      "slowed: the run becomes a walk, the direction kept");
-	Check(walkers::HeldPlayerFlags(kMoveBackward | kMoveWalk, PlayerHold::Slowed) == (kMoveBackward | kMoveWalk),
-	      "slowed and walking already: as it was");
 	Check(walkers::HeldPlayerFlags(running | kMoveRight | kMoveBackward | 0x0400, PlayerHold::Rooted) == 0x0400,
 	      "rooted: no step in any direction, no run or walk; anything else kept");
 	Check(walkers::HolderFlags(kMoveForward | kMoveRun | 0x0400) == 0x0400,
@@ -210,10 +206,13 @@ void TestLetGo() {
 	          g.count == 0,
 	      "a holder cut down: it lets go");
 	walkers::TryGrab(g, s, 0xFF000D03, Arm::Right, 0, &arm);
-	HolderView far[1] = {HolderView{true, false, 161.0f}};
+	HolderView apart[1] = {HolderView{true, false, 161.0f}};
+	n = walkers::StepGrab(g, s, 0.1f, apart, ev, 8);
+	Check(n == 0 && g.count == 1, "161 units apart (VR's room, a shove): still held - walking off frees no one");
+	HolderView far[1] = {HolderView{true, false, 1001.0f}};
 	n = walkers::StepGrab(g, s, 0.1f, far, ev, 8);
 	Check(n == 1 && ev[0].why == LetGo::TornFree && g.count == 0,
-	      "the player 161 units from the holder: torn free (with one holder the player can still walk)");
+	      "1001 units apart (a door, a teleport): torn free (TearFreeDistance 1000)");
 	walkers::TryGrab(g, s, 0xFF000D04, Arm::Right, 0, &arm);
 	HolderView gone[1] = {HolderView{false, false, 0.0f}};
 	n = walkers::StepGrab(g, s, 0.1f, gone, ev, 8);
@@ -281,6 +280,15 @@ void TestMessage() {
 	      "two holders: the count, then each reference with its arm (1 left, 2 right)");
 	Check(walkers::kGrabStateMessage == 0x42524757 && walkers::kGrabFreeMessage == 0x52464757,
 	      "the types read 'WGRB' and 'WGFR' in memory");
+	UInt32 bite[walkers::kGrabBiteWords];
+	const GrabEvent second{GrabEvent::Bite, 0xFF000F01, Arm::Right, LetGo::Dead, false, 2};
+	Check(walkers::GrabBiteMessage(second, s, bite) == 16 && bite[0] == 2 && bite[1] == 2 && bite[2] == 3 &&
+	          bite[3] == 0,
+	      "a bite to OBVR: the arm, which bite of how many, not the last");
+	const GrabEvent last{GrabEvent::Bite, 0xFF000F02, Arm::Left, LetGo::Dead, true, 3};
+	Check(walkers::GrabBiteMessage(last, s, bite) == 16 && bite[0] == 1 && bite[1] == 3 && bite[3] == 1,
+	      "the last bite: the lethal word 1");
+	Check(walkers::kGrabBiteMessage == 0x54424757, "the type reads 'WGBT' in memory");
 	const UInt32 request = 0xFF000F02;
 	UInt32 ref = 0;
 	Check(walkers::FreeRequestOf(&request, 4, ref) && ref == 0xFF000F02, "OBVR's free request: the holder to free");
@@ -449,14 +457,10 @@ void TestTexts() {
 	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Right, 0, 6, mute, text, sizeof(text)) &&
 	          std::strcmp(text, "A walker grabs your right arm! Strike it to break free.") == 0,
 	      "without the key: only the strike named");
-	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, 8, s, text, sizeof(text), true) &&
-	          std::strcmp(text, "A walker grabs your left arm! Shake it off (8).") == 0,
-	      "in VR: shake the arm, with the strokes needed");
-	GrabSettings still = s;
-	still.shakeStrokes = 0;
-	Check(walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, 6, still, text, sizeof(text), true) &&
-	          std::strcmp(text, "A walker grabs your left arm! Strike it or mash Block (6).") == 0,
-	      "in VR with ShakeStrokes 0: the flat line");
+	Check(!walkers::GrabText(walkers::GrabSay::Grabbed, Arm::Left, 0, 8, s, text, sizeof(text), true) &&
+	          !walkers::GrabText(walkers::GrabSay::Bitten, Arm::Left, 1, 8, s, text, sizeof(text), true) &&
+	          !walkers::GrabText(walkers::GrabSay::Free, Arm::Left, 0, 8, s, text, sizeof(text), true),
+	      "in VR: no line at all - OBVR shows it on the body (Nadi, 2026-10-30: the line does not do it)");
 	Check(walkers::SayFor(LetGo::Struck) == walkers::GrabSay::Free && walkers::SayFor(LetGo::Struggled) == walkers::GrabSay::Free &&
 	          walkers::SayFor(LetGo::TornFree) == walkers::GrabSay::Free && walkers::SayFor(LetGo::Asked) == walkers::GrabSay::Free &&
 	          walkers::SayFor(LetGo::Shaken) == walkers::GrabSay::Free &&

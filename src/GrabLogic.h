@@ -9,13 +9,15 @@
 // A walker's landed hit on the player becomes, by the chance, a grab of the
 // arm on the walker's side - two arms, so two holders at most, as Saints &
 // Sinners has it (Skydance's tech blog, 2020-04-24: "by either arm
-// (including two Walkers at once)"). One holder slows the player to a walk,
-// two root the player. Each holder bites on its own clock; the player takes
-// BitesToDie bites, the last one kills (god mode leaves a point). A holder
-// lets go when cut down, struck off (StruggleHits of the player's blows on
-// it), when the player gets too far from it (with one holder the player can
-// still walk), or when OBVR asks (the shake of the held arm in VR, through
-// the message below). Free for BiteResetSeconds, the bites are forgotten.
+// (including two Walkers at once)"). A holder roots the player - one already
+// (Nadi, 2026-10-30: "griff kommt zwar aber ich kann einfach weg"; slowed to
+// a walk, the player walked off). Each holder bites on its own clock; the
+// player takes BitesToDie bites, the last one kills (god mode leaves a
+// point). A holder lets go when cut down, struck off (StruggleHits of the
+// player's blows on it), wrenched off (Block, below), when the player is
+// suddenly far from it (a door, a teleport - walking off frees no one), or
+// when OBVR asks (the shake of the held arm in VR, through the message
+// below). Free for BiteResetSeconds, the bites are forgotten.
 
 #include <cmath>
 #include <cstdio>
@@ -33,7 +35,7 @@ struct GrabSettings {
 	float biteSeconds = 4.0f;      // each holder bites this long after it took hold, and again
 	UInt32 biteHealthPercent = 20; // of the player's base health, a bite before the last
 	UInt32 struggleHits = 2;       // the player's blows on a holder that free the arm (0 counts as 1)
-	float tearFreeDistance = 160.0f;  // units between player and holder that tear the arm free
+	float tearFreeDistance = 1000.0f;  // units between player and holder that let go (a door, a teleport)
 	float biteResetSeconds = 30.0f;   // free this long, the bites are forgotten
 	// A test switch (harness/grab-anims.txt): free this long, the nearest
 	// walker is moved before the player and grabs as at a hit - so the
@@ -173,11 +175,9 @@ inline GrabRefusal TryGrab(GrabState& g, const GrabSettings& s, UInt32 refId, Ar
 	return GrabRefusal::None;
 }
 
-enum class PlayerHold : UInt8 { Free, Slowed, Rooted };
+enum class PlayerHold : UInt8 { Free, Rooted };
 
-inline PlayerHold HoldOf(const GrabState& g) {
-	return g.count == 0 ? PlayerHold::Free : (g.count == 1 ? PlayerHold::Slowed : PlayerHold::Rooted);
-}
+inline PlayerHold HoldOf(const GrabState& g) { return g.count == 0 ? PlayerHold::Free : PlayerHold::Rooted; }
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_*), as
 // the walk of 4.4 writes them (RiseLogic.h kMovementWalk, kMovementRun).
@@ -189,17 +189,9 @@ inline constexpr UInt16 kMoveWalk = 0x0100;
 inline constexpr UInt16 kMoveRun = 0x0200;
 inline constexpr UInt16 kMoveSteps = kMoveForward | kMoveBackward | kMoveLeft | kMoveRight;
 
-// The player's flags under the hold: slowed, a run becomes a walk; rooted,
-// no step at all.
+// The player's flags under the hold: rooted, no step at all.
 inline UInt16 HeldPlayerFlags(UInt16 flags, PlayerHold hold) {
-	switch (hold) {
-		case PlayerHold::Slowed:
-			return (flags & kMoveRun) != 0 ? static_cast<UInt16>((flags & ~kMoveRun) | kMoveWalk) : flags;
-		case PlayerHold::Rooted:
-			return static_cast<UInt16>(flags & ~(kMoveSteps | kMoveWalk | kMoveRun));
-		default:
-			return flags;
-	}
+	return hold == PlayerHold::Rooted ? static_cast<UInt16>(flags & ~(kMoveSteps | kMoveWalk | kMoveRun)) : flags;
 }
 
 // A holder stands at the arm it holds.
@@ -364,6 +356,21 @@ inline UInt32 GrabMessage(const GrabState& g, UInt32* words) {
 	return 4 * (1 + 2 * g.count);
 }
 
+// To OBVR ('WGBT' in memory), at each bite: the arm (1 left, 2 right), which
+// bite, of how many, and 1 for the last - so it can show the bite on the
+// body in VR (a jolt in the hand, a red flash), where no line is said.
+inline constexpr UInt32 kGrabBiteMessage = 0x54424757;
+inline constexpr UInt32 kGrabBiteWords = 4;
+
+// The bite message's words; returns its bytes.
+inline UInt32 GrabBiteMessage(const GrabEvent& bite, const GrabSettings& s, UInt32* words) {
+	words[0] = static_cast<UInt32>(bite.arm);
+	words[1] = bite.biteNumber;
+	words[2] = s.bitesToDie;
+	words[3] = bite.lethal ? 1 : 0;
+	return 4 * kGrabBiteWords;
+}
+
 // From OBVR ('WGSK'): one word, the arm (1 left, 2 right) whose held hand
 // swung once - a stroke of the shake.
 inline constexpr UInt32 kGrabShakeMessage = 0x4B534757;
@@ -497,19 +504,17 @@ inline GrabSay SayFor(LetGo why) {
 	           : GrabSay::None;
 }
 
-// The line on the screen; false when nothing is said (Messages 0, None).
-// `vr`: OBVR said the player plays in VR; `needed` then the strokes.
+// The line on the screen; false when nothing is said (Messages 0, None, and
+// in VR - `vr`: OBVR said the player plays in VR and shows the grab on the
+// body; Nadi, 2026-10-30: "die notification zeile bringts auch nicht").
 inline bool GrabText(GrabSay say, Arm arm, UInt32 bite, UInt32 needed, const GrabSettings& s, char* out,
                      UInt32 capacity, bool vr = false) {
-	if (!s.messages || capacity == 0) {
+	if (!s.messages || vr || capacity == 0) {
 		return false;
 	}
 	switch (say) {
 		case GrabSay::Grabbed:
-			if (vr && s.shakeStrokes > 0 && needed > 0) {
-				std::snprintf(out, capacity, "A walker grabs your %s arm! Shake it off (%u).",
-				              arm == Arm::Left ? "left" : "right", needed);
-			} else if (s.strugglePresses > 0 && needed > 0) {
+			if (s.strugglePresses > 0 && needed > 0) {
 				std::snprintf(out, capacity, "A walker grabs your %s arm! Strike it or mash Block (%u).",
 				              arm == Arm::Left ? "left" : "right", needed);
 			} else {

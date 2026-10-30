@@ -2,7 +2,7 @@
 
 // Grabbed by walkers in the game (docs/walkers-spec.md 4.19): GrabLogic.h's
 // decisions carried out - the grab at a walker's landed hit (xOBSE's OnHit),
-// the holder kept standing and the player slowed or rooted on the
+// the holder kept standing and the player rooted on the
 // HighProcess movement flags every frame, the grab's animations played
 // through the engine's idle queue as xOBSE's PlayIdle does it, the bites as
 // damage, the holders sent to OBVR and let go at its request.

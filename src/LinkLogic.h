@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 7.0;
+inline constexpr double kLinkVersion = 8.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -136,7 +136,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 1, 0, false, LinkEffect::Horde},
 	{"ini_no_skill_gain", "No skill from walkers", "Blows on and from walkers train no skill (weapon, block, armor).",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_grab_enabled", "Walkers grab", "A walker's hit may grab an arm: one slows you, two hold you, they bite.",
+	{"ini_grab_enabled", "Walkers grab", "A walker's hit may grab an arm and hold you where you stand; it bites.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_chance", "Chance to grab", "How often a walker's hit grabs an arm.", LinkKind::Slider, 0, 100, 5, 0, true,
 	 LinkEffect::Live},
@@ -178,7 +178,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_grab_bite_seconds", "Seconds between bites", "From the grab to the first bite, and between bites.", LinkKind::Slider, 1, 10, 0.5f, 1, false, LinkEffect::Live},
 	{"ini_grab_bite_health", "Bite damage", "What a bite before the last takes, in percent of your base health.", LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
 	{"ini_grab_struggle_hits", "Strikes to break free", "Your blows on a holder that make it let go.", LinkKind::Slider, 1, 10, 1, 0, false, LinkEffect::Live},
-	{"ini_grab_tear_free", "Tear-free distance", "Units between you and a holder that tear your arm free.", LinkKind::Slider, 50, 500, 10, 0, false, LinkEffect::Live},
+	{"ini_grab_tear_free", "Let-go distance", "Units between you and a holder that make it let go (a door, a teleport).", LinkKind::Slider, 100, 3000, 50, 0, false, LinkEffect::Live},
 	{"ini_grab_bite_reset", "Seconds until bites are forgotten", "Free this long, the bites you took are forgotten.", LinkKind::Slider, 0, 120, 5, 0, false, LinkEffect::Live},
 	{"ini_grab_crowd_most", "Crowd: most", "The crowd makes breaking free at most this many times harder.", LinkKind::Slider, 1, 5, 0.5f, 1, false, LinkEffect::Live},
 	{"ini_grab_crowd_radius", "Crowd: radius", "Walkers this near count for the crowd (units).", LinkKind::Slider, 100, 1000, 50, 0, false, LinkEffect::Live},
