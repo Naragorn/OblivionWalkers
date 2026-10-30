@@ -150,6 +150,9 @@ void TestRise() {
 		without += out[i] == 0x31 ? 1u : 0u;
 	}
 	Check(n == 3 && withHead == 2 && without == 1, "an Argonian: the look with a head twice, the headless one once");
+	n = walkers::RiseCandidates(mixed.bases, mixed.families, mixed.headless, mixed.count, kArgonian, true, out, false);
+	Check(n == 2 && out[0] == 0x30 && out[1] == 0x30,
+	      "without the headless (DieOnlyBeheaded, 4.17): only the look with a head");
 }
 
 void TestVariant() {

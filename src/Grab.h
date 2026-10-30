@@ -25,6 +25,8 @@ struct GrabServices {
 	UInt32 (*roll)();
 	UInt32 (*nearestWalker)(float radius);  // the test switch's walker, 0 for none
 	UInt32 (*walkersNear)(float radius);    // living walkers within `radius` of the player
+	// OBVR's other messages (4.17's 'WGDM' and 'WGHD'), handed on as they come.
+	void (*otherObvrMessage)(UInt32 type, const void* data, UInt32 length);
 	LogFn log;
 };
 

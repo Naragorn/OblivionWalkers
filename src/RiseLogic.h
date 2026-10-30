@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "Bytes.h"
+#include "EndLogic.h"
 #include "GrabLogic.h"
 #include "GuardLogic.h"
 #include "HordeLogic.h"
@@ -157,6 +158,9 @@ struct RiseSettings {
 	bool renameToWalker = true;
 	char walkerName[32] = "Walker";
 	bool renameVanilla = false;
+	// [Zombies] DieOnlyBeheaded, RiseAgainSeconds, RiseAgainJitterSeconds
+	// (4.17, EndLogic.h): a walker gets up again until its head is off.
+	EndSettings end;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk
@@ -551,6 +555,20 @@ inline bool Requeue(WaitingList& list, UInt32 refId, UInt32 baseId, float second
 		return false;
 	}
 	list.entries[list.count++] = Waiting{refId, baseId, seconds};
+	return true;
+}
+
+// A waiting reference taken off the list (4.17: its head is off); false
+// when it is not on it. The others keep their order.
+inline bool Unlist(WaitingList& list, UInt32 refId) {
+	const int at = FindWaiting(list, refId);
+	if (at < 0) {
+		return false;
+	}
+	for (UInt32 i = static_cast<UInt32>(at) + 1; i < list.count; ++i) {
+		list.entries[i - 1] = list.entries[i];
+	}
+	--list.count;
 	return true;
 }
 

@@ -401,6 +401,8 @@ void OnObvrMessage(obse::MessagingInterface::Message* message) {
 			g_services.log("Grab: OBVR says the player plays %s", vr ? "in VR - a held arm is shaken off" : "flat");
 		}
 		g_vr = vr;
+	} else if (g_services.otherObvrMessage != nullptr) {
+		g_services.otherObvrMessage(message->type, message->data, message->dataLen);
 	}
 }
 

@@ -44,9 +44,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 113,
-	      "113 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two and the 45 replacement categories - every INI setting but Name, "
+	Check(kLinkSettingCount == 116,
+	      "116 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories and 4.17's three - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -141,6 +141,16 @@ void TestValues() {
 	Check(walkers::SetLinkValue(rise, replace, strokes, 0.0) && rise.grab.shakeStrokes == 0 &&
 	          walkers::SetLinkValue(rise, replace, shakeFatigue, 4.0) && rise.grab.shakeFatigue == 4.0f,
 	      "the shake's settings set from the menu (strokes 0: off)");
+	const int beheaded = IndexOf("ini_die_only_beheaded");
+	const int again = IndexOf("ini_rise_again");
+	const int againJitter = IndexOf("ini_rise_again_jitter");
+	Check(beheaded == 113 && again == 114 && againJitter == 115 && walkers::LinkValue(rise, replace, beheaded) == 1.0 &&
+	          walkers::LinkValue(rise, replace, again) == 20.0 && walkers::LinkValue(rise, replace, againJitter) == 10.0,
+	      "4.17 after the categories: DieOnlyBeheaded on, 20 s and 10 s - the INI's defaults");
+	Check(walkers::SetLinkValue(rise, replace, beheaded, 0.0) && !rise.end.dieOnlyBeheaded && replace.headlessWalkers &&
+	          walkers::SetLinkValue(rise, replace, again, 45.0) && rise.end.riseAgainSeconds == 45.0f &&
+	          walkers::SetLinkValue(rise, replace, againJitter, 5.0) && rise.end.riseAgainJitterSeconds == 5.0f,
+	      "set from the menu; the rule off lets the headless walkers into the spawns again (at the next start)");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -229,7 +239,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 8\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 9\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

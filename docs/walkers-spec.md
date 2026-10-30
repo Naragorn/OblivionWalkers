@@ -1399,7 +1399,7 @@ Nadi decides.
 
 Cost: **medium** (was given as small before the patch conflict was read).
 
-### 4.17 Only a lost head ends a walker - `[Zombies] DieOnlyBeheaded=1`, `RiseAgainSeconds=20`, `RiseAgainJitterSeconds=10`
+### 4.17 Only a lost head ends a walker - `[Zombies] DieOnlyBeheaded=1`, `RiseAgainSeconds=20`, `RiseAgainJitterSeconds=10` (built 2026-10-30)
 
 What (Nadi, 2026-10-25: "walker nur sterben wenn geköpft. default an.
 ansonsten resurrect[en] die immer"): a walker that falls gets up again, every
@@ -1407,7 +1407,27 @@ time, until its head is cut off. Every walker: the replaced spawns (4.6), the
 extra spawns (4.13) and the risen (4.1). It is the walkers' own answer to
 MOO's zombie resurrect (7a), which stays off.
 
-How (Proposed, nothing built):
+**Built 2026-10-30** (Nadi: "jo"; EndLogic.h, EndLogicTest): the death watch
+decides per walker (WalkerFallVerdict) - up again on the waiting list
+(Requeue, the clock RiseAgainIn), or the end: the rule off, no head to lose
+(ACBS No Head), the head noted, or without a cutter a power attack's kill.
+The due walker is raised as itself (Raise -> RaiseAsSelf, no clone). OBVR's
+'WGDM' {on} and 'WGHD' {refId, kind 1 cut / 2 crushed} come through the
+grab's OBVR listener (registered at xOBSE's PostLoad); a head is noted at
+once (HeadNotes, for a death in the same frame) and acted on at the next
+frame tick (StepHeads: off the list for good - lootless, fame -, or killed
+when still alive). The power attack: xOBSE's IsPowerAttacking asked on the
+killer into the ESP quest's new variable power_kill (Commands_AI.cpp: the
+anim data plays AttackPower..AttackRightPower). NoLoot and Fame wait for the
+end. The headless are left out of the rise's candidates and unlinked from
+WalkersAnyWalker at the start (ReplaceSettings::headlessWalkers, from the
+INI). LINK: three entries after the categories (113..115), version 9.
+**Not seen in the game yet:** the raise of a walker in place, the power
+attack still playing at the death (flat, and OBVR's swung power strike),
+the unlinked spawn list, and the whole flow with OBVR's cut. A walker lying
+to rise again can be searched (NoLoot sets destroyed only at the end).
+
+How (as proposed 2026-10-25):
 
 1. **Down, then up.** The death watch (built) notes a walker's death and puts
    it on 4.1's waiting list (co-save) with `RiseAgainSeconds` plus a random

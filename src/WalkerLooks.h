@@ -81,12 +81,16 @@ inline bool LookUsable(LookFamily family, bool mooLoaded) { return family == Loo
 // for twice `count`); their number. With MOO, a race of its own: that race's
 // looks; everyone else: the vanilla and MOO's default looks. Without MOO, or
 // none of the race's looks found: the vanilla ones. A look with a head
-// stands twice, a headless one once - half as likely (Nadi, 2026-10-27).
+// stands twice, a headless one once - half as likely (Nadi, 2026-10-27);
+// without `withHeadless` (DieOnlyBeheaded, EndLogic.h) not at all.
 inline UInt32 RiseCandidates(const UInt32* bases, const LookFamily* families, const bool* headless, UInt32 count,
-                             UInt32 raceId, bool mooLoaded, UInt32* out) {
+                             UInt32 raceId, bool mooLoaded, UInt32* out, bool withHeadless = true) {
 	const LookFamily race = RaceFamily(raceId);
 	UInt32 n = 0;
 	auto put = [&](UInt32 i) {
+		if (headless[i] && !withHeadless) {
+			return;
+		}
 		out[n++] = bases[i];
 		if (!headless[i]) {
 			out[n++] = bases[i];

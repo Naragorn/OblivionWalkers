@@ -24,6 +24,9 @@ struct ReplaceSettings {
 	// [Replace] ExtraPercent (4.13): walker entries added beside a list's own,
 	// so this share of its picks becomes walkers (ExtraEntries). 0: none.
 	UInt32 extraPercent = 0;
+	// Walkers without a head among the spawns: false with [Zombies]
+	// DieOnlyBeheaded (EndLogic.h SpawnsHeadless) - read at the start.
+	bool headlessWalkers = true;
 	// [ReplaceCategories] (4.6a): one switch per kReplaceCategories entry.
 	bool categories[kReplaceCategoryCount];
 

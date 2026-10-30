@@ -38,6 +38,8 @@ constexpr UInt32 kListDataCountOffset = 0x08;
 // TESScriptableForm's script +0xC8, the type +0x104. The name and the
 // script are TESActorBase's, at the same offsets in a TESNPC.
 constexpr UInt32 kActorBaseFlagsOffset = 0x28;
+// ACBS No Head, as the rise reads it (Rise.cpp).
+constexpr UInt32 kActorBaseNoHead = 0x8000;
 constexpr UInt32 kCreatureConfidenceOffset = 0x6D;
 constexpr UInt32 kActorBaseHealthOffset = 0x84;
 // TESAttributes at +0x88, its attr[8] at +4 of that: Speed the fifth.
@@ -85,12 +87,15 @@ constexpr UInt32 kListEntryBytes = 8;   // {data, next}
 // Without MOO the any-walker list ends before its first MOO walker
 // (WalkerLooks.h VariantKeeps): their meshes are not there. The MOO looks
 // follow the vanilla ones, and the list's first entry is a vanilla walker,
-// so the cut is one link. Returns the entries kept.
-UInt32 TrimAnyWalkerForMoo(UInt32 anyWalker, bool mooLoaded, LogFn log) {
+// so the cut is one link. Without `keepHeadless` (DieOnlyBeheaded, 4.17)
+// every walker without a head is unlinked too - the first entry, inline in
+// the list, by taking its successor's place. Returns the entries kept.
+UInt32 TrimAnyWalker(UInt32 anyWalker, bool mooLoaded, bool keepHeadless, LogFn log) {
 	UInt32 kept = 0;
+	UInt32 dropped = 0;
 	UInt32 previous = 0;
-	for (UInt32 node = anyWalker + kLevCreatureListOffset; LooksLikeObject(node) && kept < kAnyWalkerEntriesMost;
-	     node = Read(node + 4)) {
+	UInt32 node = anyWalker + kLevCreatureListOffset;
+	while (LooksLikeObject(node) && kept < kAnyWalkerEntriesMost) {
 		const UInt32 data = Read(node);
 		if (!LooksLikeObject(data)) {
 			break;
@@ -100,14 +105,33 @@ UInt32 TrimAnyWalkerForMoo(UInt32 anyWalker, bool mooLoaded, LogFn log) {
 		const bool walker = FamilyOfLocal(FormIdOf(form) & 0x00FFFFFF, family);
 		if (walker && !VariantKeeps(family, mooLoaded) && previous != 0) {
 			*reinterpret_cast<UInt32*>(previous + 4) = 0;
-			log("Spawns: WalkersAnyWalker cut after %u entries - MOO is not loaded, its looks are left out", kept);
+			log("Spawns: WalkersAnyWalker cut after %u entries - MOO is not loaded, its looks are left out (%u "
+			    "without a head left out before)",
+			    kept, dropped);
 			return kept;
 		}
+		const UInt32 next = Read(node + 4);
+		if (walker && !keepHeadless && LooksLikeObject(form) &&
+		    (Read(form + kActorBaseFlagsOffset) & kActorBaseNoHead) != 0) {
+			++dropped;
+			if (previous != 0) {
+				*reinterpret_cast<UInt32*>(previous + 4) = next;
+				node = next;
+			} else if (LooksLikeObject(next)) {
+				*reinterpret_cast<UInt32*>(node) = Read(next);
+				*reinterpret_cast<UInt32*>(node + 4) = Read(next + 4);
+			} else {
+				break;
+			}
+			continue;
+		}
 		previous = node;
+		node = next;
 		++kept;
 	}
-	log("Spawns: WalkersAnyWalker %08X - %u entries, a walker with a head twice, a headless one once%s",
-	    FormIdOf(anyWalker), kept, mooLoaded ? "" : " (no MOO entry met)");
+	log("Spawns: WalkersAnyWalker %08X - %u entries, a walker with a head twice, %s%s", FormIdOf(anyWalker), kept,
+	    keepHeadless ? "a headless one once" : "none without a head (DieOnlyBeheaded=1)",
+	    mooLoaded ? "" : " (no MOO entry met)");
 	return kept;
 }
 
@@ -349,7 +373,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 		s_countsWritten = true;
 		const UInt32 anyWalker = LookupForm(EspFormId(espBase, kAnyWalkerLocalId));
 		if (LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
-			TrimAnyWalkerForMoo(anyWalker, mooLoaded, log);
+			TrimAnyWalker(anyWalker, mooLoaded, settings.headlessWalkers, log);
 			WriteVariantCounts(variant, anyWalker, settings, log);
 		} else {
 			log("Spawns: %08X is no leveled creature list (an older ESP) - the variant list's counts as written",

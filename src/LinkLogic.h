@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 8.0;
+inline constexpr double kLinkVersion = 9.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -78,6 +78,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{35, "The dead rise - advanced"}, {41, "Walkers - advanced"}, {44, "Hordes - advanced"},
 	{52, "Gate guards - advanced"}, {54, "Safeguard and news - advanced"}, {58, "Grabbed - advanced"},
 	{68, "Spawns - which creatures become walkers"}, {68 + kFirstPersonCategory, "Spawns - which people become walkers"},
+	{68 + kReplaceCategoryCount, "Only a lost head ends a walker"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -233,6 +234,12 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_cat_zealots", kReplaceCategories[42].title, kReplaceCategories[42].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 	{"ini_cat_heretics", kReplaceCategories[43].title, kReplaceCategories[43].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 	{"ini_cat_knightsoforder", kReplaceCategories[44].title, kReplaceCategories[44].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_die_only_beheaded", "Only beheading ends walkers", "A fallen walker gets up again until its head is off (OBVR in VR); flat, a power attack ends it.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_rise_again", "Seconds until a walker gets up again", "How long a fallen walker lies.", LinkKind::Slider, 0,
+	 120, 1, 0, false, LinkEffect::Live},
+	{"ini_rise_again_jitter", "Random extra seconds, walkers", "Up to this many seconds more, at random.",
+	 LinkKind::Slider, 0, 60, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -311,6 +318,9 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 65: return rise.grab.struggleGapSeconds;
 		case 66: return rise.grab.shakeStrokes;
 		case 67: return rise.grab.shakeFatigue;
+		case 113: return rise.end.dieOnlyBeheaded ? 1.0 : 0.0;
+		case 114: return rise.end.riseAgainSeconds;
+		case 115: return rise.end.riseAgainJitterSeconds;
 		default: return 0.0;
 	}
 }
@@ -407,6 +417,12 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 65: rise.grab.struggleGapSeconds = fraction; break;
 		case 66: rise.grab.shakeStrokes = whole; break;
 		case 67: rise.grab.shakeFatigue = fraction; break;
+		case 113:
+			rise.end.dieOnlyBeheaded = on;
+			replace.headlessWalkers = SpawnsHeadless(on);
+			break;
+		case 114: rise.end.riseAgainSeconds = fraction; break;
+		case 115: rise.end.riseAgainJitterSeconds = fraction; break;
 		default: return false;
 	}
 	return true;

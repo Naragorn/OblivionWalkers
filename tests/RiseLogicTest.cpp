@@ -308,6 +308,12 @@ void TestRequeue() {
 	walkers::WaitingList full;
 	full.count = walkers::kWaitingMost;
 	Check(!walkers::Requeue(full, 0x1, 0x2, 2.0f), "a full list takes none");
+	walkers::Requeue(list, 0xFF000EEC, 0x0003DB2F, 3.0f);
+	walkers::Requeue(list, 0xFF000EED, 0x0003DB2F, 4.0f);
+	Check(walkers::Unlist(list, 0xFF000EEC) && list.count == 2 && list.entries[0].refId == 0xFF000EEB &&
+	          list.entries[1].refId == 0xFF000EED && list.entries[1].secondsLeft == 4.0f,
+	      "a head off: that one leaves the list, the others keep their order and clocks (4.17)");
+	Check(!walkers::Unlist(list, 0xFF000EEC) && list.count == 2, "one not on the list: nothing");
 }
 
 void TestEspRace() {

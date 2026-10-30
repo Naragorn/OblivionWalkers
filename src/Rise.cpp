@@ -118,6 +118,14 @@ UInt32 g_lootless[32] = {};
 UInt32 g_lootlessCount = 0;
 // The walkers risen from a corpse: lootable whatever NoLoot says.
 RisenSet g_risenSet;
+// 4.17 (EndLogic.h): whether OBVR cuts heads ('WGDM'), the heads it reported
+// ('WGHD', noted at once for a death in the same frame), and those still to
+// act on at the next frame tick.
+bool g_headCutter = false;
+HeadNotes g_heads;
+UInt32 g_headsDue[8] = {};
+UInt32 g_headsDueCount = 0;
+UInt32 g_powerChecks = 0;
 // BlockMooResurrect: MOO's token and brain at MOO's load index (0 without
 // MOO), looked up once a session, and the dead walkers still to strip.
 bool g_mooLooked = false;
@@ -224,6 +232,7 @@ bool IsWalkerRef(UInt32 ref) {
 }
 
 bool ConsoleOn(UInt32 ref, const char* line);
+UInt32 FindEspBase();
 
 // Whether the walker `refId` wears one of MOO's looks - MOO's zombie
 // skeleton, whose idles lie beneath MOO\zombie (the grab, 4.19).
@@ -415,6 +424,32 @@ void InstallSkillHook() {
 	g_log("Skills: the player's landed-hit count (vtable slot %08X, %08X) watched", kHitCountSlot, g_originalHitCount);
 }
 
+// 4.17 without a head cutter: whether the killer's blow was a power attack -
+// xOBSE's own IsPowerAttacking (Commands_AI.cpp: the actor's anim data plays
+// a group of AttackPower..AttackRightPower; the player's first-person data
+// in first person), asked on the killer into the ESP's quest variable
+// power_kill. Whether the attack still plays at the death is not measured.
+bool PowerKill(UInt32 killer) {
+	if (!LooksLikeObject(killer) || !IsActor(killer)) {
+		return false;
+	}
+	double* power = QuestVariable(EspFormId(FindEspBase(), kLinkQuestLocalId), "power_kill");
+	if (power == nullptr) {
+		if (g_powerChecks++ == 0) {
+			g_log("End: the ESP's quest has no power_kill (an older ESP) - no power attack ends a walker");
+		}
+		return false;
+	}
+	*power = 0.0;
+	const bool asked = ConsoleOn(killer, "set Walkers.power_kill to IsPowerAttacking");
+	const bool on = *power != 0.0;
+	if (g_powerChecks++ < 16) {
+		g_log("End: killer %08X power attacking: %d (asked through xOBSE: %d)", FormIdOf(killer), on ? 1 : 0,
+		      asked ? 1 : 0);
+	}
+	return on;
+}
+
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
 // the actor touched in this frame (Zombie Walkers' crash was there) - with
 // one exception, NoLevelingXP: Ultimate Leveling reads the dead walker's
@@ -459,10 +494,27 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		return;
 	}
 	bool walker = false;
+	bool headless = false;
 	for (UInt32 w = 0; type == kFormTypeCreature && w < g_walkerCount; ++w) {
-		walker = walker || g_walkers[w] == fallen.baseId;
+		if (g_walkers[w] == fallen.baseId) {
+			walker = true;
+			headless = g_walkerHeadless[w];
+		}
 	}
-	if (BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
+	WalkerFall fall = WalkerFall::EndedRuleOff;
+	if (walker) {
+		FallFacts facts;
+		facts.headless = headless;
+		facts.headNoted = HeadNoted(g_heads, fallen.refId);
+		facts.cutterOn = g_headCutter;
+		facts.powerKill = g_settings.end.dieOnlyBeheaded && !g_headCutter && !headless && !facts.headNoted &&
+		                  PowerKill(reinterpret_cast<UInt32>(arg1));
+		fall = WalkerFallVerdict(g_settings.end.dieOnlyBeheaded, facts);
+	}
+	// A walker that gets up again keeps its corpse searchable and counts for
+	// no fame yet: both at its end (spec 4.17 point 7).
+	const bool walkerUp = walker && !Ends(fall);
+	if (!walkerUp && BlocksLoot(g_settings.noLoot, walker, IsRisen(g_risenSet, fallen.refId)) && g_lootlessCount < 32) {
 		g_lootless[g_lootlessCount++] = fallen.refId;
 	}
 	if ((g_levelingLoaded || g_obXpLoaded) && FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId &&
@@ -493,7 +545,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		g_log("MOO: walker %08X dead, but %u wait to be stripped already - MOO may raise this one", fallen.refId,
 		      g_mooStrip.count);
 	}
-	if (FameKill(walker, FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId) &&
+	if (!walkerUp && FameKill(walker, FormIdOf(reinterpret_cast<UInt32>(arg1)) == kPlayerRefId) &&
 	    g_settings.famePerKills > 0) {
 		if (CountWalkerKill(g_fame, g_settings.famePerKills)) {
 			++g_famePending;
@@ -504,12 +556,20 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	const UInt32 roll = NextRandom() % 100;
 	const float unit = static_cast<float>(NextRandom() % 10001) / 10000.0f;
 	const DeathVerdict verdict = NoteDeath(g_list, g_settings, fallen, roll, unit);
+	if (walker && g_settings.end.dieOnlyBeheaded) {
+		const float seconds = RiseAgainIn(g_settings.end, unit);
+		const bool queued = walkerUp && Requeue(g_list, fallen.refId, fallen.baseId, seconds);
+		g_log("End: walker %08X (base %08X, killer %08X) %s%s; %u waiting", fallen.refId, fallen.baseId,
+		      FormIdOf(reinterpret_cast<UInt32>(arg1)), WalkerFallText(fall),
+		      !walkerUp ? "" : (queued ? ", in a few seconds" : " - but the list is full or it waits already: it stays down"),
+		      g_list.count);
+	}
 	Victim victim;
 	victim.killedByWalker = IsWalkerRef(reinterpret_cast<UInt32>(arg1));
 	victim.killerUnknown = !LooksLikeObject(reinterpret_cast<UInt32>(arg1));
 	victim.walker = walker;
 	victim.player = fallen.refId == kPlayerRefId;
-	victim.rises = verdict == DeathVerdict::Waits;
+	victim.rises = verdict == DeathVerdict::Waits || walkerUp;
 	if (SafeguardTakes(g_settings.safeguard, victim)) {
 		const bool noted = NoteVictim(g_safeguard, fallen.refId);
 		g_log("Safeguard: %08X killed by walker %08X - %s (%u on the list)", fallen.refId,
@@ -533,6 +593,27 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		      fallen.raceHuman ? " human" : "", FormIdOf(reinterpret_cast<UInt32>(arg1)),
 		      FormIdOf(reinterpret_cast<UInt32>(thisObj)), cellId != nullptr ? cellId : "-", cellOwner,
 		      VerdictText(verdict));
+	}
+}
+
+// OBVR's 'WGDM' and 'WGHD', as they come (inside OBVR's frame): the cutter
+// switched, a head noted at once and queued for the next frame tick.
+void OnObvrHeads(UInt32 type, const void* data, UInt32 length) {
+	bool on = false;
+	UInt32 refId = 0;
+	HeadKind kind = HeadKind::Cut;
+	if (type == kDismemberMessage && DismemberOf(data, length, on)) {
+		if (on != g_headCutter) {
+			g_log("End: OBVR %s heads - %s", on ? "cuts" : "does not cut",
+			      on ? "only a lost head ends a walker" : "a power attack's kill ends a walker");
+		}
+		g_headCutter = on;
+	} else if (type == kHeadMessage && HeadOf(data, length, refId, kind)) {
+		NoteHead(g_heads, refId);
+		if (g_headsDueCount < 8) {
+			g_headsDue[g_headsDueCount++] = refId;
+		}
+		g_log("End: OBVR says %08X's head is %s", refId, kind == HeadKind::Cut ? "cut off" : "crushed");
 	}
 }
 
@@ -925,7 +1006,7 @@ void RaiseAsSelf(UInt32 refId) {
 		return;
 	}
 	bool lookWanted = false;
-	if (g_settings.cloneBase) {
+	if (g_settings.cloneBase && !IsWalkerRef(ref)) {
 		const UInt32 base = Read(ref + kRefBaseFormOffset);
 		const UInt32 clone = LooksLikeObject(base) ? CloneBaseRecord(base) : 0;
 		if (clone != 0) {
@@ -974,6 +1055,10 @@ void Raise(UInt32 refId) {
 		g_log("Rise: %08X is alive already", refId);
 		return;
 	}
+	if (IsWalkerRef(ref)) {
+		RaiseAsSelf(refId);
+		return;
+	}
 	if (g_settings.asCreature) {
 		FindWalkers();
 		FindMoo();
@@ -984,8 +1069,9 @@ void Raise(UInt32 refId) {
 			raceId = LooksLikeObject(race) ? Read(race + kFormIdOffset) : 0;
 		}
 		static UInt32 candidates[2 * kWalkerCount];
-		const UInt32 candidateCount = RiseCandidates(g_walkers, g_walkerFamilies, g_walkerHeadless, g_walkerCount,
-		                                             raceId, g_mooLoaded, candidates);
+		const UInt32 candidateCount =
+			RiseCandidates(g_walkers, g_walkerFamilies, g_walkerHeadless, g_walkerCount, raceId, g_mooLoaded, candidates,
+			               SpawnsHeadless(g_settings.end.dieOnlyBeheaded));
 		const UInt32 walker = PickWalker(candidates, candidateCount, NextRandom());
 		if (walker != 0 && g_console != nullptr && !g_swap.active) {
 			char line[64];
@@ -1751,6 +1837,36 @@ UInt32 WalkersNearPlayer(float radius) {
 	return within;
 }
 
+// 4.17: the heads OBVR reported since the last frame tick - a walker lying to
+// rise again leaves the list for good (its corpse now lootless, its end
+// counted for fame - the player cut it), a living one is killed (its death
+// finds the head noted).
+void StepHeads() {
+	for (UInt32 i = 0; i < g_headsDueCount; ++i) {
+		const UInt32 refId = g_headsDue[i];
+		const UInt32 ref = LookupForm(refId);
+		const bool walker = LooksLikeObject(ref) && IsWalkerRef(ref);
+		const bool waiting = FindWaiting(g_list, refId) >= 0;
+		const HeadAction action = HeadActionFor(walker, waiting, walker && IsDead(ref));
+		if (action == HeadAction::EndWaiting) {
+			Unlist(g_list, refId);
+			if (BlocksLoot(g_settings.noLoot, true, IsRisen(g_risenSet, refId)) && g_lootlessCount < 32) {
+				g_lootless[g_lootlessCount++] = refId;
+			}
+			if (g_settings.famePerKills > 0 && CountWalkerKill(g_fame, g_settings.famePerKills)) {
+				++g_famePending;
+			}
+			g_log("End: walker %08X ended - its head is off, it gets up no more; %u waiting", refId, g_list.count);
+		} else if (action == HeadAction::Kill) {
+			const bool killed = ConsoleOn(ref, "Kill");
+			g_log("End: walker %08X lost its head alive - killed (handed to xOBSE: %d)", refId, killed ? 1 : 0);
+		} else if (action == HeadAction::Ignore) {
+			g_log("End: %08X is no walker - its head is OBVR's alone", refId);
+		}
+	}
+	g_headsDueCount = 0;
+}
+
 // NoLoot: the engine's SetDestroyed on each walker that died since the last
 // frame - the CS wiki: on an actor it "prevents the actor from being
 // activated for conversation, looting, or pick pocketing".
@@ -1886,6 +2002,7 @@ void Tick() {
 		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
 		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
+		StepHeads();
 		StepLootless();
 		StepFame();
 	}
@@ -2141,6 +2258,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.roll = &NextRandom;
 	grab.nearestWalker = &NearestWalkerToPlayer;
 	grab.walkersNear = &WalkersNearPlayer;
+	grab.otherObvrMessage = &OnObvrHeads;
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	return true;
