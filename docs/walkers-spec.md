@@ -1444,7 +1444,9 @@ in flat cuts the head at a power attack's kill (the engine plays the power
 attack there, xOBSE's IsPowerAttacking or OnAttack tells it) and speaks
 'WGDM' and 'WGHD' as OBVR does - Walkers then needs only to listen to that
 plugin's name beside "OBVR" (Grab.cpp registers the listener by sender
-name). Nothing of it in Walkers before then.
+name). Nothing of it in Walkers before then - decided by Nadi 2026-10-30
+("a"): wait for the extraction, no interim power attack rule in Walkers;
+until then flat plays as dism=0.
 
 How (as proposed 2026-10-25):
 
