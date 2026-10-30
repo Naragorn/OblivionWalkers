@@ -1432,6 +1432,20 @@ while it lies; a person cut at the killing blow or as a corpse stays down.
 (harness/end-no-cutter.txt). A walker lying
 to rise again can be searched (NoLoot sets destroyed only at the end).
 
+**Open - flat with dismemberment** (Nadi, 2026-10-30: "in Flat: dism=1
+spieler muss zombies powerattacken um sie final zu killen und deren kopf
+fliegt weg, dism=0 einfach umhauen"; flat players play without OBVR, "obvr
+ist eine vr mod. das abtrennen will ich später aus obvr extrahieren"). The
+four cases: VR dism=1 only a cut ends a walker (built); VR dism=0 every kill
+ends it (built); flat dism=0 every kill ends it (built - no cutter speaks);
+flat dism=1 a power attack's kill ends it and its head flies off (not
+built). Planned: the cut extracted from OBVR into a plugin of its own, which
+in flat cuts the head at a power attack's kill (the engine plays the power
+attack there, xOBSE's IsPowerAttacking or OnAttack tells it) and speaks
+'WGDM' and 'WGHD' as OBVR does - Walkers then needs only to listen to that
+plugin's name beside "OBVR" (Grab.cpp registers the listener by sender
+name). Nothing of it in Walkers before then.
+
 How (as proposed 2026-10-25):
 
 1. **Down, then up.** The death watch (built) notes a walker's death and puts
