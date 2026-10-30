@@ -429,8 +429,13 @@ void InstallSkillHook() {
 // a group of AttackPower..AttackRightPower; the player's first-person data
 // in first person), asked on the killer into the ESP's quest variable
 // power_kill. Whether the attack still plays at the death is not measured.
+// The player counts: IsActor knows only the Character and Creature vtables
+// (end-power-attack.txt, 2026-10-30 19:47: no question was ever asked).
 bool PowerKill(UInt32 killer) {
-	if (!LooksLikeObject(killer) || !IsActor(killer)) {
+	if (!LooksLikeObject(killer) || (!IsActor(killer) && FormIdOf(killer) != kPlayerRefId)) {
+		if (g_powerChecks++ < 16) {
+			g_log("End: killer %08X is no actor - no power attack", LooksLikeObject(killer) ? FormIdOf(killer) : 0);
+		}
 		return false;
 	}
 	double* power = QuestVariable(EspFormId(FindEspBase(), kLinkQuestLocalId), "power_kill");
@@ -440,12 +445,15 @@ bool PowerKill(UInt32 killer) {
 		}
 		return false;
 	}
-	*power = 0.0;
-	const bool asked = ConsoleOn(killer, "set Walkers.power_kill to IsPowerAttacking");
-	const bool on = *power != 0.0;
+	// -1 before the line: still -1 after it, the line did not run (xOBSE's
+	// answer is no success flag - the harness read 0 for lines that ran).
+	*power = -1.0;
+	ConsoleOn(killer, "set Walkers.power_kill to IsPowerAttacking");
+	const double read = *power;
+	const bool on = read > 0.0;
 	if (g_powerChecks++ < 16) {
-		g_log("End: killer %08X power attacking: %d (asked through xOBSE: %d)", FormIdOf(killer), on ? 1 : 0,
-		      asked ? 1 : 0);
+		g_log("End: killer %08X power attacking: %d%s", FormIdOf(killer), on ? 1 : 0,
+		      read < 0.0 ? " - the line did not run" : "");
 	}
 	return on;
 }

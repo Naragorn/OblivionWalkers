@@ -1,0 +1,48 @@
+# Without a head cutter a power attack's kill ends a walker (docs/walkers-spec.md
+# 4.17 point 6; Nadi, 2026-10-30: "lass den powerattack test per harness
+# laufen, bzw wie machen wir das nun für flat gamer"). OBVR with
+# Dismemberment=0 sends 'WGDM' 0: no cutter. One walker (0x801) placed before
+# the player in god mode, then:
+#   1. killed by the player without a power attack ({actor}.kill player):
+#      "End: killer 00000014 power attacking: 0", "down - it gets up again",
+#      within 20-30 s "Rise: ... gets up";
+#   2. the player's power attack group played (PlayGroup AttackPower 1, a
+#      stand-in for the flat player's held attack - no blow lands) and the
+#      walker killed by the player while it plays: "power attacking: 1",
+#      "ended (a power attack, and no head cutter)", no rise in 40 s.
+# What it covers: the killer's IsPowerAttacking asked into the quest variable
+# at the death and the verdict. What it does not: a real held attack's blow
+# (the anim at the hit's frame) - flat players and a headset test tell that.
+# OblivionWalkers.log read by hand (the runner checks OBVR.log only): "End:
+# killer 00000014 power attacking: 0", "down - it gets up again", "gets up at",
+# "power attacking: 1", "ended (a power attack, and no head cutter)".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/end-power-attack.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1 200 0
+console-at kill1 {actor}.kill player
+console-at power player.playgroup AttackPower 1
+console-at kill2 {actor}.kill player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 12
+mark kill1
+wait 35
+mark risen
+wait 2
+mark power
+wait 0.3
+mark kill2
+wait 40
+mark end
+wait 1
