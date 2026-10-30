@@ -234,7 +234,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_cat_zealots", kReplaceCategories[42].title, kReplaceCategories[42].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 	{"ini_cat_heretics", kReplaceCategories[43].title, kReplaceCategories[43].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 	{"ini_cat_knightsoforder", kReplaceCategories[44].title, kReplaceCategories[44].description, LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
-	{"ini_die_only_beheaded", "Only beheading ends walkers", "A fallen walker gets up again until its head is off (OBVR in VR); flat, a power attack ends it.",
+	{"ini_die_only_beheaded", "Only beheading ends walkers", "With OBVR cutting heads (Dismemberment=1) a fallen walker gets up again until its head is off; otherwise every kill ends it.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_rise_again", "Seconds until a walker gets up again", "How long a fallen walker lies.", LinkKind::Slider, 0,
 	 120, 1, 0, false, LinkEffect::Live},

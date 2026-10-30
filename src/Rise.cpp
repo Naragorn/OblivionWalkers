@@ -125,7 +125,6 @@ bool g_headCutter = false;
 HeadNotes g_heads;
 UInt32 g_headsDue[8] = {};
 UInt32 g_headsDueCount = 0;
-UInt32 g_powerChecks = 0;
 // BlockMooResurrect: MOO's token and brain at MOO's load index (0 without
 // MOO), looked up once a session, and the dead walkers still to strip.
 bool g_mooLooked = false;
@@ -424,40 +423,6 @@ void InstallSkillHook() {
 	g_log("Skills: the player's landed-hit count (vtable slot %08X, %08X) watched", kHitCountSlot, g_originalHitCount);
 }
 
-// 4.17 without a head cutter: whether the killer's blow was a power attack -
-// xOBSE's own IsPowerAttacking (Commands_AI.cpp: the actor's anim data plays
-// a group of AttackPower..AttackRightPower; the player's first-person data
-// in first person), asked on the killer into the ESP's quest variable
-// power_kill. Whether the attack still plays at the death is not measured.
-// The player counts: IsActor knows only the Character and Creature vtables
-// (end-power-attack.txt, 2026-10-30 19:47: no question was ever asked).
-bool PowerKill(UInt32 killer) {
-	if (!LooksLikeObject(killer) || (!IsActor(killer) && FormIdOf(killer) != kPlayerRefId)) {
-		if (g_powerChecks++ < 16) {
-			g_log("End: killer %08X is no actor - no power attack", LooksLikeObject(killer) ? FormIdOf(killer) : 0);
-		}
-		return false;
-	}
-	double* power = QuestVariable(EspFormId(FindEspBase(), kLinkQuestLocalId), "power_kill");
-	if (power == nullptr) {
-		if (g_powerChecks++ == 0) {
-			g_log("End: the ESP's quest has no power_kill (an older ESP) - no power attack ends a walker");
-		}
-		return false;
-	}
-	// -1 before the line: still -1 after it, the line did not run (xOBSE's
-	// answer is no success flag - the harness read 0 for lines that ran).
-	*power = -1.0;
-	ConsoleOn(killer, "set Walkers.power_kill to IsPowerAttacking");
-	const double read = *power;
-	const bool on = read > 0.0;
-	if (g_powerChecks++ < 16) {
-		g_log("End: killer %08X power attacking: %d%s", FormIdOf(killer), on ? 1 : 0,
-		      read < 0.0 ? " - the line did not run" : "");
-	}
-	return on;
-}
-
 // xOBSE's OnDeath, inside the engine's death path: only noted, nothing of
 // the actor touched in this frame (Zombie Walkers' crash was there) - with
 // one exception, NoLevelingXP: Ultimate Leveling reads the dead walker's
@@ -520,8 +485,6 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		facts.headless = headless;
 		facts.headNoted = HeadNoted(g_heads, fallen.refId);
 		facts.cutterOn = g_headCutter;
-		facts.powerKill = g_settings.end.dieOnlyBeheaded && !g_headCutter && !headless && !facts.headNoted &&
-		                  PowerKill(reinterpret_cast<UInt32>(arg1));
 		fall = WalkerFallVerdict(g_settings.end.dieOnlyBeheaded, facts);
 	}
 	// A walker that gets up again keeps its corpse searchable and counts for
@@ -618,7 +581,7 @@ void OnObvrHeads(UInt32 type, const void* data, UInt32 length) {
 	if (type == kDismemberMessage && DismemberOf(data, length, on)) {
 		if (on != g_headCutter) {
 			g_log("End: OBVR %s heads - %s", on ? "cuts" : "does not cut",
-			      on ? "only a lost head ends a walker" : "a power attack's kill ends a walker");
+			      on ? "only a lost head ends a walker" : "every kill ends a walker");
 		}
 		g_headCutter = on;
 	} else if (type == kHeadMessage && HeadOf(data, length, refId, kind)) {

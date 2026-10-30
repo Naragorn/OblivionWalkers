@@ -477,15 +477,14 @@ def any_walker_entries(walkers: list[int], no_heads: list[bool]) -> list[tuple[i
 
 def link_variables() -> list[str]:
     """The LINK settings' variable names, read off src/LinkLogic.h's
-    kLinkSettings in its order, then ini_version and power_kill (4.17: the
-    plugin asks the killer's IsPowerAttacking into it at a walker's death) -
-    one list for the plugin and the ESP."""
+    kLinkSettings in its order, then ini_version - one list for the plugin
+    and the ESP."""
     text = (Path(__file__).resolve().parent.parent / "src" / "LinkLogic.h").read_text()
     table = text[text.index("kLinkSettings[] = {"):text.index("kLinkSettingCount")]
     names = re.findall(r'\{"(ini_[a-z_]+)"', table)
     if len(names) != len(set(names)) or not names:
         raise SystemExit("LinkLogic.h's settings are not readable")
-    return names + ["ini_version", "power_kill"]
+    return names + ["ini_version"]
 
 
 def build_link_script(names: list[str]) -> bytes:

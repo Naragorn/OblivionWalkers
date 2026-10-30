@@ -1,6 +1,6 @@
 // Every flow of 4.17, only a lost head ends a walker (docs/walkers-spec.md
 // 4.17; Nadi, 2026-10-25: "walker nur sterben wenn geköpft. default an";
-// 2026-10-30: "jo" to the build): a walker's fall - up again or the end -,
+// 2026-10-30: "jo" to the build, and without a cutter every kill ends one): a walker's fall - up again or the end -,
 // OBVR's messages ('WGDM', 'WGHD'), what a cut head does, the heads noted.
 
 #include "EndLogic.h"
@@ -27,7 +27,9 @@ using walkers::WalkerFall;
 void TestFall() {
 	std::printf("A walker falls\n");
 	FallFacts f;
-	Check(walkers::WalkerFallVerdict(true, f) == WalkerFall::RisesAgain, "a plain fall: it gets up again");
+	f.cutterOn = true;
+	Check(walkers::WalkerFallVerdict(true, f) == WalkerFall::RisesAgain,
+	      "OBVR cuts heads, a plain fall: it gets up again");
 	Check(walkers::WalkerFallVerdict(false, f) == WalkerFall::EndedRuleOff,
 	      "DieOnlyBeheaded 0: killed once, as before 4.17");
 	FallFacts headless = f;
@@ -37,17 +39,14 @@ void TestFall() {
 	FallFacts cut = f;
 	cut.headNoted = true;
 	Check(walkers::WalkerFallVerdict(true, cut) == WalkerFall::EndedHead, "its head off before the death: the end");
-	cut.cutterOn = false;
-	Check(walkers::WalkerFallVerdict(true, cut) == WalkerFall::EndedHead, "a head noted ends it, whoever cut");
-	FallFacts power = f;
-	power.powerKill = true;
-	Check(walkers::WalkerFallVerdict(true, power) == WalkerFall::EndedPowerAttack,
-	      "no head cutter, a power attack's kill: the end (Nadi, 2026-10-25, b)");
-	power.cutterOn = true;
-	Check(walkers::WalkerFallVerdict(true, power) == WalkerFall::RisesAgain,
-	      "with OBVR cutting heads a power attack only downs it - never both rules");
+	FallFacts flat;
+	Check(walkers::WalkerFallVerdict(true, flat) == WalkerFall::EndedNoCutter,
+	      "nobody cuts heads (OBVR's Dismemberment=0, flat, no OBVR): every kill ends it, no rise (Nadi, "
+	      "2026-10-30: \"bei Dismemberment=0 killt jeder schlag und walker steht auch nicht auf\")");
+	flat.headNoted = true;
+	Check(walkers::WalkerFallVerdict(true, flat) == WalkerFall::EndedHead, "a head noted ends it, whoever cut");
 	Check(walkers::Ends(WalkerFall::EndedRuleOff) && walkers::Ends(WalkerFall::EndedHeadless) &&
-	          walkers::Ends(WalkerFall::EndedHead) && walkers::Ends(WalkerFall::EndedPowerAttack) &&
+	          walkers::Ends(WalkerFall::EndedHead) && walkers::Ends(WalkerFall::EndedNoCutter) &&
 	          !walkers::Ends(WalkerFall::RisesAgain),
 	      "only RisesAgain is no end");
 }

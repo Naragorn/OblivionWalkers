@@ -8,8 +8,10 @@
 // after RiseAgainSeconds plus a share of RiseAgainJitterSeconds, until its
 // head is off. OBVR cuts heads (its [Hands] Dismemberment) and says so:
 // 'WGDM' whether it cuts, 'WGHD' for each head it cut off or crushed. Without
-// a cutter a power attack's kill ends a walker instead (Nadi, 2026-10-25, b);
-// with one, never both rules. A walker without a head (ACBS No Head, made
+// a cutter - OBVR's Dismemberment=0, flat, no OBVR - every kill ends a walker
+// and none gets up again (Nadi, 2026-10-30: "bei Dismemberment=0 killt jeder
+// schlag und walker steht auch nicht auf"; it replaces the power attack's
+// kill of 2026-10-25, b - VR plays no power attack, OBVR's strike is its own). A walker without a head (ACBS No Head, made
 // with the rule off) ends at its first death: it could never lose one - and
 // with the rule on none is made (Nadi, 2026-10-27).
 
@@ -29,7 +31,6 @@ struct FallFacts {
 	bool headless = false;   // its base has no head (ACBS No Head)
 	bool headNoted = false;  // OBVR cut or crushed its head before the death
 	bool cutterOn = false;   // OBVR said it cuts heads ('WGDM' 1)
-	bool powerKill = false;  // the killer's blow was a power attack
 };
 
 enum class WalkerFall : UInt8 {
@@ -37,7 +38,7 @@ enum class WalkerFall : UInt8 {
 	EndedRuleOff,      // DieOnlyBeheaded=0: killed once
 	EndedHeadless,     // no head to lose
 	EndedHead,         // its head is off or crushed
-	EndedPowerAttack,  // no cutter, and the killing blow a power attack
+	EndedNoCutter,     // nobody cuts heads: every kill ends it
 };
 
 inline WalkerFall WalkerFallVerdict(bool dieOnlyBeheaded, const FallFacts& f) {
@@ -50,8 +51,8 @@ inline WalkerFall WalkerFallVerdict(bool dieOnlyBeheaded, const FallFacts& f) {
 	if (f.headNoted) {
 		return WalkerFall::EndedHead;
 	}
-	if (!f.cutterOn && f.powerKill) {
-		return WalkerFall::EndedPowerAttack;
+	if (!f.cutterOn) {
+		return WalkerFall::EndedNoCutter;
 	}
 	return WalkerFall::RisesAgain;
 }
@@ -64,7 +65,7 @@ inline const char* WalkerFallText(WalkerFall fall) {
 		case WalkerFall::EndedRuleOff: return "ended (DieOnlyBeheaded=0)";
 		case WalkerFall::EndedHeadless: return "ended (it has no head to lose)";
 		case WalkerFall::EndedHead: return "ended (its head is off)";
-		case WalkerFall::EndedPowerAttack: return "ended (a power attack, and no head cutter)";
+		case WalkerFall::EndedNoCutter: return "ended (nobody cuts heads - OBVR's Dismemberment=0, or flat)";
 	}
 	return "?";
 }

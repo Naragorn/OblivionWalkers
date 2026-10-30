@@ -1410,21 +1410,26 @@ MOO's zombie resurrect (7a), which stays off.
 **Built 2026-10-30** (Nadi: "jo"; EndLogic.h, EndLogicTest): the death watch
 decides per walker (WalkerFallVerdict) - up again on the waiting list
 (Requeue, the clock RiseAgainIn), or the end: the rule off, no head to lose
-(ACBS No Head), the head noted, or without a cutter a power attack's kill.
+(ACBS No Head), the head noted, or no cutter at all (below).
 The due walker is raised as itself (Raise -> RaiseAsSelf, no clone). OBVR's
 'WGDM' {on} and 'WGHD' {refId, kind 1 cut / 2 crushed} come through the
 grab's OBVR listener (registered at xOBSE's PostLoad); a head is noted at
 once (HeadNotes, for a death in the same frame) and acted on at the next
 frame tick (StepHeads: off the list for good - lootless, fame -, or killed
-when still alive). The power attack: xOBSE's IsPowerAttacking asked on the
-killer into the ESP quest's new variable power_kill (Commands_AI.cpp: the
-anim data plays AttackPower..AttackRightPower). NoLoot and Fame wait for the
-end. The headless are left out of the rise's candidates and unlinked from
+when still alive). **Without a cutter every kill ends a walker** (Nadi,
+2026-10-30: "bei Dismemberment=0 killt jeder schlag und walker steht auch
+nicht auf") - OBVR's Dismemberment=0, flat, no OBVR: no rise at all. It
+replaces the power attack's kill of point 6 (2026-10-25, b): VR plays no
+power attack (OBVR's strike calls the engine's AttackHandling itself, no
+anim - OBVR, 2026-10-30), so xOBSE's IsPowerAttacking read 0 in
+end-power-attack.txt (19:50, 19:53). NoLoot and Fame wait for the end. The headless are left out of the rise's candidates and unlinked from
 WalkersAnyWalker at the start (ReplaceSettings::headlessWalkers, from the
 INI). LINK: three entries after the categories (113..115), version 9.
-**Not seen in the game yet:** the raise of a walker in place, the power
-attack still playing at the death (flat, and OBVR's swung power strike),
-the unlinked spawn list, and the whole flow with OBVR's cut. A walker lying
+**Seen in the game** (OBVR's dismember-walkers-job.txt, 19:40, and
+end-power-attack.txt): a walker downs and gets up in place, ended by a cut
+while it lies; a person cut at the killing blow or as a corpse stays down.
+**Not seen yet:** the unlinked spawn list, the no-cutter end
+(harness/end-no-cutter.txt). A walker lying
 to rise again can be searched (NoLoot sets destroyed only at the end).
 
 How (as proposed 2026-10-25):
@@ -1465,8 +1470,8 @@ How (as proposed 2026-10-25):
    from those with a head. Walkers already headless
    in a save (made with the toggle off) stay as they are: proposed, they end
    as before 4.17 (killed once). Cost small, built with 4.17.
-6. **Without a head cutter a power attack ends a walker** (decided by Nadi
-   2026-10-25, b). No OBVR, OBVR with `Dismemberment=0`, or an OBVR that
+6. **Superseded 2026-10-30: without a cutter every kill ends a walker** (see
+   Built above). The plan of 2026-10-25 (b) was: a power attack ends a walker. No OBVR, OBVR with `Dismemberment=0`, or an OBVR that
    sends no cuts: a walker whose killing blow was a power attack (any melee
    power attack, fists included) stays down; every other death rises again.
    OBVR tells at its start (and after an INI reload) whether it cuts; with a

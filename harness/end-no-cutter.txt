@@ -1,0 +1,28 @@
+# Without a head cutter every kill ends a walker (docs/walkers-spec.md 4.17;
+# Nadi, 2026-10-30: "bei Dismemberment=0 killt jeder schlag und walker steht
+# auch nicht auf"). OBVR with Dismemberment=0 sends 'WGDM' 0: no cutter. One
+# walker (0x801) placed before the player in god mode, killed by the player,
+# then 40 s: OblivionWalkers.log (read by hand - the runner checks OBVR.log
+# only) "End: walker ... ended (nobody cuts heads ...)", no "Rise: ... gets up".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/end-no-cutter.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1 200 0
+console-at kill {actor}.kill player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 12
+mark kill
+wait 40
+mark end
+wait 1
