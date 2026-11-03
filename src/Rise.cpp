@@ -212,8 +212,8 @@ bool IsDead(UInt32 actor) {
 	if (fn < kTextStart || fn >= kTextEnd) {
 		return false;
 	}
-	using DeadFn = UInt8(__fastcall*)(void* self, void* edx, UInt32 arg);
-	return (reinterpret_cast<DeadFn>(fn)(reinterpret_cast<void*>(actor), nullptr, 0) & 1) != 0;
+	using EngineDeadFn = UInt8(__fastcall*)(void* self, void* edx, UInt32 arg);
+	return (reinterpret_cast<EngineDeadFn>(fn)(reinterpret_cast<void*>(actor), nullptr, 0) & 1) != 0;
 }
 
 // Whether `ref` is a walker: a creature of the ESP's walker bases.
@@ -1000,7 +1000,7 @@ void RaiseAsSelf(UInt32 refId) {
 		}
 	}
 	const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
-	using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
+	using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 	reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
 	g_risen = RisenWatch{};
 	g_risen.refId = refId;
@@ -1387,9 +1387,9 @@ void StepSwapInFlight(float dt) {
 			g_log("Pose: at the raise - the walker's pelvis at %.0f %.0f %.0f, head at %.0f %.0f %.0f", pelvis.x,
 			      pelvis.y, pelvis.z, head.x, head.y, head.z);
 		}
-		const UInt32 has3D = Read(zombie + kRefNiNodeOffset) != 0 ? 1u : 0u;
-		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
-		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(zombie), nullptr, 1, has3D, 1);
+		const UInt32 withModel = Read(zombie + kRefNiNodeOffset) != 0 ? 1u : 0u;
+		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
+		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(zombie), nullptr, 1, withModel, 1);
 		g_risen = RisenWatch{};
 		g_risen.refId = g_swap.zombieId;
 		g_risen.startMs = GetTickCount();
@@ -1951,7 +1951,7 @@ void StepSafeguardInGame(float dt) {
 			continue;
 		}
 		const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
-		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 has3D, UInt32 animate);
+		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
 		g_log("Safeguard: %08X (base %08X) gets up again at %.0f %.0f %.0f, no walker within %.0f (3D %u, dead to the "
 		      "engine now: %d); %u still down",

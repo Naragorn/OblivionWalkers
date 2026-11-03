@@ -13,16 +13,22 @@
 #
 #   tools/package-release.sh <version> [<Oblivion Data folder>]
 #
-# The DLL is the one in build-linux/ (tools/build-linux.sh); a release should
-# be built with MSVC on Windows - this script takes whatever is there and
-# says which.
+# The DLL is the MSVC build in build-win/ when there is one (the release
+# build - the disk is shared, so a Linux pack takes the Windows build too),
+# else the clang-cl one in build-linux/ (tools/build-linux.sh); it says which.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="${1:?usage: tools/package-release.sh <version> [<Data folder>]}"
 data="${2:-$HOME/.local/share/Steam/steamapps/common/Oblivion/Data}"
 python="${PYTHON_PYFFI:-$HOME/obvr-venv/bin/python}"
-dll="$root/build-linux/OblivionWalkers.dll"
-[[ -f "$dll" ]] || { echo "no $dll - run tools/build-linux.sh first" >&2; exit 1; }
+dll=""
+for candidate in "$root/build-win/OblivionWalkers.dll" "$root/build-linux/OblivionWalkers.dll"; do
+	if [[ -f "$candidate" ]]; then
+		dll="$candidate"
+		break
+	fi
+done
+[[ -n "$dll" ]] || { echo "no DLL in build-win/ or build-linux/ - build first" >&2; exit 1; }
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -75,4 +81,4 @@ for variant in ESL ESP; do
 	(cd "$stage" && zip -qr "$zip_path" .)
 	echo "$zip_path: $(unzip -l "$zip_path" | tail -1 | awk '{print $2}') files"
 done
-echo "DLL: $dll ($(stat -c %y "$dll" | cut -d. -f1)) - built with clang-cl on Linux unless replaced by an MSVC build"
+echo "DLL: $dll ($(stat -c %y "$dll" | cut -d. -f1))"

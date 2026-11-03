@@ -37,7 +37,10 @@ What exists:
   the Courier's office, the rows of `src/CourierRefs.h`.
 - `artifacts/` - what the tools and the runs wrote (not for a repository).
 
-Own folder for now; it becomes its own repository later.
+Building on Windows: 32-bit MSVC, `cmake -B build-win -G Ninja
+-DCMAKE_BUILD_TYPE=Release .`, `cmake --build build-win`, `ctest --test-dir
+build-win` (from a vcvars32 prompt) - the release DLL. The Nexus page's text
+is `docs/nexus.md`.
 
 ## Before a public release
 
@@ -47,8 +50,8 @@ Own folder for now; it becomes its own repository later.
   `dist/` from the game's own data (the ESP and the grab's animations are
   built on the machine, never committed), each with a README naming its
   requirements and what a switch between the two costs (the walkers already
-  risen). The DLL in them is the one in `build-linux/`; a release DLL should
-  be built with MSVC.
+  risen). The DLL in them is the MSVC build in `build-win/` when there is one,
+  else the one in `build-linux/`.
 
 - **Register the opcode base.** The plugin sets opcode base `0x2B00`
   (`src/Rise.cpp`, `kOpcodeBase`): xOBSE runs a plugin's co-save callbacks
