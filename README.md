@@ -58,9 +58,9 @@ is `docs/nexus.md`.
   only for one with an opcode base of its own (docs/walkers-spec.md,
   section 2). `0x2B00` was free in xOBSE's list
   (github.com/llde/xOBSE/wiki/Registered-Opcodes-for-OBSE-Plugins) on
-  2026-10-24 but is not registered there yet. Before the mod goes public,
-  ask for it to be registered there (or take the base it is given and change
-  `kOpcodeBase`), so no other plugin picks the same one.
+  2026-10-24 and still on 2026-11-03. Requested on 2026-11-03 as
+  0x2B00-0x2B0F (https://github.com/llde/xOBSE/issues/263); open until
+  it is in the list. Should another range be given, change `kOpcodeBase`.
 
 ## Not planned for now
 
