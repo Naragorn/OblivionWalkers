@@ -432,6 +432,23 @@ void TestShake() {
 	      "the types read 'WGSK' and 'WGVR' in memory");
 }
 
+void TestHolderSpot() {
+	std::printf("Where a holder stands\n");
+	float dx = 0.0f;
+	float dy = 0.0f;
+	float face = 0.0f;
+	Check(walkers::HolderSpot(0.0f, Arm::Right, 45.0f, dx, dy, face) && dx > 0.0f && dy > 0.0f &&
+	          std::fabs(std::sqrt(dx * dx + dy * dy) - 45.0f) < 0.01f,
+	      "the right arm, facing north: 45 units off, ahead and to the right (OBVR's grip reaches 1.25 arm lengths)");
+	Check(std::fabs(dx - 45.0f * std::sin(walkers::kHolderSideRadians)) < 0.01f &&
+	          std::fabs(face - (walkers::kHolderSideRadians * 57.29578f + 180.0f)) < 0.01f,
+	      "turned to face the player");
+	Check(walkers::HolderSpot(0.0f, Arm::Left, 45.0f, dx, dy, face) && dx < 0.0f && dy > 0.0f, "the left arm: to the left");
+	Check(walkers::HolderSpot(1.5707964f, Arm::Right, 45.0f, dx, dy, face) && dx > 0.0f && dy < 0.0f,
+	      "facing east, the right: ahead (east) and to the south");
+	Check(!walkers::HolderSpot(0.0f, Arm::Right, 0.0f, dx, dy, face), "HolderStandUnits 0: left where it stands");
+}
+
 void TestTexts() {
 	std::printf("The messages (flat)\n");
 	GrabSettings s;
@@ -501,6 +518,7 @@ int main() {
 	TestStruggle();
 	TestNeeded();
 	TestShake();
+	TestHolderSpot();
 	TestTexts();
 	TestRefusalNames();
 	std::printf("%s (%d failed)\n", g_failures == 0 ? "PASS" : "FAIL", g_failures);

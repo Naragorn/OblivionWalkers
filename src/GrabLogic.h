@@ -60,7 +60,14 @@ struct GrabSettings {
 	// ShakeFatigue. 0: off.
 	UInt32 shakeStrokes = 6;
 	float shakeFatigue = 2.0f;
+	// A holder moved, as it takes hold, this many units from the player on
+	// the held arm's side, facing the player - so OBVR's grip (its hand IK,
+	// 1.25 arm lengths at most) reaches the player's forearm (OBVR,
+	// 2026-11-04: "the forearm out of reach" at the test grab's 80). 0: left
+	// where it stood.
+	float holderStandUnits = 45.0f;
 };
+
 
 // Whether the test grab is due: `clock` runs while nobody holds.
 inline bool TestGrabDue(const GrabSettings& s, float& clock, float dt, bool anyoneHolds) {
@@ -77,6 +84,24 @@ inline bool TestGrabDue(const GrabSettings& s, float& clock, float dt, bool anyo
 }
 
 enum class Arm : UInt8 { None = 0, Left = 1, Right = 2 };
+
+// The holder's side of the player: the held arm's side, this far round from
+// straight ahead.
+inline constexpr float kHolderSideRadians = 0.61f;  // 35 degrees
+
+// Where a holder stands for `arm`, the player heading `heading` (radians, the
+// forward (sin h, cos h)): the offset from the player and the holder's
+// heading in degrees (facing the player). False for HolderStandUnits 0.
+inline bool HolderSpot(float heading, Arm arm, float standUnits, float& dx, float& dy, float& faceDegrees) {
+	if (standUnits <= 0.0f) {
+		return false;
+	}
+	const float a = heading + (arm == Arm::Left ? -kHolderSideRadians : kHolderSideRadians);
+	dx = standUnits * std::sin(a);
+	dy = standUnits * std::cos(a);
+	faceDegrees = a * 57.29578f + 180.0f;
+	return true;
+}
 
 struct Holder {
 	UInt32 refId = 0;

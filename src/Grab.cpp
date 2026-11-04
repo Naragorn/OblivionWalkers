@@ -268,6 +268,8 @@ void LetGoOf(UInt32 refId, LetGo why) {
 	Say(SayFor(why), Arm::None, 0);
 }
 
+bool StandAtArm(UInt32 walker, UInt32 player, Arm arm);
+
 void HandleHit(const PendingHit& hit, UInt32 player) {
 	if (hit.target == player && LooksLikeObject(hit.attacker) && g_services.isWalker(hit.attacker) &&
 	    !g_services.dead(hit.attacker)) {
@@ -286,12 +288,14 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 			}
 			return;
 		}
+		const bool stood = StandAtArm(hit.attacker, player, arm);
 		const bool played = PlayIdle(hit.attacker, kHold);
 		UpdateNeeded(player);
 		Say(g_state.count >= 2 ? GrabSay::Rooted : GrabSay::Grabbed, arm, 0);
 		g_services.log("Grab: walker %08X holds the player's %s arm (it stood on the %s, rolled %u of %u; the hold "
-		               "played: %d); %u hold, the player %s; bites so far %u of %u",
+		               "played: %d; stood at the arm, %.0f units: %d); %u hold, the player %s; bites so far %u of %u",
 		               refId, ArmName(arm), ArmName(side), roll, g_settings->chancePercent, played ? 1 : 0,
+		               g_settings->holderStandUnits, stood ? 1 : 0,
 		               g_state.count, HoldName(HoldOf(g_state)), g_state.bites, g_settings->bitesToDie);
 		SendState();
 		return;
@@ -346,6 +350,22 @@ void Bite(const GrabEvent& ev, UInt32 player) {
 	}
 }
 
+// A holder taking hold moved onto its spot at the held arm (HolderSpot),
+// facing the player; false with HolderStandUnits 0 or a line refused.
+bool StandAtArm(UInt32 walker, UInt32 player, Arm arm) {
+	float dx = 0.0f;
+	float dy = 0.0f;
+	float face = 0.0f;
+	if (!HolderSpot(FloatAt(player + kRefRotZOffset), arm, g_settings->holderStandUnits, dx, dy, face)) {
+		return false;
+	}
+	char line[96];
+	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", dx, dy);
+	const bool moved = g_services.console(walker, line);
+	std::snprintf(line, sizeof(line), "SetAngle z %.1f", face);
+	return g_services.console(walker, line) && moved;
+}
+
 // The test switch: the nearest walker moved before the player (the player's
 // heading, 62 units on: the grip's hands about 45 ahead of it meet the body), turned to face the player, and grabbing as at a hit.
 void TestGrab(UInt32 player) {
@@ -357,12 +377,15 @@ void TestGrab(UInt32 player) {
 	const float heading = FloatAt(player + kRefRotZOffset);
 	char line[96];
 	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", 62.0f * std::sin(heading), 62.0f * std::cos(heading));
-	const bool moved = g_services.console(walker, line);
+	bool moved = g_services.console(walker, line);
 	std::snprintf(line, sizeof(line), "SetAngle z %.1f", heading * 57.29578f + 180.0f);
-	const bool turned = g_services.console(walker, line);
+	bool turned = g_services.console(walker, line);
 	const UInt32 refId = FormIdOf(walker);
 	Arm arm = Arm::None;
 	const GrabRefusal r = TryGrab(g_state, *g_settings, refId, Arm::Right, 0, &arm);
+	if (r == GrabRefusal::None && StandAtArm(walker, player, arm)) {
+		moved = turned = true;
+	}
 	const bool played = r == GrabRefusal::None && PlayIdle(walker, kHold);
 	g_services.log("Grab: test - walker %08X moved before the player (%d) and turned to face it (%d): %s the %s arm "
 	               "(the hold played: %d)",
@@ -504,13 +527,13 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
 	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f StrugglePresses=%u "
 	               "StruggleCrowdStep=%.2f StruggleCrowdMost=%.1f StruggleCrowdRadius=%.0f StruggleGapSeconds=%.1f "
-	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f; OBVR's messages %s",
+	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f HolderStandUnits=%.0f; OBVR's messages %s",
 	               settings->enabled ? 1 : 0, settings->chancePercent, settings->bitesToDie, settings->biteSeconds,
 	               settings->biteHealthPercent, settings->struggleHits, settings->tearFreeDistance,
 	               settings->biteResetSeconds, settings->testGrabSeconds, settings->strugglePresses,
 	               settings->struggleCrowdStep, settings->struggleCrowdMost, settings->struggleCrowdRadius,
 	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0, settings->shakeStrokes,
-	               settings->shakeFatigue,
+	               settings->shakeFatigue, settings->holderStandUnits,
 	               listening ? "listened to once xOBSE has loaded every plugin" : "not listened to (no xOBSE messages)");
 }
 
