@@ -1,0 +1,47 @@
+# A walker's victim raised by the safeguard walks back to its schedule
+# (docs/walkers-spec.md 4.11b; Nadi, 2026-11-04: raised at home if easy,
+# else where it lay and on its way - the second, the home teleport needs the
+# start cell, not read yet). In Bravil's streets (onto the city-side gate
+# door 00005603): a walker placed beside the player ({actor}, the nearest),
+# the Bravil NPC 0000A085 (loaded there in the roster; 0000A12A and 0000A16A of the first runs were not) killed with the walker as the killer, then the
+# walker killed (Dismemberment=0: it stays down), 40 s. The run's plugin INI
+# carries [Rise] NoRiseInCities=1, so a generic guard is the safeguard's too. OblivionWalkers.log
+# (Second run 21:32: the guard cut the walker down within the 2 s before the
+# kill - now half a second.) (by hand): "Safeguard: 0000A085 killed by walker ...", then "0000A085 ...
+# gets up again ... its packages asked anew: 1". The pictures after: where
+# the raised one goes.
+#
+# NOT WORKING YET (2026-11-04, four runs): the console's kill never took -
+# the roster ("HandScript: actors") names base forms, not references, so
+# 0000A12A / 0000A16A / 0000A085 here are no living references in reach.
+# Wanted: the reference of a named NPC standing in Bravil's streets.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/safeguard-home.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at inbravil player.moveto 00005603
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 60 0
+console-at victim 0000A085.kill {actor}
+console-at walkerdown {actor}.kill player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark inbravil
+wait 6
+mark placed
+wait 0.5
+mark victim
+wait 0.5
+mark walkerdown
+wait 40
+mark end
+wait 1

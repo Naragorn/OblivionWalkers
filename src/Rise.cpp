@@ -1964,11 +1964,16 @@ void StepSafeguardInGame(float dt) {
 		const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
 		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
+		// On its way: its AI packages asked anew, so it walks back to its
+		// schedule - home, its shop (Nadi, 2026-11-04: raised at home if easy,
+		// else this; the home teleport needs the start cell, ExtraStarting-
+		// WorldOrCell 0x53, not read yet - spec 4.11b).
+		const bool sent = ConsoleOn(ref, "EvaluatePackage");
 		g_log("Safeguard: %08X (base %08X) gets up again at %.0f %.0f %.0f, no walker within %.0f (3D %u, dead to the "
-		      "engine now: %d); %u still down",
+		      "engine now: %d; its packages asked anew: %d); %u still down",
 		      due[i], FormIdOf(Read(ref + kRefBaseFormOffset)), FloatAt(ref + kRefPositionOffset),
 		      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8), radius, has3D,
-		      IsDead(ref) ? 1 : 0, g_safeguard.count);
+		      IsDead(ref) ? 1 : 0, sent ? 1 : 0, g_safeguard.count);
 	}
 }
 
