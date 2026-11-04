@@ -61,12 +61,16 @@ struct GrabSettings {
 	// ShakeFatigue. 0: off.
 	UInt32 shakeStrokes = 6;
 	float shakeFatigue = 2.0f;
-	// A holder moved, as it takes hold, this many units from the player on
-	// the held arm's side, facing the player - so OBVR's grip (its hand IK,
-	// 1.25 arm lengths at most) reaches the player's forearm (OBVR,
-	// 2026-11-04: "the forearm out of reach" at the test grab's 80). 0: left
-	// where it stood.
-	float holderStandUnits = 45.0f;
+	// VR (Nadi, 2026-11-04: "B" - a walker grabs only when it stands in reach
+	// of the arm, a jump allowed only if small and forgivable): OBVR streams
+	// both forearms ('WGHP'); a hit grabs when the walker's nearer shoulder
+	// is within ReachUnits of the forearm on its side, and NudgeUnits more
+	// with the walker moved the units it lacks. Beyond: no grab. Flat (no
+	// forearm known): as before, it holds where it hit. ReachUnits about the
+	// zombie's arm (OBVR: ~37), NudgeUnits OBVR's proposal (10, some 14 cm) -
+	// neither tried in the headset.
+	float reachUnits = 37.0f;
+	float nudgeUnits = 10.0f;
 };
 
 
@@ -86,17 +90,11 @@ inline bool TestGrabDue(const GrabSettings& s, float& clock, float dt, bool anyo
 
 enum class Arm : UInt8 { None = 0, Left = 1, Right = 2 };
 
-// The holder's side of the player: the held arm's side, this far round from
-// straight ahead.
-inline constexpr float kHolderSideRadians = 0.61f;  // 35 degrees
-
-// Where a holder stands for `arm`, the player heading `heading` (radians, the
-// forward (sin h, cos h)): the offset from the player and the holder's
-// heading in degrees (facing the player). False for HolderStandUnits 0.
-// From OBVR ('WGHP' in memory), its answer to a new holder in 'WGRB': the
-// arm (1 left, 2 right), then the held forearm's world position (3 floats) -
-// the player's real arm, wherever the body faces (OBVR, 2026-11-04: in the
-// harness the forearm lay 31 units behind the feet, the holder 45 ahead).
+// From OBVR ('WGHP' in memory), ten a second for both arms while it runs in
+// VR: the arm (1 left, 2 right), then that forearm's world position (3
+// floats, 5 units up from the wrist) - the player's real arm, wherever the
+// body faces (OBVR, 2026-11-04: in the harness the forearm lay 31 units
+// behind the feet).
 inline constexpr UInt32 kGrabHoldPointMessage = 0x50484757;
 
 inline bool HoldPointOf(const void* data, UInt32 length, Arm& arm, float& x, float& y, float& z) {
@@ -114,10 +112,10 @@ inline bool HoldPointOf(const void* data, UInt32 length, Arm& arm, float& x, flo
 	return true;
 }
 
-// Where a holder stands for the held forearm at (ax, ay), the player at
-// (px, py) heading `heading`: `standUnits` beyond the forearm on the line
+// Where the test grab puts its walker for the forearm at (ax, ay), the
+// player at (px, py) heading `heading`: `standUnits` beyond the forearm on the line
 // from the player through it (along the heading when the forearm is over the
-// feet), facing the forearm. False for HolderStandUnits 0.
+// feet), facing the forearm. False for 0 units.
 inline bool HolderSpotAt(float ax, float ay, float px, float py, float heading, float standUnits, float& x, float& y,
                          float& faceDegrees) {
 	if (standUnits <= 0.0f) {
@@ -139,15 +137,20 @@ inline bool HolderSpotAt(float ax, float ay, float px, float py, float heading, 
 	return true;
 }
 
-inline bool HolderSpot(float heading, Arm arm, float standUnits, float& dx, float& dy, float& faceDegrees) {
-	if (standUnits <= 0.0f) {
-		return false;
+enum class Reach : UInt8 { Holds, Nudged, OutOfReach };
+
+// A shoulder `distance` units from the forearm: held as it stands, held with
+// the walker moved `*moveBy` toward it (at most NudgeUnits), or out of reach.
+inline Reach ReachVerdict(float distance, float reach, float nudge, float* moveBy) {
+	*moveBy = 0.0f;
+	if (distance <= reach) {
+		return Reach::Holds;
 	}
-	const float a = heading + (arm == Arm::Left ? -kHolderSideRadians : kHolderSideRadians);
-	dx = standUnits * std::sin(a);
-	dy = standUnits * std::cos(a);
-	faceDegrees = a * 57.29578f + 180.0f;
-	return true;
+	if (nudge > 0.0f && distance <= reach + nudge) {
+		*moveBy = distance - reach;
+		return Reach::Nudged;
+	}
+	return Reach::OutOfReach;
 }
 
 struct Holder {

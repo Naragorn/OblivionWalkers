@@ -1,6 +1,9 @@
 #include "Grab.h"
 
 #include "Engine.h"
+#include "Pose.h"
+
+#include <windows.h>
 
 #include <cmath>
 #include <cstdio>
@@ -268,7 +271,68 @@ void LetGoOf(UInt32 refId, LetGo why) {
 	Say(SayFor(why), Arm::None, 0);
 }
 
-bool StandAtArm(UInt32 walker, UInt32 player, Arm arm);
+// OBVR's forearms ('WGHP', ten a second in VR): the latest of each, and when.
+struct Forearm {
+	float x = 0.0f;
+	float y = 0.0f;
+	float z = 0.0f;
+	UInt32 ms = 0;  // GetTickCount at its arrival, 0 never
+};
+Forearm g_forearms[2];
+constexpr UInt32 kForearmFreshMs = 1000;
+
+const Forearm* FreshForearm(Arm arm) {
+	const Forearm& f = g_forearms[arm == Arm::Left ? 0 : 1];
+	return f.ms != 0 && GetTickCount() - f.ms <= kForearmFreshMs ? &f : nullptr;
+}
+
+// In VR with the forearm known: whether the walker's nearer shoulder reaches
+// it (ReachVerdict), with the distance and the move a nudge needs. Flat or
+// no forearm: Holds, as before.
+Reach ReachOf(UInt32 walker, Arm arm, float* distance, float* moveBy) {
+	*distance = -1.0f;
+	*moveBy = 0.0f;
+	const Forearm* f = g_vr ? FreshForearm(arm) : nullptr;
+	if (f == nullptr) {
+		return Reach::Holds;
+	}
+	float best = -1.0f;
+	for (const char* bone : {"Bip01 L UpperArm", "Bip01 R UpperArm"}) {
+		Vec3 shoulder{};
+		if (!BonePosition(walker, bone, &shoulder)) {
+			continue;
+		}
+		const float d = std::sqrt((shoulder.x - f->x) * (shoulder.x - f->x) + (shoulder.y - f->y) * (shoulder.y - f->y) +
+		                          (shoulder.z - f->z) * (shoulder.z - f->z));
+		best = best < 0.0f || d < best ? d : best;
+	}
+	if (best < 0.0f) {
+		return Reach::Holds;
+	}
+	*distance = best;
+	return ReachVerdict(best, g_settings->reachUnits, g_settings->nudgeUnits, moveBy);
+}
+
+// The nudge: the walker moved `by` units toward the forearm, on the ground.
+bool NudgeToward(UInt32 walker, UInt32 player, Arm arm, float by) {
+	const Forearm* f = FreshForearm(arm);
+	if (f == nullptr || by <= 0.0f) {
+		return false;
+	}
+	const float wx = FloatAt(walker + kRefPositionOffset);
+	const float wy = FloatAt(walker + kRefPositionOffset + 4);
+	const float dx = f->x - wx;
+	const float dy = f->y - wy;
+	const float length = std::sqrt(dx * dx + dy * dy);
+	if (length < 1.0f) {
+		return false;
+	}
+	char line[96];
+	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0",
+	              wx + dx / length * by - FloatAt(player + kRefPositionOffset),
+	              wy + dy / length * by - FloatAt(player + kRefPositionOffset + 4));
+	return g_services.console(walker, line);
+}
 
 void HandleHit(const PendingHit& hit, UInt32 player) {
 	if (hit.target == player && LooksLikeObject(hit.attacker) && g_services.isWalker(hit.attacker) &&
@@ -279,7 +343,20 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 		const UInt32 refId = FormIdOf(hit.attacker);
 		Arm arm = Arm::None;
 		const UInt32 roll = g_services.roll() % 100;
-		const GrabRefusal r = TryGrab(g_state, *g_settings, refId, side, roll, &arm);
+		GrabRefusal r = TryGrab(g_state, *g_settings, refId, side, roll, &arm);
+		float distance = -1.0f;
+		float moveBy = 0.0f;
+		const Reach reach = r == GrabRefusal::None ? ReachOf(hit.attacker, arm, &distance, &moveBy) : Reach::Holds;
+		if (reach == Reach::OutOfReach) {
+			ReleaseHolder(g_state, refId);
+			if (g_refusalLines > 0) {
+				--g_refusalLines;
+				g_services.log("Grab: walker %08X's hit on the player - no grab (the %s forearm out of reach: %.0f "
+				               "units from its shoulder, reach %.0f + nudge %.0f)",
+				               refId, ArmName(arm), distance, g_settings->reachUnits, g_settings->nudgeUnits);
+			}
+			return;
+		}
 		if (r != GrabRefusal::None) {
 			if (g_refusalLines > 0 && r != GrabRefusal::AlreadyHolding) {
 				--g_refusalLines;
@@ -288,14 +365,15 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 			}
 			return;
 		}
-		const bool stood = StandAtArm(hit.attacker, player, arm);
+		const bool nudged = reach == Reach::Nudged && NudgeToward(hit.attacker, player, arm, moveBy);
 		const bool played = PlayIdle(hit.attacker, kHold);
 		UpdateNeeded(player);
 		Say(g_state.count >= 2 ? GrabSay::Rooted : GrabSay::Grabbed, arm, 0);
 		g_services.log("Grab: walker %08X holds the player's %s arm (it stood on the %s, rolled %u of %u; the hold "
-		               "played: %d; stood at the arm, %.0f units: %d); %u hold, the player %s; bites so far %u of %u",
-		               refId, ArmName(arm), ArmName(side), roll, g_settings->chancePercent, played ? 1 : 0,
-		               g_settings->holderStandUnits, stood ? 1 : 0,
+		               "played: %d; the forearm %.0f units from its shoulder%s); %u hold, the player %s; bites so far "
+		               "%u of %u",
+		               refId, ArmName(arm), ArmName(side), roll, g_settings->chancePercent, played ? 1 : 0, distance,
+		               nudged ? ", nudged" : (distance < 0.0f ? " - not known, flat" : ""),
 		               g_state.count, HoldName(HoldOf(g_state)), g_state.bites, g_settings->bitesToDie);
 		SendState();
 		return;
@@ -350,22 +428,6 @@ void Bite(const GrabEvent& ev, UInt32 player) {
 	}
 }
 
-// A holder taking hold moved onto its spot at the held arm (HolderSpot),
-// facing the player; false with HolderStandUnits 0 or a line refused.
-bool StandAtArm(UInt32 walker, UInt32 player, Arm arm) {
-	float dx = 0.0f;
-	float dy = 0.0f;
-	float face = 0.0f;
-	if (!HolderSpot(FloatAt(player + kRefRotZOffset), arm, g_settings->holderStandUnits, dx, dy, face)) {
-		return false;
-	}
-	char line[96];
-	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", dx, dy);
-	const bool moved = g_services.console(walker, line);
-	std::snprintf(line, sizeof(line), "SetAngle z %.1f", face);
-	return g_services.console(walker, line) && moved;
-}
-
 // The test switch: the nearest walker moved before the player (the player's
 // heading, 62 units on: the grip's hands about 45 ahead of it meet the body), turned to face the player, and grabbing as at a hit.
 void TestGrab(UInt32 player) {
@@ -383,8 +445,18 @@ void TestGrab(UInt32 player) {
 	const UInt32 refId = FormIdOf(walker);
 	Arm arm = Arm::None;
 	const GrabRefusal r = TryGrab(g_state, *g_settings, refId, Arm::Right, 0, &arm);
-	if (r == GrabRefusal::None && StandAtArm(walker, player, arm)) {
-		moved = turned = true;
+	// In VR at OBVR's forearm, 30 units beyond it - the test grab may jump.
+	const Forearm* f = r == GrabRefusal::None ? FreshForearm(arm) : nullptr;
+	float x = 0.0f;
+	float y = 0.0f;
+	float face = 0.0f;
+	if (f != nullptr && HolderSpotAt(f->x, f->y, FloatAt(player + kRefPositionOffset),
+	                                 FloatAt(player + kRefPositionOffset + 4), heading, 30.0f, x, y, face)) {
+		std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", x - FloatAt(player + kRefPositionOffset),
+		              y - FloatAt(player + kRefPositionOffset + 4));
+		moved = g_services.console(walker, line);
+		std::snprintf(line, sizeof(line), "SetAngle z %.1f", face);
+		turned = g_services.console(walker, line);
 	}
 	const bool played = r == GrabRefusal::None && PlayIdle(walker, kHold);
 	g_services.log("Grab: test - walker %08X moved before the player (%d) and turned to face it (%d): %s the %s arm "
@@ -404,15 +476,6 @@ void ReleaseAll(LetGo why) {
 	SendState();
 }
 
-// OBVR's 'WGHP' answers since the last frame: where each newly held forearm is.
-struct HoldPoint {
-	Arm arm = Arm::None;
-	float x = 0.0f;
-	float y = 0.0f;
-	float z = 0.0f;
-};
-HoldPoint g_holdPoints[2];
-UInt32 g_holdPointCount = 0;
 
 void OnObvrMessage(obse::MessagingInterface::Message* message) {
 	if (message == nullptr) {
@@ -435,9 +498,11 @@ void OnObvrMessage(obse::MessagingInterface::Message* message) {
 		}
 		g_vr = vr;
 	} else if (message->type == kGrabHoldPointMessage) {
-		HoldPoint p;
-		if (HoldPointOf(message->data, message->dataLen, p.arm, p.x, p.y, p.z) && g_holdPointCount < 2) {
-			g_holdPoints[g_holdPointCount++] = p;
+		Arm arm = Arm::None;
+		Forearm f;
+		if (HoldPointOf(message->data, message->dataLen, arm, f.x, f.y, f.z)) {
+			f.ms = GetTickCount();
+			g_forearms[arm == Arm::Left ? 0 : 1] = f;
 		}
 	} else if (g_services.otherObvrMessage != nullptr) {
 		g_services.otherObvrMessage(message->type, message->data, message->dataLen);
@@ -542,13 +607,13 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
 	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f StrugglePresses=%u "
 	               "StruggleCrowdStep=%.2f StruggleCrowdMost=%.1f StruggleCrowdRadius=%.0f StruggleGapSeconds=%.1f "
-	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f HolderStandUnits=%.0f; OBVR's messages %s",
+	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f ReachUnits=%.0f NudgeUnits=%.0f; OBVR's messages %s",
 	               settings->enabled ? 1 : 0, settings->chancePercent, settings->bitesToDie, settings->biteSeconds,
 	               settings->biteHealthPercent, settings->struggleHits, settings->tearFreeDistance,
 	               settings->biteResetSeconds, settings->testGrabSeconds, settings->strugglePresses,
 	               settings->struggleCrowdStep, settings->struggleCrowdMost, settings->struggleCrowdRadius,
 	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0, settings->shakeStrokes,
-	               settings->shakeFatigue, settings->holderStandUnits,
+	               settings->shakeFatigue, settings->reachUnits, settings->nudgeUnits,
 	               listening ? "listened to once xOBSE has loaded every plugin" : "not listened to (no xOBSE messages)");
 }
 
@@ -589,30 +654,6 @@ void StepGrabInGame(float dt) {
 		}
 	}
 	g_freeRequestCount = 0;
-	// The holder onto OBVR's forearm: HolderStandUnits beyond it, facing it.
-	for (UInt32 i = 0; i < g_holdPointCount; ++i) {
-		const HoldPoint& p = g_holdPoints[i];
-		const UInt32 refId = HolderOn(g_state, p.arm);
-		const UInt32 holder = refId != 0 ? LookupForm(refId) : 0;
-		float x = 0.0f;
-		float y = 0.0f;
-		float face = 0.0f;
-		if (!LooksLikeObject(holder) ||
-		    !HolderSpotAt(p.x, p.y, FloatAt(player + kRefPositionOffset), FloatAt(player + kRefPositionOffset + 4),
-		                  FloatAt(player + kRefRotZOffset), g_settings->holderStandUnits, x, y, face)) {
-			continue;
-		}
-		char line[96];
-		std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", x - FloatAt(player + kRefPositionOffset),
-		              y - FloatAt(player + kRefPositionOffset + 4));
-		const bool moved = g_services.console(holder, line);
-		std::snprintf(line, sizeof(line), "SetAngle z %.1f", face);
-		const bool turned = g_services.console(holder, line);
-		g_services.log("Grab: OBVR's held %s forearm at %.0f %.0f %.0f - holder %08X to %.0f %.0f, facing %.0f "
-		               "(moved %d, turned %d)",
-		               ArmName(p.arm), p.x, p.y, p.z, refId, x, y, face, moved ? 1 : 0, turned ? 1 : 0);
-	}
-	g_holdPointCount = 0;
 	if (!g_settings->enabled && g_state.count > 0) {
 		ReleaseAll(LetGo::SwitchedOff);
 	}

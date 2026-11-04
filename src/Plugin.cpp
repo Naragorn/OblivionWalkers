@@ -211,7 +211,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	const int struggle = GetPrivateProfileIntA("Grab", "StruggleHits", 2, path);
 	rise.grab.struggleHits = struggle < 1 ? 1u : static_cast<UInt32>(struggle);
 	rise.grab.tearFreeDistance = IniFloat("Grab", "TearFreeDistance", 1000.0f, path);
-	rise.grab.holderStandUnits = std::max(0.0f, IniFloat("Grab", "HolderStandUnits", 45.0f, path));
+	rise.grab.reachUnits = std::max(0.0f, IniFloat("Grab", "ReachUnits", 37.0f, path));
+	rise.grab.nudgeUnits = std::max(0.0f, IniFloat("Grab", "NudgeUnits", 10.0f, path));
 	rise.grab.biteResetSeconds = IniFloat("Grab", "BiteResetSeconds", 30.0f, path);
 	rise.grab.testGrabSeconds = IniFloat("Grab", "TestGrabSeconds", 0.0f, path);
 	const int presses = GetPrivateProfileIntA("Grab", "StrugglePresses", 4, path);

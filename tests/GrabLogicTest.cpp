@@ -433,33 +433,32 @@ void TestShake() {
 }
 
 void TestHolderSpot() {
-	std::printf("Where a holder stands\n");
-	float dx = 0.0f;
-	float dy = 0.0f;
+	std::printf("In reach of the arm\n");
+	float move = -1.0f;
+	Check(walkers::ReachVerdict(30.0f, 37.0f, 10.0f, &move) == walkers::Reach::Holds && move == 0.0f,
+	      "the shoulder 30 units from the forearm, reach 37: it holds, not moved (Nadi, 2026-11-04: B)");
+	Check(walkers::ReachVerdict(42.0f, 37.0f, 10.0f, &move) == walkers::Reach::Nudged && std::fabs(move - 5.0f) < 0.01f,
+	      "42: within reach and the nudge of 10 - it holds, moved the 5 units it lacks");
+	Check(walkers::ReachVerdict(47.5f, 37.0f, 10.0f, &move) == walkers::Reach::OutOfReach,
+	      "47.5: beyond reach and nudge - no grab, the hit is a hit");
+	Check(walkers::ReachVerdict(47.0f, 37.0f, 10.0f, &move) == walkers::Reach::Nudged && std::fabs(move - 10.0f) < 0.01f,
+	      "47: the nudge's edge, moved 10 at most");
+	Check(walkers::ReachVerdict(40.0f, 37.0f, 0.0f, &move) == walkers::Reach::OutOfReach,
+	      "NudgeUnits 0: only what stands in reach grabs");
 	float face = 0.0f;
-	Check(walkers::HolderSpot(0.0f, Arm::Right, 45.0f, dx, dy, face) && dx > 0.0f && dy > 0.0f &&
-	          std::fabs(std::sqrt(dx * dx + dy * dy) - 45.0f) < 0.01f,
-	      "the right arm, facing north: 45 units off, ahead and to the right (OBVR's grip reaches 1.25 arm lengths)");
-	Check(std::fabs(dx - 45.0f * std::sin(walkers::kHolderSideRadians)) < 0.01f &&
-	          std::fabs(face - (walkers::kHolderSideRadians * 57.29578f + 180.0f)) < 0.01f,
-	      "turned to face the player");
-	Check(walkers::HolderSpot(0.0f, Arm::Left, 45.0f, dx, dy, face) && dx < 0.0f && dy > 0.0f, "the left arm: to the left");
-	Check(walkers::HolderSpot(1.5707964f, Arm::Right, 45.0f, dx, dy, face) && dx > 0.0f && dy < 0.0f,
-	      "facing east, the right: ahead (east) and to the south");
-	Check(!walkers::HolderSpot(0.0f, Arm::Right, 0.0f, dx, dy, face), "HolderStandUnits 0: left where it stands");
 	float x = 0.0f;
 	float y = 0.0f;
 	// OBVR's harness, 2026-11-04: the feet at 255 -1663, the held forearm at
 	// 265 -1694 - behind the feet, wherever the body faces.
 	Check(walkers::HolderSpotAt(265.0f, -1694.0f, 255.0f, -1663.0f, 0.0f, 30.0f, x, y, face) && y < -1694.0f &&
 	          std::fabs(std::sqrt((x - 265.0f) * (x - 265.0f) + (y + 1694.0f) * (y + 1694.0f)) - 30.0f) < 0.01f,
-	      "OBVR's forearm: the holder 30 units beyond it, on the line from the player through it");
+	      "the test grab at OBVR's forearm: the walker 30 units beyond it, on the line from the player through it");
 	const float toArm = std::atan2(265.0f - x, -1694.0f - y) * 57.29578f;
 	Check(std::fabs(std::fmod(face - toArm + 720.0f, 360.0f)) < 0.01f, "turned to face the forearm");
 	Check(walkers::HolderSpotAt(100.0f, 100.0f, 100.0f, 100.0f, 0.0f, 30.0f, x, y, face) && std::fabs(x - 100.0f) < 0.01f &&
 	          std::fabs(y - 130.0f) < 0.01f,
 	      "the forearm over the feet: beyond it along the player's heading");
-	Check(!walkers::HolderSpotAt(1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, x, y, face), "HolderStandUnits 0: not moved");
+	Check(!walkers::HolderSpotAt(1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, x, y, face), "0 units: not moved");
 	Check(walkers::kGrabHoldPointMessage == 0x50484757, "the type reads 'WGHP' in memory");
 	const float point[4] = {0.0f, 265.0f, -1694.0f, 120.0f};
 	UInt32 words[4];
@@ -471,7 +470,7 @@ void TestHolderSpot() {
 	float pz = 0.0f;
 	Check(walkers::HoldPointOf(words, 16, arm, px, py, pz) && arm == Arm::Right && px == 265.0f && py == -1694.0f &&
 	          pz == 120.0f,
-	      "'WGHP': the arm, then the held forearm's world position");
+	      "'WGHP': the arm, then the forearm's world position (10 a second, both arms)");
 	words[0] = 3;
 	Check(!walkers::HoldPointOf(words, 16, arm, px, py, pz) && !walkers::HoldPointOf(words, 12, arm, px, py, pz),
 	      "another arm or too short: not taken");

@@ -45,6 +45,10 @@ ApartReport KeepCorpseApart(UInt32 walker, UInt32 corpse);
 // when it has no model or no pelvis. For the log: where a body lies.
 bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head);
 
+// The world position of `ref`'s bone `name` (game units); false when it has
+// no model or no such bone.
+bool BonePosition(UInt32 ref, const char* name, Vec3* out);
+
 // The walker's ragdoll bodies laid where the corpse lies, as `mode` says;
 // both references must have their 3D. Inside the engine's Havok lock, each
 // body through its wrapper's SetTranslationAndRotation, its velocities set

@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 11.0;
+inline constexpr double kLinkVersion = 12.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -80,7 +80,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68, "Spawns - which creatures become walkers"}, {68 + kFirstPersonCategory, "Spawns - which people become walkers"},
 	{68 + kReplaceCategoryCount, "Only a lost head ends a walker"},
 	{68 + kReplaceCategoryCount + 3, "City sieges"},
-	{68 + kReplaceCategoryCount + 10, "Grabbed - the holder"},
+	{68 + kReplaceCategoryCount + 10, "Grabbed - in reach (VR)"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -256,8 +256,10 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 30, 0.5f, 1, false, LinkEffect::Live},
 	{"ini_siege_toll", "Guards' toll per hour", "Walkers the guards cut down a game hour while you are away.",
 	 LinkKind::Slider, 0, 20, 0.5f, 1, false, LinkEffect::Live},
-	{"ini_grab_holder_stand", "Holder's distance", "Units from you a walker stands at as it grabs, 0 where it hit you.",
-	 LinkKind::Slider, 0, 120, 5, 0, false, LinkEffect::Live},
+	{"ini_grab_reach", "VR: a walker's reach", "Units from its shoulder to your forearm it grabs within.",
+	 LinkKind::Slider, 10, 80, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_nudge", "VR: the step to grab", "Units more it may step closer to grab, 0 none.", LinkKind::Slider, 0,
+	 40, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -346,7 +348,8 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 120: return rise.siege.walkersMax;
 		case 121: return rise.siege.pauseDays;
 		case 122: return rise.siege.guardKillsPerHour;
-		case 123: return rise.grab.holderStandUnits;
+		case 123: return rise.grab.reachUnits;
+		case 124: return rise.grab.nudgeUnits;
 		default: return 0.0;
 	}
 }
@@ -456,7 +459,8 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 120: rise.siege.walkersMax = whole; break;
 		case 121: rise.siege.pauseDays = fraction; break;
 		case 122: rise.siege.guardKillsPerHour = fraction; break;
-		case 123: rise.grab.holderStandUnits = fraction; break;
+		case 123: rise.grab.reachUnits = fraction; break;
+		case 124: rise.grab.nudgeUnits = fraction; break;
 		default: return false;
 	}
 	return true;

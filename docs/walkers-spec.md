@@ -1803,6 +1803,18 @@ ESP's IDLE 0x94D..0x952):
   verified, OBVR's to check). The room itself cannot be locked. The holder's
   hands on the player's arm (IK on the walker's skeleton) is the next,
   larger step, not built.
+- **In reach of the arm** (Nadi, 2026-11-04, "B", OBVR building the grip IK:
+  a walker grabs only when it already stands in reach of the arm, a jump only
+  if small and forgivable). OBVR streams 'WGHP' 0x50484757 {arm 1/2, the
+  forearm's world x, y, z} for both arms ten times a second in VR; at a
+  landed hit the walker's nearer shoulder (Bip01 L/R UpperArm, world
+  position) to that forearm: within `ReachUnits` (37, OBVR's measure of the
+  zombie's arm) it holds as it stands, within `NudgeUnits` (10, OBVR's
+  proposal, some 14 cm) more it holds and steps those units closer, beyond it
+  is no grab. Flat, or no forearm known within a second: it holds where it
+  hit, as before. The test grab still jumps: 30 units beyond OBVR's forearm.
+  INI and LINK (version 12). The 45-unit move of ca2e81f and the 'WGHP'
+  answer of e103534 replaced. Neither value tried in the headset.
   - Built in Walkers 2026-10-28, unit flows PASS; OBVR's side handed to
     the OBVR session; the feel only in the headset.
 - LINK: "Walkers grab", "Chance to grab", "Bites you take" under the header

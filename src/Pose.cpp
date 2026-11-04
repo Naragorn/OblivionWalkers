@@ -425,6 +425,16 @@ bool PelvisAndHead(UInt32 ref, Vec3* pelvis, Vec3* head) {
 	return true;
 }
 
+bool BonePosition(UInt32 ref, const char* name, Vec3* out) {
+	const UInt32 root = LooksLikeObject(ref) ? Read(ref + kRefNiNodeOffset) : 0;
+	const UInt32 node = NodeOf(root, name);
+	if (node == 0) {
+		return false;
+	}
+	*out = PositionOf(node);
+	return true;
+}
+
 ApartReport KeepCorpseApart(UInt32 walker, UInt32 corpse) {
 	ApartReport report;
 	LARGE_INTEGER start;
