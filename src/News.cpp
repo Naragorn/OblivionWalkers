@@ -53,6 +53,10 @@ const char* EditionText(const Edition& edition) {
 			return "walkers at the gates of";
 		case EditionKind::Several:
 			return "several cities attacked";
+		case EditionKind::Besieged:
+			return "the siege of";
+		case EditionKind::Lifted:
+			return "the siege lifted at";
 		case EditionKind::General:
 		default:
 			return "the outbreak";
