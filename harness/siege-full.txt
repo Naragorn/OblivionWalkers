@@ -1,0 +1,66 @@
+# The whole siege in one run (docs/walkers-spec.md 4.12; Nadi, 2026-11-04:
+# "kannst du größeres siege harness bauen"). Run it through
+# tools/siege-harness.sh, which gives the plugin INI the [Siege] lines this
+# needs, puts the live INI back afterwards and checks OblivionWalkers.log:
+#
+#   [Siege] TestGate=1 ChancePerDayPercent=100 WalkersMin=30 WalkersMax=30
+#           GuardKillsPerHour=2
+#
+# 1. ready     Anvil Castle Gate besieged by the test switch, its outer door
+#              locked, Anvil's rumor 1, the Courier on "Anvil Besieged!"
+# 2. nextday   GameDaysPassed to 5: the day's roll at 100 percent besieges
+#              the seven other cities at one of their gates each
+# 3. visit     the player 500 units before Anvil Castle Gate: 24 of its 30
+#              walkers come out, the gate guards come out for them
+# 4. kill1     killall (Dismemberment=0: every kill ends one) - they count off,
+#              the rest come out
+# 5. saved     a save with eight sieges on, WalkersSiegeFull
+# 6. away      into Benirus Manor (an interior): the walkers back in the pool
+# 7. loaded    the save loaded: the session's locks given back, eight sieges
+#              read from the co-save, their doors locked again, the pool
+#              disabled, the walkers out again before the gate
+# 8. leave     into Benirus Manor again: back in the pool
+# 9. toll      GameHour to 23: 22 game hours away at 2 an hour end every
+#              siege - each gate unlocked, each rumor 0, the Courier on a
+#              lifted edition
+#
+# Runs on OBVR's harness, from the OBVR folder - through the wrapper:
+#   ../OblivionWalkers/tools/siege-harness.sh
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at nextday set GameDaysPassed to 5
+console-at visit player.moveto 00006FBA 0 -500 0
+console-at kill1 killall
+console-at saved save WalkersSiegeFull
+console-at away coc AnvilBenirusManor
+console-at loaded load WalkersSiegeFull
+console-at leave coc AnvilBenirusManor
+console-at toll set GameHour to 23
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark nextday
+wait 5
+mark visit
+wait 20
+mark kill1
+wait 12
+mark saved
+wait 4
+mark away
+wait 8
+mark loaded
+wait 25
+mark leave
+wait 8
+mark toll
+wait 8
+mark end
+wait 1
