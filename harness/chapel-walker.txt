@@ -4,7 +4,11 @@
 # (the ESP's 0x801) at the player - as a mod's spawn there would stand (one
 # that walks in stays: chapel-follow.txt). The plugin's log reads "Chapel:
 # walker ... stood in AnvilChapelofDibella (owned by 000223BC) - taken out of
-# the world", and the roster at the counted mark has no walker (1100080x).
+# the world", and the roster at the counted mark has no walker: OBVR's
+# "actors - ... 25000801 x1" line; the rejects name the local IDs only
+# ("000801 x"), as the ESP's load index moves (0x11 on 2026-10-24, 0x25 and
+# then 0x26 on Linux by 2026-11-04 with Unique Landscapes) - a fixed index
+# matched nothing after a move, and the run passed whatever the roster said.
 #
 # Results 2026-10-24 (artifacts/hand-script/chapel-walker/):
 #   21:19 FAIL on the scenario's own reject (00080 matched the placeatme
@@ -25,10 +29,10 @@ console-at arrived tgm
 console-at arrived player.placeatme {form:OblivionWalkers.esp:801} 1
 
 expect HandScript: finished
-reject 11000801 x
-reject 11000802 x
-reject 11000803 x
-reject 11000804 x
+reject 000801 x
+reject 000802 x
+reject 000803 x
+reject 000804 x
 reject HandScript: WARNING
 
 wait 12

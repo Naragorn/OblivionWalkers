@@ -73,7 +73,7 @@ def main() -> int:
         print(f"{door:08X} {name:40s} out {x:9.0f} {y:9.0f} {z:7.0f} facing {math.degrees(rz):5.0f} "
               f"(door at {dx:.0f} {dy:.0f} {dz:.0f}, {math.hypot(x - dx, y - dy):.0f} units off; back door {back:08X})")
         rows.append(f"\t{{City::{city}, 0x{door:08X}, {dx:.1f}f, {dy:.1f}f, {dz:.1f}f, {x:.1f}f, {y:.1f}f, {z:.1f}f, "
-                    f"\"{name}\"}},")
+                    f"0x{back:08X}, \"{name}\"}},")
     print("\nThe rows of src/CityGates.h's kCityGates:")
     print("\n".join(rows))
     return 0

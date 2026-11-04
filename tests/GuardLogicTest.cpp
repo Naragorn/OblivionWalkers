@@ -254,7 +254,7 @@ void TestTable() {
 void TestSpot() {
 	std::printf("Where a guard comes out\n");
 	// The door at 0,0, the way out along +y to the spot at 0,100.
-	walkers::CityGate gate{walkers::City::Anvil, 1, 0.0f, 0.0f, 200.0f, 0.0f, 100.0f, 0.0f, "test"};
+	walkers::CityGate gate{walkers::City::Anvil, 1, 0.0f, 0.0f, 200.0f, 0.0f, 100.0f, 0.0f, 0, "test"};
 	float x[kGuardPool];
 	float y[kGuardPool];
 	for (UInt32 s = 0; s < kGuardPool; ++s) {
@@ -311,9 +311,9 @@ void TestRecover() {
 	float xs[walkers::kGuardCities][kGuardPool] = {};
 	float ys[walkers::kGuardCities][kGuardPool] = {};
 	const walkers::CityGate gates[] = {
-		{walkers::City::Anvil, 1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, "a"},
-		{walkers::City::Anvil, 2, 5000.0f, 0.0f, 0.0f, 5000.0f, 0.0f, 0.0f, "b"},
-		{walkers::City::Bruma, 3, 0.0f, 9000.0f, 0.0f, 0.0f, 9000.0f, 0.0f, "c"},
+		{walkers::City::Anvil, 1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, "a"},
+		{walkers::City::Anvil, 2, 5000.0f, 0.0f, 0.0f, 5000.0f, 0.0f, 0.0f, 0, "b"},
+		{walkers::City::Bruma, 3, 0.0f, 9000.0f, 0.0f, 0.0f, 9000.0f, 0.0f, 0, "c"},
 	};
 	enabled[kAnvil][2] = true;
 	xs[kAnvil][2] = 4800.0f;
