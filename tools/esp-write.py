@@ -166,7 +166,12 @@ ZOMBIE_LAST_IDLE = 0x0002ACCD
 # parameters, unused).
 NEVER = struct.pack("<B3xfIIII", 0x80, 0.0, 77, 0, 0, 0)
 IDLE_SPECIAL = 0x04  # ANAM: the animation group section Special Idle, as the zombie's IdleSway
-LOCAL_TEST_POOL_FIRST = LOCAL_GRAB_IDLE_FIRST + len(GRAB_ANIMS) * len(GRAB_SKELETONS)
+# The siege's walkers (4.12, Siege.cpp kSiegePoolFirstLocalId, SiegeLogic.h
+# kSiegeAtGateMost): persistent, initially disabled, in the holding cell -
+# brought out before a besieged gate. Each a vanilla look with a head.
+LOCAL_SIEGE_POOL_FIRST = LOCAL_GRAB_IDLE_FIRST + len(GRAB_ANIMS) * len(GRAB_SKELETONS)
+SIEGE_POOL = 100
+LOCAL_TEST_POOL_FIRST = LOCAL_SIEGE_POOL_FIRST + SIEGE_POOL + 16  # after the siege's editions
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -198,8 +203,10 @@ def pool_local_id(city: int, slot: int) -> int:
 
 LOCAL_POOL_IDS = sorted(pool_local_id(c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL))
 BROADSHEET_TEMPLATE = 0x0006D6F3  # Broadsheet01VampireNest
-EDITION_COUNT = 18  # NewsLogic.h kEditionCount
-LOCAL_EDITION_IDS = [0x8FC + i for i in range(EDITION_COUNT)]
+EDITION_COUNT = 34  # NewsLogic.h kEditionCount
+# The first 18 (4.9) at 0x8FC.., the siege's 16 (4.12) after the siege pool
+# (NewsLogic.h EditionLocalId).
+LOCAL_EDITION_IDS = [0x8FC + i for i in range(18)] + [0x9B7 + i for i in range(EDITION_COUNT - 18)]
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
@@ -619,6 +626,15 @@ def main() -> int:
                        build_pool_ref(achr_template, f"WalkersGuardPool{CITIES[c]}{n}", guard_forms[c],
                                       local - POOL_FIRST_ID),
                        flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    vanilla_heads = [f for f, no_head in zip(walker_forms[:len(first_forms) + len(LOCAL_MORE_WALKER_IDS)],
+                                             walker_no_heads) if not no_head]
+    siege_pool = b""
+    for n in range(SIEGE_POOL):
+        siege_pool += record(b"ACRE", index | (LOCAL_SIEGE_POOL_FIRST + n),
+                             build_pool_ref(achr_template, f"WalkersSiegePool{n:03d}", vanilla_heads[n % len(vanilla_heads)],
+                                            n),
+                             flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    pool += siege_pool
     test_pool = 0
     for c in range(len(CITIES)):
         for n in range(args.test_walker_pool):
@@ -656,7 +672,7 @@ def main() -> int:
             + group(b"PACK", packages) + group(b"IDLE", idles))
     groups = 5 + 5 + 1 + 2 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms))
+               + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms))
     next_id = LOCAL_TEST_POOL_FIRST + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
@@ -703,7 +719,7 @@ def main() -> int:
             raise SystemExit(f"walker {n}'s parts or flags are off")
         if got[b"EDID"].rstrip(b"\0").decode() != f"WalkersZombie{n}" or got[b"FULL"].rstrip(b"\0").decode() != WALKER_NAME:
             raise SystemExit(f"walker {n}'s names are off")
-    if LOCAL_MORE_WALKER_IDS[0] <= LOCAL_EDITION_IDS[-1]:
+    if LOCAL_MORE_WALKER_IDS[0] <= LOCAL_EDITION_IDS[17] or LOCAL_EDITION_IDS[18] != LOCAL_SIEGE_POOL_FIRST + SIEGE_POOL:
         raise SystemExit("the new walkers overlap the editions")
     back_list = find_record(esm, plugin, b"LVLC", list_form)
     entries = [struct.unpack_from("<HHIHH", d, 0) for k, d in back_list if k == b"LVLO"]

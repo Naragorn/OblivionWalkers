@@ -216,6 +216,32 @@ inline UInt32 SiegeWalkerEnded(CitySiege& c, UInt32 city, const SiegeSettings& s
 	return 0;
 }
 
+// The siege's walkers before the gate: rows of kSiegeRowLength across the
+// way out, the first kSiegeStandOff units out from the door (past where the
+// gate guards come out, GuardLogic.h GuardSpot), each next row farther out.
+inline constexpr float kSiegeStandOff = 900.0f;
+inline constexpr float kSiegeSpacing = 90.0f;
+inline constexpr float kSiegeRowSpacing = 110.0f;
+inline constexpr UInt32 kSiegeRowLength = 8;
+
+inline void SiegeSpot(const CityGate& gate, UInt32 slot, float& x, float& y) {
+	float dx = gate.outX - gate.x;
+	float dy = gate.outY - gate.y;
+	const float length = std::sqrt(dx * dx + dy * dy);
+	if (length < 1.0f) {
+		dx = 0.0f;
+		dy = 1.0f;
+	} else {
+		dx /= length;
+		dy /= length;
+	}
+	const float across = (static_cast<float>(slot % kSiegeRowLength) - 0.5f * (kSiegeRowLength - 1)) * kSiegeSpacing;
+	const float out = kSiegeStandOff + static_cast<float>(slot / kSiegeRowLength) * kSiegeRowSpacing;
+	// Across: the way out turned a quarter to the right.
+	x = gate.x + dx * out + dy * across;
+	y = gate.y + dy * out - dx * across;
+}
+
 // Door 0 (Tamriel side) or 1 (city side) of the besieged gate: true when the
 // siege locks it - it was not locked before - and noted so.
 inline bool LockDoor(CitySiege& c, UInt32 door, bool wasLocked) {

@@ -118,17 +118,54 @@ void TestIndex() {
 	for (int c = 0; c < static_cast<int>(walkers::kNewsCities); ++c) {
 		mark(Edition{EditionKind::Approaching, c});
 		mark(Edition{EditionKind::Attack, c});
+		mark(Edition{EditionKind::Besieged, c});
+		mark(Edition{EditionKind::Lifted, c});
 	}
 	bool all = true;
 	for (bool s : seen) {
 		all = all && s;
 	}
-	Check(unique && inRange && all, "18 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17");
+	Check(unique && inRange && all,
+	      "34 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
+	      "lifted 26-33");
+	Check(walkers::EditionIndex(Edition{EditionKind::Besieged, 0}) == 18 &&
+	          walkers::EditionIndex(Edition{EditionKind::Lifted, 7}) == 33 && walkers::EditionLocalId(0) == 0x8FC &&
+	          walkers::EditionLocalId(17) == 0x90D && walkers::EditionLocalId(18) == 0x9B7 &&
+	          walkers::EditionLocalId(33) == 0x9C6,
+	      "the siege's books after the siege pool (tools/esp-write.py LOCAL_EDITION_IDS)");
 	Check(walkers::EditionIndex(Edition{EditionKind::General, -1}) == 0 &&
 	          walkers::EditionIndex(Edition{EditionKind::Approaching, 0}) == 1 &&
 	          walkers::EditionIndex(Edition{EditionKind::Attack, 7}) == 16 &&
 	          walkers::EditionIndex(Edition{EditionKind::Several, -1}) == 17,
 	      "the numbers tools/esp-write.py writes the books in");
+}
+
+void TestSiegeNews() {
+	std::printf("Sieges in the news\n");
+	NewsState news;
+	walkers::NoteCityAttack(news, kBruma, 10.0f);
+	walkers::NoteSiegeNews(news, kAnvil, true, 10.5f);
+	Edition e = walkers::ChooseEdition(news, 11.0f, 3.0f, 0.5f);
+	Check(e.kind == EditionKind::Besieged && e.city == static_cast<int>(kAnvil), "a city besieged: before any attack");
+	walkers::NoteSiegeNews(news, kBruma, true, 10.8f);
+	e = walkers::ChooseEdition(news, 11.0f, 3.0f, 0.5f);
+	Check(e.kind == EditionKind::Besieged && e.city == static_cast<int>(kBruma), "two besieged: the latest");
+	walkers::NoteSiegeNews(news, kBruma, false, 11.5f);
+	walkers::NoteSiegeNews(news, kAnvil, false, 11.6f);
+	e = walkers::ChooseEdition(news, 12.0f, 3.0f, 0.5f);
+	Check(e.kind == EditionKind::Lifted && e.city == static_cast<int>(kAnvil), "over: the latest lifted, while recent");
+	e = walkers::ChooseEdition(news, 20.0f, 3.0f, 0.5f);
+	Check(e.kind == EditionKind::General, "long over: the outbreak again");
+	UInt8 image[walkers::kNewsImageBytes];
+	walkers::NoteSiegeNews(news, kSkingrad, true, 19.0f);
+	NewsState back;
+	Check(walkers::NewsImage(news, image, sizeof(image)) == walkers::kNewsImageBytes &&
+	          walkers::ReadNewsImage(back, image, walkers::kNewsImageBytes) && back.besiegedDays[kSkingrad] == 19.0f &&
+	          back.liftedDays[kAnvil] == 11.6f && back.besiegedDays[kAnvil] < 0.0f,
+	      "the sieges in the co-save (version 3)");
+	NewsState v2;
+	Check(walkers::ReadNewsImage(v2, image, walkers::kNewsImageV2Bytes) && v2.besiegedDays[kSkingrad] < 0.0f,
+	      "a version 2 record: no sieges read");
 }
 
 void TestGameTime() {
@@ -177,6 +214,7 @@ int main() {
 	TestHeadingHeld();
 	TestNote();
 	TestIndex();
+	TestSiegeNews();
 	TestGameTime();
 	TestImage();
 	if (g_failures != 0) {

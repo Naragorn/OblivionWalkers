@@ -13,14 +13,26 @@ namespace walkers {
 
 using SiegeConsoleFn = bool (*)(UInt32 ref, const char* line);
 using SiegeRollFn = UInt32 (*)();
+using SiegeDeadFn = bool (*)(UInt32 actor);
 
 // Once a session, at the plugin's load: the live settings (LINK writes into
 // them), the console on a reference, a draw, the log.
-void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, SiegeRollFn roll, LogFn log);
+void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, SiegeRollFn roll, SiegeDeadFn dead,
+                    LogFn log);
 
-// The ESP's quest (its form ID) whose variables siege_lock and
-// siege_lock_level read a door back; 0: none.
-void ConfigureSiegeQuest(UInt32 questFormId);
+// The ESP's base (RiseLogic.h EspFormId), once it is known: its quest's
+// variables siege_lock and siege_lock_level read a door back, its pool of
+// siege walkers (0x953.., esp-write.py LOCAL_SIEGE_POOL_FIRST).
+void ConfigureSiegeEsp(UInt32 espBase);
+
+// A horde holding at kCityGates row `gate` (Horde.cpp): that city besieged
+// there at the next step, unless it is already or pauses.
+void NoteHordeAtGate(UInt32 gate);
+
+// A walker ended for good (4.17, Rise.cpp - also from inside the engine's
+// death path, so only noted; counted at the next step): one of the siege's
+// out before its gate counts off the siege. False for any other.
+bool NoteSiegeWalkerEnded(UInt32 refId);
 
 // Every frame; the clock is looked at once a second.
 void StepSiegeInGame(float dt);

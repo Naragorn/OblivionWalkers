@@ -547,6 +547,9 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	victim.walker = walker;
 	victim.player = fallen.refId == kPlayerRefId;
 	victim.rises = verdict == DeathVerdict::Waits || walkerUp;
+	if (walker && !swapKill && !walkerUp) {
+		NoteSiegeWalkerEnded(fallen.refId);
+	}
 	if (SafeguardTakes(g_settings.safeguard, victim)) {
 		const bool noted = NoteVictim(g_safeguard, fallen.refId);
 		g_log("Safeguard: %08X killed by walker %08X - %s (%u on the list)", fallen.refId,
@@ -809,7 +812,7 @@ void FindWalkers() {
 	ConfigureHorde(g_settings.horde, base, g_log);
 	ConfigureGuards(g_settings.guards, g_log);
 	ConfigureNews(g_settings.news, base, g_log);
-	ConfigureSiegeQuest(EspFormId(base, kLinkQuestLocalId));
+	ConfigureSiegeEsp(base);
 	ConfigureGrabIdles(base);
 }
 
@@ -1836,6 +1839,9 @@ void StepHeads() {
 			}
 			g_log("End: %s %08X ended - its head is off, it gets up no more; %u waiting", walker ? "walker" : "the dead",
 			      refId, g_list.count);
+			if (walker) {
+				NoteSiegeWalkerEnded(refId);
+			}
 		} else if (action == HeadAction::Kill) {
 			const bool killed = ConsoleOn(ref, "Kill");
 			g_log("End: walker %08X lost its head alive - killed (handed to xOBSE: %d)", refId, killed ? 1 : 0);
@@ -2092,7 +2098,7 @@ void OnLoad(void*) {
 		if (type == kNewsRecordType) {
 			UInt8 news[kNewsImageBytes];
 			const UInt32 read =
-				(version == kNewsRecordVersion || version == 1) && length <= sizeof(news)
+				version >= 1 && version <= kNewsRecordVersion && length <= sizeof(news)
 					? g_serialization->ReadRecordData(news, length)
 					: 0;
 			const bool whole = ReadNewsImage(CurrentNews(), news, read);
@@ -2268,7 +2274,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.otherObvrMessage = &OnObvrHeads;
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
-	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, log);
+	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
 	return true;
 }
 

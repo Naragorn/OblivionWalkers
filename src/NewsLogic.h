@@ -32,16 +32,17 @@ struct NewsSettings {
 	float headingHoldDays = 0.5f;
 };
 
-enum class EditionKind : UInt8 { General, Approaching, Attack, Several };
+enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted };
 
 struct Edition {
 	EditionKind kind = EditionKind::General;
-	int city = -1;  // Approaching, Attack: which; -1 otherwise
+	int city = -1;  // Approaching, Attack, Besieged, Lifted: which; -1 otherwise
 };
 
 // The edition's number - the order tools/esp-write.py writes the books in:
-// general 0, approaching 1-8, attack 9-16, several 17.
-inline constexpr UInt32 kEditionCount = 2 + 2 * kNewsCities;
+// general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25 and
+// lifted 26-33 (4.12).
+inline constexpr UInt32 kEditionCount = 2 + 4 * kNewsCities;
 
 inline UInt32 EditionIndex(const Edition& e) {
 	switch (e.kind) {
@@ -51,17 +52,42 @@ inline UInt32 EditionIndex(const Edition& e) {
 			return 1 + kNewsCities + static_cast<UInt32>(e.city);
 		case EditionKind::Several:
 			return 1 + 2 * kNewsCities;
+		case EditionKind::Besieged:
+			return 2 + 2 * kNewsCities + static_cast<UInt32>(e.city);
+		case EditionKind::Lifted:
+			return 2 + 3 * kNewsCities + static_cast<UInt32>(e.city);
 		case EditionKind::General:
 		default:
 			return 0;
 	}
 }
 
+// The ESP's book of edition `index`: the first 18 at 0x8FC.., the siege's
+// after the siege pool at 0x9B7.. (tools/esp-write.py LOCAL_EDITION_IDS).
+inline UInt32 EditionLocalId(UInt32 index) { return index < 18 ? 0x8FC + index : 0x9B7 + (index - 18); }
+
 struct NewsState {
 	float lastAttackDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};  // -1: never
 	int headingCity = -1;      // the last city a horde near the player was seen heading for, -1 none
 	float headingDays = -1.0f;  // the game day it was seen
+	// 4.12: the game day each city's siege began, -1 none on; the day the
+	// last one was lifted, -1 never.
+	float besiegedDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+	float liftedDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
 };
+
+// A siege of `city` begun (`begun`) or lifted at game day `days`.
+inline void NoteSiegeNews(NewsState& news, UInt32 city, bool begun, float days) {
+	if (city >= kNewsCities) {
+		return;
+	}
+	if (begun) {
+		news.besiegedDays[city] = days;
+	} else {
+		news.besiegedDays[city] = -1.0f;
+		news.liftedDays[city] = days;
+	}
+}
 
 // Walkers at `city`'s gate and its guards out, at game day `days`.
 inline void NoteCityAttack(NewsState& news, UInt32 city, float days) {
@@ -83,6 +109,26 @@ inline void NoteHeading(NewsState& news, int city, float days) {
 // one attacked, else the city a horde was last seen heading for within
 // `holdDays`, else the outbreak in general.
 inline Edition ChooseEdition(const NewsState& news, float now, float recentDays, float holdDays) {
+	// A siege on is the news before all else, the latest begun; then a
+	// siege lifted lately, the latest.
+	int besieged = -1;
+	int lifted = -1;
+	for (UInt32 c = 0; c < kNewsCities; ++c) {
+		if (news.besiegedDays[c] >= 0.0f &&
+		    (besieged < 0 || news.besiegedDays[c] > news.besiegedDays[static_cast<UInt32>(besieged)])) {
+			besieged = static_cast<int>(c);
+		}
+		if (news.liftedDays[c] >= 0.0f && now - news.liftedDays[c] <= recentDays &&
+		    (lifted < 0 || news.liftedDays[c] > news.liftedDays[static_cast<UInt32>(lifted)])) {
+			lifted = static_cast<int>(c);
+		}
+	}
+	if (besieged >= 0) {
+		return Edition{EditionKind::Besieged, besieged};
+	}
+	if (lifted >= 0) {
+		return Edition{EditionKind::Lifted, lifted};
+	}
 	UInt32 recent = 0;
 	int attacked = -1;
 	float latest = -1.0f;
@@ -121,13 +167,15 @@ inline float GameTimeDays(float daysPassed, float hour) {
 	return hour >= 0.0f && hour < 24.0f ? day + hour / 24.0f : day;
 }
 
-// The co-save record: type "NEWS", version 2 - the last attack's game day
-// per city, then the last sighting's city and game day. Version 1 had the
-// attacks alone (kNewsImageV1Bytes), read as such.
+// The co-save record: type "NEWS", version 3 - the last attack's game day
+// per city, the last sighting's city and game day, then each city's siege
+// begun and lifted days. Version 1 had the attacks alone, version 2 no
+// sieges, read as such.
 inline constexpr UInt32 kNewsRecordType = 0x4E455753;  // 'NEWS'
-inline constexpr UInt32 kNewsRecordVersion = 2;
+inline constexpr UInt32 kNewsRecordVersion = 3;
 inline constexpr UInt32 kNewsImageV1Bytes = 4 * kNewsCities;
-inline constexpr UInt32 kNewsImageBytes = kNewsImageV1Bytes + 8;
+inline constexpr UInt32 kNewsImageV2Bytes = kNewsImageV1Bytes + 8;
+inline constexpr UInt32 kNewsImageBytes = kNewsImageV2Bytes + 8 * kNewsCities;
 
 inline UInt32 NewsImage(const NewsState& news, UInt8* out, UInt32 capacity) {
 	if (capacity < kNewsImageBytes) {
@@ -142,6 +190,14 @@ inline UInt32 NewsImage(const NewsState& news, UInt8* out, UInt32 capacity) {
 	std::memcpy(&days, &news.headingDays, sizeof(days));
 	Put32(out + kNewsImageV1Bytes, static_cast<UInt32>(news.headingCity));
 	Put32(out + kNewsImageV1Bytes + 4, days);
+	for (UInt32 c = 0; c < kNewsCities; ++c) {
+		UInt32 begun = 0;
+		UInt32 lifted = 0;
+		std::memcpy(&begun, &news.besiegedDays[c], sizeof(begun));
+		std::memcpy(&lifted, &news.liftedDays[c], sizeof(lifted));
+		Put32(out + kNewsImageV2Bytes + 4 * c, begun);
+		Put32(out + kNewsImageV2Bytes + 4 * kNewsCities + 4 * c, lifted);
+	}
 	return kNewsImageBytes;
 }
 
@@ -157,6 +213,14 @@ inline bool ReadNewsImage(NewsState& news, const UInt8* in, UInt32 length) {
 		std::memcpy(&news.lastAttackDays[c], &bits, sizeof(bits));
 	}
 	if (length >= kNewsImageBytes) {
+		for (UInt32 c = 0; c < kNewsCities; ++c) {
+			const UInt32 begun = Get32(in + kNewsImageV2Bytes + 4 * c);
+			const UInt32 lifted = Get32(in + kNewsImageV2Bytes + 4 * kNewsCities + 4 * c);
+			std::memcpy(&news.besiegedDays[c], &begun, sizeof(begun));
+			std::memcpy(&news.liftedDays[c], &lifted, sizeof(lifted));
+		}
+	}
+	if (length >= kNewsImageV2Bytes) {
 		const UInt32 days = Get32(in + kNewsImageV1Bytes + 4);
 		NoteHeading(news, static_cast<int>(Get32(in + kNewsImageV1Bytes)), 0.0f);
 		std::memcpy(&news.headingDays, &days, sizeof(days));

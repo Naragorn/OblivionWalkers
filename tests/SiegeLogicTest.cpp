@@ -6,6 +6,7 @@
 
 #include "SiegeLogic.h"
 
+#include <cmath>
 #include <cstdio>
 
 namespace {
@@ -170,6 +171,24 @@ void TestLocks() {
 	      "at the end only the door the siege locked is unlocked");
 }
 
+void TestSpot() {
+	std::printf("Where the siege's walkers stand\n");
+	walkers::CityGate gate{walkers::City::Anvil, 1, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f, 0.0f, 2, "test"};
+	float x = 0.0f;
+	float y = 0.0f;
+	walkers::SiegeSpot(gate, 0, x, y);
+	Check(std::fabs(y - walkers::kSiegeStandOff) < 0.5f && std::fabs(x + 3.5f * walkers::kSiegeSpacing) < 0.5f,
+	      "the first: kSiegeStandOff out from the door, on the way out, the row's left end");
+	walkers::SiegeSpot(gate, 7, x, y);
+	Check(std::fabs(x - 3.5f * walkers::kSiegeSpacing) < 0.5f && std::fabs(y - walkers::kSiegeStandOff) < 0.5f,
+	      "the eighth: the row's right end");
+	walkers::SiegeSpot(gate, 8, x, y);
+	Check(std::fabs(y - walkers::kSiegeStandOff - walkers::kSiegeRowSpacing) < 0.5f, "the ninth: the next row, farther out");
+	walkers::CityGate flat{walkers::City::Anvil, 1, 50.0f, 50.0f, 0.0f, 50.0f, 50.0f, 0.0f, 2, "same spot"};
+	walkers::SiegeSpot(flat, 0, x, y);
+	Check(x == x && y == y, "a gate whose way out is its door's spot: still a number, no division by zero");
+}
+
 void TestImage() {
 	std::printf("The co-save\n");
 	SiegeSettings s;
@@ -198,6 +217,7 @@ int main() {
 	TestToll();
 	TestEnded();
 	TestLocks();
+	TestSpot();
 	TestImage();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

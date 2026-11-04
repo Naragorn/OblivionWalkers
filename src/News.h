@@ -15,6 +15,9 @@ namespace walkers {
 // the ESP's books). An index above 0xFF: no news.
 void ConfigureNews(const NewsSettings& settings, UInt32 espBase, LogFn log);
 
+// A siege of `city` begun or lifted (Siege.cpp), now.
+void NoteSiegeInNews(UInt32 city, bool begun);
+
 // Walkers at `city`'s gate and its guards out (Horde.cpp), now.
 void NoteGateAttack(UInt32 city);
 

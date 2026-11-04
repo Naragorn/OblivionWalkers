@@ -1,10 +1,12 @@
 #include "Siege.h"
 
 #include "Engine.h"
+#include "LinkLogic.h"
 #include "News.h"
 #include "QuestVars.h"
+#include "RiseLogic.h"
 
-#include <cmath>
+#include <cstdio>
 
 namespace walkers {
 
@@ -21,11 +23,25 @@ constexpr float kStepSeconds = 1.0f;
 // The player counts as at the besieged gate (no toll, the fight is seen)
 // within this of its door, outdoors in Tamriel: some two exterior cells.
 constexpr float kSeenUnits = 8000.0f;
-// Step 3 of 4.12 (the walkers brought out before the gate) is not built.
-constexpr bool kSiegeWalkersShown = false;
+// The ESP's siege walkers (tools/esp-write.py LOCAL_SIEGE_POOL_FIRST).
+constexpr UInt32 kSiegePoolFirstLocalId = 0x953;
+constexpr UInt32 kSiegePool = kSiegeAtGateMost;
+constexpr UInt32 kSiegeLogLines = 24;
 
 const SiegeSettings* g_settings = nullptr;
 SiegeConsoleFn g_console = nullptr;
+SiegeDeadFn g_dead = nullptr;
+UInt32 g_espBase = 0;
+// The pool: out before the shown gate, or lying there ended (a corpse until
+// the siege is hidden), and which gate is shown (-1 none).
+bool g_out[kSiegePool] = {};
+bool g_corpse[kSiegePool] = {};
+int g_shownGate = -1;
+UInt32 g_shownLines = 0;
+// The siege's walkers ended since the last step (NoteSiegeWalkerEnded).
+UInt32 g_ended[32] = {};
+UInt32 g_endedCount = 0;
+int g_hordeGate = -1;  // a horde holding at this gate row since the last step
 SiegeRollFn g_roll = nullptr;
 LogFn g_log = nullptr;
 UInt32 g_quest = 0;
@@ -111,24 +127,107 @@ bool PlayerAt(const CityGate& gate) {
 	return dx * dx + dy * dy <= kSeenUnits * kSeenUnits;
 }
 
+UInt32 PoolRef(UInt32 slot) {
+	return g_espBase != 0 ? LookupForm(EspFormId(g_espBase, kSiegePoolFirstLocalId + slot)) : 0;
+}
+
+// The pool back in: every walker out or lying before the gate disabled.
+void HideSiege() {
+	UInt32 hidden = 0;
+	for (UInt32 i = 0; i < kSiegePool; ++i) {
+		if (!g_out[i] && !g_corpse[i]) {
+			continue;
+		}
+		const UInt32 ref = PoolRef(i);
+		if (LooksLikeObject(ref)) {
+			g_console(ref, "Disable");
+		}
+		g_out[i] = false;
+		g_corpse[i] = false;
+		++hidden;
+	}
+	if (g_shownGate >= 0) {
+		g_log("Siege: the walkers before %s back in the pool (%u)", kCityGates[g_shownGate].name, hidden);
+	}
+	g_shownGate = -1;
+}
+
+// Before the besieged gate: as many out as WalkersAtGateNow wants, a slot
+// never used first, else a corpse's - raised (SetDestroyed 0 against NoLoot,
+// Resurrect), enabled and moved onto its spot.
+void ShowSiege(const CitySiege& c) {
+	if (g_shownGate != static_cast<int>(c.gate)) {
+		HideSiege();
+		g_shownGate = static_cast<int>(c.gate);
+		g_shownLines = 0;
+		g_log("Siege: the player at %s - its walkers come out (%u left, %u at once)", kCityGates[c.gate].name,
+		      c.walkersLeft, WalkersAtGateNow(c, *g_settings));
+	}
+	UInt32 out = 0;
+	for (UInt32 i = 0; i < kSiegePool; ++i) {
+		out += g_out[i] ? 1u : 0u;
+	}
+	const UInt32 wanted = WalkersAtGateNow(c, *g_settings);
+	const CityGate& gate = kCityGates[c.gate];
+	for (UInt32 pass = 0; pass < 2 && out < wanted; ++pass) {
+		for (UInt32 i = 0; i < kSiegePool && out < wanted; ++i) {
+			if (g_out[i] || (pass == 0 && g_corpse[i]) || (pass == 1 && !g_corpse[i])) {
+				continue;
+			}
+			const UInt32 ref = PoolRef(i);
+			if (!LooksLikeObject(ref)) {
+				continue;
+			}
+			const bool raised = g_dead != nullptr && g_dead(ref);
+			if (raised) {
+				g_console(ref, "SetDestroyed 0");
+				g_console(ref, "Resurrect");
+			}
+			float x = 0.0f;
+			float y = 0.0f;
+			SiegeSpot(gate, i, x, y);
+			char line[96];
+			std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", gate.door, x - gate.x, y - gate.y,
+			              gate.outZ - gate.z);
+			g_console(ref, "Enable");
+			const bool moved = g_console(ref, line);
+			g_out[i] = true;
+			g_corpse[i] = false;
+			++out;
+			if (g_shownLines < kSiegeLogLines) {
+				++g_shownLines;
+				g_log("Siege: walker %08X out before %s (slot %u%s; %s answered %d)", FormIdOf(ref), gate.name, i,
+				      raised ? ", raised" : "", line, moved ? 1 : 0);
+			}
+		}
+	}
+}
+
 void Carry(const SiegeEvent& ev, float now) {
 	CitySiege& c = g_state.cities[ev.city];
 	const CityGate& gate = kCityGates[ev.gate];
 	if (ev.kind == SiegeEvent::Begin) {
 		g_log("Siege: %s besieged - %u walkers (game day %.2f)", gate.name, c.walkersLeft, now);
 		LockGate(c);
+		NoteSiegeInNews(ev.city, true);
 	} else {
 		g_log("Siege: the siege at %s is over (game day %.2f), the city's next not before day %.2f", gate.name, now,
 		      c.pauseUntil);
 		UnlockGate(c);
+		NoteSiegeInNews(ev.city, false);
+		if (g_shownGate == static_cast<int>(ev.gate)) {
+			HideSiege();
+		}
 	}
 }
 
 }  // namespace
 
-void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, SiegeRollFn roll, LogFn log) {
+void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, SiegeRollFn roll, SiegeDeadFn dead,
+                    LogFn log) {
 	g_settings = settings;
 	g_console = console;
+	g_dead = dead;
 	g_roll = roll;
 	g_log = log;
 	g_log("Siege: [Siege] Enabled=%d WalkersAtGate=%u ChancePerDayPercent=%u WalkersMin=%u WalkersMax=%u "
@@ -138,7 +237,54 @@ void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, Siege
 	      settings->testEndSeconds);
 }
 
-void ConfigureSiegeQuest(UInt32 questFormId) { g_quest = questFormId; }
+void NoteHordeAtGate(UInt32 gate) {
+	if (gate < kCityGateCount) {
+		g_hordeGate = static_cast<int>(gate);
+	}
+}
+
+void ConfigureSiegeEsp(UInt32 espBase) {
+	g_espBase = espBase;
+	g_quest = EspFormId(espBase, kLinkQuestLocalId);
+}
+
+bool NoteSiegeWalkerEnded(UInt32 refId) {
+	if (g_espBase == 0 || g_shownGate < 0 || g_settings == nullptr) {
+		return false;
+	}
+	const UInt32 local = refId & kEspLocalMask;
+	if (EspFormId(g_espBase, local) != refId || local < kSiegePoolFirstLocalId ||
+	    local >= kSiegePoolFirstLocalId + kSiegePool || !g_out[local - kSiegePoolFirstLocalId]) {
+		return false;
+	}
+	if (g_endedCount < 32) {
+		g_ended[g_endedCount++] = refId;
+	}
+	return true;
+}
+
+namespace {
+
+void CountEnded(UInt32 refId) {
+	const UInt32 slot = (refId & kEspLocalMask) - kSiegePoolFirstLocalId;
+	if (g_shownGate < 0 || !g_out[slot]) {
+		return;
+	}
+	g_out[slot] = false;
+	g_corpse[slot] = true;
+	const UInt32 city = static_cast<UInt32>(kCityGates[g_shownGate].city);
+	CitySiege& c = g_state.cities[city];
+	SiegeEvent end[1];
+	const float now = GameDaysNow();
+	const bool over = SiegeWalkerEnded(c, city, *g_settings, now, end, 1) > 0;
+	g_log("Siege: walker %08X ended before %s - %u left%s", refId, kCityGates[g_shownGate].name, c.walkersLeft,
+	      over ? ", the siege is over" : "");
+	if (over) {
+		Carry(end[0], now);
+	}
+}
+
+}  // namespace
 
 void StepSiegeInGame(float dt) {
 	if (g_settings == nullptr || g_console == nullptr) {
@@ -153,6 +299,10 @@ void StepSiegeInGame(float dt) {
 	if (now < 0.0f) {
 		return;
 	}
+	for (UInt32 i = 0; i < g_endedCount; ++i) {
+		CountEnded(g_ended[i]);
+	}
+	g_endedCount = 0;
 	SiegeEvent events[kSiegeCities + 1];
 	UInt32 n = 0;
 	// Switched off with a siege on: each ends, its gate unlocked.
@@ -164,8 +314,10 @@ void StepSiegeInGame(float dt) {
 					c.active = false;
 					g_log("Siege: [Siege] Enabled=0 - the siege at %s ends", kCityGates[c.gate].name);
 					UnlockGate(c);
+					NoteSiegeInNews(city, false);
 				}
 			}
+			HideSiege();
 		}
 		g_wasEnabled = false;
 		return;
@@ -189,22 +341,37 @@ void StepSiegeInGame(float dt) {
 			n += EndSiege(g_state.cities[city], city, *g_settings, now, events + n, kSiegeCities + 1 - n);
 		}
 	}
+	if (g_hordeGate >= 0 && n < kSiegeCities + 1) {
+		const UInt32 row = static_cast<UInt32>(g_hordeGate);
+		if (BeginSiegeAt(g_state, *g_settings, row, now, g_roll())) {
+			events[n++] = SiegeEvent{SiegeEvent::Begin, static_cast<UInt32>(kCityGates[row].city), row};
+			g_log("Siege: a horde holds at %s - the city is besieged there", kCityGates[row].name);
+		}
+	}
+	g_hordeGate = -1;
 	n += StepSiegeDays(g_state, *g_settings, now, g_roll, events + n, kSiegeCities + 1 - n);
 	for (UInt32 i = 0; i < n; ++i) {
 		Carry(events[i], now);
 	}
+	bool shown = false;
 	for (UInt32 city = 0; city < kSiegeCities; ++city) {
 		CitySiege& c = g_state.cities[city];
 		if (!c.active) {
 			continue;
 		}
 		SiegeEvent end[1];
-		// Until step 3 brings the siege's walkers out before the gate, the
-		// toll runs at the gate too: no walker there would ever end it.
-		const bool seen = kSiegeWalkersShown && PlayerAt(kCityGates[c.gate]);
+		const bool seen = g_espBase != 0 && PlayerAt(kCityGates[c.gate]);
 		if (StepSiegeToll(c, city, *g_settings, now, seen, end, 1) > 0) {
 			Carry(end[0], now);
+			continue;
 		}
+		if (seen) {
+			ShowSiege(c);
+			shown = true;
+		}
+	}
+	if (!shown && g_shownGate >= 0) {
+		HideSiege();
 	}
 }
 
@@ -226,6 +393,14 @@ void ApplySiegeLocks() {
 	if (g_console == nullptr) {
 		return;
 	}
+	// A save made with the siege shown holds its walkers enabled: all back in
+	// the pool, the siege brings out its own again.
+	for (UInt32 i = 0; i < kSiegePool; ++i) {
+		const UInt32 ref = PoolRef(i);
+		if (LooksLikeObject(ref)) {
+			g_console(ref, "Disable");
+		}
+	}
 	for (CitySiege& c : g_state.cities) {
 		const CityGate& gate = kCityGates[c.gate];
 		for (UInt32 which = 0; c.active && which < 2; ++which) {
@@ -242,6 +417,12 @@ void ApplySiegeLocks() {
 
 void ResetSiegeInGame() {
 	g_clock = 0.0f;
+	for (UInt32 i = 0; i < kSiegePool; ++i) {
+		g_out[i] = false;
+		g_corpse[i] = false;
+	}
+	g_shownGate = -1;
+	g_endedCount = 0;
 	g_wasEnabled = true;
 	g_testDone = false;
 	g_testLeft = -1.0f;

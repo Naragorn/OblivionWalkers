@@ -19,8 +19,6 @@ constexpr UInt32 kGlobalValueOffset = 0x24;
 constexpr UInt8 kFormTypeGlobal = 0x04;
 constexpr UInt8 kFormTypeBook = 0x15;
 constexpr UInt32 kRefBaseFormOffset = 0x1C;
-// The ESP's editions (tools/esp-write.py), NewsLogic.h EditionIndex order.
-constexpr UInt32 kEditionLocalId = 0x8FC;
 constexpr float kStepSeconds = 1.0f;
 
 NewsSettings g_settings;
@@ -77,7 +75,7 @@ void ConfigureNews(const NewsSettings& settings, UInt32 espBase, LogFn log) {
 	}
 	UInt32 missing = 0;
 	for (UInt32 i = 0; i < kEditionCount; ++i) {
-		const UInt32 book = LookupForm(EspFormId(espBase, kEditionLocalId + i));
+		const UInt32 book = LookupForm(EspFormId(espBase, EditionLocalId(i)));
 		g_editions[i] = LooksLikeObject(book) && Read8(book + kFormTypeOffset) == kFormTypeBook ? book : 0;
 		missing += g_editions[i] == 0 ? 1u : 0u;
 	}
@@ -91,6 +89,13 @@ void ConfigureNews(const NewsSettings& settings, UInt32 espBase, LogFn log) {
 	log("News: on - %u editions on the %u broadsheets of the inns and the Courier's office; an attack on a city's "
 	    "gates is news for %.1f game days",
 	    kEditionCount, kCourierRefCount, settings.recentDays);
+}
+
+void NoteSiegeInNews(UInt32 city, bool begun) {
+	const float now = GameTime();
+	if (now >= 0.0f) {
+		NoteSiegeNews(g_news, city, begun, now);
+	}
 }
 
 void NoteGateAttack(UInt32 city) {

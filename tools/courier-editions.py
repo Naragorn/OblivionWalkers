@@ -1,9 +1,10 @@
-"""The walkers' news: the 18 editions of the Black Horse Courier (docs/walkers-spec.md 4.9).
+"""The walkers' news: the 34 editions of the Black Horse Courier (docs/walkers-spec.md 4.9, 4.12).
 
 Imported by tools/esp-write.py, which writes them as BOOK records 0x8FC..0x90D
-in this order - NewsLogic.h EditionIndex: the outbreak in general 0, a horde
-heading for a city 1-8, a city's gates attacked 9-16, several cities 17, the
-cities in CityGates.h's order. The text is the broadsheets' own form (the
+and 0x9B7..0x9C6 in this order - NewsLogic.h EditionIndex: the outbreak in
+general 0, a horde heading for a city 1-8, a city's gates attacked 9-16,
+several cities 17, a city besieged 18-25, a siege lifted 26-33, the cities in
+CityGates.h's order. The text is the broadsheets' own form (the
 header picture, the headline, then the body), read off Oblivion.esm's
 Broadsheet01VampireNest. What the Legion asks matches what the walkers do in
 the game: they walk and never run, no dead rise in the Nine's chapels, what
@@ -120,10 +121,52 @@ def _several() -> tuple[str, str, str]:
     )
 
 
+def _besieged(key: str, name: str, region: str) -> tuple[str, str, str]:
+    city = name[0].upper() + name[1:]
+    title = f"{city} Besieged!"
+    return (
+        f"WalkersCourierBesieged{key}",
+        title,
+        _sheet(
+            title,
+            [
+                f"A horde of the dead has laid siege to {name}. Walkers in their hundreds came out of {region} and "
+                "now stand before one of the city's gates, day and night, and they do not go away.",
+                f"The guard of {name} has shut and barred that gate. No one goes in or out by it until the siege is "
+                "over - travellers must use another gate, and the Courier strongly advises them to.",
+                "Every day the watch marches out against the dead, and every day a few more walkers fall. But the "
+                "horde is great, and the Courier cannot say when the gate will open again.",
+            ],
+        ),
+    )
+
+
+def _lifted(key: str, name: str, region: str) -> tuple[str, str, str]:
+    city = name[0].upper() + name[1:]
+    title = f"The Siege of {city} Is Over!"
+    return (
+        f"WalkersCourierLifted{key}",
+        title,
+        _sheet(
+            title,
+            [
+                f"Good news at last from {name}: the siege is broken. The last of the walkers before the gate have "
+                "fallen, and the gate stands open again.",
+                f"The people of {name} cheered their guard in the streets. Traders who waited out the siege are "
+                f"already on the roads to {region} once more.",
+                "The Courier reminds its readers that the dead are still out there. Where one horde has fallen, "
+                "another may gather.",
+            ],
+        ),
+    )
+
+
 def editions() -> list[tuple[str, str, str]]:
     """(editor ID, title, text) in NewsLogic.h EditionIndex order."""
     out = [_general()]
     out += [_approaching(key, name, region) for key, name, region in CITIES]
     out += [_attack(key, name, region) for key, name, region in CITIES]
     out.append(_several())
+    out += [_besieged(key, name, region) for key, name, region in CITIES]
+    out += [_lifted(key, name, region) for key, name, region in CITIES]
     return out

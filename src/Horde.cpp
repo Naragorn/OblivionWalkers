@@ -3,6 +3,7 @@
 #include "CityGates.h"
 #include "Engine.h"
 #include "News.h"
+#include "Siege.h"
 
 #include <cmath>
 #include <cstdio>
@@ -602,6 +603,14 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 	}
 	HordeOrder orders[64];
 	const UInt32 ordered = StepHorde(g_state, walkers, n, g_settings, elapsed, g_seed, orders, 64);
+	// A horde holding at a gate besieges that city (4.12), once it is not
+	// besieged nor pausing.
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		const HordeGroup& g = g_state.groups[gi];
+		if (g.used && g.holding && g.gate >= 0) {
+			NoteHordeAtGate(static_cast<UInt32>(g.gate));
+		}
+	}
 	// Every few seconds, how the groups stand: the leader's way to its
 	// marker, whether it runs its package, how near its followers keep.
 	if (++g_steps % kSummaryEverySteps == 0 && g_summariesLeft > 0) {

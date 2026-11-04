@@ -1,0 +1,41 @@
+# The siege's walkers before the gate, counted off as they end, the siege
+# over and the gate unlocked (docs/walkers-spec.md 4.12 step 3, built
+# 2026-11-04). The run's plugin INI carries [Siege] TestGate=1 (Anvil Castle
+# Gate), WalkersMin=30, WalkersMax=30; Dismemberment=0 here, so every kill
+# ends a walker (4.17). The player is moved before the gate (its door
+# 00006FBA, 500 units out); killall twice ends what stands there.
+# OblivionWalkers.log (read by hand - the runner checks OBVR.log only):
+# "the player at Anvil Castle Gate - its walkers come out (30 left, 24 at
+# once)", 24 "walker ... out before Anvil Castle Gate", "walker ... ended
+# before Anvil Castle Gate - N left", the next 6 out, after the second
+# killall "the siege is over", "outer door 00006FBA unlocked - read back:
+# locked 0", "the walkers before Anvil Castle Gate back in the pool".
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/siege-walkers.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at ready player.moveto 00006FBA 0 -500 0
+console-at kill1 killall
+console-at kill2 killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 20
+mark out
+wait 5
+mark kill1
+wait 10
+mark refilled
+wait 5
+mark kill2
+wait 10
+mark end
+wait 1
