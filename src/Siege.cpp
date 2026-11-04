@@ -21,6 +21,8 @@ constexpr float kStepSeconds = 1.0f;
 // The player counts as at the besieged gate (no toll, the fight is seen)
 // within this of its door, outdoors in Tamriel: some two exterior cells.
 constexpr float kSeenUnits = 8000.0f;
+// Step 3 of 4.12 (the walkers brought out before the gate) is not built.
+constexpr bool kSiegeWalkersShown = false;
 
 const SiegeSettings* g_settings = nullptr;
 SiegeConsoleFn g_console = nullptr;
@@ -197,7 +199,10 @@ void StepSiegeInGame(float dt) {
 			continue;
 		}
 		SiegeEvent end[1];
-		if (StepSiegeToll(c, city, *g_settings, now, PlayerAt(kCityGates[c.gate]), end, 1) > 0) {
+		// Until step 3 brings the siege's walkers out before the gate, the
+		// toll runs at the gate too: no walker there would ever end it.
+		const bool seen = kSiegeWalkersShown && PlayerAt(kCityGates[c.gate]);
+		if (StepSiegeToll(c, city, *g_settings, now, seen, end, 1) > 0) {
 			Carry(end[0], now);
 		}
 	}
