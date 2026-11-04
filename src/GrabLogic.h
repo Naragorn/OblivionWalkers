@@ -113,27 +113,19 @@ inline bool HoldPointOf(const void* data, UInt32 length, Arm& arm, float& x, flo
 }
 
 // Where the test grab puts its walker for the forearm at (ax, ay), the
-// player at (px, py) heading `heading`: `standUnits` beyond the forearm on the line
-// from the player through it (along the heading when the forearm is over the
-// feet), facing the forearm. False for 0 units.
-inline bool HolderSpotAt(float ax, float ay, float px, float py, float heading, float standUnits, float& x, float& y,
-                         float& faceDegrees) {
+// player heading `heading`: `standUnits` ahead of the forearm along the
+// heading, facing it - in front of the player's eyes (OBVR, 2026-11-04: in
+// VR the forearm lies behind the feet, the camera behind the player's root,
+// so the line from the feet through it pointed backwards and the walker
+// stood out of sight). False for 0 units.
+inline bool TestHolderSpot(float ax, float ay, float heading, float standUnits, float& x, float& y,
+                           float& faceDegrees) {
 	if (standUnits <= 0.0f) {
 		return false;
 	}
-	float dx = ax - px;
-	float dy = ay - py;
-	const float length = std::sqrt(dx * dx + dy * dy);
-	if (length < 5.0f) {
-		dx = std::sin(heading);
-		dy = std::cos(heading);
-	} else {
-		dx /= length;
-		dy /= length;
-	}
-	x = ax + dx * standUnits;
-	y = ay + dy * standUnits;
-	faceDegrees = std::atan2(-dx, -dy) * 57.29578f;
+	x = ax + std::sin(heading) * standUnits;
+	y = ay + std::cos(heading) * standUnits;
+	faceDegrees = heading * 57.29578f + 180.0f;
 	return true;
 }
 

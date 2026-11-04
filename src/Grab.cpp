@@ -445,13 +445,12 @@ void TestGrab(UInt32 player) {
 	const UInt32 refId = FormIdOf(walker);
 	Arm arm = Arm::None;
 	const GrabRefusal r = TryGrab(g_state, *g_settings, refId, Arm::Right, 0, &arm);
-	// In VR at OBVR's forearm, 30 units beyond it - the test grab may jump.
+	// In VR at OBVR's forearm, 30 units ahead of it - the test grab may jump.
 	const Forearm* f = r == GrabRefusal::None ? FreshForearm(arm) : nullptr;
 	float x = 0.0f;
 	float y = 0.0f;
 	float face = 0.0f;
-	if (f != nullptr && HolderSpotAt(f->x, f->y, FloatAt(player + kRefPositionOffset),
-	                                 FloatAt(player + kRefPositionOffset + 4), heading, 30.0f, x, y, face)) {
+	if (f != nullptr && TestHolderSpot(f->x, f->y, heading, 30.0f, x, y, face)) {
 		std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", x - FloatAt(player + kRefPositionOffset),
 		              y - FloatAt(player + kRefPositionOffset + 4));
 		moved = g_services.console(walker, line);

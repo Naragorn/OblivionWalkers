@@ -1812,7 +1812,7 @@ ESP's IDLE 0x94D..0x952):
   zombie's arm) it holds as it stands, within `NudgeUnits` (10, OBVR's
   proposal, some 14 cm) more it holds and steps those units closer, beyond it
   is no grab. Flat, or no forearm known within a second: it holds where it
-  hit, as before. The test grab still jumps: 30 units beyond OBVR's forearm.
+  hit, as before. The test grab still jumps: 30 units ahead of OBVR's forearm along the heading, facing it (in sight - the forearm lies behind the feet in VR).
   INI and LINK (version 12). The 45-unit move of ca2e81f and the 'WGHP'
   answer of e103534 replaced. Neither value tried in the headset.
   - Built in Walkers 2026-10-28, unit flows PASS; OBVR's side handed to
