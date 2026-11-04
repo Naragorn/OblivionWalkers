@@ -190,6 +190,9 @@ bool ReadSettings(walkers::Settings* settings) {
 	siege.testGate = static_cast<int>(GetPrivateProfileIntA("Siege", "TestGate", -1, path));
 	siege.testGate = siege.testGate >= static_cast<int>(walkers::kCityGateCount) ? -1 : siege.testGate;
 	siege.testEndSeconds = std::max(0.0f, IniFloat("Siege", "TestEndSeconds", 0.0f, path));
+	char door[16] = {};
+	GetPrivateProfileStringA("Siege", "TestReadDoor", "0", door, sizeof(door), path);
+	siege.testReadDoor = static_cast<UInt32>(std::strtoul(door, nullptr, 16));
 	rise.safeguard.enabled = GetPrivateProfileIntA("Safeguard", "Enabled", 1, path) != 0;
 	rise.safeguard.afterSeconds = IniFloat("Safeguard", "AfterSeconds", 15.0f, path);
 	rise.safeguard.afterSeconds = rise.safeguard.afterSeconds < 0.0f ? 0.0f : rise.safeguard.afterSeconds;

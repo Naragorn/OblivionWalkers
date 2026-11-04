@@ -1,0 +1,34 @@
+# Are the city-side gate doors locked, or misread while their city is not
+# loaded? (docs/walkers-spec.md 4.12, open since siege-full.txt 2026-11-04:
+# all eight read locked at 100 before any siege.) The run's plugin INI
+# carries [Siege] TestReadDoor=00005603 (Bravil's city-side door; its
+# Tamriel side is 00005605): the plugin logs that door's GetLocked and
+# GetLockLevel every 5 s with its cell. First with the player in the
+# harness's own cell (Bravil not loaded), then moved onto the door (Bravil's
+# worldspace loaded, the door's 3D built). OblivionWalkers.log (by hand):
+# "Siege: test - door 00005603 locked N, level M; its cell ... (3D 0/1)".
+# Run 2026-11-04 20:33: 0 and 0, unloaded and loaded - open. A console
+# "00005605.lock 100" (20:34) left it at 0. Second form, the question
+# itself: with [Siege] TestGate=3 TestEndSeconds=60 as well, Bravil's siege
+# locks the outer door at the start and ends a minute later - what the
+# inner door reads in between, unloaded and loaded.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/siege-door-read.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+console-at ready tgm
+console-at inbravil player.moveto 00005603
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 12
+mark inbravil
+wait 40
+mark end
+wait 1

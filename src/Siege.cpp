@@ -74,41 +74,42 @@ double LockLevel(UInt32 door) {
 	return AskDoor(door, "set Walkers.siege_lock_level to GetLockLevel", "siege_lock_level");
 }
 
-UInt32 DoorOf(const CityGate& gate, UInt32 which) { return which == 0 ? gate.door : gate.back; }
 
+// The gate's two doors share one lock (siege-door-read.txt, 2026-11-04
+// 20:36: Bravil's outer door locked, its inner door read locked 1, level
+// 100, loaded or not; the outer unlocked, the inner read 0): the outer door
+// is locked and unlocked, both read back. Either read locked before: left
+// as it was.
 void LockGate(CitySiege& c) {
 	const CityGate& gate = kCityGates[c.gate];
-	for (UInt32 which = 0; which < 2; ++which) {
-		const UInt32 door = LookupForm(DoorOf(gate, which));
-		if (!LooksLikeObject(door)) {
-			g_log("Siege: %s's %s door %08X not found - not locked", gate.name, which == 0 ? "outer" : "inner",
-			      DoorOf(gate, which));
-			continue;
-		}
-		const bool was = Locked(door);
-		if (!LockDoor(c, which, was)) {
-			g_log("Siege: %s's %s door %08X locked already (level %.0f) - left as it was", gate.name,
-			      which == 0 ? "outer" : "inner", DoorOf(gate, which), LockLevel(door));
-			continue;
-		}
-		g_console(door, "Lock 100");
-		g_log("Siege: %s's %s door %08X locked - read back: locked %d, level %.0f", gate.name,
-		      which == 0 ? "outer" : "inner", DoorOf(gate, which), Locked(door) ? 1 : 0, LockLevel(door));
+	const UInt32 outer = LookupForm(gate.door);
+	const UInt32 inner = LookupForm(gate.back);
+	if (!LooksLikeObject(outer)) {
+		g_log("Siege: %s's door %08X not found - not locked", gate.name, gate.door);
+		return;
 	}
+	const bool was = Locked(outer) || (LooksLikeObject(inner) && Locked(inner));
+	if (!LockDoor(c, 0, was)) {
+		g_log("Siege: %s locked already (level %.0f) - left as it was", gate.name, LockLevel(outer));
+		return;
+	}
+	g_console(outer, "Lock 100");
+	g_log("Siege: %s locked - read back: outer %08X locked %d, level %.0f; inner %08X locked %d", gate.name,
+	      gate.door, Locked(outer) ? 1 : 0, LockLevel(outer), gate.back,
+	      LooksLikeObject(inner) && Locked(inner) ? 1 : 0);
 }
 
 void UnlockGate(CitySiege& c) {
 	const CityGate& gate = kCityGates[c.gate];
-	for (UInt32 which = 0; which < 2; ++which) {
-		if (!UnlocksDoor(c, which)) {
-			continue;
+	if (UnlocksDoor(c, 0)) {
+		const UInt32 outer = LookupForm(gate.door);
+		const UInt32 inner = LookupForm(gate.back);
+		if (LooksLikeObject(outer)) {
+			g_console(outer, "Unlock");
 		}
-		const UInt32 door = LookupForm(DoorOf(gate, which));
-		if (LooksLikeObject(door)) {
-			g_console(door, "Unlock");
-		}
-		g_log("Siege: %s's %s door %08X unlocked - read back: locked %d", gate.name, which == 0 ? "outer" : "inner",
-		      DoorOf(gate, which), LooksLikeObject(door) && Locked(door) ? 1 : 0);
+		g_log("Siege: %s unlocked - read back: outer %08X locked %d, inner %08X locked %d", gate.name, gate.door,
+		      LooksLikeObject(outer) && Locked(outer) ? 1 : 0, gate.back,
+		      LooksLikeObject(inner) && Locked(inner) ? 1 : 0);
 	}
 	c.lockedByUs = 0;
 }
@@ -315,6 +316,19 @@ void StepSiegeInGame(float dt) {
 		return;
 	}
 	g_clock = 0.0f;
+	static float s_readClock = 0.0f;
+	s_readClock += kStepSeconds;
+	if (g_settings->testReadDoor != 0 && s_readClock >= 5.0f) {
+		s_readClock = 0.0f;
+		const UInt32 door = LookupForm(g_settings->testReadDoor);
+		const UInt32 player = LookupForm(kPlayerRefId);
+		const UInt32 cell = LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0;
+		const UInt32 doorCell = LooksLikeObject(door) ? Read(door + kRefParentCellOffset) : 0;
+		g_log("Siege: test - door %08X locked %d, level %.0f; its cell %08X (3D %d), the player's %08X",
+		      g_settings->testReadDoor, LooksLikeObject(door) && Locked(door) ? 1 : 0,
+		      LooksLikeObject(door) ? LockLevel(door) : -2.0, FormIdOf(doorCell),
+		      LooksLikeObject(door) && Read(door + 0x3C) != 0 ? 1 : 0, FormIdOf(cell));
+	}
 	const float now = GameDaysNow();
 	if (now < 0.0f) {
 		return;
@@ -428,14 +442,11 @@ void ApplySiegeLocks() {
 	}
 	for (CitySiege& c : g_state.cities) {
 		const CityGate& gate = kCityGates[c.gate];
-		for (UInt32 which = 0; c.active && which < 2; ++which) {
-			const UInt32 door = LookupForm(DoorOf(gate, which));
-			if (!UnlocksDoor(c, which) || !LooksLikeObject(door) || Locked(door)) {
-				continue;
-			}
-			g_console(door, "Lock 100");
-			g_log("Siege: loaded - %s's %s door %08X locked again - read back: locked %d, level %.0f", gate.name,
-			      which == 0 ? "outer" : "inner", DoorOf(gate, which), Locked(door) ? 1 : 0, LockLevel(door));
+		const UInt32 outer = LookupForm(gate.door);
+		if (c.active && UnlocksDoor(c, 0) && LooksLikeObject(outer) && !Locked(outer)) {
+			g_console(outer, "Lock 100");
+			g_log("Siege: loaded - %s locked again - read back: outer %08X locked %d, level %.0f", gate.name, gate.door,
+			      Locked(outer) ? 1 : 0, LockLevel(outer));
 		}
 	}
 }

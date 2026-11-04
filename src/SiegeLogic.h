@@ -42,6 +42,9 @@ struct SiegeSettings {
 	// seconds later (0: not by the switch).
 	int testGate = -1;
 	float testEndSeconds = 0.0f;
+	// Test switch (harness/siege-door-read.txt): this door's GetLocked and
+	// GetLockLevel logged every 5 s, with the player's cell (0: never).
+	UInt32 testReadDoor = 0;
 };
 
 struct CitySiege {

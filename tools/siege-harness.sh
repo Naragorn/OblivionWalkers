@@ -46,7 +46,7 @@ def order(*texts):
     return True
 
 check(count("TestGate=1 begins a siege") >= 1, "the test switch begins Anvil's siege")
-check(count("outer door 00006FBA locked - read back: locked 1, level 100") >= 1, "Anvil Castle Gate's door locked, read back")
+check(count("Anvil Castle Gate locked - read back: outer 00006FBA locked 1, level 100; inner 00006B96 locked 1") >= 1, "Anvil Castle Gate locked, both doors read back locked (one lock for the pair)")
 check(count("besieged - 80 walkers") >= 8, "eight cities besieged (the test one and the day's roll), 80 walkers each")
 check(count("rumor global") >= 8 and count("now 1") >= 8, "the rumors set for the besieged")
 check(count("edition 18 ") >= 1 or count("(the siege of") >= 1, "the Courier on a siege edition")
@@ -58,7 +58,7 @@ check(order("before the load", "sieges on read", "locked again", "its walkers co
 check(count("1 sieges on read") >= 1, "Anvil's siege in the co-save")
 check(count("back in the pool") >= 2, "the pool back in on leaving (twice)")
 check(count("is over") >= 8, "every siege over after the toll")
-check(count("unlocked - read back: locked 0") >= 8, "every locked door unlocked")
+check(sum(1 for l in siege if "unlocked - read back: outer" in l and l.endswith("locked 0") and "locked 0, inner" in l) >= 8, "every besieged gate unlocked, both doors read back open")
 check(count("(the siege lifted at") >= 1, "the Courier on a lifted edition")
 check(count("no rumor global") == 0 and count("not found - not locked") == 0, "no global or door missing")
 print("PASS" if failures == 0 else f"FAIL ({failures})")
