@@ -1209,7 +1209,55 @@ after the return. **Open:** the three days are from memory (about the
 game's cell reset), not read; the player leaving within a swap's two
 seconds; the feel and the cost in the headset.
 
-### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, not built)
+### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, built 2026-11-04)
+
+**Built 2026-11-04** (Nadi: "ja mach 1-4", the guards' toll 2 a game hour,
+and a new wish: "was aktuell belagert wird wird auch teil von rumors also
+bei allen npcs"). SiegeLogic.h (SiegeLogicTest) and Siege.cpp:
+
+1. **The state**: per city active, gate row, walkers left, the toll's day,
+   the pause; a chance a game day per city (rolled once per new whole day,
+   however many passed), or a horde the player sees holding at a gate
+   (Horde.cpp NoteHordeAtGate). Co-save `SIEG` version 1. `[Siege]` in the
+   INI and LINK (seven entries after 4.17's, version 10); test switches
+   `TestGate` (a kCityGates row, -1 off) and `TestEndSeconds`.
+2. **The gate shut**: both doors (CityGates.h now has the city-side door,
+   tools/city-gates.py) `Lock 100`, read back with GetLocked/GetLockLevel
+   into the quest variables siege_lock and siege_lock_level; a door locked
+   before is left alone; unlocked at the end. A lock outlives a load the
+   save has no change for (siege-lock.txt 16:02: still locked after the
+   harness's reload) - so before a load or a new game the session's locks
+   are given back, and after the co-save is read its sieges lock again.
+3. **The siege seen**: 100 ACRE of vanilla looks with a head in the ESP
+   (0x953.., persistent, initially disabled, the holding cell); while the
+   player is outdoors in Tamriel within 8000 units of the besieged gate,
+   WalkersAtGate of them are enabled and moved in rows from 900 units out
+   (SiegeSpot), refilled as they end (a slot never used first, else a
+   corpse's, raised with SetDestroyed 0 and Resurrect); the gate guards
+   (4.11b) come out for them by themselves. A walker of the siege ended
+   (4.17's end) counts off - noted in the death path, counted at the next
+   step. Away, the guards' toll; the player leaving puts them back in the
+   pool; at a load every pool walker is disabled.
+4. **The Courier**: 16 new editions (besieged and lifted per city,
+   0x9B7..0x9C6, NEWS version 3); a siege on is the news before all else.
+5. **Rumors** (new): a GLOB per city (0x9C7..0x9CE, 1 while besieged) and
+   an INFO per city in Oblivion.esm's Rumors topic (INFOGENERAL 000000D7,
+   the DIAL overridden with the Walkers quest's QSTI added), condition
+   GetGlobalValue == 1 (function 74, as 246 of Oblivion.esm's INFOs use it),
+   not random, so it comes first while the city is besieged.
+
+**Seen in the game** (Linux, headless): `siege-lock.txt` 16:05 and 16:20 -
+the outer door locked (read back 1, level 100) and unlocked (0), given back
+before the reload, the rumor global 1 then 0, the broadsheets on edition 18
+then 26; `siege-walkers.txt` 16:15 - 24 out before Anvil Castle Gate, five
+guards out for them, 30 ended one by one to "the siege is over", the gate
+unlocked, 30 back in the pool. **Not seen:** an NPC saying the rumor (no
+harness for dialogue), a day's roll beginning one, a horde beginning one,
+the toll ending one, a save and load with a siege on. **Found:** the inner
+door 00006B96 of Anvil Castle Gate reads locked at 100 in the harness save
+before any siege (Oblivion.esm has no XLOC on it) - probably the lock test
+of 2026-10-27 kept in OBVRHarness.ess; the siege leaves it as it is.
+
 
 What (Nadi, 2026-10-26): a siege is a horde of walkers before one of a
 city's gates, outside the walls only ("belagerung ist nur vor der stadt am

@@ -27,6 +27,11 @@ constexpr float kSeenUnits = 8000.0f;
 constexpr UInt32 kSiegePoolFirstLocalId = 0x953;
 constexpr UInt32 kSiegePool = kSiegeAtGateMost;
 constexpr UInt32 kSiegeLogLines = 24;
+// The ESP's GLOB per city (tools/esp-write.py LOCAL_SIEGE_GLOBAL_FIRST), 1
+// while it is besieged: the Rumors topic's siege lines are said on it.
+constexpr UInt32 kSiegeGlobalLocalId = 0x9C7;
+constexpr UInt32 kGlobalValueOffset = 0x24;  // TESGlobal's float (News.cpp)
+constexpr UInt8 kFormTypeGlobal = 0x04;
 
 const SiegeSettings* g_settings = nullptr;
 SiegeConsoleFn g_console = nullptr;
@@ -127,6 +132,19 @@ bool PlayerAt(const CityGate& gate) {
 	return dx * dx + dy * dy <= kSeenUnits * kSeenUnits;
 }
 
+// The city's rumor global set: 1 besieged, 0 not.
+void SetRumor(UInt32 city, bool besieged) {
+	const UInt32 global = g_espBase != 0 ? LookupForm(EspFormId(g_espBase, kSiegeGlobalLocalId + city)) : 0;
+	if (!LooksLikeObject(global) || Read8(global + kFormTypeOffset) != kFormTypeGlobal) {
+		g_log("Siege: no rumor global %08X for city %u (an older ESP) - nothing said",
+		      EspFormId(g_espBase, kSiegeGlobalLocalId + city), city);
+		return;
+	}
+	*reinterpret_cast<float*>(global + kGlobalValueOffset) = besieged ? 1.0f : 0.0f;
+	g_log("Siege: rumor global %08X (city %u) now %.0f", FormIdOf(global), city,
+	      FloatAt(global + kGlobalValueOffset));
+}
+
 UInt32 PoolRef(UInt32 slot) {
 	return g_espBase != 0 ? LookupForm(EspFormId(g_espBase, kSiegePoolFirstLocalId + slot)) : 0;
 }
@@ -210,11 +228,13 @@ void Carry(const SiegeEvent& ev, float now) {
 		g_log("Siege: %s besieged - %u walkers (game day %.2f)", gate.name, c.walkersLeft, now);
 		LockGate(c);
 		NoteSiegeInNews(ev.city, true);
+		SetRumor(ev.city, true);
 	} else {
 		g_log("Siege: the siege at %s is over (game day %.2f), the city's next not before day %.2f", gate.name, now,
 		      c.pauseUntil);
 		UnlockGate(c);
 		NoteSiegeInNews(ev.city, false);
+		SetRumor(ev.city, false);
 		if (g_shownGate == static_cast<int>(ev.gate)) {
 			HideSiege();
 		}
@@ -315,6 +335,7 @@ void StepSiegeInGame(float dt) {
 					g_log("Siege: [Siege] Enabled=0 - the siege at %s ends", kCityGates[c.gate].name);
 					UnlockGate(c);
 					NoteSiegeInNews(city, false);
+					SetRumor(city, false);
 				}
 			}
 			HideSiege();
@@ -392,6 +413,10 @@ void ReleaseSiegeLocks() {
 void ApplySiegeLocks() {
 	if (g_console == nullptr) {
 		return;
+	}
+	// The rumors as the co-save's sieges are.
+	for (UInt32 city = 0; g_espBase != 0 && city < kSiegeCities; ++city) {
+		SetRumor(city, g_state.cities[city].active);
 	}
 	// A save made with the siege shown holds its walkers enabled: all back in
 	// the pool, the siege brings out its own again.

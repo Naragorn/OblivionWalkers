@@ -170,3 +170,14 @@ def editions() -> list[tuple[str, str, str]]:
     out += [_besieged(key, name, region) for key, name, region in CITIES]
     out += [_lifted(key, name, region) for key, name, region in CITIES]
     return out
+
+
+def rumors() -> list[str]:
+    """The Rumors topic's line per city while it is besieged (4.12), in
+    CityGates.h's order - said by every NPC who has rumors to tell."""
+    out = []
+    for _key, name, region in CITIES:
+        out.append(f"Have you heard? The walkers have laid siege to {name}. A whole horde came out of {region}, "
+                   f"and the guard has shut one of the gates until they're gone. I'd stay away from {name} "
+                   "for a while.")
+    return out

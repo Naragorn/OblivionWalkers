@@ -171,7 +171,15 @@ IDLE_SPECIAL = 0x04  # ANAM: the animation group section Special Idle, as the zo
 # brought out before a besieged gate. Each a vanilla look with a head.
 LOCAL_SIEGE_POOL_FIRST = LOCAL_GRAB_IDLE_FIRST + len(GRAB_ANIMS) * len(GRAB_SKELETONS)
 SIEGE_POOL = 100
-LOCAL_TEST_POOL_FIRST = LOCAL_SIEGE_POOL_FIRST + SIEGE_POOL + 16  # after the siege's editions
+# The siege's rumors (4.12; Nadi, 2026-11-04: what is besieged is a rumor
+# with every NPC): a GLOB per city (Siege.cpp kSiegeGlobalLocalId, 1 while
+# besieged) after the siege's editions, and an INFO per city in Oblivion.esm's
+# Rumors topic (INFOGENERAL 000000D7), said while its global is 1.
+LOCAL_SIEGE_GLOBAL_FIRST = LOCAL_SIEGE_POOL_FIRST + SIEGE_POOL + 16
+LOCAL_SIEGE_RUMOR_FIRST = LOCAL_SIEGE_GLOBAL_FIRST + 8
+RUMORS_TOPIC = 0x000000D7
+GET_GLOBAL_VALUE = 74  # the condition function, as Oblivion.esm's 246 INFOs with a GLOB parameter use it
+LOCAL_TEST_POOL_FIRST = LOCAL_SIEGE_RUMOR_FIRST + 8
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -529,6 +537,32 @@ def build_link_quest(script_form: int) -> bytes:
             + subrecord(b"DATA", bytes([1, 0])))
 
 
+def build_global(edid: str) -> bytes:
+    """A short global, 0: EDID, FNAM 's', FLTV."""
+    return subrecord(b"EDID", zstring(edid)) + subrecord(b"FNAM", b"s") + subrecord(b"FLTV", struct.pack("<f", 0.0))
+
+
+def build_rumor(quest_form: int, global_form: int, text: str) -> bytes:
+    """A line of the Rumors topic, said while `global_form` is 1: DATA (the
+    topic's type 1, no next speaker, no flags - not random, so with its
+    global set it comes before the vanilla rumors), QSTI the quest, TRDT
+    neutral at 50, the first response, NAM1 the text, NAM2 no notes, CTDA
+    GetGlobalValue == 1, SCHR no script."""
+    out = subrecord(b"DATA", bytes([1, 0, 0]))
+    out += subrecord(b"QSTI", struct.pack("<I", quest_form))
+    out += subrecord(b"TRDT", struct.pack("<IiIB3s", 0, 50, 0, 1, b"\0\0\0"))
+    out += subrecord(b"NAM1", zstring(text))
+    out += subrecord(b"NAM2", b"\0")
+    out += subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, 1.0, GET_GLOBAL_VALUE, global_form, 0, 0))
+    out += subrecord(b"SCHR", bytes(20))
+    return out
+
+
+def topic_group(topic: int, records: bytes) -> bytes:
+    """A topic's children (GRUP type 7, labelled with the DIAL's form ID)."""
+    return b"GRUP" + struct.pack("<IIiI", 20 + len(records), topic, 7, 0) + records
+
+
 def build_list(entries: list[tuple[int, int]], edid: str = "", flags: int = 0) -> bytes:
     """A leveled creature list of the (form, count) entries at level 1: EDID,
     LVLD (chance none), LVLF (flags), then LVLO level(2) pad(2) form(4)
@@ -664,15 +698,27 @@ def main() -> int:
     link_names = link_variables()
     link_script_form = index | LOCAL_LINK_SCRIPT_ID
     link_quest_form = index | LOCAL_LINK_QUEST_ID
-    body = (group(b"RACE", races) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
+    siege_globals = [index | (LOCAL_SIEGE_GLOBAL_FIRST + c) for c in range(len(CITIES))]
+    globals_group = group(b"GLOB", b"".join(record(b"GLOB", form, build_global(f"WalkersSiege{CITIES[c]}"))
+                                            for c, form in enumerate(siege_globals)))
+    rumors_dial = find_record(esm, buf, b"DIAL", RUMORS_TOPIC)
+    dial_data = b"".join(subrecord(k, d) for k, d in rumors_dial) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
+    rumor_texts = load_editions_module().rumors()
+    rumors = b"".join(record(b"INFO", index | (LOCAL_SIEGE_RUMOR_FIRST + c),
+                             build_rumor(link_quest_form, siege_globals[c], rumor_texts[c]))
+                      for c in range(len(CITIES)))
+    dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors))
+    body = (globals_group + group(b"RACE", races) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
             + group(b"BOOK", books) + group(b"NPC_", guards) + group(b"CREA", creatures)
             + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool)
+            + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
             + group(b"PACK", packages) + group(b"IDLE", idles))
-    groups = 5 + 5 + 1 + 2 + 1
+    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
-               + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms))
+               + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
+               + len(siege_globals) + 1 + len(CITIES))
     next_id = LOCAL_TEST_POOL_FIRST + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
