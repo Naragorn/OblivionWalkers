@@ -499,9 +499,18 @@ void OnObvrMessage(obse::MessagingInterface::Message* message) {
 	} else if (message->type == kGrabHoldPointMessage) {
 		Arm arm = Arm::None;
 		Forearm f;
+		static UInt32 s_taken = 0;
+		static UInt32 s_refused = 0;
 		if (HoldPointOf(message->data, message->dataLen, arm, f.x, f.y, f.z)) {
 			f.ms = GetTickCount();
 			g_forearms[arm == Arm::Left ? 0 : 1] = f;
+			if (s_taken++ < 2 && g_services.log != nullptr) {
+				g_services.log("Grab: OBVR's 'WGHP' taken - the %s forearm at %.0f %.0f %.0f", ArmName(arm), f.x, f.y, f.z);
+			}
+		} else if (s_refused++ < 2 && g_services.log != nullptr) {
+			g_services.log("Grab: OBVR's 'WGHP' refused - %u bytes, first word %u (wanted 16, the arm 1 or 2)",
+			               message->dataLen,
+			               message->data != nullptr && message->dataLen >= 4 ? *static_cast<const UInt32*>(message->data) : 0);
 		}
 	} else if (g_services.otherObvrMessage != nullptr) {
 		g_services.otherObvrMessage(message->type, message->data, message->dataLen);
