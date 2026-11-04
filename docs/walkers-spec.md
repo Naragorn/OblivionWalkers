@@ -1822,7 +1822,7 @@ ESP's IDLE 0x94D..0x952):
   frame left it, ModAV2 - the engine's damage itself is not stopped, the
   health bar may dip for a frame; a stagger or the hit's sound is not
   stopped either, not measured). In VR beyond `ReachUnits` the walker lunges
-  the units it lacks, up to `LungeUnits` (60), over `LungeSeconds` (0.3),
+  the units it lacks, up to `LungeUnits` (100 since 17:30, first 60), over `LungeSeconds` (0.3) for 60 units and longer at that pace beyond,
   eased out, a MoveTo each frame toward the forearm, turned to it; beyond
   that no grab. LINK version 13 (NudgeUnits gone).
   - Built in Walkers 2026-10-28, unit flows PASS; OBVR's side handed to

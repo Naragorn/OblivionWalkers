@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 14.0;
+inline constexpr double kLinkVersion = 15.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 

@@ -212,7 +212,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.grab.struggleHits = struggle < 1 ? 1u : static_cast<UInt32>(struggle);
 	rise.grab.tearFreeDistance = IniFloat("Grab", "TearFreeDistance", 1000.0f, path);
 	rise.grab.reachUnits = std::max(0.0f, IniFloat("Grab", "ReachUnits", 37.0f, path));
-	rise.grab.lungeUnits = std::max(0.0f, IniFloat("Grab", "LungeUnits", 60.0f, path));
+	rise.grab.lungeUnits = std::max(0.0f, IniFloat("Grab", "LungeUnits", 100.0f, path));
 	rise.grab.lungeSeconds = std::max(0.0f, IniFloat("Grab", "LungeSeconds", 0.3f, path));
 	rise.grab.biteResetSeconds = IniFloat("Grab", "BiteResetSeconds", 30.0f, path);
 	rise.grab.testGrabSeconds = IniFloat("Grab", "TestGrabSeconds", 0.0f, path);

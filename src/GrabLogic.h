@@ -71,7 +71,7 @@ struct GrabSettings {
 	// hit. Flat (no forearm known): it holds where it hit. ReachUnits about the
 	// zombie's arm (OBVR: ~37); the lunge's 60 and 0.3 s not yet seen.
 	float reachUnits = 37.0f;
-	float lungeUnits = 60.0f;
+	float lungeUnits = 100.0f;
 	float lungeSeconds = 0.3f;
 };
 
@@ -151,6 +151,14 @@ inline Reach ReachVerdict(float distance, float reach, float lunge, float* moveB
 		return Reach::Lunges;
 	}
 	return Reach::OutOfReach;
+}
+
+// The lunge's seconds for `units`: LungeSeconds up to kLungePaceUnits, then
+// longer at that pace - a long lunge is a few quick steps, not a jump.
+inline constexpr float kLungePaceUnits = 60.0f;
+
+inline float LungeTime(float units, float lungeSeconds) {
+	return units <= kLungePaceUnits ? lungeSeconds : lungeSeconds * units / kLungePaceUnits;
 }
 
 // A holder's lunge onto the arm: from where it stood to its target over

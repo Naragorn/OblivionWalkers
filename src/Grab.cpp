@@ -335,7 +335,8 @@ bool BeginLungeToward(UInt32 walker, Arm arm, float by) {
 		return false;
 	}
 	const UInt32 slot = arm == Arm::Left ? 0 : 1;
-	BeginLunge(g_lunges[slot], wx, wy, wx + dx / length * by, wy + dy / length * by, g_settings->lungeSeconds);
+	BeginLunge(g_lunges[slot], wx, wy, wx + dx / length * by, wy + dy / length * by,
+	           LungeTime(by, g_settings->lungeSeconds));
 	g_lungeRefs[slot] = FormIdOf(walker);
 	return true;
 }

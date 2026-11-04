@@ -449,6 +449,11 @@ void TestHolderSpot() {
 	      "beyond reach and lunge - no grab, the hit is a hit");
 	Check(walkers::ReachVerdict(40.0f, 37.0f, 0.0f, &move) == walkers::Reach::OutOfReach,
 	      "LungeUnits 0: only what stands in reach grabs");
+	Check(walkers::GrabSettings{}.lungeUnits == 100.0f,
+	      "LungeUnits 100 by default (OBVR's harness 17:28: hits at 106-129 from the forearm, before 48-49)");
+	Check(std::fabs(walkers::LungeTime(20.0f, 0.3f) - 0.3f) < 0.001f &&
+	          std::fabs(walkers::LungeTime(100.0f, 0.3f) - 0.5f) < 0.001f,
+	      "the lunge's time: LungeSeconds for 60 units or less, longer at the same pace beyond - 100 in 0.5 s");
 	walkers::Lunge lunge;
 	walkers::BeginLunge(lunge, 0.0f, 0.0f, 0.0f, 40.0f, 0.3f);
 	float lx = 0.0f;

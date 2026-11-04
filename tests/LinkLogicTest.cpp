@@ -171,10 +171,10 @@ void TestValues() {
 	const int lunge = IndexOf("ini_grab_lunge");
 	const int lungeTime = IndexOf("ini_grab_lunge_seconds");
 	Check(reach == 123 && lunge == 124 && lungeTime == 125 && walkers::LinkValue(rise, replace, reach) == 37.0 &&
-	          walkers::LinkValue(rise, replace, lunge) == 60.0 &&
+	          walkers::LinkValue(rise, replace, lunge) == 100.0 &&
 	          std::fabs(walkers::LinkValue(rise, replace, lungeTime) - 0.3) < 1e-6 &&
 	          walkers::SetLinkValue(rise, replace, lunge, 0.0) && rise.grab.lungeUnits == 0.0f,
-	      "the arm's reach 37, the lunge 60 units over 0.3 s, last; the lunge 0 from the menu");
+	      "the arm's reach 37, the lunge 100 units (0.3 s for 60), last; the lunge 0 from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -263,7 +263,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 14\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 15\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
