@@ -1169,6 +1169,38 @@ How:
   The fallen pool guards get no loot block (Nadi, 2026-10-26): what the
   player takes from one stays taken when it is raised and sent out again
   (derived from Resurrect keeping the inventory as it is; not run).
+- **Raised at home - next, for 2026-11-05** (Nadi, 2026-11-04: "kann der
+  sie wiederbeleben aber irgendwo anders wo sie halt spawnen zuhause zb",
+  then "A wenns easy geht ansonsten B", then "ok wir machen a als nächstes
+  ... wir gehen das erst morgen an"). Built in between (B, 5c16055): raised
+  where it lay, then `EvaluatePackage` so it walks back to its schedule -
+  not seen in the game (harness/safeguard-home.txt drafted, its victim not
+  found: the roster names base forms, not references). **A, to do:** the
+  body moved to where the reference started, then raised there.
+  - What is known: the start position is the reference's
+    ExtraStartingPosition (type 0x14: x, y, z at +0x0C, the angles at +0x18;
+    xOBSE GameExtraData.h, deepwiki 2026-11-04) and TESObjectREFR's virtual
+    GetStartingPos/GetStartingAngle.
+  - What is not: the start cell or worldspace - ExtraStartingWorldOrCell
+    (0x53) exists, its layout is not in xOBSE (derived: a form at +0x0C,
+    unverified); ExtraPersistentCell (0x11, a cell at +0x0C) may be the one
+    for persistent people. Read it in ../OBNG/re/export first (every
+    function of Oblivion.exe decompiled), then check on three people.
+  - The move: the console's PositionCell / PositionWorld take an editor ID,
+    which the game keeps for few forms at run time - better the engine's own
+    move of a reference to a cell and position (its address to find, the
+    same export), or MoveTo onto a reference standing at home (a bed, a
+    door marker: not general).
+  - The raise: at home the cell is often not loaded - the safeguard's list
+    already waits for a body's 3D and the player's cells, so the moved body
+    is raised when the player comes there (or raised without 3D, which is
+    not read: measure first).
+  - Tests: unit flows for the choice (start known / unknown, interior /
+    exterior, the same cell as now), a harness with a named NPC's reference
+    (to find first, e.g. from Oblivion.esm's ACHR in Bravil) killed by a
+    walker in the street and raised in its house.
+  - Cost: medium - two engine unknowns (the start cell, the move), the rest
+    is the safeguard as built.
 
 Cost: towards cities and the hold **small**; the guards **medium**; the
 safeguard **small**. Tests: `GuardLogicTest` (every flow of the pool: how
