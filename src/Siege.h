@@ -1,10 +1,9 @@
 #pragma once
 
 // A city's siege in the game (docs/walkers-spec.md 4.12): SiegeLogic.h's
-// decisions carried out - a second's look at the game's clock, the besieged
-// gate's doors locked with the engine's Lock 100 ("needs a key") and read
-// back with GetLocked and GetLockLevel, unlocked at the end, the state kept
-// in the co-save through Rise.cpp.
+// decisions carried out - a second's look at the game's clock, the siege's
+// walkers before the gate, the news and the rumors, the state kept in the
+// co-save through Rise.cpp. The gate stays open (2026-11-04).
 
 #include "Rise.h"
 #include "SiegeLogic.h"
@@ -48,8 +47,8 @@ void ResetSiegeInGame();
 // change for (siege-lock.txt 2026-11-04 16:02: still locked after a reload).
 void ReleaseSiegeLocks();
 
-// After the co-save is read: the doors its sieges locked locked again
-// (those the save left unlocked).
+// After the co-save is read: a gate an earlier build locked opened, the
+// rumors set, the pool disabled.
 void ApplySiegeLocks();
 
 }  // namespace walkers

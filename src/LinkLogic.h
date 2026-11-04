@@ -242,7 +242,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 120, 1, 0, false, LinkEffect::Live},
 	{"ini_rise_again_jitter", "Random extra seconds, walkers", "Up to this many seconds more, at random.",
 	 LinkKind::Slider, 0, 60, 1, 0, false, LinkEffect::Live},
-	{"ini_siege_enabled", "City sieges", "Hordes besiege a city's gate, the gate stays shut until they are gone.",
+	{"ini_siege_enabled", "City sieges", "Hordes besiege a city's gate until the guards and you have cut them down.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_siege_at_gate", "Walkers at the gate at once", "How many stand before a besieged gate at a time.",
 	 LinkKind::Slider, 12, 100, 1, 0, false, LinkEffect::Live},

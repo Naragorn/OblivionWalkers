@@ -132,8 +132,8 @@ def _besieged(key: str, name: str, region: str) -> tuple[str, str, str]:
             [
                 f"A horde of the dead has laid siege to {name}. Walkers in their hundreds came out of {region} and "
                 "now stand before one of the city's gates, day and night, and they do not go away.",
-                f"The guard of {name} has shut and barred that gate. No one goes in or out by it until the siege is "
-                "over - travellers must use another gate, and the Courier strongly advises them to.",
+                f"The guard of {name} holds that gate against them, and the watch asks every able fighter to come "
+                "out and lend a sword. Travellers who need not go that way should use another gate.",
                 "Every day the watch marches out against the dead, and every day a few more walkers fall. But the "
                 "horde is great, and the Courier cannot say when the gate will open again.",
             ],
@@ -178,6 +178,6 @@ def rumors() -> list[str]:
     out = []
     for _key, name, region in CITIES:
         out.append(f"Have you heard? The walkers have laid siege to {name}. A whole horde came out of {region}, "
-                   f"and the guard has shut one of the gates until they're gone. I'd stay away from {name} "
-                   "for a while.")
+                   f"and the guard is holding one of the gates against them. I'd stay away from {name} "
+                   "for a while - unless you can swing a sword.")
     return out

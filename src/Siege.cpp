@@ -75,30 +75,11 @@ double LockLevel(UInt32 door) {
 }
 
 
-// The gate's two doors share one lock (siege-door-read.txt, 2026-11-04
-// 20:36: Bravil's outer door locked, its inner door read locked 1, level
-// 100, loaded or not; the outer unlocked, the inner read 0): the outer door
-// is locked and unlocked, both read back. Either read locked before: left
-// as it was.
-void LockGate(CitySiege& c) {
-	const CityGate& gate = kCityGates[c.gate];
-	const UInt32 outer = LookupForm(gate.door);
-	const UInt32 inner = LookupForm(gate.back);
-	if (!LooksLikeObject(outer)) {
-		g_log("Siege: %s's door %08X not found - not locked", gate.name, gate.door);
-		return;
-	}
-	const bool was = Locked(outer) || (LooksLikeObject(inner) && Locked(inner));
-	if (!LockDoor(c, 0, was)) {
-		g_log("Siege: %s locked already (level %.0f) - left as it was", gate.name, LockLevel(outer));
-		return;
-	}
-	g_console(outer, "Lock 100");
-	g_log("Siege: %s locked - read back: outer %08X locked %d, level %.0f; inner %08X locked %d", gate.name,
-	      gate.door, Locked(outer) ? 1 : 0, LockLevel(outer), gate.back,
-	      LooksLikeObject(inner) && Locked(inner) ? 1 : 0);
-}
-
+// The gate stays open (Nadi, 2026-11-04: "als player würde ich schon gerne
+// die stadt verlassen können um mitzuhelfen bei der belagerung" - go A):
+// a siege locks nothing. A gate a build of 2026-11-04 locked (the co-save's
+// bit) is unlocked: its outer door, whose lock the inner door shares
+// (siege-door-read.txt 20:36), both read back.
 void UnlockGate(CitySiege& c) {
 	const CityGate& gate = kCityGates[c.gate];
 	if (UnlocksDoor(c, 0)) {
@@ -226,8 +207,7 @@ void Carry(const SiegeEvent& ev, float now) {
 	CitySiege& c = g_state.cities[ev.city];
 	const CityGate& gate = kCityGates[ev.gate];
 	if (ev.kind == SiegeEvent::Begin) {
-		g_log("Siege: %s besieged - %u walkers (game day %.2f)", gate.name, c.walkersLeft, now);
-		LockGate(c);
+		g_log("Siege: %s besieged - %u walkers (game day %.2f), its gate open", gate.name, c.walkersLeft, now);
 		NoteSiegeInNews(ev.city, true);
 		SetRumor(ev.city, true);
 	} else {
@@ -440,13 +420,11 @@ void ApplySiegeLocks() {
 			g_console(ref, "Disable");
 		}
 	}
+	// A gate an earlier build locked (the co-save's bit): opened.
 	for (CitySiege& c : g_state.cities) {
-		const CityGate& gate = kCityGates[c.gate];
-		const UInt32 outer = LookupForm(gate.door);
-		if (c.active && UnlocksDoor(c, 0) && LooksLikeObject(outer) && !Locked(outer)) {
-			g_console(outer, "Lock 100");
-			g_log("Siege: loaded - %s locked again - read back: outer %08X locked %d, level %.0f", gate.name, gate.door,
-			      Locked(outer) ? 1 : 0, LockLevel(outer));
+		if (c.lockedByUs != 0) {
+			g_log("Siege: loaded - %s was locked by an earlier build, opened", kCityGates[c.gate].name);
+			UnlockGate(c);
 		}
 	}
 }

@@ -1221,7 +1221,12 @@ bei allen npcs"). SiegeLogic.h (SiegeLogicTest) and Siege.cpp:
    (Horde.cpp NoteHordeAtGate). Co-save `SIEG` version 1. `[Siege]` in the
    INI and LINK (seven entries after 4.17's, version 10); test switches
    `TestGate` (a kCityGates row, -1 off) and `TestEndSeconds`.
-2. **The gate shut**: both doors (CityGates.h now has the city-side door,
+2. **The gate shut - dropped the same day** (Nadi, 2026-11-04: "als player
+   würde ich schon gerne die stadt verlassen können um mitzuhelfen bei der
+   belagerung", go A; the lock held only the player - travellers pass a
+   locked gate, 2026-10-27): the gate stays open, nothing is locked. A gate
+   a build of that day locked (the co-save's bit) is unlocked at the load
+   and at its siege's end. What was built and seen first: both doors (CityGates.h now has the city-side door,
    tools/city-gates.py) `Lock 100`, read back with GetLocked/GetLockLevel
    into the quest variables siege_lock and siege_lock_level; a door locked
    before is left alone; unlocked at the end. A lock outlives a load the
