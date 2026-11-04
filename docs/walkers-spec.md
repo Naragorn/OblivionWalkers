@@ -1981,6 +1981,15 @@ roster line's counts.
   step: the plugin's log at the next sighting plus `getav aggression` / `getfactionrank`
   on one of them in the console; then a harness or unit flow for the rule that decides
   their hostility.
+  **Suspect, 2026-11-04** (Nadi: Oblivion Combat Extender puts attacker and player in one
+  faction when the player goes down; he removed the mod): OblivionCombatExtender.esp
+  carries the factions xLDDFaction, xLDDDuelFaction, xLDDPlayerFaction and a script
+  calling xLDDRemoveNPCFromFaction over GetNthFaction (strings read off the ESP) - it
+  does change factions. Not measured on a walker. On 2026-11-04 the mod is still in the
+  Windows Data folder and in Windows' Plugins.txt (line 55), not on Linux. A faction
+  given to a reference stays in the save after the mod is gone, so walkers made peaceful
+  in an old save may stay so. Next: Nadi's word on whether it still happens without the
+  mod; if it does, the console check above.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
