@@ -1257,6 +1257,21 @@ the toll ending one, a save and load with a siege on. **Found:** the inner
 door 00006B96 of Anvil Castle Gate reads locked at 100 in the harness save
 before any siege (Oblivion.esm has no XLOC on it) - probably the lock test
 of 2026-10-27 kept in OBVRHarness.ess; the siege leaves it as it is.
+**Open (2026-11-04, siege-full.txt):** every one of the eight city-side
+doors read back locked at 100 before its siege, the Tamriel-side ones 0 -
+not only Anvil's. Not settled whether they are locked (a mod of the Linux
+list, the harness save) or GetLocked/GetLockLevel read a door in an unloaded
+city worldspace wrong. If they are open, the player can walk out of the city
+by the besieged gate's inner door. Next: GetLocked on 00005603 in a fresh
+game with the city loaded, and in Windows' game.
+
+**Seen in the whole** (`tools/siege-harness.sh`, harness/siege-full.txt,
+2026-11-04 20:27, all 13 checks): the test gate and the day's roll at 100
+percent besieging all eight cities, the walkers out and counted off, a save
+and load with the siege on (the lock given back, read from the co-save,
+locked again, the walkers out again), leaving, four and two game days of
+the guards' toll ending every siege, every lock undone, the rumors and the
+Courier's besieged and lifted editions.
 
 
 What (Nadi, 2026-10-26): a siege is a horde of walkers before one of a
