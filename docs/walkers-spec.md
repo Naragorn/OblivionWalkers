@@ -1625,7 +1625,7 @@ now 0". Seen too: the first write comes before the save's quest data is
 read and is done again after it (two such lines) - harmless. Not run: the
 menu itself (Nadi's, Windows).
 
-### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=50`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=1000`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
+### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=66`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=1000`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
 
 What (Nadi, 2026-10-28: "wenn von zuvielen zombies umzingelt, greifen oder
 halten die einen fest und iwann ist man tot... also so wie Saints and

@@ -200,7 +200,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.news.headingHoldDays = IniFloat("News", "HeadingHoldDays", 0.5f, path);
 	rise.news.headingHoldDays = rise.news.headingHoldDays < 0.0f ? 0.0f : rise.news.headingHoldDays;
 	rise.grab.enabled = GetPrivateProfileIntA("Grab", "Enabled", 1, path) != 0;
-	const int grabChance = GetPrivateProfileIntA("Grab", "ChancePercent", 50, path);
+	const int grabChance = GetPrivateProfileIntA("Grab", "ChancePercent", 66, path);
 	rise.grab.chancePercent = grabChance < 0 ? 0u : (grabChance > 100 ? 100u : static_cast<UInt32>(grabChance));
 	const int bites = GetPrivateProfileIntA("Grab", "BitesToDie", 3, path);
 	rise.grab.bitesToDie = bites < 1 ? 1u : static_cast<UInt32>(bites);

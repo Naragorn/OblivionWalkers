@@ -31,7 +31,7 @@ inline constexpr UInt32 kGrabHolders = 2;
 
 struct GrabSettings {
 	bool enabled = true;
-	UInt32 chancePercent = 50;     // of a walker's landed hit on the player
+	UInt32 chancePercent = 66;     // of a walker's landed hit on the player (Nadi, 2026-11-04: 66)
 	UInt32 bitesToDie = 3;         // the last bite the player takes kills
 	float biteSeconds = 4.0f;      // each holder bites this long after it took hold, and again
 	UInt32 biteHealthPercent = 20; // of the player's base health, a bite before the last

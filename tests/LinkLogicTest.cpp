@@ -112,8 +112,8 @@ void TestValues() {
 	const int grabChance = IndexOf("ini_grab_chance");
 	const int bites = IndexOf("ini_grab_bites");
 	Check(grab >= 0 && grabChance >= 0 && bites >= 0 && walkers::LinkValue(rise, replace, grab) == 1.0 &&
-	          walkers::LinkValue(rise, replace, grabChance) == 50.0 && walkers::LinkValue(rise, replace, bites) == 3.0,
-	      "the grab: on, a chance of 50, three bites - the INI's defaults");
+	          walkers::LinkValue(rise, replace, grabChance) == 66.0 && walkers::LinkValue(rise, replace, bites) == 3.0,
+	      "the grab: on, a chance of 66 (Nadi, 2026-11-04), three bites - the INI's defaults");
 	Check(walkers::SetLinkValue(rise, replace, grab, 0.0) && !rise.grab.enabled &&
 	          walkers::SetLinkValue(rise, replace, grabChance, 80.0) && rise.grab.chancePercent == 80 &&
 	          walkers::SetLinkValue(rise, replace, bites, 5.0) && rise.grab.bitesToDie == 5,
@@ -263,7 +263,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 13\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 14\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

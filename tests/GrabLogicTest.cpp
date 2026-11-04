@@ -59,10 +59,11 @@ void TestGrab() {
 	Check(walkers::TryGrab(g, s, 0xFF000A03, Arm::Left, 0, &arm) == GrabRefusal::BothArmsHeld && g.count == 2,
 	      "a third: both arms held, no grab (no walker at the neck, Nadi 2026-10-28)");
 	GrabState fresh;
-	Check(walkers::TryGrab(fresh, s, 0xFF000A04, Arm::Left, 50, &arm) == GrabRefusal::NotRolled && fresh.count == 0,
-	      "rolled 50 against a chance of 50: no grab, the hit is only a hit");
-	Check(walkers::TryGrab(fresh, s, 0xFF000A04, Arm::Left, 49, &arm) == GrabRefusal::None,
-	      "rolled 49 against 50: grabbed");
+	Check(GrabSettings{}.chancePercent == 66, "ChancePercent 66 by default (Nadi, 2026-11-04)");
+	Check(walkers::TryGrab(fresh, s, 0xFF000A04, Arm::Left, 66, &arm) == GrabRefusal::NotRolled && fresh.count == 0,
+	      "rolled 66 against a chance of 66: no grab, the hit is only a hit");
+	Check(walkers::TryGrab(fresh, s, 0xFF000A04, Arm::Left, 65, &arm) == GrabRefusal::None,
+	      "rolled 65 against 66: grabbed");
 	GrabSettings off;
 	off.enabled = false;
 	GrabState none;
