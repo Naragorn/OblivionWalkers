@@ -12,6 +12,7 @@
 #include "QuestVars.h"
 #include "SkillLogic.h"
 #include "Replace.h"
+#include "Siege.h"
 
 #include <windows.h>
 #include <intrin.h>
@@ -808,6 +809,7 @@ void FindWalkers() {
 	ConfigureHorde(g_settings.horde, base, g_log);
 	ConfigureGuards(g_settings.guards, g_log);
 	ConfigureNews(g_settings.news, base, g_log);
+	ConfigureSiegeQuest(EspFormId(base, kLinkQuestLocalId));
 	ConfigureGrabIdles(base);
 }
 
@@ -1979,6 +1981,7 @@ void Tick() {
 		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
 		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
+		StepSiegeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHeads();
 		StepLootless();
 		StepFame();
@@ -2033,6 +2036,12 @@ void OnSave(void*) {
 	if (!newsWritten) {
 		g_log("Co-save: the cities' attacks for the news could not be written");
 	}
+	UInt8 siege[kSiegeImageBytes];
+	const UInt32 siegeLength = SiegeImage(CurrentSieges(), siege, sizeof(siege));
+	if (!g_serialization->OpenRecord(kSiegeRecordType, kSiegeRecordVersion) ||
+	    !g_serialization->WriteRecordData(siege, siegeLength)) {
+		g_log("Co-save: the sieges could not be written");
+	}
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -2057,6 +2066,9 @@ void OnLoad(void*) {
 	ResetHorde();
 	ResetGrabInGame();
 	CurrentNews() = NewsState{};
+	ReleaseSiegeLocks();
+	CurrentSieges() = SiegeState{};
+	ResetSiegeInGame();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -2091,6 +2103,20 @@ void OnLoad(void*) {
 			g_log("Co-save: %u cities' last attack for the news read, a horde last seen heading for city %d at game "
 			      "day %.3f (version %u)%s",
 			      attacked, CurrentNews().headingCity, CurrentNews().headingDays, version,
+			      whole ? "" : " (version or length off: none)");
+			continue;
+		}
+		if (type == kSiegeRecordType) {
+			UInt8 siege[kSiegeImageBytes];
+			const UInt32 read = version == kSiegeRecordVersion && length <= sizeof(siege)
+			                        ? g_serialization->ReadRecordData(siege, length)
+			                        : 0;
+			const bool whole = ReadSiegeImage(CurrentSieges(), siege, read);
+			UInt32 active = 0;
+			for (const CitySiege& c : CurrentSieges().cities) {
+				active += c.active ? 1u : 0u;
+			}
+			g_log("Co-save: %u sieges on read (version %u)%s", active, version,
 			      whole ? "" : " (version or length off: none)");
 			continue;
 		}
@@ -2130,6 +2156,7 @@ void OnLoad(void*) {
 		}
 		g_log("Co-save: %u waiting read", g_list.count);
 	}
+	ApplySiegeLocks();
 }
 
 void OnNewGame(void*) {
@@ -2146,6 +2173,9 @@ void OnNewGame(void*) {
 	ResetHorde();
 	ResetGrabInGame();
 	CurrentNews() = NewsState{};
+	ReleaseSiegeLocks();
+	CurrentSieges() = SiegeState{};
+	ResetSiegeInGame();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -2238,6 +2268,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.otherObvrMessage = &OnObvrHeads;
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
+	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, log);
 	return true;
 }
 

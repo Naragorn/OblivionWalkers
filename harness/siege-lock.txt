@@ -1,0 +1,26 @@
+# A siege locks its gate and unlocks it at the end (docs/walkers-spec.md 4.12
+# step 1, built 2026-11-04). The run's plugin INI carries [Siege] TestGate=1
+# (kCityGates row 1, Anvil Castle Gate: doors 00006FBA and 00006B96) and
+# TestEndSeconds=40: the siege begins at the first look and ends 40 s later.
+# OblivionWalkers.log (read by hand - the runner checks OBVR.log only):
+# "Siege: test - TestGate=1 begins a siege", "Anvil Castle Gate's outer door
+# 00006FBA locked - read back: locked 1, level 100", the same for the inner
+# door 00006B96, then "the siege at Anvil Castle Gate is over" and both
+# "unlocked - read back: locked 0". The doors are persistent: locked from
+# anywhere, the player need not be at Anvil.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/siege-lock.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 60
+mark end
+wait 1

@@ -179,6 +179,17 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.guards.radius = IniFloat("Guards", "Radius", 4000.0f, path);
 	rise.guards.clearSeconds = IniFloat("Guards", "ClearSeconds", 30.0f, path);
 	rise.guards.testKillSeconds = IniFloat("Guards", "TestKillSeconds", 0.0f, path);
+	walkers::SiegeSettings& siege = rise.siege;
+	siege.enabled = GetPrivateProfileIntA("Siege", "Enabled", 1, path) != 0;
+	siege.walkersAtGate = static_cast<UInt32>(std::max(12, std::min(100, static_cast<int>(GetPrivateProfileIntA("Siege", "WalkersAtGate", 24, path)))));
+	siege.chancePerDayPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(GetPrivateProfileIntA("Siege", "ChancePerDayPercent", 10, path)))));
+	siege.walkersMin = static_cast<UInt32>(std::max(1, static_cast<int>(GetPrivateProfileIntA("Siege", "WalkersMin", 40, path))));
+	siege.walkersMax = static_cast<UInt32>(std::max(1, static_cast<int>(GetPrivateProfileIntA("Siege", "WalkersMax", 120, path))));
+	siege.pauseDays = std::max(0.0f, IniFloat("Siege", "PauseDays", 3.0f, path));
+	siege.guardKillsPerHour = std::max(0.0f, IniFloat("Siege", "GuardKillsPerHour", 2.0f, path));
+	siege.testGate = static_cast<int>(GetPrivateProfileIntA("Siege", "TestGate", -1, path));
+	siege.testGate = siege.testGate >= static_cast<int>(walkers::kCityGateCount) ? -1 : siege.testGate;
+	siege.testEndSeconds = std::max(0.0f, IniFloat("Siege", "TestEndSeconds", 0.0f, path));
 	rise.safeguard.enabled = GetPrivateProfileIntA("Safeguard", "Enabled", 1, path) != 0;
 	rise.safeguard.afterSeconds = IniFloat("Safeguard", "AfterSeconds", 15.0f, path);
 	rise.safeguard.afterSeconds = rise.safeguard.afterSeconds < 0.0f ? 0.0f : rise.safeguard.afterSeconds;

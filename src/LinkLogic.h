@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 9.0;
+inline constexpr double kLinkVersion = 10.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -79,6 +79,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{52, "Gate guards - advanced"}, {54, "Safeguard and news - advanced"}, {58, "Grabbed - advanced"},
 	{68, "Spawns - which creatures become walkers"}, {68 + kFirstPersonCategory, "Spawns - which people become walkers"},
 	{68 + kReplaceCategoryCount, "Only a lost head ends a walker"},
+	{68 + kReplaceCategoryCount + 3, "City sieges"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -240,6 +241,20 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 120, 1, 0, false, LinkEffect::Live},
 	{"ini_rise_again_jitter", "Random extra seconds, walkers", "Up to this many seconds more, at random.",
 	 LinkKind::Slider, 0, 60, 1, 0, false, LinkEffect::Live},
+	{"ini_siege_enabled", "City sieges", "Hordes besiege a city's gate, the gate stays shut until they are gone.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_siege_at_gate", "Walkers at the gate at once", "How many stand before a besieged gate at a time.",
+	 LinkKind::Slider, 12, 100, 1, 0, false, LinkEffect::Live},
+	{"ini_siege_chance", "Siege chance per day", "Each city's chance a game day to be besieged.", LinkKind::Slider, 0,
+	 100, 1, 0, true, LinkEffect::Live},
+	{"ini_siege_min", "Walkers in a siege, fewest", "The fewest walkers a siege brings.", LinkKind::Slider, 1, 300, 5,
+	 0, false, LinkEffect::Live},
+	{"ini_siege_max", "Walkers in a siege, most", "The most walkers a siege brings.", LinkKind::Slider, 1, 300, 5, 0,
+	 false, LinkEffect::Live},
+	{"ini_siege_pause", "Days between sieges", "Game days a city has after a siege before the next.",
+	 LinkKind::Slider, 0, 30, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_siege_toll", "Guards' toll per hour", "Walkers the guards cut down a game hour while you are away.",
+	 LinkKind::Slider, 0, 20, 0.5f, 1, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -321,6 +336,13 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 113: return rise.end.dieOnlyBeheaded ? 1.0 : 0.0;
 		case 114: return rise.end.riseAgainSeconds;
 		case 115: return rise.end.riseAgainJitterSeconds;
+		case 116: return rise.siege.enabled ? 1.0 : 0.0;
+		case 117: return rise.siege.walkersAtGate;
+		case 118: return rise.siege.chancePerDayPercent;
+		case 119: return rise.siege.walkersMin;
+		case 120: return rise.siege.walkersMax;
+		case 121: return rise.siege.pauseDays;
+		case 122: return rise.siege.guardKillsPerHour;
 		default: return 0.0;
 	}
 }
@@ -423,6 +445,13 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 			break;
 		case 114: rise.end.riseAgainSeconds = fraction; break;
 		case 115: rise.end.riseAgainJitterSeconds = fraction; break;
+		case 116: rise.siege.enabled = on; break;
+		case 117: rise.siege.walkersAtGate = whole; break;
+		case 118: rise.siege.chancePerDayPercent = whole; break;
+		case 119: rise.siege.walkersMin = whole; break;
+		case 120: rise.siege.walkersMax = whole; break;
+		case 121: rise.siege.pauseDays = fraction; break;
+		case 122: rise.siege.guardKillsPerHour = fraction; break;
 		default: return false;
 	}
 	return true;

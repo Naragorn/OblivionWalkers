@@ -16,6 +16,7 @@
 #include "MissingLogic.h"
 #include "NewsLogic.h"
 #include "SafeguardLogic.h"
+#include "SiegeLogic.h"
 #include "Types.h"
 #include "WalkerLooks.h"
 
@@ -114,6 +115,9 @@ struct RiseSettings {
 	// 2026-10-26: the vanilla broadsheets only, "attacked" = guards out at
 	// the gate.
 	NewsSettings news;
+	// [Siege] (4.12, SiegeLogic.h): a city besieged before one gate, its
+	// doors locked until it is over.
+	SiegeSettings siege;
 	// [Grab] (4.19, GrabLogic.h): a walker's hit may grab an arm - Nadi,
 	// 2026-10-28: the bites the player takes settable, 3 by default.
 	GrabSettings grab;

@@ -19,7 +19,7 @@ target_include_directories(logic INTERFACE src)
 add_library(plugin_entry STATIC src/PluginEntry.cpp)
 target_include_directories(plugin_entry PUBLIC src)
 
-add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp src/News.cpp src/QuestVars.cpp src/Grab.cpp)
+add_library(rise STATIC src/Rise.cpp src/Replace.cpp src/Pose.cpp src/Horde.cpp src/News.cpp src/QuestVars.cpp src/Grab.cpp src/Siege.cpp)
 target_include_directories(rise PUBLIC src)
 
 add_library(OblivionWalkers SHARED src/Plugin.cpp)
@@ -98,3 +98,11 @@ add_test(NAME SkillLogicTest COMMAND SkillLogicTest)
 add_executable(WalkerLooksTest tests/WalkerLooksTest.cpp)
 target_link_libraries(WalkerLooksTest PRIVATE logic)
 add_test(NAME WalkerLooksTest COMMAND WalkerLooksTest)
+
+add_executable(EndLogicTest tests/EndLogicTest.cpp)
+target_link_libraries(EndLogicTest PRIVATE logic)
+add_test(NAME EndLogicTest COMMAND EndLogicTest)
+
+add_executable(SiegeLogicTest tests/SiegeLogicTest.cpp)
+target_link_libraries(SiegeLogicTest PRIVATE logic)
+add_test(NAME SiegeLogicTest COMMAND SiegeLogicTest)

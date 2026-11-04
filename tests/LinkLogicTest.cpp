@@ -44,9 +44,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 116,
-	      "116 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories and 4.17's three - every INI setting but Name, "
+	Check(kLinkSettingCount == 123,
+	      "123 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three and the siege's seven - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -151,6 +151,21 @@ void TestValues() {
 	          walkers::SetLinkValue(rise, replace, again, 45.0) && rise.end.riseAgainSeconds == 45.0f &&
 	          walkers::SetLinkValue(rise, replace, againJitter, 5.0) && rise.end.riseAgainJitterSeconds == 5.0f,
 	      "set from the menu; the rule off lets the headless walkers into the spawns again (at the next start)");
+	const int siegeOn = IndexOf("ini_siege_enabled");
+	const int atGate = IndexOf("ini_siege_at_gate");
+	const int toll = IndexOf("ini_siege_toll");
+	Check(siegeOn == 116 && atGate == 117 && toll == 122 && walkers::LinkValue(rise, replace, siegeOn) == 1.0 &&
+	          walkers::LinkValue(rise, replace, atGate) == 24.0 &&
+	          walkers::LinkValue(rise, replace, IndexOf("ini_siege_chance")) == 10.0 &&
+	          walkers::LinkValue(rise, replace, IndexOf("ini_siege_min")) == 40.0 &&
+	          walkers::LinkValue(rise, replace, IndexOf("ini_siege_max")) == 120.0 &&
+	          walkers::LinkValue(rise, replace, IndexOf("ini_siege_pause")) == 3.0 &&
+	          walkers::LinkValue(rise, replace, toll) == 2.0,
+	      "4.12 last: on, 24 at the gate, 10 percent a day, 40 to 120, a pause of 3 days, 2 a game hour");
+	Check(walkers::SetLinkValue(rise, replace, atGate, 5.0) && rise.siege.walkersAtGate == 12 &&
+	          walkers::SetLinkValue(rise, replace, toll, 0.0) && rise.siege.guardKillsPerHour == 0.0f &&
+	          walkers::SetLinkValue(rise, replace, siegeOn, 0.0) && !rise.siege.enabled,
+	      "set from the menu, held to the range (12 at the gate at least)");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -239,7 +254,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 9\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 10\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
