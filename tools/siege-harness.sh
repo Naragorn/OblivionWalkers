@@ -16,7 +16,7 @@ log="$game/OblivionWalkers.log"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
-printf '\r\n[Siege]\r\nTestGate=1\r\nChancePerDayPercent=100\r\nWalkersMin=30\r\nWalkersMax=30\r\nGuardKillsPerHour=2\r\n' >> "$ini"
+printf '\r\n[Siege]\r\nTestGate=1\r\nChancePerDayPercent=100\r\nWalkersMin=80\r\nWalkersMax=80\r\nGuardKillsPerHour=2\r\n' >> "$ini"
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/siege-full.txt" --headless \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/siege-full-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/siege-full/*/ | head -1)"
@@ -47,15 +47,15 @@ def order(*texts):
 
 check(count("TestGate=1 begins a siege") >= 1, "the test switch begins Anvil's siege")
 check(count("outer door 00006FBA locked - read back: locked 1, level 100") >= 1, "Anvil Castle Gate's door locked, read back")
-check(count("besieged - 30 walkers") >= 8, "eight cities besieged (the test one and the day's roll), 30 walkers each")
+check(count("besieged - 80 walkers") >= 8, "eight cities besieged (the test one and the day's roll), 80 walkers each")
 check(count("rumor global") >= 8 and count("now 1") >= 8, "the rumors set for the besieged")
 check(count("edition 18 ") >= 1 or count("(the siege of") >= 1, "the Courier on a siege edition")
-check(order("the player at Anvil Castle Gate - its walkers come out (30 left, 24 at once)",
+check(order("the player at Anvil Castle Gate - its walkers come out (",
             "out before Anvil Castle Gate", "ended before Anvil Castle Gate"),
       "the walkers out before the gate, then counted off as they end")
-check(order("before the load", "sieges on read", "locked again"),
-      "at the load: the locks given back, the sieges read, the doors locked again")
-check(count("8 sieges on read") >= 1, "eight sieges in the co-save")
+check(order("before the load", "sieges on read", "locked again", "its walkers come out"),
+      "at the load: the locks given back, the sieges read, the doors locked again, the walkers out again")
+check(count("1 sieges on read") >= 1, "Anvil's siege in the co-save")
 check(count("back in the pool") >= 2, "the pool back in on leaving (twice)")
 check(count("is over") >= 8, "every siege over after the toll")
 check(count("unlocked - read back: locked 0") >= 8, "every locked door unlocked")

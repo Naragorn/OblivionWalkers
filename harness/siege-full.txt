@@ -3,26 +3,29 @@
 # tools/siege-harness.sh, which gives the plugin INI the [Siege] lines this
 # needs, puts the live INI back afterwards and checks OblivionWalkers.log:
 #
-#   [Siege] TestGate=1 ChancePerDayPercent=100 WalkersMin=30 WalkersMax=30
+#   [Siege] TestGate=1 ChancePerDayPercent=100 WalkersMin=80 WalkersMax=80
 #           GuardKillsPerHour=2
 #
 # 1. ready     Anvil Castle Gate besieged by the test switch, its outer door
 #              locked, Anvil's rumor 1, the Courier on "Anvil Besieged!"
-# 2. nextday   GameDaysPassed to 5: the day's roll at 100 percent besieges
-#              the seven other cities at one of their gates each
-# 3. visit     the player 500 units before Anvil Castle Gate: 24 of its 30
+# 2. visit     the player 500 units before Anvil Castle Gate: 24 of its 80
 #              walkers come out, the gate guards come out for them
-# 4. kill1     killall (Dismemberment=0: every kill ends one) - they count off,
+# 3. kill1     killall (Dismemberment=0: every kill ends one) - they count off,
 #              the rest come out
-# 5. saved     a save with eight sieges on, WalkersSiegeFull
-# 6. away      into Benirus Manor (an interior): the walkers back in the pool
-# 7. loaded    the save loaded: the session's locks given back, eight sieges
-#              read from the co-save, their doors locked again, the pool
-#              disabled, the walkers out again before the gate
-# 8. leave     into Benirus Manor again: back in the pool
-# 9. toll      GameHour to 23: 22 game hours away at 2 an hour end every
-#              siege - each gate unlocked, each rumor 0, the Courier on a
-#              lifted edition
+# 4. saved     a save with Anvil's siege on, WalkersSiegeFull
+# 5. away      into Benirus Manor (an interior): the walkers back in the pool
+# 6. loaded    the save loaded: the session's lock given back, the siege read
+#              from the co-save, its door locked again, the walkers out again
+# 7. leave     into Benirus Manor again: back in the pool
+# 8. nextday   GameDaysPassed to 5: four days away end Anvil's siege by the
+#              guards' toll (gate unlocked, rumor 0, "lifted" edition), and
+#              the day's roll at 100 percent besieges the seven other cities
+# 9. toll      GameDaysPassed to 7: two days more end those seven - every gate
+#              unlocked (Anvil pauses until its day 8, the others until 10)
+#
+# The first run (2026-11-04 20:21) had the day's jump before the visit: the
+# toll of four days ended Anvil's siege before the player came - right, but
+# nothing to see at the gate; this order shows both.
 #
 # Runs on OBVR's harness, from the OBVR folder - through the wrapper:
 #   ../OblivionWalkers/tools/siege-harness.sh
@@ -30,14 +33,14 @@
 ini Hands Enabled=1
 ini Hands Dismemberment=0
 console-at ready tgm
-console-at nextday set GameDaysPassed to 5
 console-at visit player.moveto 00006FBA 0 -500 0
 console-at kill1 killall
 console-at saved save WalkersSiegeFull
 console-at away coc AnvilBenirusManor
 console-at loaded load WalkersSiegeFull
 console-at leave coc AnvilBenirusManor
-console-at toll set GameHour to 23
+console-at nextday set GameDaysPassed to 5
+console-at toll set GameDaysPassed to 7
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -46,8 +49,6 @@ wait 12
 wait 1
 mark ready
 wait 8
-mark nextday
-wait 5
 mark visit
 wait 20
 mark kill1
@@ -59,6 +60,8 @@ wait 8
 mark loaded
 wait 25
 mark leave
+wait 8
+mark nextday
 wait 8
 mark toll
 wait 8
