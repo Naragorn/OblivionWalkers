@@ -21,6 +21,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 #include "Types.h"
 
@@ -92,6 +93,52 @@ inline constexpr float kHolderSideRadians = 0.61f;  // 35 degrees
 // Where a holder stands for `arm`, the player heading `heading` (radians, the
 // forward (sin h, cos h)): the offset from the player and the holder's
 // heading in degrees (facing the player). False for HolderStandUnits 0.
+// From OBVR ('WGHP' in memory), its answer to a new holder in 'WGRB': the
+// arm (1 left, 2 right), then the held forearm's world position (3 floats) -
+// the player's real arm, wherever the body faces (OBVR, 2026-11-04: in the
+// harness the forearm lay 31 units behind the feet, the holder 45 ahead).
+inline constexpr UInt32 kGrabHoldPointMessage = 0x50484757;
+
+inline bool HoldPointOf(const void* data, UInt32 length, Arm& arm, float& x, float& y, float& z) {
+	if (data == nullptr || length < 16) {
+		return false;
+	}
+	const UInt32* words = static_cast<const UInt32*>(data);
+	if (words[0] != 1 && words[0] != 2) {
+		return false;
+	}
+	arm = words[0] == 1 ? Arm::Left : Arm::Right;
+	std::memcpy(&x, &words[1], 4);
+	std::memcpy(&y, &words[2], 4);
+	std::memcpy(&z, &words[3], 4);
+	return true;
+}
+
+// Where a holder stands for the held forearm at (ax, ay), the player at
+// (px, py) heading `heading`: `standUnits` beyond the forearm on the line
+// from the player through it (along the heading when the forearm is over the
+// feet), facing the forearm. False for HolderStandUnits 0.
+inline bool HolderSpotAt(float ax, float ay, float px, float py, float heading, float standUnits, float& x, float& y,
+                         float& faceDegrees) {
+	if (standUnits <= 0.0f) {
+		return false;
+	}
+	float dx = ax - px;
+	float dy = ay - py;
+	const float length = std::sqrt(dx * dx + dy * dy);
+	if (length < 5.0f) {
+		dx = std::sin(heading);
+		dy = std::cos(heading);
+	} else {
+		dx /= length;
+		dy /= length;
+	}
+	x = ax + dx * standUnits;
+	y = ay + dy * standUnits;
+	faceDegrees = std::atan2(-dx, -dy) * 57.29578f;
+	return true;
+}
+
 inline bool HolderSpot(float heading, Arm arm, float standUnits, float& dx, float& dy, float& faceDegrees) {
 	if (standUnits <= 0.0f) {
 		return false;

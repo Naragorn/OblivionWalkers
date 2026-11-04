@@ -404,6 +404,16 @@ void ReleaseAll(LetGo why) {
 	SendState();
 }
 
+// OBVR's 'WGHP' answers since the last frame: where each newly held forearm is.
+struct HoldPoint {
+	Arm arm = Arm::None;
+	float x = 0.0f;
+	float y = 0.0f;
+	float z = 0.0f;
+};
+HoldPoint g_holdPoints[2];
+UInt32 g_holdPointCount = 0;
+
 void OnObvrMessage(obse::MessagingInterface::Message* message) {
 	if (message == nullptr) {
 		return;
@@ -424,6 +434,11 @@ void OnObvrMessage(obse::MessagingInterface::Message* message) {
 			g_services.log("Grab: OBVR says the player plays %s", vr ? "in VR - a held arm is shaken off" : "flat");
 		}
 		g_vr = vr;
+	} else if (message->type == kGrabHoldPointMessage) {
+		HoldPoint p;
+		if (HoldPointOf(message->data, message->dataLen, p.arm, p.x, p.y, p.z) && g_holdPointCount < 2) {
+			g_holdPoints[g_holdPointCount++] = p;
+		}
 	} else if (g_services.otherObvrMessage != nullptr) {
 		g_services.otherObvrMessage(message->type, message->data, message->dataLen);
 	}
@@ -574,6 +589,30 @@ void StepGrabInGame(float dt) {
 		}
 	}
 	g_freeRequestCount = 0;
+	// The holder onto OBVR's forearm: HolderStandUnits beyond it, facing it.
+	for (UInt32 i = 0; i < g_holdPointCount; ++i) {
+		const HoldPoint& p = g_holdPoints[i];
+		const UInt32 refId = HolderOn(g_state, p.arm);
+		const UInt32 holder = refId != 0 ? LookupForm(refId) : 0;
+		float x = 0.0f;
+		float y = 0.0f;
+		float face = 0.0f;
+		if (!LooksLikeObject(holder) ||
+		    !HolderSpotAt(p.x, p.y, FloatAt(player + kRefPositionOffset), FloatAt(player + kRefPositionOffset + 4),
+		                  FloatAt(player + kRefRotZOffset), g_settings->holderStandUnits, x, y, face)) {
+			continue;
+		}
+		char line[96];
+		std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", x - FloatAt(player + kRefPositionOffset),
+		              y - FloatAt(player + kRefPositionOffset + 4));
+		const bool moved = g_services.console(holder, line);
+		std::snprintf(line, sizeof(line), "SetAngle z %.1f", face);
+		const bool turned = g_services.console(holder, line);
+		g_services.log("Grab: OBVR's held %s forearm at %.0f %.0f %.0f - holder %08X to %.0f %.0f, facing %.0f "
+		               "(moved %d, turned %d)",
+		               ArmName(p.arm), p.x, p.y, p.z, refId, x, y, face, moved ? 1 : 0, turned ? 1 : 0);
+	}
+	g_holdPointCount = 0;
 	if (!g_settings->enabled && g_state.count > 0) {
 		ReleaseAll(LetGo::SwitchedOff);
 	}
