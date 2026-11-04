@@ -1436,6 +1436,8 @@ Cost: **small** (was cheap; the heap and the order were the work).
 
 ### 4.14 Infection - `[Infection] Enabled=1`, `BiteChancePercent=25`, `PlayerInfection=1`
 
+On the list of ideas again 2026-11-04 (4.20.3).
+
 What: a walker's bite gives Zombie Rot, a disease: fatigue and health drain
 over days, cured by Cure Disease like any other. An infected NPC who dies
 rises even with `OnlyInfected=1`. The player dies of it if untreated (the
@@ -1997,6 +1999,66 @@ go, forgetting, the message), `LinkLogicTest` (the three settings).
 - Extra guards around the cities.
 - Guard parties that attack Oblivion gates and always lose when the player
   is not there.
+
+### 4.20 Ideas of 2026-11-04 - not built, not decided
+
+Proposed by Claude, Nadi: "geil notiere alle ideeen in specs". Each with
+what it does in play and its cost; none is decided or started. The
+recommendation of that day: first Nadi's headset test and a 0.2.0 release,
+then 4.20.1, with 4.20.5 as a cheap side dish.
+
+#### 4.20.1 Walker blood as a disguise - `[Disguise] Enabled=1`, `Minutes=3`
+
+The player smears himself with a fallen walker's blood (activates its
+corpse, a choice in a small menu or a held activate): for a few game
+minutes the walkers take him for one of theirs and leave him be - until he
+strikes one, or it rains, or the time runs out. Sneaking through a horde
+becomes a thing. Cost **medium**: the corpse's activation caught (an
+activate hook or a script on the walker records), the walkers made
+peaceful to the player for the time (their aggression or a faction
+relation, measured first - the "peaceful walkers" bug of 7a shows a faction
+change does it), a screen tint and a line while it lasts; unit flows for
+the clock and what ends it, a harness walking the player through walkers.
+Open: what counts as "strikes one" in VR (OBVR's hits), whether the guards
+mind.
+
+#### 4.20.2 Noise draws them - `[Noise] Enabled=1`, `Radius=3000`
+
+Combat, spells and a sprung trap draw the walkers near it: the horde's
+marker (4.11) set on the noise, those not in combat walk there. A thrown
+bottle could lure them away. Cost **medium**: the noise events caught (a hit,
+a cast - xOBSE's OnHit and OnMagicEffectHit are there, a trap: unknown),
+the horde's markers and packages reused; a harness with a fight and the
+walkers turning towards it. Open: the throw (OBVR's thrown items) and how
+loud each noise is.
+
+#### 4.20.3 Infection - see 4.14
+
+Back on the list as an idea of that day (Nadi, 2026-10-26: at the very end).
+A bite infects; the player who dies infected rises as a walker (a game over,
+or a curse to cure); a chapel or a potion cures. Cost **medium**.
+
+#### 4.20.4 Walker kinds - `[Kinds] RunnerPercent=2`, `BloatedPercent=5`, `ArmoredPercent=5`
+
+Rare kinds among the spawns and the risen: a runner (runs - the exception
+to 4.4), a bloated one (a poison cloud where it falls), an armored one (a
+helmet - only a hard blow to the head counts, or the cut). Cost **medium
+each**: the records and the rules are there (the looks, the pace, 4.17),
+new are each kind's effect, its look and its share in the lists; unit flows
+for the shares, a harness per kind.
+
+#### 4.20.5 Nights are worse - `[Night] Enabled=1`, `SpeedMultiplier=1.3`, `SpawnPercent=150`
+
+At night the walkers are quicker, the spawns give more, the hordes move on
+farther; dawn calms them. Cost **small**: the pace (4.4) and the counts
+(4.6) tied to GameHour, written anew at dusk and dawn; unit flows for the
+hours, a harness with GameHour set.
+
+#### 4.20.6 Survivors' camps - `[Survivors] Enabled=1`
+
+Groups of refugees on the roads and in small camps, to escort to a city or
+to hold against a horde; a camp overrun becomes walkers. Cost **large**:
+NPC groups, their packages and places, the fight's outcome, the news.
 
 ## 5. Scenarios - `[Scenario] Preset=`
 
