@@ -435,16 +435,29 @@ void TestShake() {
 void TestHolderSpot() {
 	std::printf("In reach of the arm\n");
 	float move = -1.0f;
-	Check(walkers::ReachVerdict(30.0f, 37.0f, 10.0f, &move) == walkers::Reach::Holds && move == 0.0f,
-	      "the shoulder 30 units from the forearm, reach 37: it holds, not moved (Nadi, 2026-11-04: B)");
-	Check(walkers::ReachVerdict(42.0f, 37.0f, 10.0f, &move) == walkers::Reach::Nudged && std::fabs(move - 5.0f) < 0.01f,
-	      "42: within reach and the nudge of 10 - it holds, moved the 5 units it lacks");
-	Check(walkers::ReachVerdict(47.5f, 37.0f, 10.0f, &move) == walkers::Reach::OutOfReach,
-	      "47.5: beyond reach and nudge - no grab, the hit is a hit");
-	Check(walkers::ReachVerdict(47.0f, 37.0f, 10.0f, &move) == walkers::Reach::Nudged && std::fabs(move - 10.0f) < 0.01f,
-	      "47: the nudge's edge, moved 10 at most");
+	Check(walkers::ReachVerdict(30.0f, 37.0f, 60.0f, &move) == walkers::Reach::Holds && move == 0.0f,
+	      "the shoulder 30 units from the forearm, reach 37: it holds where it stands");
+	Check(walkers::ReachVerdict(78.0f, 37.0f, 60.0f, &move) == walkers::Reach::Lunges && std::fabs(move - 41.0f) < 0.01f,
+	      "78 (a real hit, OBVR 2026-11-04: 69-87): it lunges the 41 units it lacks (Nadi: they attack as ever, "
+	      "but hold instead of the damage)");
+	Check(walkers::ReachVerdict(97.0f, 37.0f, 60.0f, &move) == walkers::Reach::Lunges && std::fabs(move - 60.0f) < 0.01f,
+	      "97: the lunge's edge, 60 at most");
+	Check(walkers::ReachVerdict(97.5f, 37.0f, 60.0f, &move) == walkers::Reach::OutOfReach,
+	      "beyond reach and lunge - no grab, the hit is a hit");
 	Check(walkers::ReachVerdict(40.0f, 37.0f, 0.0f, &move) == walkers::Reach::OutOfReach,
-	      "NudgeUnits 0: only what stands in reach grabs");
+	      "LungeUnits 0: only what stands in reach grabs");
+	walkers::Lunge lunge;
+	walkers::BeginLunge(lunge, 0.0f, 0.0f, 0.0f, 40.0f, 0.3f);
+	float lx = 0.0f;
+	float ly = 0.0f;
+	Check(walkers::StepLunge(lunge, 0.15f, lx, ly) && ly > 20.0f && ly < 40.0f && lx == 0.0f,
+	      "half the lunge's time: more than half the way (eased), not there");
+	Check(walkers::StepLunge(lunge, 0.15f, lx, ly) && std::fabs(ly - 40.0f) < 0.01f && !lunge.active,
+	      "its time over: at the target, done");
+	Check(!walkers::StepLunge(lunge, 0.1f, lx, ly), "done: no more steps");
+	walkers::BeginLunge(lunge, 5.0f, 5.0f, 5.0f, 45.0f, 0.0f);
+	Check(walkers::StepLunge(lunge, 0.01f, lx, ly) && std::fabs(ly - 45.0f) < 0.01f && !lunge.active,
+	      "LungeSeconds 0: there in one step");
 	float face = 0.0f;
 	float x = 0.0f;
 	float y = 0.0f;

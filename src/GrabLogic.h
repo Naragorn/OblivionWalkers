@@ -62,15 +62,17 @@ struct GrabSettings {
 	UInt32 shakeStrokes = 6;
 	float shakeFatigue = 2.0f;
 	// VR (Nadi, 2026-11-04: "B" - a walker grabs only when it stands in reach
-	// of the arm, a jump allowed only if small and forgivable): OBVR streams
-	// both forearms ('WGHP'); a hit grabs when the walker's nearer shoulder
-	// is within ReachUnits of the forearm on its side, and NudgeUnits more
-	// with the walker moved the units it lacks. Beyond: no grab. Flat (no
-	// forearm known): as before, it holds where it hit. ReachUnits about the
-	// zombie's arm (OBVR: ~37), NudgeUnits OBVR's proposal (10, some 14 cm) -
-	// neither tried in the headset.
+	// of the arm, no jump; then "go 1. also greifen die quasi normal an aber
+	// statt dmg und so halten die einen fest"): OBVR streams both forearms
+	// ('WGHP'); a hit that grabs does no damage, and when the walker's
+	// nearer shoulder is beyond ReachUnits of the forearm on its side it
+	// lunges the units it lacks, over LungeSeconds, up to LungeUnits (real
+	// hits land at 69-87 units, OBVR's harness). Beyond: no grab, the hit is a
+	// hit. Flat (no forearm known): it holds where it hit. ReachUnits about the
+	// zombie's arm (OBVR: ~37); the lunge's 60 and 0.3 s not yet seen.
 	float reachUnits = 37.0f;
-	float nudgeUnits = 10.0f;
+	float lungeUnits = 60.0f;
+	float lungeSeconds = 0.3f;
 };
 
 
@@ -129,20 +131,53 @@ inline bool TestHolderSpot(float ax, float ay, float heading, float standUnits, 
 	return true;
 }
 
-enum class Reach : UInt8 { Holds, Nudged, OutOfReach };
+enum class Reach : UInt8 { Holds, Lunges, OutOfReach };
 
 // A shoulder `distance` units from the forearm: held as it stands, held with
-// the walker moved `*moveBy` toward it (at most NudgeUnits), or out of reach.
-inline Reach ReachVerdict(float distance, float reach, float nudge, float* moveBy) {
+// the walker lunging `*moveBy` toward it (at most LungeUnits), or out of reach.
+inline Reach ReachVerdict(float distance, float reach, float lunge, float* moveBy) {
 	*moveBy = 0.0f;
 	if (distance <= reach) {
 		return Reach::Holds;
 	}
-	if (nudge > 0.0f && distance <= reach + nudge) {
+	if (lunge > 0.0f && distance <= reach + lunge) {
 		*moveBy = distance - reach;
-		return Reach::Nudged;
+		return Reach::Lunges;
 	}
 	return Reach::OutOfReach;
+}
+
+// A holder's lunge onto the arm: from where it stood to its target over
+// `seconds`, eased out (fast first, then settling), a step each frame.
+struct Lunge {
+	bool active = false;
+	float fromX = 0.0f;
+	float fromY = 0.0f;
+	float toX = 0.0f;
+	float toY = 0.0f;
+	float seconds = 0.0f;
+	float elapsed = 0.0f;
+};
+
+inline void BeginLunge(Lunge& l, float fromX, float fromY, float toX, float toY, float seconds) {
+	l = Lunge{true, fromX, fromY, toX, toY, seconds > 0.0f ? seconds : 0.0f, 0.0f};
+}
+
+// One frame of `dt`: where the holder stands now; false when no lunge runs.
+inline bool StepLunge(Lunge& l, float dt, float& x, float& y) {
+	if (!l.active) {
+		return false;
+	}
+	l.elapsed += dt;
+	float u = l.seconds > 0.0f ? l.elapsed / l.seconds : 1.0f;
+	if (u >= 1.0f) {
+		u = 1.0f;
+		l.active = false;
+	}
+	const float eased = 1.0f - (1.0f - u) * (1.0f - u);
+	x = l.fromX + (l.toX - l.fromX) * eased;
+	y = l.fromY + (l.toY - l.fromY) * eased;
+	return true;
 }
 
 struct Holder {

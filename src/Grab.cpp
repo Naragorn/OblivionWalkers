@@ -287,7 +287,7 @@ const Forearm* FreshForearm(Arm arm) {
 }
 
 // In VR with the forearm known: whether the walker's nearer shoulder reaches
-// it (ReachVerdict), with the distance and the move a nudge needs. Flat or
+// it (ReachVerdict), with the distance and the lunge it needs. Flat or
 // no forearm: Holds, as before.
 Reach ReachOf(UInt32 walker, Arm arm, float* distance, float* moveBy) {
 	*distance = -1.0f;
@@ -310,11 +310,18 @@ Reach ReachOf(UInt32 walker, Arm arm, float* distance, float* moveBy) {
 		return Reach::Holds;
 	}
 	*distance = best;
-	return ReachVerdict(best, g_settings->reachUnits, g_settings->nudgeUnits, moveBy);
+	return ReachVerdict(best, g_settings->reachUnits, g_settings->lungeUnits, moveBy);
 }
 
-// The nudge: the walker moved `by` units toward the forearm, on the ground.
-bool NudgeToward(UInt32 walker, UInt32 player, Arm arm, float by) {
+// The holders' lunges onto the arm (one per held arm, by the arm).
+Lunge g_lunges[2];
+UInt32 g_lungeRefs[2] = {};
+// The player's health as the last frame left it: a hit that grabs gives back
+// what it took (Nadi: the walkers hold instead of the damage).
+float g_lastHealth = -1.0f;
+
+// The lunge begun: `by` units toward the forearm, on the ground.
+bool BeginLungeToward(UInt32 walker, Arm arm, float by) {
 	const Forearm* f = FreshForearm(arm);
 	if (f == nullptr || by <= 0.0f) {
 		return false;
@@ -327,11 +334,41 @@ bool NudgeToward(UInt32 walker, UInt32 player, Arm arm, float by) {
 	if (length < 1.0f) {
 		return false;
 	}
-	char line[96];
-	std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0",
-	              wx + dx / length * by - FloatAt(player + kRefPositionOffset),
-	              wy + dy / length * by - FloatAt(player + kRefPositionOffset + 4));
-	return g_services.console(walker, line);
+	const UInt32 slot = arm == Arm::Left ? 0 : 1;
+	BeginLunge(g_lunges[slot], wx, wy, wx + dx / length * by, wy + dy / length * by, g_settings->lungeSeconds);
+	g_lungeRefs[slot] = FormIdOf(walker);
+	return true;
+}
+
+// Each frame: the lunging holders a step on, turned to the forearm.
+void StepLunges(UInt32 player, float dt) {
+	for (UInt32 slot = 0; slot < 2; ++slot) {
+		float x = 0.0f;
+		float y = 0.0f;
+		const UInt32 refId = g_lungeRefs[slot];
+		if (refId == 0 || !Holds(g_state, refId)) {
+			g_lunges[slot].active = false;
+			g_lungeRefs[slot] = 0;
+			continue;
+		}
+		if (!StepLunge(g_lunges[slot], dt, x, y)) {
+			g_lungeRefs[slot] = 0;
+			continue;
+		}
+		const UInt32 walker = LookupForm(refId);
+		if (!LooksLikeObject(walker)) {
+			continue;
+		}
+		char line[96];
+		std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", x - FloatAt(player + kRefPositionOffset),
+		              y - FloatAt(player + kRefPositionOffset + 4));
+		g_services.console(walker, line);
+		const Forearm* f = FreshForearm(slot == 0 ? Arm::Left : Arm::Right);
+		if (f != nullptr) {
+			std::snprintf(line, sizeof(line), "SetAngle z %.1f", std::atan2(f->x - x, f->y - y) * 57.29578f);
+			g_services.console(walker, line);
+		}
+	}
 }
 
 void HandleHit(const PendingHit& hit, UInt32 player) {
@@ -352,8 +389,8 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 			if (g_refusalLines > 0) {
 				--g_refusalLines;
 				g_services.log("Grab: walker %08X's hit on the player - no grab (the %s forearm out of reach: %.0f "
-				               "units from its shoulder, reach %.0f + nudge %.0f)",
-				               refId, ArmName(arm), distance, g_settings->reachUnits, g_settings->nudgeUnits);
+				               "units from its shoulder, reach %.0f + lunge %.0f)",
+				               refId, ArmName(arm), distance, g_settings->reachUnits, g_settings->lungeUnits);
 			}
 			return;
 		}
@@ -365,15 +402,25 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 			}
 			return;
 		}
-		const bool nudged = reach == Reach::Nudged && NudgeToward(hit.attacker, player, arm, moveBy);
+		const bool lunged = reach == Reach::Lunges && BeginLungeToward(hit.attacker, arm, moveBy);
+		// No damage from the hit that grabs: what it took given back.
+		const float now = HealthOf(player);
+		const float taken = g_lastHealth > now ? g_lastHealth - now : 0.0f;
+		bool givenBack = false;
+		if (taken >= 1.0f && now > 0.0f) {
+			char line[48];
+			std::snprintf(line, sizeof(line), "ModAV2 Health %d", static_cast<int>(taken + 0.5f));
+			givenBack = g_services.console(player, line);
+		}
 		const bool played = PlayIdle(hit.attacker, kHold);
 		UpdateNeeded(player);
 		Say(g_state.count >= 2 ? GrabSay::Rooted : GrabSay::Grabbed, arm, 0);
+		g_services.log("Grab: the grabbing hit took %.1f health - given back: %d", taken, givenBack ? 1 : 0);
 		g_services.log("Grab: walker %08X holds the player's %s arm (it stood on the %s, rolled %u of %u; the hold "
 		               "played: %d; the forearm %.0f units from its shoulder%s); %u hold, the player %s; bites so far "
 		               "%u of %u",
 		               refId, ArmName(arm), ArmName(side), roll, g_settings->chancePercent, played ? 1 : 0, distance,
-		               nudged ? ", nudged" : (distance < 0.0f ? " - not known, flat" : ""),
+		               lunged ? ", lunging in" : (distance < 0.0f ? " - not known, flat" : ""),
 		               g_state.count, HoldName(HoldOf(g_state)), g_state.bites, g_settings->bitesToDie);
 		SendState();
 		return;
@@ -615,13 +662,13 @@ void ConfigureGrab(const GrabSettings* settings, const GrabServices& services, o
 	g_services.log("Grab: [Grab] Enabled=%d ChancePercent=%u BitesToDie=%u BiteSeconds=%.1f BiteHealthPercent=%u "
 	               "StruggleHits=%u TearFreeDistance=%.0f BiteResetSeconds=%.0f TestGrabSeconds=%.0f StrugglePresses=%u "
 	               "StruggleCrowdStep=%.2f StruggleCrowdMost=%.1f StruggleCrowdRadius=%.0f StruggleGapSeconds=%.1f "
-	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f ReachUnits=%.0f NudgeUnits=%.0f; OBVR's messages %s",
+	               "StruggleFatigue=%.0f Messages=%d ShakeStrokes=%u ShakeFatigue=%.0f ReachUnits=%.0f LungeUnits=%.0f LungeSeconds=%.2f; OBVR's messages %s",
 	               settings->enabled ? 1 : 0, settings->chancePercent, settings->bitesToDie, settings->biteSeconds,
 	               settings->biteHealthPercent, settings->struggleHits, settings->tearFreeDistance,
 	               settings->biteResetSeconds, settings->testGrabSeconds, settings->strugglePresses,
 	               settings->struggleCrowdStep, settings->struggleCrowdMost, settings->struggleCrowdRadius,
 	               settings->struggleGapSeconds, settings->struggleFatigue, settings->messages ? 1 : 0, settings->shakeStrokes,
-	               settings->shakeFatigue, settings->reachUnits, settings->nudgeUnits,
+	               settings->shakeFatigue, settings->reachUnits, settings->lungeUnits, settings->lungeSeconds,
 	               listening ? "listened to once xOBSE has loaded every plugin" : "not listened to (no xOBSE messages)");
 }
 
@@ -740,9 +787,16 @@ void StepGrabInGame(float dt) {
 		}
 	}
 	HoldFlags(player, dt);
+	StepLunges(player, dt);
+	g_lastHealth = HealthOf(player);
 }
 
 void ResetGrabInGame() {
+	g_lastHealth = -1.0f;
+	for (UInt32 slot = 0; slot < 2; ++slot) {
+		g_lunges[slot] = Lunge{};
+		g_lungeRefs[slot] = 0;
+	}
 	ResetGrab(g_state);
 	g_hitCount = 0;
 	g_freeRequestCount = 0;

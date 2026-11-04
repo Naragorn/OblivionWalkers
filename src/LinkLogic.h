@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 12.0;
+inline constexpr double kLinkVersion = 13.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -258,8 +258,10 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 20, 0.5f, 1, false, LinkEffect::Live},
 	{"ini_grab_reach", "VR: a walker's reach", "Units from its shoulder to your forearm it grabs within.",
 	 LinkKind::Slider, 10, 80, 1, 0, false, LinkEffect::Live},
-	{"ini_grab_nudge", "VR: the step to grab", "Units more it may step closer to grab, 0 none.", LinkKind::Slider, 0,
-	 40, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_lunge", "VR: a walker's lunge", "Units more it may lunge in to grab, 0 none.", LinkKind::Slider, 0,
+	 120, 5, 0, false, LinkEffect::Live},
+	{"ini_grab_lunge_seconds", "VR: the lunge's time", "Seconds its lunge takes.", LinkKind::Slider, 0, 1, 0.05f, 2,
+	 false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -349,7 +351,8 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 121: return rise.siege.pauseDays;
 		case 122: return rise.siege.guardKillsPerHour;
 		case 123: return rise.grab.reachUnits;
-		case 124: return rise.grab.nudgeUnits;
+		case 124: return rise.grab.lungeUnits;
+		case 125: return rise.grab.lungeSeconds;
 		default: return 0.0;
 	}
 }
@@ -460,7 +463,8 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 121: rise.siege.pauseDays = fraction; break;
 		case 122: rise.siege.guardKillsPerHour = fraction; break;
 		case 123: rise.grab.reachUnits = fraction; break;
-		case 124: rise.grab.nudgeUnits = fraction; break;
+		case 124: rise.grab.lungeUnits = fraction; break;
+		case 125: rise.grab.lungeSeconds = fraction; break;
 		default: return false;
 	}
 	return true;

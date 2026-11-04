@@ -1815,6 +1815,16 @@ ESP's IDLE 0x94D..0x952):
   hit, as before. The test grab still jumps: 30 units ahead of OBVR's forearm along the heading, facing it (in sight - the forearm lies behind the feet in VR).
   INI and LINK (version 12). The 45-unit move of ca2e81f and the 'WGHP'
   answer of e103534 replaced. Neither value tried in the headset.
+- **The lunge, no damage** (Nadi, 2026-11-04: "go 1. also greifen die quasi
+  normal an aber statt dmg und so halten die einen fest"; OBVR's harness: real
+  hits land 69-87 units shoulder to forearm, so B grabbed almost never). A hit
+  that grabs gives back the health it took (the player's health as the last
+  frame left it, ModAV2 - the engine's damage itself is not stopped, the
+  health bar may dip for a frame; a stagger or the hit's sound is not
+  stopped either, not measured). In VR beyond `ReachUnits` the walker lunges
+  the units it lacks, up to `LungeUnits` (60), over `LungeSeconds` (0.3),
+  eased out, a MoveTo each frame toward the forearm, turned to it; beyond
+  that no grab. LINK version 13 (NudgeUnits gone).
   - Built in Walkers 2026-10-28, unit flows PASS; OBVR's side handed to
     the OBVR session; the feel only in the headset.
 - LINK: "Walkers grab", "Chance to grab", "Bites you take" under the header

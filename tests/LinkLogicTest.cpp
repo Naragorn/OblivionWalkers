@@ -4,6 +4,7 @@
 
 #include "LinkLogic.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -44,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 125,
-	      "125 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven and the grab's reach and nudge - every INI setting but Name, "
+	Check(kLinkSettingCount == 126,
+	      "126 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven and the grab's reach and lunge - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -167,11 +168,13 @@ void TestValues() {
 	          walkers::SetLinkValue(rise, replace, siegeOn, 0.0) && !rise.siege.enabled,
 	      "set from the menu, held to the range (12 at the gate at least)");
 	const int reach = IndexOf("ini_grab_reach");
-	const int nudge = IndexOf("ini_grab_nudge");
-	Check(reach == 123 && nudge == 124 && walkers::LinkValue(rise, replace, reach) == 37.0 &&
-	          walkers::LinkValue(rise, replace, nudge) == 10.0 && walkers::SetLinkValue(rise, replace, nudge, 0.0) &&
-	          rise.grab.nudgeUnits == 0.0f,
-	      "the arm's reach 37 and the nudge 10 last; the nudge 0 from the menu");
+	const int lunge = IndexOf("ini_grab_lunge");
+	const int lungeTime = IndexOf("ini_grab_lunge_seconds");
+	Check(reach == 123 && lunge == 124 && lungeTime == 125 && walkers::LinkValue(rise, replace, reach) == 37.0 &&
+	          walkers::LinkValue(rise, replace, lunge) == 60.0 &&
+	          std::fabs(walkers::LinkValue(rise, replace, lungeTime) - 0.3) < 1e-6 &&
+	          walkers::SetLinkValue(rise, replace, lunge, 0.0) && rise.grab.lungeUnits == 0.0f,
+	      "the arm's reach 37, the lunge 60 units over 0.3 s, last; the lunge 0 from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -260,7 +263,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 12\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 13\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
