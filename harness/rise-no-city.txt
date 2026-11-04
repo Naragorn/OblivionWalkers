@@ -1,0 +1,35 @@
+# NoRiseInCities (docs/walkers-spec.md 7a's gap, built 2026-11-04, off by
+# default): the run's plugin INI carries [Rise] NoRiseInCities=1. The player
+# moved into Bravil's streets (onto its city-side gate door 00005603), a
+# bandit (00069AD1, generic, Redguard) placed and killed by killall, 35 s:
+# OblivionWalkers.log (by hand) "Death: ... stays down (in a city,
+# NoRiseInCities=1 - the safeguard raises him)", no "Rise: ... asked for".
+# (killall gives no killer, so the safeguard only takes him with a living
+# walker within 1000 units - none here: the safeguard's raise is not this
+# run's; SafeguardLogicTest covers that a victim who does not rise is its.)
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-no-city.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+console-at ready tgm
+console-at inbravil player.moveto 00005603
+console-at placed player.placeatme 00069AD1 1 200 0
+console-at kill killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark inbravil
+wait 8
+mark placed
+wait 3
+mark kill
+wait 35
+mark end
+wait 1

@@ -113,6 +113,7 @@ bool ReadSettings(walkers::Settings* settings) {
 		std::snprintf(rise.walkerName, sizeof(rise.walkerName), "%s", "Walker");
 	}
 	rise.renameVanilla = GetPrivateProfileIntA("Zombies", "RenameVanilla", 0, path) != 0;
+	rise.noRiseInCities = GetPrivateProfileIntA("Rise", "NoRiseInCities", 0, path) != 0;
 	rise.end.dieOnlyBeheaded = GetPrivateProfileIntA("Zombies", "DieOnlyBeheaded", 1, path) != 0;
 	rise.end.riseAgainSeconds = IniFloat("Zombies", "RiseAgainSeconds", 20.0f, path);
 	rise.end.riseAgainJitterSeconds = IniFloat("Zombies", "RiseAgainJitterSeconds", 10.0f, path);
@@ -246,13 +247,13 @@ bool ReadSettings(walkers::Settings* settings) {
 		rise.jitterSeconds = 0.0f;
 	}
 	Log("Settings from %s: [Rise] Enabled=%d AfterSeconds=%.1f JitterSeconds=%.1f ChancePercent=%u OnlyGeneric=%d "
-	    "OnlyPlayableRaces=%d OnlyHumans=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d SoundAtGetUpPercent=%u HoldDeathSound=%d CloneBase=%d ZombieRace=%d "
+	    "OnlyPlayableRaces=%d OnlyHumans=%d NoRiseInCities=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d SoundAtGetUpPercent=%u HoldDeathSound=%d CloneBase=%d ZombieRace=%d "
 	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d NoLevelingXP=%d NoSkillGain=%d DieOnlyBeheaded=%d RiseAgainSeconds=%.0f RiseAgainJitterSeconds=%.0f; "
 	    "[Replace] ExtraPercent=%u; [Horde] Enabled=%d JoinRadius=%.0f LeadUnits=%.0f StaleSeconds=%.0f TurnDegrees=%.0f GroupMost=%u TowardCities=%d CityPull=%.2f CityRange=%.0f GateHoldUnits=%.0f; "
 	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f TestKillSeconds=%.0f; [Safeguard] Enabled=%d "
 	    "AfterSeconds=%.0f Radius=%.0f; [News] Courier=%d RecentDays=%.1f HeadingHoldDays=%.2f",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
-	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.asCreature ? 1 : 0,
+	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.noRiseInCities ? 1 : 0, rise.asCreature ? 1 : 0,
 	    rise.dropSeconds, rise.lieSeconds, static_cast<UInt32>(rise.matchCorpse), rise.settleSeconds, rise.hideCorpseAtPose ? 1 : 0, rise.keepCorpseApart ? 1 : 0, rise.soundAtGetUpPercent, rise.holdDeathSound ? 1 : 0, rise.cloneBase ? 1 : 0, rise.zombieRace ? 1 : 0, rise.lookAfterSeconds,
 	    rise.walkOnly ? 1 : 0, rise.speedMultiplier, rise.speedRandomPercent, rise.famePerKills,
 	    rise.avoidChapels ? 1 : 0, rise.renameToWalker ? 1 : 0, rise.walkerName, rise.renameVanilla ? 1 : 0, rise.blockMooResurrect ? 1 : 0,

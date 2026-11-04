@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 15.0;
+inline constexpr double kLinkVersion = 16.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -262,6 +262,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 120, 5, 0, false, LinkEffect::Live},
 	{"ini_grab_lunge_seconds", "VR: the lunge's time", "Seconds its lunge takes.", LinkKind::Slider, 0, 1, 0.05f, 2,
 	 false, LinkEffect::Live},
+	{"ini_rise_no_cities", "No rising in cities", "Nobody killed in a city's streets rises; the safeguard raises them.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -353,6 +355,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 123: return rise.grab.reachUnits;
 		case 124: return rise.grab.lungeUnits;
 		case 125: return rise.grab.lungeSeconds;
+		case 126: return rise.noRiseInCities ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -465,6 +468,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 123: rise.grab.reachUnits = fraction; break;
 		case 124: rise.grab.lungeUnits = fraction; break;
 		case 125: rise.grab.lungeSeconds = fraction; break;
+		case 126: rise.noRiseInCities = on; break;
 		default: return false;
 	}
 	return true;

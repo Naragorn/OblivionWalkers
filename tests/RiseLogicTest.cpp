@@ -298,6 +298,30 @@ void TestWalkOnly() {
 	Check(walkers::WalkInsteadOfRun(0x0230) == 0x0130, "the other bits kept");
 }
 
+void TestCity() {
+	std::printf("No rise in a city (NoRiseInCities)\n");
+	Check(walkers::IsCityWorldspace(0x0001C31A) && walkers::IsCityWorldspace(0x0003633E) &&
+	          walkers::IsCityWorldspace(0x0002C108) && walkers::IsCityWorldspace(0x00038D48),
+	      "Anvil, Chorrol, the Market District, Anvil's castle courtyard: cities");
+	Check(!walkers::IsCityWorldspace(0x0000003C) && !walkers::IsCityWorldspace(0x00032AFE) &&
+	          !walkers::IsCityWorldspace(0),
+	      "Tamriel, ruined Kvatch, no worldspace (an interior): no city");
+	walkers::WaitingList list;
+	walkers::RiseSettings s;
+	walkers::Fallen f;
+	f.refId = 0xFF000F90;
+	f.character = true;
+	f.generic = true;
+	f.racePlayable = true;
+	f.inCity = true;
+	Check(!s.noRiseInCities && walkers::NoteDeath(list, s, f, 0, 0.0f) == walkers::DeathVerdict::Waits,
+	      "off by default (Nadi, 2026-11-04): a beggar killed in a city street rises as ever");
+	s.noRiseInCities = true;
+	walkers::WaitingList list2;
+	Check(walkers::NoteDeath(list2, s, f, 0, 0.0f) == walkers::DeathVerdict::InCity && list2.count == 0,
+	      "on: he stays down - not a rise, so the safeguard raises him once it is safe");
+}
+
 void TestHeadOff() {
 	std::printf("A person whose head is off\n");
 	walkers::WaitingList list;
@@ -839,6 +863,7 @@ int main() {
 	TestPresenceAt();
 	TestMissing();
 	TestWalkOnly();
+	TestCity();
 	TestHeadOff();
 	TestRequeue();
 	TestEspRace();

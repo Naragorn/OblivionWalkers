@@ -443,6 +443,9 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		fallen.inChapel = IsChapelCell(cellId, cellOwner);
 		fallen.refId = Read(ref + kFormIdOffset);
 		fallen.headOff = HeadNoted(g_heads, fallen.refId);
+		const UInt32 fallenCell = Read(ref + kRefParentCellOffset);
+		fallen.inCity = LooksLikeObject(fallenCell) && (Read8(fallenCell + kCellFlagsOffset) & 1) == 0 &&
+		                IsCityWorldspace(FormIdOf(Read(fallenCell + kCellWorldspaceOffset)));
 		fallen.character = Read(ref) == kVtblCharacter;
 		const UInt32 base = Read(ref + kRefBaseFormOffset);
 		if (LooksLikeObject(base)) {

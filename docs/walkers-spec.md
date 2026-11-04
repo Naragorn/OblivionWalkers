@@ -2114,6 +2114,12 @@ roster line's counts.
   runs during a load and hands console lines (the MOO strip's second
   RemoveItem, the horde's MoveTo) to references being torn down.
 
+- **Built 2026-11-04, off by default: `[Rise] NoRiseInCities`** (Nadi: "bau die
+  stadt regel, default off") - nobody killed in a city's streets (the
+  worldspaces Oblivion.esm puts under Tamriel for the eight cities,
+  IsCityWorldspace; not the houses) rises; the safeguard takes them as any
+  victim of the walkers. harness/rise-no-city.txt 21:24 PASS: a bandit killed
+  in Bravil's streets "stays down (in a city ...)", no rise. The earlier entry:
 - **Walkers can still be made in a city** (2026-10-26): the rise has no
   city rule - a person it takes who dies in a city gets up there as a
   walker (derived from the code; no run). **Decided: no city rule** (Nadi,

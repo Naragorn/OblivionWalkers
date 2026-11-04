@@ -35,6 +35,10 @@ struct RiseSettings {
 	// Narrower still: only the four human races (Imperial, Breton, Nord,
 	// Redguard). Nadi, 2026-10-23: an extra option, off by default.
 	bool onlyHumans = false;
+	// [Rise] NoRiseInCities (Nadi, 2026-11-04: the gap of 7a, "keine Walker in
+	// Städten", built off by default): nobody killed in a city's streets
+	// rises - the safeguard raises them instead once it is safe.
+	bool noRiseInCities = false;
 	// The risen one gets a clone of his base record before he gets up (the
 	// record that will carry the zombie race, 4.1 step 3) - a proof switch
 	// until the race exists, so default off.
@@ -430,6 +434,7 @@ struct Fallen {
 	bool raceHuman = false;     // one of Oblivion.esm's four human races (IsHumanRace)
 	bool inChapel = false;      // he fell in a chapel (IsChapelCell of his cell)
 	bool headOff = false;       // OBVR cut his head off before the death (EndLogic.h HeadNotes)
+	bool inCity = false;        // he fell in a city's streets (IsCityWorldspace)
 };
 
 // A chapel (4.7): a cell the Nine Divines own (Oblivion.esm's NineDivines
@@ -455,6 +460,25 @@ inline bool HasWord(const char* text, const char* word) {
 			}
 		}
 		if (word[i] == '\0') {
+			return true;
+		}
+	}
+	return false;
+}
+
+// A city's streets: the worldspaces Oblivion.esm puts under Tamriel (WNAM
+// 0000003C, read 2026-11-04) for the eight cities - the Imperial City's
+// districts, its palace and the main quest's versions of two, Anvil's castle
+// courtyard - not ruined Kvatch, the empty world nor the Thieves Guild's.
+// An interior (a house) has no worldspace and is no street.
+inline bool IsCityWorldspace(UInt32 worldFormId) {
+	static constexpr UInt32 kCities[] = {
+		0x0001C318, 0x0001C319, 0x0001C31A, 0x0001C31B, 0x0001C31C, 0x0001C31D, 0x0003633E, 0x00038D48,
+		0x0002C107, 0x0002C108, 0x0002C109, 0x0002C10A, 0x0002C10B, 0x0002C10C, 0x0002C10D, 0x0002C10E,
+		0x0002C10F, 0x0004A250, 0x0004A251,
+	};
+	for (UInt32 id : kCities) {
+		if (id == worldFormId) {
 			return true;
 		}
 	}
@@ -497,6 +521,7 @@ enum class DeathVerdict : UInt8 {
 	ChanceMissed,     // the ChancePercent roll
 	InChapel,         // AvoidChapels=1 and he fell in a chapel
 	HeadOff,          // OBVR cut his head off: no walker with a head from him
+	InCity,           // NoRiseInCities=1 and he fell in a city's streets
 	ListFull,         // kWaitingMost references wait already
 };
 
@@ -524,6 +549,8 @@ inline const char* VerdictText(DeathVerdict verdict) {
 			return "stays down (in a chapel, AvoidChapels=1)";
 		case DeathVerdict::HeadOff:
 			return "stays down (his head is off)";
+		case DeathVerdict::InCity:
+			return "stays down (in a city, NoRiseInCities=1 - the safeguard raises him)";
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
 	}
@@ -605,6 +632,9 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 	}
 	if (settings.avoidChapels && fallen.inChapel) {
 		return DeathVerdict::InChapel;
+	}
+	if (settings.noRiseInCities && fallen.inCity) {
+		return DeathVerdict::InCity;
 	}
 	if (FindWaiting(list, fallen.refId) >= 0) {
 		return DeathVerdict::AlreadyWaiting;
