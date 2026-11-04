@@ -133,6 +133,12 @@ inline bool TestHolderSpot(float ax, float ay, float heading, float standUnits, 
 
 enum class Reach : UInt8 { Holds, Lunges, OutOfReach };
 
+// A lunge goes this much past the reach: it moves the walker's root, and its
+// shoulder lies off the line to the forearm (OBVR's walker-grip-real.txt,
+// 2026-11-04 17:25: after lunges of 11-12 units the wrist stopped 7 and 22
+// short). Not measured as the right amount.
+inline constexpr float kLungeOvershoot = 15.0f;
+
 // A shoulder `distance` units from the forearm: held as it stands, held with
 // the walker lunging `*moveBy` toward it (at most LungeUnits), or out of reach.
 inline Reach ReachVerdict(float distance, float reach, float lunge, float* moveBy) {
@@ -141,7 +147,7 @@ inline Reach ReachVerdict(float distance, float reach, float lunge, float* moveB
 		return Reach::Holds;
 	}
 	if (lunge > 0.0f && distance <= reach + lunge) {
-		*moveBy = distance - reach;
+		*moveBy = distance - reach + kLungeOvershoot;
 		return Reach::Lunges;
 	}
 	return Reach::OutOfReach;

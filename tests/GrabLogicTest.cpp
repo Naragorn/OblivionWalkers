@@ -437,11 +437,13 @@ void TestHolderSpot() {
 	float move = -1.0f;
 	Check(walkers::ReachVerdict(30.0f, 37.0f, 60.0f, &move) == walkers::Reach::Holds && move == 0.0f,
 	      "the shoulder 30 units from the forearm, reach 37: it holds where it stands");
-	Check(walkers::ReachVerdict(78.0f, 37.0f, 60.0f, &move) == walkers::Reach::Lunges && std::fabs(move - 41.0f) < 0.01f,
-	      "78 (a real hit, OBVR 2026-11-04: 69-87): it lunges the 41 units it lacks (Nadi: they attack as ever, "
-	      "but hold instead of the damage)");
-	Check(walkers::ReachVerdict(97.0f, 37.0f, 60.0f, &move) == walkers::Reach::Lunges && std::fabs(move - 60.0f) < 0.01f,
-	      "97: the lunge's edge, 60 at most");
+	Check(walkers::ReachVerdict(78.0f, 37.0f, 60.0f, &move) == walkers::Reach::Lunges &&
+	          std::fabs(move - (78.0f - 37.0f + walkers::kLungeOvershoot)) < 0.01f,
+	      "78 (a real hit, OBVR 2026-11-04: 69-87): it lunges what it lacks and kLungeOvershoot more - the root moves, "
+	      "the shoulder lies off its line (OBVR's walker-grip-real 17:25: the wrist 7 and 22 short)");
+	Check(walkers::ReachVerdict(97.0f, 37.0f, 60.0f, &move) == walkers::Reach::Lunges &&
+	          std::fabs(move - (60.0f + walkers::kLungeOvershoot)) < 0.01f,
+	      "97: the lunge's edge, 60 and the overshoot at most");
 	Check(walkers::ReachVerdict(97.5f, 37.0f, 60.0f, &move) == walkers::Reach::OutOfReach,
 	      "beyond reach and lunge - no grab, the hit is a hit");
 	Check(walkers::ReachVerdict(40.0f, 37.0f, 0.0f, &move) == walkers::Reach::OutOfReach,
