@@ -38,6 +38,7 @@ constexpr UInt32 kActorBaseFlagsOffset = 0x28;  // TESActorBase::actorBaseData.f
 constexpr UInt32 kNpcRacePointerOffset = 0xE8;  // TESNPC::race.race (TESRaceForm at 0xE4)
 constexpr UInt32 kRacePlayableOffset = 0x70;    // TESRace::isPlayable, a byte
 constexpr UInt32 kRefPositionOffset = 0x2C;     // TESObjectREFR::posX, posY, posZ
+constexpr UInt32 kRefRotationOffset = 0x20;     // TESObjectREFR::rotX, rotY, rotZ (radians)
 constexpr UInt32 kRefParentCellOffset = 0x40;   // TESObjectREFR::parentCell
 // A cell's flags (bit 0: interior) and an exterior's worldspace - as Horde.cpp
 // reads them (0x004C9CF0).
@@ -216,21 +217,20 @@ UInt32 HomeCellOf(UInt32 ref) {
 	return 0;
 }
 
-// Its start position and angle: TESObjectREFR's virtual GetStartingPos at
-// vtable+0xF4 (the console's GetStartingPos, 0x004F4490, calls it; an
-// actor's reads its +0xE8..+0xF0, 0x00628E40) and GetStartingAngle at +0xF8
-// (derived from xOBSE's order, not read).
-bool StartPositionOf(UInt32 ref, float* pos, float* angle) {
+// Its start position: TESObjectREFR's virtual GetStartingPos at vtable+0xF4
+// (the console's GetStartingPos, 0x004F4490, calls it; an actor's reads its
+// +0xE8..+0xF0, 0x00628E40). The angle is not asked: +0xF8 as
+// GetStartingAngle (xOBSE's order) left the safeguard's raise unfinished in
+// safeguard-home.txt (2026-11-05 10:32: off the list, no raise, no line) -
+// the raised one keeps the heading it lay with.
+bool StartPositionOf(UInt32 ref, float* pos) {
 	using StartFn = void(__fastcall*)(void* self, void* edx, float* out);
 	const UInt32 posFn = Read(Read(ref) + 0xF4);
-	const UInt32 angleFn = Read(Read(ref) + 0xF8);
-	if (posFn < kTextStart || posFn >= kTextEnd || angleFn < kTextStart || angleFn >= kTextEnd) {
+	if (posFn < kTextStart || posFn >= kTextEnd) {
 		return false;
 	}
 	pos[0] = pos[1] = pos[2] = 0.0f;
-	angle[0] = angle[1] = angle[2] = 0.0f;
 	reinterpret_cast<StartFn>(posFn)(reinterpret_cast<void*>(ref), nullptr, pos);
-	reinterpret_cast<StartFn>(angleFn)(reinterpret_cast<void*>(ref), nullptr, angle);
 	return pos[0] == pos[0] && pos[1] == pos[1] && pos[2] == pos[2] && (pos[0] != 0.0f || pos[1] != 0.0f);
 }
 
@@ -1939,12 +1939,38 @@ void StepFame() {
 // no living walker within Radius get up where they fell - the engine's own
 // raise, as RaiseAsSelf calls it, with the get-up animation.
 void StepSafeguardInGame(float dt) {
-	// Test switch: where TestVictim stands and whether it lives, every 5 s.
+	// Test switch: TestVictim brought beside the player 30 s into the
+	// session and killed at 38 s, through RunScriptLine2 on the reference
+	// itself - the harness's console lines "0002CA3B.moveto player" did not
+	// take on an esm reference (safeguard-home.txt, 2026-11-05 10:07: it
+	// stayed in its house, no 3D); then where it stands, every 5 s.
+	static float s_victimTime = 0.0f;
+	static UInt32 s_victimStep = 0;
+	if (g_settings.safeguard.testVictim != 0 && s_victimStep < 2) {
+		s_victimTime += dt;
+		const UInt32 v = LookupForm(g_settings.safeguard.testVictim);
+		if (s_victimStep == 0 && s_victimTime >= 30.0f && LooksLikeObject(v)) {
+			s_victimStep = 1;
+			g_log("Safeguard: test - TestVictim brought beside the player (handed to xOBSE: %d)",
+			      ConsoleOn(v, "MoveTo player 0 150 0") ? 1 : 0);
+		} else if (s_victimStep == 1 && s_victimTime >= 38.0f && LooksLikeObject(v)) {
+			s_victimStep = 2;
+			g_log("Safeguard: test - TestVictim killed (handed to xOBSE: %d)", ConsoleOn(v, "Kill") ? 1 : 0);
+		}
+	}
 	static float s_victimClock = 0.0f;
 	s_victimClock += dt;
 	if (g_settings.safeguard.testVictim != 0 && s_victimClock >= 5.0f) {
 		s_victimClock = 0.0f;
 		const UInt32 v = LookupForm(g_settings.safeguard.testVictim);
+		float listed = -1.0f;
+		for (UInt32 i = 0; i < g_safeguard.count; ++i) {
+			if (g_safeguard.entries[i].refId == g_settings.safeguard.testVictim) {
+				listed = g_safeguard.entries[i].seconds;
+			}
+		}
+		g_log("Safeguard: test - TestVictim on the list %.1f s (-1 not), in the player's reach %d; enabled %d",
+		      listed, LooksLikeObject(v) && InPlayersReach(v) ? 1 : 0, g_settings.safeguard.enabled ? 1 : 0);
 		g_log("Safeguard: test - TestVictim %08X found %d, an actor %d, dead %d, cell %08X, 3D %d, at %.0f %.0f %.0f",
 		      g_settings.safeguard.testVictim, LooksLikeObject(v) ? 1 : 0, LooksLikeObject(v) && IsActor(v) ? 1 : 0,
 		      LooksLikeObject(v) && IsActor(v) && IsDead(v) ? 1 : 0,
@@ -2028,9 +2054,8 @@ void StepSafeguardInGame(float dt) {
 		}
 		// Where it goes once up (RaiseAtHome), read before the raise.
 		float start[3] = {};
-		float startAngle[3] = {};
 		HomeFacts home;
-		home.startKnown = StartPositionOf(ref, start, startAngle);
+		home.startKnown = StartPositionOf(ref, start);
 		home.homeCell = HomeCellOf(ref);
 		home.homeInterior = LooksLikeObject(home.homeCell) && (Read8(home.homeCell + kCellFlagsOffset) & 1) != 0;
 		const char* homeId = home.homeInterior ? CellEditorId(home.homeCell) : nullptr;
@@ -2044,7 +2069,7 @@ void StepSafeguardInGame(float dt) {
 		if (move == HomeMove::PositionCell) {
 			char line[160];
 			std::snprintf(line, sizeof(line), "PositionCell %.0f %.0f %.0f %.0f %s", start[0], start[1], start[2],
-			              startAngle[2] * 57.29578f, homeId);
+			              FloatAt(ref + kRefRotationOffset + 8) * 57.29578f, homeId);
 			moved = ConsoleOn(ref, line);
 		}
 		g_log("Safeguard: %08X home - start %.0f %.0f %.0f (known %d), its editor cell %08X (%s, %s), lies in %08X: "

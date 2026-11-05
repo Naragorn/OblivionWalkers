@@ -22,13 +22,16 @@
 # names bases; is base 0002CA36 near after it?), and whether the console
 # reaches an esm reference by its ID in this harness.
 #
+# Since 10:07: the plugin itself brings TestVictim beside the player 30 s
+# into the session and kills it at 38 s (Rise.cpp StepSafeguardInGame), the
+# console's lines on an esm reference not taking; the scenario only moves
+# the player into Bravil and waits.
+#
 # Runs through tools/safeguard-harness.sh, which sets the INI lines.
 
 ini Hands Enabled=1
 console-at ready tgm
 console-at inbravil player.moveto 00005603
-console-at brought 0002CA3B.moveto player 0 150 0
-console-at kill 0002CA3B.ModAV2 Health -9999
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -38,10 +41,6 @@ wait 1
 mark ready
 wait 10
 mark inbravil
-wait 8
-mark brought
-wait 5
-mark kill
-wait 30
+wait 100
 mark end
 wait 1
