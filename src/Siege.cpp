@@ -30,8 +30,6 @@ constexpr UInt32 kSiegeLogLines = 24;
 // The ESP's GLOB per city (tools/esp-write.py LOCAL_SIEGE_GLOBAL_FIRST), 1
 // while it is besieged: the Rumors topic's siege lines are said on it.
 constexpr UInt32 kSiegeGlobalLocalId = 0x9C7;
-constexpr UInt32 kGlobalValueOffset = 0x24;  // TESGlobal's float (News.cpp)
-constexpr UInt8 kFormTypeGlobal = 0x04;
 
 const SiegeSettings* g_settings = nullptr;
 SiegeConsoleFn g_console = nullptr;

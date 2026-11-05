@@ -179,7 +179,14 @@ LOCAL_SIEGE_GLOBAL_FIRST = LOCAL_SIEGE_POOL_FIRST + SIEGE_POOL + 16
 LOCAL_SIEGE_RUMOR_FIRST = LOCAL_SIEGE_GLOBAL_FIRST + 8
 RUMORS_TOPIC = 0x000000D7
 GET_GLOBAL_VALUE = 74  # the condition function, as Oblivion.esm's 246 INFOs with a GLOB parameter use it
-LOCAL_TEST_POOL_FIRST = LOCAL_SIEGE_RUMOR_FIRST + 8
+# The nights' rumor (4.20.5): a GLOB (Rise.cpp kNightGlobalLocalId, 1 while
+# [Night] Enabled) and an INFO in the Rumors topic, said while it is 1 - at
+# random among the vanilla rumors (DATA flags 0x02, as Oblivion.esm's 76
+# rumors without a condition, read 2026-11-05), not before them.
+LOCAL_NIGHT_GLOBAL = LOCAL_SIEGE_RUMOR_FIRST + 8
+LOCAL_NIGHT_RUMOR = LOCAL_NIGHT_GLOBAL + 1
+INFO_RANDOM = 0x02
+LOCAL_TEST_POOL_FIRST = LOCAL_NIGHT_RUMOR + 1
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -542,13 +549,13 @@ def build_global(edid: str) -> bytes:
     return subrecord(b"EDID", zstring(edid)) + subrecord(b"FNAM", b"s") + subrecord(b"FLTV", struct.pack("<f", 0.0))
 
 
-def build_rumor(quest_form: int, global_form: int, text: str) -> bytes:
+def build_rumor(quest_form: int, global_form: int, text: str, flags: int = 0) -> bytes:
     """A line of the Rumors topic, said while `global_form` is 1: DATA (the
     topic's type 1, no next speaker, no flags - not random, so with its
     global set it comes before the vanilla rumors), QSTI the quest, TRDT
     neutral at 50, the first response, NAM1 the text, NAM2 no notes, CTDA
     GetGlobalValue == 1, SCHR no script."""
-    out = subrecord(b"DATA", bytes([1, 0, 0]))
+    out = subrecord(b"DATA", bytes([1, 0, flags]))
     out += subrecord(b"QSTI", struct.pack("<I", quest_form))
     out += subrecord(b"TRDT", struct.pack("<IiIB3s", 0, 50, 0, 1, b"\0\0\0"))
     out += subrecord(b"NAM1", zstring(text))
@@ -699,14 +706,18 @@ def main() -> int:
     link_script_form = index | LOCAL_LINK_SCRIPT_ID
     link_quest_form = index | LOCAL_LINK_QUEST_ID
     siege_globals = [index | (LOCAL_SIEGE_GLOBAL_FIRST + c) for c in range(len(CITIES))]
+    night_global = index | LOCAL_NIGHT_GLOBAL
     globals_group = group(b"GLOB", b"".join(record(b"GLOB", form, build_global(f"WalkersSiege{CITIES[c]}"))
-                                            for c, form in enumerate(siege_globals)))
+                                            for c, form in enumerate(siege_globals))
+                          + record(b"GLOB", night_global, build_global("WalkersNight")))
     rumors_dial = find_record(esm, buf, b"DIAL", RUMORS_TOPIC)
     dial_data = b"".join(subrecord(k, d) for k, d in rumors_dial) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
     rumor_texts = load_editions_module().rumors()
     rumors = b"".join(record(b"INFO", index | (LOCAL_SIEGE_RUMOR_FIRST + c),
                              build_rumor(link_quest_form, siege_globals[c], rumor_texts[c]))
                       for c in range(len(CITIES)))
+    rumors += record(b"INFO", index | LOCAL_NIGHT_RUMOR,
+                     build_rumor(link_quest_form, night_global, load_editions_module().night_rumor(), INFO_RANDOM))
     dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors))
     body = (globals_group + group(b"RACE", races) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
             + group(b"BOOK", books) + group(b"NPC_", guards) + group(b"CREA", creatures)
@@ -718,7 +729,7 @@ def main() -> int:
     groups = 5 + 5 + 1 + 2 + 1 + 1 + 2
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
-               + len(siege_globals) + 1 + len(CITIES))
+               + len(siege_globals) + 1 + len(CITIES) + 2)
     next_id = LOCAL_TEST_POOL_FIRST + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")

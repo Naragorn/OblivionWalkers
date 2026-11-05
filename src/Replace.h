@@ -25,7 +25,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 // they had at the first call - the record in memory only.
 // The variant list's count slots written anew from MinCount and MaxCount
 // (LINK's menu, 4.18); nothing without the ESP's lists.
-void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, LogFn log);
+void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt32 nightPercent, LogFn log);
 
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log);
 

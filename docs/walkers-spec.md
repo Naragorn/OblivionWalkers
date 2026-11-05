@@ -2049,12 +2049,53 @@ each**: the records and the rules are there (the looks, the pace, 4.17),
 new are each kind's effect, its look and its share in the lists; unit flows
 for the shares, a harness per kind.
 
-#### 4.20.5 Nights are worse - `[Night] Enabled=1`, `SpeedMultiplier=1.3`, `SpawnPercent=150`
+#### 4.20.5 Nights are worse - `[Night] Enabled=1`, `SpeedMultiplier=1.3`, `SpawnPercent=150`, `HordeLeadPercent=150`, `StartHour=20`, `EndHour=6`, `RampHours=1` - BUILT 2026-11-05
 
 At night the walkers are quicker, the spawns give more, the hordes move on
-farther; dawn calms them. Cost **small**: the pace (4.4) and the counts
-(4.6) tied to GameHour, written anew at dusk and dawn; unit flows for the
-hours, a harness with GameHour set.
+farther; dawn calms them. Nadi, 2026-11-05: "go 3", in the INI and LINK, on
+by default.
+
+How (`NightLogic.h`, `Rise.cpp` StepNight, `Replace.cpp`, `Horde.cpp`):
+- Once a second the hour (GameHour off GameDaysPassed's clock) gives the
+  night's share: 0 by day, 1 at full night, rising over `RampHours` after
+  `StartHour` and falling over `RampHours` before `EndHour` (across midnight
+  when the start is the later hour; start and end alike: no night). In 12
+  steps a ramp hour - the records and the list are written only when the
+  step changes.
+- The pace: the 64 walker records' Speed (4.4) at `[Zombies]
+  SpeedMultiplier` times the night's factor (up to `SpeedMultiplier` 1.3).
+  Measured: a live walker takes the record's new Speed within the 2 s of
+  the log (below).
+- The spawns: each count slot of the variant list (4.6) at `SpawnPercent`
+  of the day's, rounded, at most 20 (`kNightWalkersPerSpawnMost`; the day's
+  most is 10) - the defaults' 1..10 become 2..15.
+- The hordes: the marker `HordeLeadPercent` of `[Horde] LeadUnits` ahead
+  (a guess at "move farther", Nadi's word; the pace makes them cover more
+  ground on its own too). Not seen in a run with a horde yet.
+- The rumor: the ESP's GLOB `WalkersNight` (local 0x9D7) is 1 while
+  `Enabled`, an INFO of the Rumors topic (0x9D8) said while it is 1 - at
+  random among the vanilla rumors (DATA flags 0x02, as Oblivion.esm's 76
+  rumors without a condition), not before them as the siege's are. Not
+  heard in the game yet.
+- Not changed: the grab's chance, the siege's rules. The siege's walkers
+  share the walker records, so they are quicker at night too (derived; the
+  pace has one value per record).
+- LINK (version 18): on/off, the pace, the spawns, the horde's lead, the
+  start and the end hour - live, the next second's step applies them.
+  `RampHours` only in the INI. LINK's slider holds the pace to 0.5..2.0: an
+  INI value past it is read back clamped once LINK is loaded (3 read as 2,
+  14:05).
+
+Tests: `NightLogicTest` (the hours, the ramps, across midnight or not, no
+night, off, the clock unknown, the steps, the factors, the counts),
+`LinkLogicTest` (the six at 128..133). Harness `night-pace.txt` through
+`tools/night-harness.sh` (`SpeedMultiplier=2`, `RampHours=0`), PASS
+2026-11-05 14:12: noon "step 0 of 12", 1:00 "step 12 of 12 - pace x2.00,
+spawns 150 %, the horde's lead x1.50", record 26000803 from 10 to 19, the
+counts "2 3 5 6 8 9 11 12 14 15 (150 % of the day's)", 12:00 back to 10 and
+"1 2 ... 10"; the walker (record 2600091B) at 97, 81, 112 units/s at night,
+35 to 84 (mean about 55) by day after. Open: the headset's feel, a horde at
+night, the rumor heard.
 
 #### 4.20.6 Survivors' camps - `[Survivors] Enabled=1`
 
@@ -2167,6 +2208,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `rise-walker-clone.txt` | the same on a clone of the fallen one's base record (`[Rise] CloneBase=1`): the base swap on a corpse (7.2) - PASS 2026-10-23 18:07 (run 1 FAIL: CopyFrom is virtual 45, not 33; run 2 the swap worked, the runner's verdict fell to the scenario's own reject line) | the plugin |
 | `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) - PASS 2026-10-24 10:26 (Walk=1) and 10:29 (Walk=0); SpeedMultiplier=2 PASS 21:00, 69 to 106 units/s | the plugin |
 | `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed; MaxCount 10 PASS 20:47: 15 walkers | the plugin, the ESP active |
+| `night-pace.txt` | the nights (4.20.5) through `tools/night-harness.sh`: noon, 1:00, noon - the records' pace x2 and back, the counts at 150 % and back, a risen walker's units/s at night and by day - PASS 2026-11-05 14:12 | the plugin, the ESP active |
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |

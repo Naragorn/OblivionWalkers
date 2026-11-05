@@ -15,8 +15,6 @@ namespace {
 // 018, type 020, data 024).
 constexpr UInt32 kGameHourId = 0x00000038;
 constexpr UInt32 kGameDaysPassedId = 0x00000039;
-constexpr UInt32 kGlobalValueOffset = 0x24;
-constexpr UInt8 kFormTypeGlobal = 0x04;
 constexpr UInt8 kFormTypeBook = 0x15;
 constexpr UInt32 kRefBaseFormOffset = 0x1C;
 constexpr float kStepSeconds = 1.0f;

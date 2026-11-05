@@ -1619,6 +1619,71 @@ void StepWalkers(float dt) {
 	}
 }
 
+// 4.20.5 Nights are worse (NightLogic.h): what the walker records, the
+// variant list and the horde carry now - day until the first look.
+NightNow g_nightApplied;
+float g_nightClock = 0.0f;
+int g_nightRumor = -1;  // the rumor global as last set, -1 not yet
+constexpr UInt32 kNightGlobalLocalId = 0x9D7;  // tools/esp-write.py LOCAL_NIGHT_GLOBAL
+
+// The pace the records get: the day's SpeedMultiplier times the night's.
+float NightSpeedMultiplier() { return g_settings.speedMultiplier * g_nightApplied.speedFactor; }
+
+// The rumor's global (WalkersNight) 1 while the nights are on: said among
+// the vanilla rumors, at random as theirs (esp-write.py build_rumor).
+void SetNightRumor(bool on) {
+	if (g_nightRumor == (on ? 1 : 0)) {
+		return;
+	}
+	const UInt32 base = FindEspBase();
+	const UInt32 global = base != kNoEsp ? LookupForm(EspFormId(base, kNightGlobalLocalId)) : 0;
+	if (!LooksLikeObject(global) || Read8(global + kFormTypeOffset) != kFormTypeGlobal) {
+		g_log("Night: no rumor global %08X (an older ESP) - nothing said", base != kNoEsp ? EspFormId(base, kNightGlobalLocalId) : 0);
+		g_nightRumor = on ? 1 : 0;
+		return;
+	}
+	*reinterpret_cast<float*>(global + kGlobalValueOffset) = on ? 1.0f : 0.0f;
+	g_nightRumor = on ? 1 : 0;
+	g_log("Night: rumor global %08X now %.0f", FormIdOf(global), FloatAt(global + kGlobalValueOffset));
+}
+
+// Once a game second after the records are written (StepSpawns): the hour
+// read, the night's step; whatever differs from what is applied written
+// anew - the pace, the counts, the horde's lead.
+void StepNight(float dt) {
+	if (g_walkerCount == 0 || !g_spawnsDone) {
+		return;
+	}
+	g_nightClock += dt;
+	if (g_nightClock < 1.0f) {
+		return;
+	}
+	g_nightClock = 0.0f;
+	SetNightRumor(g_settings.night.enabled);
+	const float days = GameDaysNow();
+	const float hour = days < 0.0f ? -1.0f : (days - std::floor(days)) * 24.0f;
+	const NightNow n = NightAt(g_settings.night, hour);
+	const bool pace = n.speedFactor != g_nightApplied.speedFactor;
+	const bool counts = n.spawnPercent != g_nightApplied.spawnPercent;
+	const bool lead = n.leadFactor != g_nightApplied.leadFactor;
+	if (!pace && !counts && !lead) {
+		return;
+	}
+	g_log("Night: %.2f h, step %u of %u - pace x%.2f, spawns %u %%, the horde's lead x%.2f (Enabled=%d, %.0f to %.0f)",
+	      hour, n.step, kNightSteps, n.speedFactor, n.spawnPercent, n.leadFactor, g_settings.night.enabled ? 1 : 0,
+	      g_settings.night.startHour, g_settings.night.endHour);
+	g_nightApplied = n;
+	if (pace) {
+		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
+	}
+	if (counts) {
+		RewriteVariantCounts(FindEspBase(), g_replace, n.spawnPercent, g_log);
+	}
+	if (lead) {
+		SetHordeNightLead(n.leadFactor);
+	}
+}
+
 // The spawn replacement (4.6) and the walkers' health (4.5), once the ESP's
 // walkers are known: at the first tick (the main menu - the records are
 // loaded, nothing spawned yet), and again five game seconds after every
@@ -1630,7 +1695,7 @@ void StepSpawns(float dt) {
 	if (!g_spawnsDone) {
 		g_spawnsDone = true;
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
-		ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
+		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
 		if (g_replace.enabled) {
 			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
@@ -1683,10 +1748,10 @@ void ApplyLinkEffect(LinkEffect effect) {
 	switch (effect) {
 		case LinkEffect::WalkerRecords:
 			ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
-			ScaleWalkerSpeed(g_walkers, g_walkerCount, g_settings.speedMultiplier, g_settings.speedRandomPercent, g_log);
+			ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 			break;
 		case LinkEffect::SpawnCounts:
-			RewriteVariantCounts(FindEspBase(), g_replace, g_log);
+			RewriteVariantCounts(FindEspBase(), g_replace, g_nightApplied.spawnPercent, g_log);
 			break;
 		case LinkEffect::Horde:
 			ConfigureHorde(g_settings.horde, FindEspBase(), g_log);
@@ -2111,6 +2176,7 @@ void Tick() {
 		StepLink(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepNight(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepGrabInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);

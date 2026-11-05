@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 17.0;
+inline constexpr double kLinkVersion = 18.0;  // 18: the nights' six (4.20.5), 2026-11-05
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -81,6 +81,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount, "Only a lost head ends a walker"},
 	{68 + kReplaceCategoryCount + 3, "City sieges"},
 	{68 + kReplaceCategoryCount + 10, "Grabbed - in reach (VR)"},
+	{68 + kReplaceCategoryCount + 15, "Nights are worse"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -266,6 +267,18 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_safeguard_at_home", "Raised at home", "Whom the safeguard raises wakes where the game placed them, their house or shop.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_night_enabled", "Nights are worse", "From dusk to dawn the walkers are quicker, spawns bring more of them, hordes roam farther.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_night_speed", "Night: walker pace", "How much quicker the walkers are at night, 1 as by day.", LinkKind::Slider,
+	 0.5f, 2.0f, 0.05f, 2, false, LinkEffect::Live},
+	{"ini_night_spawns", "Night: walkers per spawn", "A spawn's walkers at night, in percent of the day's.",
+	 LinkKind::Slider, 50, 300, 10, 0, true, LinkEffect::Live},
+	{"ini_night_horde_lead", "Night: hordes roam farther", "How far ahead a horde heads at night, in percent of the day's.",
+	 LinkKind::Slider, 50, 300, 10, 0, true, LinkEffect::Live},
+	{"ini_night_start", "Night begins at", "The hour the night begins (they quicken over the hour after).",
+	 LinkKind::Slider, 0, 23, 1, 0, false, LinkEffect::Live},
+	{"ini_night_end", "Night ends at", "The hour the night ends (they calm over the hour before).", LinkKind::Slider, 0,
+	 23, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -359,6 +372,12 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 125: return rise.grab.lungeSeconds;
 		case 126: return rise.noRiseInCities ? 1.0 : 0.0;
 		case 127: return rise.safeguard.raiseAtHome ? 1.0 : 0.0;
+		case 128: return rise.night.enabled ? 1.0 : 0.0;
+		case 129: return rise.night.speedMultiplier;
+		case 130: return rise.night.spawnPercent;
+		case 131: return rise.night.hordeLeadPercent;
+		case 132: return rise.night.startHour;
+		case 133: return rise.night.endHour;
 		default: return 0.0;
 	}
 }
@@ -473,6 +492,12 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 125: rise.grab.lungeSeconds = fraction; break;
 		case 126: rise.noRiseInCities = on; break;
 		case 127: rise.safeguard.raiseAtHome = on; break;
+		case 128: rise.night.enabled = on; break;
+		case 129: rise.night.speedMultiplier = fraction; break;
+		case 130: rise.night.spawnPercent = whole; break;
+		case 131: rise.night.hordeLeadPercent = whole; break;
+		case 132: rise.night.startHour = fraction; break;
+		case 133: rise.night.endHour = fraction; break;
 		default: return false;
 	}
 	return true;

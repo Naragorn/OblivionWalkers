@@ -50,6 +50,11 @@ constexpr UInt32 kCandidatesMost = kHordeCandidatesMost;
 constexpr float kStepSeconds = 1.0f;
 
 HordeSettings g_settings;
+// 4.20.5: the marker's lead by day (the settings'), and the night's factor
+// on it (SetHordeNightLead) - kept apart, so a LINK change of LeadUnits at
+// night keeps the night's share.
+float g_dayLeadUnits = 2000.0f;
+float g_nightLeadFactor = 1.0f;
 HordeState g_state;
 UInt32 g_espBase = kNoEsp;
 UInt32 g_seed = 0x9E3779B9u;
@@ -422,8 +427,15 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 
 }  // namespace
 
+void SetHordeNightLead(float factor) {
+	g_nightLeadFactor = factor > 0.0f ? factor : 1.0f;
+	g_settings.leadUnits = g_dayLeadUnits * g_nightLeadFactor;
+}
+
 void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log) {
 	g_settings = settings;
+	g_dayLeadUnits = settings.leadUnits;
+	g_settings.leadUnits = g_dayLeadUnits * g_nightLeadFactor;
 	g_espBase = espBase;
 	g_ready = false;
 	if (!settings.enabled) {

@@ -15,6 +15,7 @@
 #include "HordeLogic.h"
 #include "MissingLogic.h"
 #include "NewsLogic.h"
+#include "NightLogic.h"
 #include "SafeguardLogic.h"
 #include "SiegeLogic.h"
 #include "Types.h"
@@ -169,6 +170,8 @@ struct RiseSettings {
 	// [Zombies] DieOnlyBeheaded, RiseAgainSeconds, RiseAgainJitterSeconds
 	// (4.17, EndLogic.h): a walker gets up again until its head is off.
 	EndSettings end;
+	// [Night] (4.20.5, NightLogic.h): nights are worse.
+	NightSettings night;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk

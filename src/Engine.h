@@ -16,6 +16,8 @@ inline constexpr UInt8 kFormTypeCreature = 0x24;
 inline constexpr UInt8 kFormTypeLeveledCreature = 0x25;
 inline constexpr UInt8 kFormTypeCell = 0x30;        // xOBSE GameForms.h; 0x005E1F60 tests it
 inline constexpr UInt8 kFormTypeWorldSpace = 0x35;  // xOBSE GameForms.h; 0x005E1F40 tests it
+inline constexpr UInt8 kFormTypeGlobal = 0x04;
+inline constexpr UInt32 kGlobalValueOffset = 0x24;  // TESGlobal's float
 inline constexpr UInt32 kLookupFormByID = 0x0046B250;  // xOBSE GameAPI.cpp, cdecl (UInt32 id)
 inline constexpr UInt32 kDataHandlerPointer = 0x00B33A98;
 // DataHandler (xOBSE GameData.h): the loaded mods by their runtime index,

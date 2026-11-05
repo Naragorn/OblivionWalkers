@@ -172,6 +172,13 @@ def editions() -> list[tuple[str, str, str]]:
     return out
 
 
+def night_rumor() -> str:
+    """The Rumors topic's line about the nights (4.20.5), said at random among
+    the others while [Night] Enabled is on."""
+    return ("They say the walkers are worse after dark. Quicker on their feet, and more of them on the roads. "
+            "Once the sun is down I bar my door and wait for the dawn.")
+
+
 def rumors() -> list[str]:
     """The Rumors topic's line per city while it is besieged (4.12), in
     CityGates.h's order - said by every NPC who has rumors to tell."""

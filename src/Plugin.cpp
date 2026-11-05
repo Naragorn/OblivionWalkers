@@ -196,6 +196,14 @@ bool ReadSettings(walkers::Settings* settings) {
 	siege.testReadDoor = static_cast<UInt32>(std::strtoul(door, nullptr, 16));
 	rise.safeguard.enabled = GetPrivateProfileIntA("Safeguard", "Enabled", 1, path) != 0;
 	rise.safeguard.raiseAtHome = GetPrivateProfileIntA("Safeguard", "RaiseAtHome", 1, path) != 0;
+	walkers::NightSettings& night = rise.night;
+	night.enabled = GetPrivateProfileIntA("Night", "Enabled", 1, path) != 0;
+	night.speedMultiplier = std::max(0.1f, std::min(5.0f, IniFloat("Night", "SpeedMultiplier", 1.3f, path)));
+	night.spawnPercent = static_cast<UInt32>(std::max(10, std::min(500, static_cast<int>(GetPrivateProfileIntA("Night", "SpawnPercent", 150, path)))));
+	night.hordeLeadPercent = static_cast<UInt32>(std::max(10, std::min(500, static_cast<int>(GetPrivateProfileIntA("Night", "HordeLeadPercent", 150, path)))));
+	night.startHour = IniFloat("Night", "StartHour", 20.0f, path);
+	night.endHour = IniFloat("Night", "EndHour", 6.0f, path);
+	night.rampHours = std::max(0.0f, IniFloat("Night", "RampHours", 1.0f, path));
 	char victim[16] = {};
 	GetPrivateProfileStringA("Safeguard", "TestVictim", "0", victim, sizeof(victim), path);
 	rise.safeguard.testVictim = static_cast<UInt32>(std::strtoul(victim, nullptr, 16));

@@ -35,6 +35,10 @@ using CandidatesFn = UInt32 (*)(HordeCandidate* out, UInt32 most);
 // horde.
 void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log);
 
+// 4.20.5 (NightLogic.h): the horde's marker `factor` times LeadUnits ahead -
+// farther at night; 1 by day. Kept across ConfigureHorde.
+void SetHordeNightLead(float factor);
+
 // The gate guards' settings, once a session, after ConfigureHorde (the
 // pool is the ESP's). Without the ESP's guards: no guards.
 void ConfigureGuards(const GuardSettings& settings, LogFn log);

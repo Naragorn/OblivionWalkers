@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 128,
-	      "128 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome - every INI setting but Name, "
+	Check(kLinkSettingCount == 134,
+	      "134 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -181,7 +181,26 @@ void TestValues() {
 	      "no rise in cities, off by default, on from the menu");
 	const int atHome = IndexOf("ini_safeguard_at_home");
 	Check(atHome == 127 && walkers::LinkValue(rise, replace, atHome) == 1.0,
-	      "raised at home last, on by default");
+	      "raised at home, on by default");
+	const int nightOn = IndexOf("ini_night_enabled");
+	const int nightSpeed = IndexOf("ini_night_speed");
+	const int nightSpawns = IndexOf("ini_night_spawns");
+	const int nightLead = IndexOf("ini_night_horde_lead");
+	const int nightStart = IndexOf("ini_night_start");
+	const int nightEnd = IndexOf("ini_night_end");
+	Check(nightOn == 128 && nightSpeed == 129 && nightSpawns == 130 && nightLead == 131 && nightStart == 132 &&
+	          nightEnd == 133 && walkers::LinkValue(rise, replace, nightOn) == 1.0 &&
+	          std::fabs(walkers::LinkValue(rise, replace, nightSpeed) - 1.3) < 1e-6 &&
+	          walkers::LinkValue(rise, replace, nightSpawns) == 150.0 &&
+	          walkers::LinkValue(rise, replace, nightLead) == 150.0 &&
+	          walkers::LinkValue(rise, replace, nightStart) == 20.0 && walkers::LinkValue(rise, replace, nightEnd) == 6.0,
+	      "the nights last: on, x1.3, 150 %, 150 %, 20:00 to 6:00 - the INI's defaults");
+	Check(walkers::SetLinkValue(rise, replace, nightOn, 0.0) && !rise.night.enabled &&
+	          walkers::SetLinkValue(rise, replace, nightSpeed, 1.6) && std::fabs(rise.night.speedMultiplier - 1.6f) < 1e-6f &&
+	          walkers::SetLinkValue(rise, replace, nightStart, 22.0) && rise.night.startHour == 22.0f &&
+	          kLinkSettings[nightOn].effect == walkers::LinkEffect::Live &&
+	          kLinkSettings[nightSpeed].effect == walkers::LinkEffect::Live,
+	      "the nights off and quicker from the menu, live: the night's step applies what changed");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -270,7 +289,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 17\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 18\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

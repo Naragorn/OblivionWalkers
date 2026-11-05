@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Engine.h"
+#include "NightLogic.h"
 
 namespace walkers {
 namespace {
@@ -137,7 +138,10 @@ UInt32 TrimAnyWalker(UInt32 anyWalker, bool mooLoaded, bool keepHeadless, LogFn 
 
 // The variant list's counts per slot (ReplaceLogic.h SpreadCount), and the
 // any-walker list's flag - drawn anew for each of the count - read back.
-void WriteVariantCounts(UInt32 variant, UInt32 anyWalker, const ReplaceSettings& settings, LogFn log) {
+// nightPercent (4.20.5, NightLogic.h): each slot's count at that percent of
+// the day's; 100 by day.
+void WriteVariantCounts(UInt32 variant, UInt32 anyWalker, const ReplaceSettings& settings, UInt32 nightPercent,
+                        LogFn log) {
 	UInt32 slots = 0;
 	for (UInt32 node = variant + kLevCreatureListOffset; LooksLikeObject(node) && slots < kVariantEntriesMost;
 	     node = Read(node + 4)) {
@@ -155,15 +159,16 @@ void WriteVariantCounts(UInt32 variant, UInt32 anyWalker, const ReplaceSettings&
 		if (Read(data + kListDataFormOffset) != anyWalker) {
 			++other;
 		}
-		const UInt16 count = static_cast<UInt16>(SpreadCount(settings.minCount, settings.maxCount, slot, slots));
+		const UInt16 count = static_cast<UInt16>(
+			NightSpawnCount(SpreadCount(settings.minCount, settings.maxCount, slot, slots), nightPercent));
 		*reinterpret_cast<UInt16*>(data + kListDataCountOffset) = count;
 		written += static_cast<UInt32>(
 			std::snprintf(counts + written, sizeof(counts) - written, "%s%u", slot == 0 ? "" : " ", count));
 		++slot;
 	}
 	const UInt8 flags = Read8(anyWalker + kLevCreatureFlagsOffset);
-	log("Spawns: WalkersZombieVariant %08X - %u count slots, counts %s%s; the any-walker list's flags %02X (%s)",
-	    FormIdOf(variant), slots, counts, other == 0 ? "" : " - some slots not the any-walker list (an older ESP)",
+	log("Spawns: WalkersZombieVariant %08X - %u count slots, counts %s (%u %% of the day's)%s; the any-walker list's flags %02X (%s)",
+	    FormIdOf(variant), slots, counts, nightPercent, other == 0 ? "" : " - some slots not the any-walker list (an older ESP)",
 	    flags, (flags & kListCalcEach) != 0 ? "drawn anew for each walker" : "one draw copied - an older ESP");
 }
 
@@ -345,7 +350,7 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 
 }  // namespace
 
-void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, LogFn log) {
+void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt32 nightPercent, LogFn log) {
 	if (espBase == kNoEsp) {
 		return;
 	}
@@ -353,7 +358,7 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, LogFn
 	const UInt32 anyWalker = LookupForm(EspFormId(espBase, kAnyWalkerLocalId));
 	if (LooksLikeObject(variant) && Read8(variant + kFormTypeOffset) == kFormTypeLeveledCreature &&
 	    LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
-		WriteVariantCounts(variant, anyWalker, settings, log);
+		WriteVariantCounts(variant, anyWalker, settings, nightPercent, log);
 	}
 }
 
@@ -374,7 +379,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 		const UInt32 anyWalker = LookupForm(EspFormId(espBase, kAnyWalkerLocalId));
 		if (LooksLikeObject(anyWalker) && Read8(anyWalker + kFormTypeOffset) == kFormTypeLeveledCreature) {
 			TrimAnyWalker(anyWalker, mooLoaded, settings.headlessWalkers, log);
-			WriteVariantCounts(variant, anyWalker, settings, log);
+			WriteVariantCounts(variant, anyWalker, settings, 100, log);
 		} else {
 			log("Spawns: %08X is no leveled creature list (an older ESP) - the variant list's counts as written",
 			    EspFormId(espBase, kAnyWalkerLocalId));

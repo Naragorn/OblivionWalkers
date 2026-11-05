@@ -1,0 +1,53 @@
+# Nights are worse (docs/walkers-spec.md 4.20.5, built 2026-11-05): run
+# through tools/night-harness.sh, which sets [Night] SpeedMultiplier=2 (LINK's slider ends at 2 and holds the
+# INI's value to it once LINK is loaded - 3 read back as 2 at 14:05) and
+# RampHours=0 (plain to measure, at once) and [Rise] AfterSeconds=10,
+# JitterSeconds=0 in the live plugin INI. Noon first: the night's step 0. A
+# bandit placed 900 units north and killed rises as a walker 10 s later and
+# comes at the untouchable player - "Walk: walker ... N units/s" every 2 s.
+# As it starts walking the clock is set to 1:00: "Night: ...
+# step 12 of 12 - pace x2.00, spawns 150 %, the horde's lead x1.50", the
+# 64 walker records at twice the day's pace, "counts ... (150 % of the day's)" -
+# and the same walker's units/s should rise (whether a live walker takes a
+# record's new Speed at once is what this run measures). 6 s later 12:00 again:
+# step 0, the records and the counts back, the walker at the day's pace
+# for the rest of its way.
+#
+# Runs on OBVR's harness through tools/night-harness.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready set GameHour to 12
+console-at ready player.placeatme 00069AD1 1
+console-at ready tgm
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 900 0
+console-at moved killall
+console-at night set GameHour to 1
+console-at day set GameHour to 12
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 1
+mark moved
+wait 3
+mark dead
+wait 19
+mark night
+wait 3
+mark coming
+wait 3
+mark day
+wait 4
+mark coming2
+wait 8
+mark end
+wait 1
