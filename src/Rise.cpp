@@ -1939,6 +1939,20 @@ void StepFame() {
 // no living walker within Radius get up where they fell - the engine's own
 // raise, as RaiseAsSelf calls it, with the get-up animation.
 void StepSafeguardInGame(float dt) {
+	// Test switch: where TestVictim stands and whether it lives, every 5 s.
+	static float s_victimClock = 0.0f;
+	s_victimClock += dt;
+	if (g_settings.safeguard.testVictim != 0 && s_victimClock >= 5.0f) {
+		s_victimClock = 0.0f;
+		const UInt32 v = LookupForm(g_settings.safeguard.testVictim);
+		g_log("Safeguard: test - TestVictim %08X found %d, an actor %d, dead %d, cell %08X, 3D %d, at %.0f %.0f %.0f",
+		      g_settings.safeguard.testVictim, LooksLikeObject(v) ? 1 : 0, LooksLikeObject(v) && IsActor(v) ? 1 : 0,
+		      LooksLikeObject(v) && IsActor(v) && IsDead(v) ? 1 : 0,
+		      LooksLikeObject(v) ? FormIdOf(Read(v + kRefParentCellOffset)) : 0,
+		      LooksLikeObject(v) && Read(v + kRefNiNodeOffset) != 0 ? 1 : 0, LooksLikeObject(v) ? FloatAt(v + kRefPositionOffset) : 0.0f,
+		      LooksLikeObject(v) ? FloatAt(v + kRefPositionOffset + 4) : 0.0f,
+		      LooksLikeObject(v) ? FloatAt(v + kRefPositionOffset + 8) : 0.0f);
+	}
 	if (g_unclaimedCount > 0) {
 		static HordeCandidate around[kHordeCandidatesMost];  // not `near`: a Windows macro
 		const UInt32 aroundCount = HordeCandidates(around, kHordeCandidatesMost);
