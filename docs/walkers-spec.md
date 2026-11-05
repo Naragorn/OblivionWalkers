@@ -2253,6 +2253,22 @@ seen (OBVR does not handle 'WGCT' yet; headless).
 
 Open for Nadi: the places; the escort (step 2).
 
+#### 4.20.7 Refugees hold dungeons - idea (Nadi, 2026-11-05), not decided
+
+Some dungeons are taken over by refugees: a cave, a mine or a fort whose
+bandits or creatures are gone, refugees living inside, walkers trying to get
+in. Cost **medium to large**, on top of the dynamic camps (4.20.6, the pool
+of people and props placed near the player - the same pool would serve a
+dungeon): which dungeons (interior cells behind a Tamriel door, of the
+caves', mines' and forts' kinds, none a quest's - Oblivion.esm's quest
+targets read off and left out), their occupants disabled while held (the
+spawn replacement, 4.6, already turns their creatures into walkers - which
+of the two wins is to settle), the refugees and props moved in near the
+door's arrival point (MoveTo into an interior works: the gate guards'
+pool), attacks coming in at the door, held or overrun as a camp. Open:
+whether a dungeon held stays held across its cell reset (the engine
+respawns leveled occupants after 3 days), the quests, the loot.
+
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
 Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting
