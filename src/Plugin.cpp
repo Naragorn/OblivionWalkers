@@ -195,6 +195,10 @@ bool ReadSettings(walkers::Settings* settings) {
 	GetPrivateProfileStringA("Siege", "TestReadDoor", "0", door, sizeof(door), path);
 	siege.testReadDoor = static_cast<UInt32>(std::strtoul(door, nullptr, 16));
 	rise.safeguard.enabled = GetPrivateProfileIntA("Safeguard", "Enabled", 1, path) != 0;
+	rise.safeguard.raiseAtHome = GetPrivateProfileIntA("Safeguard", "RaiseAtHome", 1, path) != 0;
+	char victim[16] = {};
+	GetPrivateProfileStringA("Safeguard", "TestVictim", "0", victim, sizeof(victim), path);
+	rise.safeguard.testVictim = static_cast<UInt32>(std::strtoul(victim, nullptr, 16));
 	rise.safeguard.afterSeconds = IniFloat("Safeguard", "AfterSeconds", 15.0f, path);
 	rise.safeguard.afterSeconds = rise.safeguard.afterSeconds < 0.0f ? 0.0f : rise.safeguard.afterSeconds;
 	rise.safeguard.radius = IniFloat("Safeguard", "Radius", 3000.0f, path);

@@ -1,32 +1,24 @@
-# A walker's victim raised by the safeguard walks back to its schedule
-# (docs/walkers-spec.md 4.11b; Nadi, 2026-11-04: raised at home if easy,
-# else where it lay and on its way - the second, the home teleport needs the
-# start cell, not read yet). In Bravil's streets (onto the city-side gate
-# door 00005603): a walker placed beside the player ({actor}, the nearest),
-# the Bravil NPC 0000A085 (loaded there in the roster; 0000A12A and 0000A16A of the first runs were not) killed with the walker as the killer, then the
-# walker killed (Dismemberment=0: it stays down), 40 s. The run's plugin INI
-# carries [Rise] NoRiseInCities=1, so a generic guard is the safeguard's too. OblivionWalkers.log
-# (Second run 21:32: the guard cut the walker down within the 2 s before the
-# kill - now half a second.) (by hand): "Safeguard: 0000A085 killed by walker ...", then "0000A085 ...
-# gets up again ... its packages asked anew: 1". The pictures after: where
-# the raised one goes.
+# The safeguard raises a walkers' victim at home (docs/walkers-spec.md
+# 4.11b, RaiseAtHome; Nadi, 2026-11-05: "A"). Ursanne Loche (reference
+# 0000A116, placed by Oblivion.esm in BravilAleronLochesHouse) brought out
+# into Bravil's streets beside the player, killed by the console; the run's
+# plugin INI carries [Safeguard] TestVictim=0000A116, so her death counts as
+# the walkers' doing. No walker near: 15 s later the safeguard raises her.
+# OblivionWalkers.log (by hand): "Safeguard: test - TestVictim 0000A116
+# died", "0000A116 home - start ... its editor cell ... (an interior,
+# BravilAleronLochesHouse) ... moved home (PositionCell handed over)", "after
+# the move in <her house's cell>".
 #
-# NOT WORKING YET (2026-11-04, four runs): the console's kill never took -
-# the roster ("HandScript: actors") names base forms, not references, so
-# 0000A12A / 0000A16A / 0000A085 here are no living references in reach.
-# Wanted: the reference of a named NPC standing in Bravil's streets.
+# (A first draft of 2026-11-04 tried killing by a walker through the
+# console; the roster names base forms, so it never found its victim.)
 #
-# Runs on OBVR's harness, from the OBVR folder:
-#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/safeguard-home.txt --headless \
-#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+# Runs through tools/safeguard-harness.sh, which sets the INI lines.
 
 ini Hands Enabled=1
-ini Hands Dismemberment=0
 console-at ready tgm
 console-at inbravil player.moveto 00005603
-console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 60 0
-console-at victim 0000A085.kill {actor}
-console-at walkerdown {actor}.kill player
+console-at brought 0000A116.moveto player 0 150 0
+console-at kill 0000A116.kill
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -36,12 +28,10 @@ wait 1
 mark ready
 wait 10
 mark inbravil
-wait 6
-mark placed
-wait 0.5
-mark victim
-wait 0.5
-mark walkerdown
-wait 40
+wait 8
+mark brought
+wait 5
+mark kill
+wait 30
 mark end
 wait 1

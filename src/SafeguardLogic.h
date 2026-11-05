@@ -24,7 +24,60 @@ struct SafeguardSettings {
 	bool enabled = true;          // [Safeguard] Enabled
 	float afterSeconds = 15.0f;   // [Safeguard] AfterSeconds: dead at least this long
 	float radius = 3000.0f;       // [Safeguard] Radius: no living walker this near
+	// [Safeguard] RaiseAtHome (Nadi, 2026-11-05: "A"): the raised one moved to
+	// where it was placed - its start position in its editor cell - when that
+	// is an interior the game knows by editor ID; else raised where it lay.
+	bool raiseAtHome = true;
+	// Test switch (harness/safeguard-home.txt): this reference's death counts
+	// as the walkers' doing, whoever killed it (0: none).
+	UInt32 testVictim = 0;
 };
+
+// Where a raised one is taken (4.11b, RaiseAtHome).
+struct HomeFacts {
+	bool startKnown = false;       // the engine handed a start position
+	UInt32 homeCell = 0;           // its editor cell (ExtraPersistentCell), 0 none
+	bool homeInterior = false;
+	bool homeHasEditorId = false;  // the cell keeps its editor ID (ExtraEditorID)
+	UInt32 cellNow = 0;            // the cell it lies in
+};
+
+enum class HomeMove : UInt8 {
+	PositionCell,     // moved into its home cell, onto its start position
+	StayOff,          // RaiseAtHome=0
+	StayUnknown,      // no start or no home cell known
+	StayHome,         // it lies in its home cell already
+	StayExterior,     // its home is outdoors: no editor ID to move by
+	StayNoEditorId,   // an interior the game keeps no editor ID for
+};
+
+inline HomeMove HomeMoveFor(bool raiseAtHome, const HomeFacts& h) {
+	if (!raiseAtHome) {
+		return HomeMove::StayOff;
+	}
+	if (!h.startKnown || h.homeCell == 0) {
+		return HomeMove::StayUnknown;
+	}
+	if (h.homeCell == h.cellNow) {
+		return HomeMove::StayHome;
+	}
+	if (!h.homeInterior) {
+		return HomeMove::StayExterior;
+	}
+	return h.homeHasEditorId ? HomeMove::PositionCell : HomeMove::StayNoEditorId;
+}
+
+inline const char* HomeMoveText(HomeMove m) {
+	switch (m) {
+		case HomeMove::PositionCell: return "moved home";
+		case HomeMove::StayOff: return "where it lay (RaiseAtHome=0)";
+		case HomeMove::StayUnknown: return "where it lay (no start or home cell known)";
+		case HomeMove::StayHome: return "where it lay (at home already)";
+		case HomeMove::StayExterior: return "where it lay (its home is outdoors)";
+		case HomeMove::StayNoEditorId: return "where it lay (its home cell has no editor ID)";
+	}
+	return "?";
+}
 
 inline constexpr UInt32 kSafeguardMost = 128;
 

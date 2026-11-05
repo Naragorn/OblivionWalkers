@@ -244,6 +244,35 @@ void TestImage() {
 
 }  // namespace
 
+void TestHome() {
+	std::printf("Raised at home\n");
+	walkers::HomeFacts h;
+	h.startKnown = true;
+	h.homeCell = 0x0000A0F0;
+	h.homeInterior = true;
+	h.homeHasEditorId = true;
+	h.cellNow = 0x000065FE;
+	Check(walkers::HomeMoveFor(true, h) == walkers::HomeMove::PositionCell,
+	      "a start position and an interior home with an editor ID, elsewhere now: moved home (Nadi, 2026-11-05: A)");
+	Check(walkers::HomeMoveFor(false, h) == walkers::HomeMove::StayOff, "RaiseAtHome 0: raised where it lay");
+	walkers::HomeFacts same = h;
+	same.cellNow = h.homeCell;
+	Check(walkers::HomeMoveFor(true, same) == walkers::HomeMove::StayHome, "at home already: where it lay");
+	walkers::HomeFacts outside = h;
+	outside.homeInterior = false;
+	Check(walkers::HomeMoveFor(true, outside) == walkers::HomeMove::StayExterior,
+	      "a home outdoors: where it lay (PositionWorld needs the worldspace's editor ID - not kept)");
+	walkers::HomeFacts noId = h;
+	noId.homeHasEditorId = false;
+	Check(walkers::HomeMoveFor(true, noId) == walkers::HomeMove::StayNoEditorId, "an interior without editor ID: where it lay");
+	walkers::HomeFacts unknown = h;
+	unknown.startKnown = false;
+	unknown.homeCell = 0;
+	Check(walkers::HomeMoveFor(true, unknown) == walkers::HomeMove::StayUnknown,
+	      "no start known (a placed one, a creature): where it lay");
+	Check(walkers::SafeguardSettings{}.raiseAtHome, "RaiseAtHome on by default");
+}
+
 int main() {
 	TestTakes();
 	TestNoKiller();
@@ -251,6 +280,7 @@ int main() {
 	TestStep();
 	TestMissing();
 	TestImage();
+	TestHome();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

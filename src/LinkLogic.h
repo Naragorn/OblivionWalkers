@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 16.0;
+inline constexpr double kLinkVersion = 17.0;
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -264,6 +264,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 false, LinkEffect::Live},
 	{"ini_rise_no_cities", "No rising in cities", "Nobody killed in a city's streets rises; the safeguard raises them.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_safeguard_at_home", "Raised at home", "Whom the safeguard raises wakes where the game placed them, their house or shop.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -356,6 +358,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 124: return rise.grab.lungeUnits;
 		case 125: return rise.grab.lungeSeconds;
 		case 126: return rise.noRiseInCities ? 1.0 : 0.0;
+		case 127: return rise.safeguard.raiseAtHome ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -469,6 +472,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 124: rise.grab.lungeUnits = fraction; break;
 		case 125: rise.grab.lungeSeconds = fraction; break;
 		case 126: rise.noRiseInCities = on; break;
+		case 127: rise.safeguard.raiseAtHome = on; break;
 		default: return false;
 	}
 	return true;

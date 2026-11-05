@@ -187,6 +187,53 @@ bool IsActor(UInt32 ref) {
 	return vtable == kVtblCharacter || vtable == kVtblCreature;
 }
 
+// A cell's editor ID as the game keeps it (ExtraEditorID), nullptr none.
+const char* CellEditorId(UInt32 cell) {
+	UInt32 visited = 0;
+	for (UInt32 extra = LooksLikeObject(cell) ? Read(cell + kCellExtraFirstOffset) : 0;
+	     LooksLikeObject(extra) && visited < 64; extra = Read(extra + 8), ++visited) {
+		if (Read8(extra + 4) == kExtraEditorId && LooksLikeObject(Read(extra + 0xC))) {
+			return reinterpret_cast<const char*>(Read(extra + 0xC));
+		}
+	}
+	return nullptr;
+}
+
+// 4.11b RaiseAtHome: a reference's editor cell - its ExtraPersistentCell
+// (type 0x11, the cell at +0x0C; xOBSE GameExtraData.h) on its own extra
+// list (BaseExtraList at +0x44, its first entry at +0x48) - 0 none.
+constexpr UInt32 kRefExtraFirstOffset = 0x48;
+constexpr UInt8 kExtraPersistentCell = 0x11;
+
+UInt32 HomeCellOf(UInt32 ref) {
+	UInt32 visited = 0;
+	for (UInt32 extra = Read(ref + kRefExtraFirstOffset); LooksLikeObject(extra) && visited < 64;
+	     extra = Read(extra + 8), ++visited) {
+		if (Read8(extra + 4) == kExtraPersistentCell && LooksLikeObject(Read(extra + 0xC))) {
+			return Read(extra + 0xC);
+		}
+	}
+	return 0;
+}
+
+// Its start position and angle: TESObjectREFR's virtual GetStartingPos at
+// vtable+0xF4 (the console's GetStartingPos, 0x004F4490, calls it; an
+// actor's reads its +0xE8..+0xF0, 0x00628E40) and GetStartingAngle at +0xF8
+// (derived from xOBSE's order, not read).
+bool StartPositionOf(UInt32 ref, float* pos, float* angle) {
+	using StartFn = void(__fastcall*)(void* self, void* edx, float* out);
+	const UInt32 posFn = Read(Read(ref) + 0xF4);
+	const UInt32 angleFn = Read(Read(ref) + 0xF8);
+	if (posFn < kTextStart || posFn >= kTextEnd || angleFn < kTextStart || angleFn >= kTextEnd) {
+		return false;
+	}
+	pos[0] = pos[1] = pos[2] = 0.0f;
+	angle[0] = angle[1] = angle[2] = 0.0f;
+	reinterpret_cast<StartFn>(posFn)(reinterpret_cast<void*>(ref), nullptr, pos);
+	reinterpret_cast<StartFn>(angleFn)(reinterpret_cast<void*>(ref), nullptr, angle);
+	return pos[0] == pos[0] && pos[1] == pos[1] && pos[2] == pos[2] && (pos[0] != 0.0f || pos[1] != 0.0f);
+}
+
 // The editor ID and the owner of the cell `ref` stands in; nullptr and 0
 // for what it does not carry.
 void CellFacts(UInt32 ref, const char** editorId, UInt32* ownerId) {
@@ -552,6 +599,10 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	victim.rises = verdict == DeathVerdict::Waits || walkerUp;
 	if (walker && !swapKill && !walkerUp) {
 		NoteSiegeWalkerEnded(fallen.refId);
+	}
+	if (g_settings.safeguard.testVictim != 0 && fallen.refId == g_settings.safeguard.testVictim) {
+		victim.killedByWalker = true;
+		g_log("Safeguard: test - TestVictim %08X died, taken as the walkers' doing", fallen.refId);
 	}
 	if (SafeguardTakes(g_settings.safeguard, victim)) {
 		const bool noted = NoteVictim(g_safeguard, fallen.refId);
@@ -1610,7 +1661,7 @@ void WriteLinkFiles() {
 		}
 		*slash = '\0';
 	}
-	static char text[1 << 16];
+	static char text[1 << 17];  // the CFG passed 64 KB with 128 settings (2026-11-05)
 	const char* names[2] = {"OblivionWalkers.cfg", "OblivionWalkers.ini"};
 	for (int f = 0; f < 2; ++f) {
 		const UInt32 length = f == 0 ? LinkCfgText(text, sizeof(text)) : LinkIniText(g_settings, g_replace, text, sizeof(text));
@@ -1961,9 +2012,38 @@ void StepSafeguardInGame(float dt) {
 			g_log("Safeguard: %08X has no Resurrect at vtable+0x20C (%08X), left down", due[i], fn);
 			continue;
 		}
+		// Where it goes once up (RaiseAtHome), read before the raise.
+		float start[3] = {};
+		float startAngle[3] = {};
+		HomeFacts home;
+		home.startKnown = StartPositionOf(ref, start, startAngle);
+		home.homeCell = HomeCellOf(ref);
+		home.homeInterior = LooksLikeObject(home.homeCell) && (Read8(home.homeCell + kCellFlagsOffset) & 1) != 0;
+		const char* homeId = home.homeInterior ? CellEditorId(home.homeCell) : nullptr;
+		home.homeHasEditorId = homeId != nullptr && homeId[0] != '\0';
+		home.cellNow = Read(ref + kRefParentCellOffset);
+		const HomeMove move = HomeMoveFor(g_settings.safeguard.raiseAtHome, home);
 		const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
 		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
+		bool moved = false;
+		if (move == HomeMove::PositionCell) {
+			char line[160];
+			std::snprintf(line, sizeof(line), "PositionCell %.0f %.0f %.0f %.0f %s", start[0], start[1], start[2],
+			              startAngle[2] * 57.29578f, homeId);
+			moved = ConsoleOn(ref, line);
+		}
+		g_log("Safeguard: %08X home - start %.0f %.0f %.0f (known %d), its editor cell %08X (%s, %s), lies in %08X: "
+		      "%s%s",
+		      due[i], start[0], start[1], start[2], home.startKnown ? 1 : 0, FormIdOf(home.homeCell),
+		      home.homeInterior ? "an interior" : "outdoors or none", home.homeHasEditorId ? homeId : "no editor ID",
+		      FormIdOf(home.cellNow), HomeMoveText(move),
+		      move == HomeMove::PositionCell ? (moved ? " (PositionCell handed over)" : " (PositionCell refused)") : "");
+		if (move == HomeMove::PositionCell) {
+			g_log("Safeguard: %08X after the move in %08X at %.0f %.0f %.0f", due[i],
+			      FormIdOf(Read(ref + kRefParentCellOffset)), FloatAt(ref + kRefPositionOffset),
+			      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8));
+		}
 		// On its way: its AI packages asked anew, so it walks back to its
 		// schedule - home, its shop (Nadi, 2026-11-04: raised at home if easy,
 		// else this; the home teleport needs the start cell, ExtraStarting-

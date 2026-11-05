@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 127,
-	      "127 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge and NoRiseInCities - every INI setting but Name, "
+	Check(kLinkSettingCount == 128,
+	      "128 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -72,8 +72,8 @@ void TestTable() {
 		}
 	}
 	Check(defaultsInRange, "every default lies inside its slider's range");
-	static char cfg[1 << 16];
-	Check(walkers::LinkCfgText(cfg, sizeof(cfg)) > 0, "the whole menu fits the 64 KB Rise.cpp writes it from");
+	static char cfg[1 << 17];
+	Check(walkers::LinkCfgText(cfg, sizeof(cfg)) > 0, "the whole menu fits the 128 KB Rise.cpp writes it from (64 KB was passed at 128 settings)");
 	Check(unique && prefixed && ranged, "each its own variable, named ini_..., a range from low to high");
 	Check(std::strcmp(walkers::kLinkQuestEditorId, "Walkers") == 0 && walkers::kLinkQuestLocalId == 0x94B &&
 	          walkers::kLinkScriptLocalId == 0x94C,
@@ -178,7 +178,10 @@ void TestValues() {
 	const int cities = IndexOf("ini_rise_no_cities");
 	Check(cities == 126 && walkers::LinkValue(rise, replace, cities) == 0.0 &&
 	          walkers::SetLinkValue(rise, replace, cities, 1.0) && rise.noRiseInCities,
-	      "no rise in cities last, off by default, on from the menu");
+	      "no rise in cities, off by default, on from the menu");
+	const int atHome = IndexOf("ini_safeguard_at_home");
+	Check(atHome == 127 && walkers::LinkValue(rise, replace, atHome) == 1.0,
+	      "raised at home last, on by default");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -261,13 +264,13 @@ void TestFiles() {
 	std::printf("The files LINK reads\n");
 	walkers::RiseSettings rise;
 	walkers::ReplaceSettings replace;
-	static char text[1 << 16];
+	static char text[1 << 17];
 	const UInt32 ini = walkers::LinkIniText(rise, replace, text, sizeof(text));
 	const std::string iniText(text, ini);
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 16\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 17\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
