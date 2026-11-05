@@ -200,21 +200,39 @@ const char* CellEditorId(UInt32 cell) {
 	return nullptr;
 }
 
-// 4.11b RaiseAtHome: a reference's editor cell - its ExtraPersistentCell
-// (type 0x11, the cell at +0x0C; xOBSE GameExtraData.h) on its own extra
-// list (BaseExtraList at +0x44, its first entry at +0x48) - 0 none.
+// 4.11b RaiseAtHome: a reference's editor cell. ExtraStartingWorldOrCell
+// (type 0x53; xOBSE names it, no layout - a form at +0x0C taken) first:
+// ExtraPersistentCell (0x11) read Dro'shanji's 00003615, an exterior cell
+// of Tamriel's persistent ones, though he started in his house 0002FF55 at
+// -34 54 -291 (safeguard-home.txt, 2026-11-05 10:43). The extra list is the
+// reference's BaseExtraList at +0x44, its first entry at +0x48. Each read is
+// logged once per reference (the form and its type) until it is settled.
 constexpr UInt32 kRefExtraFirstOffset = 0x48;
 constexpr UInt8 kExtraPersistentCell = 0x11;
+constexpr UInt8 kExtraStartingWorldOrCell = 0x53;
+constexpr UInt8 kFormTypeCell = 0x39;
 
-UInt32 HomeCellOf(UInt32 ref) {
+UInt32 ExtraFormOf(UInt32 ref, UInt8 type) {
 	UInt32 visited = 0;
 	for (UInt32 extra = Read(ref + kRefExtraFirstOffset); LooksLikeObject(extra) && visited < 64;
 	     extra = Read(extra + 8), ++visited) {
-		if (Read8(extra + 4) == kExtraPersistentCell && LooksLikeObject(Read(extra + 0xC))) {
+		if (Read8(extra + 4) == type && LooksLikeObject(Read(extra + 0xC))) {
 			return Read(extra + 0xC);
 		}
 	}
 	return 0;
+}
+
+UInt32 HomeCellOf(UInt32 ref) {
+	const UInt32 starting = ExtraFormOf(ref, kExtraStartingWorldOrCell);
+	const UInt32 persistent = ExtraFormOf(ref, kExtraPersistentCell);
+	g_log("Safeguard: %08X - its ExtraStartingWorldOrCell %08X (type %02X), ExtraPersistentCell %08X (type %02X)",
+	      FormIdOf(ref), FormIdOf(starting), LooksLikeObject(starting) ? Read8(starting + kFormTypeOffset) : 0,
+	      FormIdOf(persistent), LooksLikeObject(persistent) ? Read8(persistent + kFormTypeOffset) : 0);
+	if (LooksLikeObject(starting) && Read8(starting + kFormTypeOffset) == kFormTypeCell) {
+		return starting;
+	}
+	return persistent;
 }
 
 // Its start position: TESObjectREFR's virtual GetStartingPos at vtable+0xF4
