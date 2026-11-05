@@ -1,0 +1,324 @@
+// Every flow of the survivors' camps (docs/walkers-spec.md 4.20.6; Nadi,
+// 2026-11-05: "go 4.20.6", on by default): the roster and its share of
+// women, the days' rolls (an attack, a return), an attack begun at its hour,
+// the toll away (kills, losses, held, overrun), the fight near (a walker
+// ended, a refugee dead, defended), the camps shown, the spots, off, the
+// co-save image.
+
+#include "CampLogic.h"
+
+#include <cmath>
+#include <cstdio>
+
+namespace {
+
+int g_failures = 0;
+
+void Check(bool condition, const char* what) {
+	std::printf("  %s  %s\n", condition ? "ok  " : "FAIL", what);
+	if (!condition) {
+		++g_failures;
+	}
+}
+
+using walkers::Camp;
+using walkers::CampEvent;
+using walkers::CampSettings;
+using walkers::CampsState;
+using walkers::CampStatus;
+
+// Rolls handed out in turn, the last again once they are used up.
+struct Rolls {
+	const UInt32* values;
+	UInt32 count;
+	UInt32 at = 0;
+	UInt32 operator()() { return values[at < count ? at++ : count - 1]; }
+};
+
+Camp Set(const CampSettings& s) {
+	Camp c;
+	walkers::CampTakeRoster(c, s);
+	return c;
+}
+
+void TestRoster() {
+	std::printf("The roster\n");
+	CampSettings s;
+	const UInt16 r = walkers::CampRoster(s);
+	Check(r == (0x7 | (0x7 << 6) | (1 << 12)), "6 people, 50 %: three men, three women and the trader");
+	s.womenPercent = 0;
+	Check(walkers::CampRoster(s) == (0x3F | (1 << 12)), "0 % women: six men");
+	s.womenPercent = 100;
+	s.trader = false;
+	Check(walkers::CampRoster(s) == (0x3F << 6), "100 %, no trader: six women");
+	s.peoplePerCamp = 1;
+	s.womenPercent = 50;
+	Check(walkers::CampRoster(s) == (0x1 | (0x1 << 6)), "PeoplePerCamp 1 held to 2: a man and a woman");
+	s.peoplePerCamp = 9;
+	Check(walkers::CampBits(walkers::CampRoster(s)) == 6, "PeoplePerCamp 9 held to 6");
+	s.peoplePerCamp = 5;
+	Check(walkers::CampWomenOf(5, 50) == 3 && walkers::CampBits(walkers::CampRoster(s)) == 5,
+	      "5 at 50 %: 3 women (half up), 2 men");
+	Camp c;
+	CampSettings d;
+	Check(walkers::CampTakeRoster(c, d) && c.set && walkers::CampAlive(c) == 7, "a first look sets the camp up: 7 alive");
+	Check(!walkers::CampTakeRoster(c, d), "the same settings: no change");
+	d.peoplePerCamp = 4;
+	Check(walkers::CampTakeRoster(c, d) && walkers::CampAlive(c) == 5, "LINK's 4: the camp takes it, 5 with the trader");
+	c.lost = 1;
+	d.peoplePerCamp = 6;
+	Check(!walkers::CampTakeRoster(c, d) && walkers::CampAlive(c) == 4, "one lost: the roster stays until it comes back");
+}
+
+void TestDays() {
+	std::printf("The days' rolls\n");
+	CampSettings s;
+	CampsState st;
+	for (Camp& c : st.camps) {
+		c = Set(s);
+	}
+	CampEvent ev[16];
+	const UInt32 none[] = {99};
+	Rolls quiet{none, 1};
+	Check(walkers::StepCampDays(st, s, 3.5f, quiet, ev, 16) == 0 && st.lastDay == 3, "the first look notes the day");
+	Check(walkers::StepCampDays(st, s, 3.9f, quiet, ev, 16) == 0, "the same day: nothing rolled");
+	// Camp 0 attacked at hour 12 of day 4; the others miss (99).
+	const UInt32 hit[] = {14, 12, 99};
+	Rolls first{hit, 3};
+	walkers::StepCampDays(st, s, 4.1f, first, ev, 16);
+	Check(std::fabs(st.camps[0].startAt - 4.5f) < 0.001f && st.camps[1].startAt < 0.0f,
+	      "a roll under 15: an attack at that day's hour 12; 99: none");
+	const UInt32 early[] = {0, 0, 99};
+	Rolls before{early, 3};
+	walkers::StepCampDays(st, s, 5.3f, before, ev, 16);
+	Check(std::fabs(st.camps[1].startAt - 5.3f) < 0.001f && std::fabs(st.camps[0].startAt - 4.5f) < 0.001f,
+	      "hour 0 already past: the attack now; one coming already is not rolled again");
+	st.camps[2].status = CampStatus::Overrun;
+	st.camps[2].lost = st.camps[2].roster;
+	st.camps[2].walkersLeft = 5;
+	const UInt32 back[] = {9, 99};  // camps 0 and 1 wait for their attack: not rolled
+	Rolls ret{back, 2};
+	const UInt32 n = walkers::StepCampDays(st, s, 6.0f, ret, ev, 16);
+	Check(n == 1 && ev[0].kind == CampEvent::Return && ev[0].camp == 2 && st.camps[2].status == CampStatus::Living &&
+	          st.camps[2].lost == 0 && st.camps[2].walkersLeft == 0 && walkers::CampAlive(st.camps[2]) == 7,
+	      "an overrun camp, a roll under 10: back, its people set up anew, its walkers gone");
+	CampSettings off = s;
+	off.enabled = false;
+	CampsState offState = st;
+	Check(walkers::StepCampDays(offState, off, 9.0f, ret, ev, 16) == 0 && offState.lastDay == 9,
+	      "off: the day noted, nothing rolled");
+}
+
+void TestBegin() {
+	std::printf("An attack begins\n");
+	CampSettings s;
+	Camp c = Set(s);
+	c.startAt = 4.5f;
+	CampEvent ev[4];
+	const UInt32 r[] = {3};
+	Rolls roll{r, 1};
+	Check(walkers::StepCamp(c, 0, s, 4.4f, false, roll, ev, 4) == 0 && c.status == CampStatus::Living,
+	      "before its hour: nothing");
+	Check(walkers::StepCamp(c, 0, s, 4.5f, true, roll, ev, 4) == 1 && ev[0].kind == CampEvent::Begin &&
+	          c.status == CampStatus::Attacked && c.walkersLeft == 9 && c.seen && c.startAt < 0.0f,
+	      "its hour: attacked, 6 + 3 walkers, the player near seen");
+	Camp empty = Set(s);
+	empty.lost = empty.roster;
+	Check(walkers::BeginCampAttack(empty, 0, s, 1.0f, false, 0, ev, 4) == 0 && empty.status == CampStatus::Living,
+	      "nobody alive: no attack");
+	CampSettings odd = s;
+	odd.walkersMin = 10;
+	odd.walkersMax = 4;
+	Camp o = Set(odd);
+	walkers::BeginCampAttack(o, 0, odd, 1.0f, false, 6, ev, 4);
+	Check(o.walkersLeft == 10, "min and max swapped: 4..10 taken");
+}
+
+void TestTollAway() {
+	std::printf("The toll away\n");
+	CampSettings s;
+	Camp c = Set(s);
+	CampEvent ev[32];
+	walkers::BeginCampAttack(c, 0, s, 1.0f, false, 2, ev, 32);  // 8 walkers
+	const UInt32 none[] = {99};
+	Rolls safe{none, 1};
+	Check(walkers::StepCamp(c, 0, s, 1.0f + 0.5f / 24.0f, false, safe, ev, 32) == 0 && c.walkersLeft == 8,
+	      "half an hour: nothing yet");
+	walkers::StepCamp(c, 0, s, 1.0f + 2.0f / 24.0f + 0.0001f, false, safe, ev, 32);
+	Check(c.walkersLeft == 4 && walkers::CampAlive(c) == 7, "two hours: 2 a hour cut down, nobody lost");
+	const UInt32 held[] = {99};
+	Rolls h{held, 1};
+	const UInt32 n = walkers::StepCamp(c, 0, s, 1.0f + 5.0f / 24.0f, false, h, ev, 32);
+	Check(n == 1 && ev[0].kind == CampEvent::HeldAway && c.status == CampStatus::Living && c.walkersLeft == 0,
+	      "the last cut down: held away - no reward");
+	Camp f = Set(s);
+	f.lost = static_cast<UInt16>(f.roster & ~1u);  // one man left
+	walkers::BeginCampAttack(f, 3, s, 2.0f, false, 6, ev, 32);  // 12
+	const UInt32 lose[] = {10, 0};
+	Rolls l{lose, 2};
+	const UInt32 m = walkers::StepCamp(f, 3, s, 2.0f + 1.0f / 24.0f, false, l, ev, 32);
+	Check(m == 2 && ev[0].kind == CampEvent::PersonLost && ev[0].slot == 0 && ev[1].kind == CampEvent::Overrun &&
+	          ev[1].camp == 3 && f.status == CampStatus::Overrun && f.walkersLeft == 10 + 7,
+	      "an hour, a roll under 25: the last one lost - overrun, the 10 left and the 7 lost at the camp");
+	CampSettings half = s;
+	half.refugeeKillsPerHour = 0.5f;
+	Camp k = Set(half);
+	walkers::BeginCampAttack(k, 0, half, 1.0f, false, 0, ev, 32);  // 6
+	walkers::StepCamp(k, 0, half, 1.0f + 3.0f / 24.0f + 0.0001f, false, safe, ev, 32);
+	Check(k.walkersLeft == 5 && std::fabs(k.carry - 0.5f) < 0.001f, "0.5 an hour: one in three hours, a half carried");
+	Camp w = Set(s);
+	walkers::BeginCampAttack(w, 0, s, 1.0f, false, 0, ev, 32);
+	walkers::StepCamp(w, 0, s, 30.0f, false, safe, ev, 32);
+	Check(w.status == CampStatus::Living, "a month waited: rolled through, held");
+	Camp n2 = Set(s);
+	walkers::BeginCampAttack(n2, 0, s, 1.0f, false, 0, ev, 32);
+	walkers::StepCamp(n2, 0, s, 1.5f, true, safe, ev, 32);
+	Check(n2.walkersLeft == 6 && n2.seen && std::fabs(n2.tollFrom - 1.5f) < 0.001f,
+	      "the player near: no toll, seen, the toll counted from now");
+	walkers::StepCamp(n2, 0, s, 1.5f + 1.0f / 24.0f + 0.0001f, false, safe, ev, 32);
+	Check(n2.walkersLeft == 4, "left again: the toll from when he went");
+}
+
+void TestNear() {
+	std::printf("The fight near\n");
+	CampSettings s;
+	Camp c = Set(s);
+	CampEvent ev[4];
+	walkers::BeginCampAttack(c, 5, s, 1.0f, true, 0, ev, 4);  // 6, seen
+	for (int i = 0; i < 5; ++i) {
+		walkers::CampWalkerEnded(c, 5, ev, 4);
+	}
+	Check(c.walkersLeft == 1 && c.status == CampStatus::Attacked, "five ended: one left");
+	Check(walkers::CampPersonDied(c, 5, 0, ev, 4) == 0 && walkers::CampAlive(c) == 6, "a man dead: six left");
+	Check(walkers::CampPersonDied(c, 5, 0, ev, 4) == 0 && walkers::CampAlive(c) == 6, "dead again: counted once");
+	Check(walkers::CampPersonDied(c, 5, 5, ev, 4) == 0 && walkers::CampAlive(c) == 6, "a slot not in the roster: nothing");
+	const UInt32 n = walkers::CampWalkerEnded(c, 5, ev, 4);
+	Check(n == 1 && ev[0].kind == CampEvent::Defended && ev[0].camp == 5 && c.status == CampStatus::Living,
+	      "the last walker ended, the player near: defended");
+	Check(walkers::CampWalkerEnded(c, 5, ev, 4) == 0, "a walker more: nothing");
+	Camp d = Set(s);
+	walkers::BeginCampAttack(d, 1, s, 1.0f, true, 0, ev, 4);
+	walkers::CampWalkerEnded(d, 1, ev, 4);
+	UInt32 last = 0;
+	for (UInt32 slot = 0; slot < walkers::kCampSlots; ++slot) {
+		last += walkers::CampPersonDied(d, 1, slot, ev, 4);
+	}
+	Check(last == 1 && ev[0].kind == CampEvent::Overrun && d.status == CampStatus::Overrun && d.walkersLeft == 5,
+	      "all seven dead: overrun, the five walkers left stay");
+	walkers::CampWalkerEnded(d, 1, ev, 4);
+	Check(d.walkersLeft == 4 && d.status == CampStatus::Overrun, "one of the overrun camp's walkers ended: four");
+	Check(walkers::CampPersonDied(d, 1, 0, ev, 4) == 0, "overrun: a death counts no more");
+	Camp quiet = Set(s);
+	UInt32 q = 0;
+	for (UInt32 slot = 0; slot < walkers::kCampSlots; ++slot) {
+		q += walkers::CampPersonDied(quiet, 2, slot, ev, 4);
+	}
+	Check(q == 1 && quiet.status == CampStatus::Overrun && quiet.walkersLeft == 0,
+	      "no attack, all killed (a horde, the player): overrun, no walkers at the camp");
+}
+
+void TestShown() {
+	std::printf("The camps shown\n");
+	CampSettings s;
+	CampsState st;
+	float distance[walkers::kCampCount];
+	for (float& d : distance) {
+		d = -1.0f;
+	}
+	UInt32 shown[walkers::kCampShownMost];
+	st.camps[3].status = CampStatus::Attacked;
+	st.camps[4].status = CampStatus::Attacked;
+	st.camps[5].status = CampStatus::Overrun;
+	st.camps[5].walkersLeft = 3;
+	st.camps[6].status = CampStatus::Overrun;
+	distance[3] = 5000.0f;
+	distance[4] = 2000.0f;
+	distance[5] = 1000.0f;
+	distance[6] = 100.0f;
+	UInt32 n = walkers::ChooseShownCamps(st, s, distance, shown);
+	Check(n == 2 && shown[0] == 4 && shown[1] == 5,
+	      "one attacked at once: the nearest attacked, then the overrun one with walkers; none without");
+	s.campsAttackedAtOnce = 2;
+	n = walkers::ChooseShownCamps(st, s, distance, shown);
+	Check(n == 2 && shown[0] == 4 && shown[1] == 3, "two at once: both attacked first");
+	s.campsAttackedAtOnce = 9;
+	distance[4] = 7000.0f;
+	n = walkers::ChooseShownCamps(st, s, distance, shown);
+	Check(n == 2 && shown[0] == 3 && shown[1] == 5, "9 held to 2; past kCampSeenUnits not shown");
+	s.enabled = false;
+	Check(walkers::ChooseShownCamps(st, s, distance, shown) == 0, "off: none");
+	Camp c;
+	c.walkersLeft = 30;
+	Check(walkers::CampWalkersOut(c) == 12, "30 left: 12 out at once");
+}
+
+void TestSpots() {
+	std::printf("The spots\n");
+	const walkers::CampPlace place{0.0f, 0.0f, 0.0f, 0.0f, "test"};  // the road to the north
+	float dx = 0.0f;
+	float dy = 0.0f;
+	walkers::CampWalkerSpot(place, true, 0, dx, dy);
+	Check(std::fabs(dx) < 1.0f && std::fabs(dy + walkers::kCampAttackUnits) < 1.0f,
+	      "the first attacker: kCampAttackUnits out, away from the road");
+	float dx1 = 0.0f;
+	float dy1 = 0.0f;
+	float dx2 = 0.0f;
+	float dy2 = 0.0f;
+	walkers::CampWalkerSpot(place, true, 1, dx1, dy1);
+	walkers::CampWalkerSpot(place, true, 2, dx2, dy2);
+	Check(std::fabs(dx1 + dx2) < 1.0f && std::fabs(dy1 - dy2) < 1.0f && std::fabs(dx1) > 100.0f,
+	      "the next two to either side alike");
+	walkers::CampWalkerSpot(place, false, 3, dx, dy);
+	Check(std::fabs(std::sqrt(dx * dx + dy * dy) - walkers::kCampNestUnits) < 1.0f, "an overrun camp's among the tents");
+}
+
+void TestImage() {
+	std::printf("The co-save image\n");
+	CampSettings s;
+	CampsState st;
+	st.lastDay = 41;
+	st.camps[0] = Set(s);
+	st.camps[0].lost = 3;
+	st.camps[0].status = CampStatus::Attacked;
+	st.camps[0].walkersLeft = 7;
+	st.camps[0].seen = true;
+	st.camps[0].tollFrom = 41.25f;
+	st.camps[0].carry = 0.5f;
+	st.camps[11].status = CampStatus::Overrun;
+	st.camps[11].startAt = 3.0f;
+	UInt8 image[walkers::kCampImageBytes];
+	Check(walkers::CampImage(st, image, sizeof(image) - 1) == 0, "too small a buffer: nothing written");
+	Check(walkers::CampImage(st, image, sizeof(image)) == walkers::kCampImageBytes, "written whole");
+	CampsState back;
+	Check(walkers::ReadCampImage(back, image, sizeof(image)), "read back");
+	const Camp& c = back.camps[0];
+	Check(back.lastDay == 41 && c.status == CampStatus::Attacked && c.set && c.seen && c.roster == st.camps[0].roster &&
+	          c.lost == 3 && c.walkersLeft == 7 && c.tollFrom == 41.25f && c.carry == 0.5f,
+	      "every field of an attacked camp");
+	Check(back.camps[11].status == CampStatus::Overrun && back.camps[11].startAt == 3.0f, "the last camp too");
+	image[4] = 9;
+	image[8] = 0xFF;
+	image[9] = 0xFF;
+	image[10] = 0xFF;
+	image[11] = 0xFF;
+	walkers::ReadCampImage(back, image, sizeof(image));
+	Check(back.camps[0].status == CampStatus::Living && back.camps[0].roster == 0x1FFF &&
+	          back.camps[0].lost == 0x1FFF,
+	      "a status out of range read as living; masks held to the 13 slots");
+	Check(!walkers::ReadCampImage(back, image, 10) && back.lastDay == -1, "cut short: nothing read");
+}
+
+}  // namespace
+
+int main() {
+	TestRoster();
+	TestDays();
+	TestBegin();
+	TestTollAway();
+	TestNear();
+	TestShown();
+	TestSpots();
+	TestImage();
+	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
+	return g_failures == 0 ? 0 : 1;
+}

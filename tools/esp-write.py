@@ -97,6 +97,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import math
 import re
 import struct
 import sys
@@ -186,7 +187,181 @@ GET_GLOBAL_VALUE = 74  # the condition function, as Oblivion.esm's 246 INFOs wit
 LOCAL_NIGHT_GLOBAL = LOCAL_SIEGE_RUMOR_FIRST + 8
 LOCAL_NIGHT_RUMOR = LOCAL_NIGHT_GLOBAL + 1
 INFO_RANDOM = 0x02
-LOCAL_TEST_POOL_FIRST = LOCAL_NIGHT_RUMOR + 1
+# The survivors' camps (4.20.6; the IDs are src/CampLogic.h's, read off it in
+# camp_ids()): fourteen refugee bases - copies of Oblivion.esm's generic
+# bandits and marauders (their faces, races and sexes) without factions,
+# packages, scripts, spells and things, named "Refugee", generic (no low-level
+# processing: the rise takes them), aggression 5 and confidence 70 (they fight
+# what attacks them, not the player), dressed as CampLogic.h kCampOutfits. The
+# two traders sell as Thoronir (Copious Coinpurse, 00015E9E: AIDT services
+# 0x359F) from one merchant chest in the holding cell. The camps stand in
+# Tamriel's persistent cell (00023777): each camp's thirteen people persistent
+# and initially disabled (the plugin enables its roster), its map marker (a
+# camp, hidden until found) and eleven props - a campfire (light, flame, three
+# log piles), two tents with a bedroll each, two bedrolls by the fire - laid
+# out about src/CampPlaces.h's place on the land's heights
+# (tools/camp-places.py read_land), as Oblivion.esm's camps are built (the one
+# at -13408,68206: DExteriorCampFire300, ActivatorFlameNode3 turned -90
+# degrees about x, FireLogPile01s, Tent01 with a BedrollCrawlEntry).
+CAMP_MEN_TEMPLATES = [0x00069AD1, 0x00069AD8, 0x0003DC60, 0x00035FD5, 0x0003DC47, 0x0003DC48]
+CAMP_WOMEN_TEMPLATES = [0x00069AD5, 0x00069AD7, 0x0003DC62, 0x00035FD3, 0x0003DC43, 0x0003DC45]
+CAMP_TRADER_TEMPLATES = [0x00035FDF, 0x00035FE1]  # Marauder Warlords: an Imperial man and woman
+CAMP_SERVICES = 0x359F
+CAMP_TRADER_GOLD = 500
+CAMP_CHEST_BASE = 0x000244C8  # ChestVendorTraderLow01
+TAMRIEL = 0x0000003C
+TAMRIEL_PERSISTENT_CELL = 0x00023777
+MAP_MARKER = 0x00000010
+MAP_MARKER_CAMP = 1  # TNAM, as Crestbridge Camp's marker (000177B2)
+CAMP_FIRE_LIGHT = 0x0000855D    # DExteriorCampFire300
+CAMP_FLAME = 0x0006717C         # ActivatorFlameNode3
+CAMP_LOGS = 0x00024DAB          # FireLogPile01
+CAMP_TENT = 0x00029F8C          # Tent01
+CAMP_BEDROLL_TENT = 0x0001D5C0  # BedrollCrawlEntry
+CAMP_BEDROLL = 0x0001D5BF       # BedrollSideEntry
+ACBS_RESPAWN = 0x8
+ACBS_NO_LOW_PROCESSING = 0x200
+LOCAL_TEST_POOL_FIRST = 0xB30
+
+
+def load_places_module():
+    spec = importlib.util.spec_from_file_location("camp_places", HERE / "camp-places.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def camp_ids() -> dict[str, int]:
+    """src/CampLogic.h's local IDs and counts, one source for the plugin and the ESP."""
+    text = (Path(__file__).resolve().parent.parent / "src" / "CampLogic.h").read_text()
+    ids = {name: int(value, 0) for name, value in
+           re.findall(r"inline constexpr UInt32 (kCamp\w+) = (0x[0-9A-Fa-f]+|\d+);", text)}
+    outfits = re.search(r"kCampOutfits\[kCampBaseCount\]\[4\] = \{(.*?)\n\};", text, re.S).group(1)
+    if "kCampBlock = 13 + 1 + kCampProps;" not in text:
+        raise SystemExit("CampLogic.h's kCampBlock is no longer people, marker and props")
+    ids["kCampBlock"] = 13 + 1 + ids["kCampProps"]
+    ids["outfits"] = [[int(v, 16) for v in re.findall(r"0x[0-9A-Fa-f]+", row)]
+                      for row in re.findall(r"\{([^{}]+)\}", outfits)]
+    return ids
+
+
+def camp_places() -> list[tuple[float, float, float, float, str]]:
+    text = (Path(__file__).resolve().parent.parent / "src" / "CampPlaces.h").read_text()
+    return [(float(x), float(y), float(z), float(f), name) for x, y, z, f, name in
+            re.findall(r"\{(-?[\d.]+)f, (-?[\d.]+)f, (-?[\d.]+)f, (-?[\d.]+)f, \"([^\"]+)\"\}", text)]
+
+
+def camp_base_index(camp: int, slot: int) -> int:
+    """CampLogic.h CampBaseIndex."""
+    if slot < 6:
+        return (slot + camp) % 6
+    if slot < 12:
+        return 6 + (slot - 6 + camp) % 6
+    return 12 + camp % 2
+
+
+def build_refugee(template: list[tuple[bytes, bytes]], edid: str, outfit: list[int], trader: bool) -> bytes:
+    """A refugee off a bandit's record: EDID, FULL, no factions, packages,
+    script or spells, the outfit in place of its things, generic and never
+    respawning, calm; a trader buys and sells, with barter gold."""
+    out = b""
+    dressed = False
+    for kind, data in template:
+        if kind in (b"SNAM", b"PKID", b"SCRI", b"SPLO"):
+            continue
+        if kind == b"CNTO":
+            if not dressed:
+                out += b"".join(subrecord(b"CNTO", struct.pack("<Ii", item, 1)) for item in outfit)
+                dressed = True
+            continue
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"FULL":
+            data = zstring("Refugee Trader" if trader else "Refugee")
+        elif kind == b"ACBS":
+            flags = (struct.unpack_from("<I", data, 0)[0] | ACBS_NO_LOW_PROCESSING) & ~(ACBS_RESPAWN | ACBS_ESSENTIAL)
+            data = struct.pack("<I", flags) + data[4:8] + struct.pack("<H", CAMP_TRADER_GOLD if trader else 0) + data[10:]
+        elif kind == b"AIDT":
+            if not dressed:
+                out += b"".join(subrecord(b"CNTO", struct.pack("<Ii", item, 1)) for item in outfit)
+                dressed = True
+            data = bytes([5, 70, 50, 50]) + struct.pack("<I", CAMP_SERVICES if trader else 0) + data[8:]
+        out += subrecord(kind, data)
+    return out
+
+
+def build_placed(base: int, x: float, y: float, z: float, rx: float = 0.0, rz: float = 0.0, edid: str = "",
+                 extra: bytes = b"") -> bytes:
+    """A placed reference: EDID (when named), NAME, extra subrecords, DATA."""
+    out = subrecord(b"EDID", zstring(edid)) if edid else b""
+    return out + subrecord(b"NAME", struct.pack("<I", base)) + extra + \
+        subrecord(b"DATA", struct.pack("<6f", x, y, z, rx, 0.0, rz))
+
+
+def camp_layout(place, ground) -> list[tuple[int, float, float, float, float, float]]:
+    """Camp `place`'s props about it, in CampLogic.h's order: (base, x, y, z,
+    rotation about x, about z) - the fire's light, flame and three log piles,
+    two tents each with its bedroll, two bedrolls by the fire. Angles as the
+    engine's: 0 north, clockwise; `facing` the way to the road."""
+    x0, y0, _, facing, _ = place
+    road = math.radians(facing)
+
+    def at(angle: float, r: float) -> tuple[float, float]:
+        return x0 + math.sin(angle) * r, y0 + math.cos(angle) * r
+
+    def toward_fire(x: float, y: float) -> float:
+        return math.atan2(x0 - x, y0 - y)
+
+    props = [(CAMP_FIRE_LIGHT, x0, y0, ground(x0, y0) + 90.0, 0.0, 0.0),
+             (CAMP_FLAME, x0, y0, ground(x0, y0) + 10.0, -math.pi / 2, 0.0)]
+    for k, turn in enumerate((0.0, 1.0, 2.4)):
+        props.append((CAMP_LOGS, x0, y0, ground(x0, y0) + 8.0, 0.0, turn))
+    for side in (-1.0, 1.0):
+        tx, ty = at(road + math.pi + side * math.radians(45.0), 620.0)
+        tent_rot = toward_fire(tx, ty)
+        props.append((CAMP_TENT, tx, ty, ground(tx, ty), 0.0, tent_rot))
+        props.append((CAMP_BEDROLL_TENT, tx, ty, ground(tx, ty) + 16.0, 0.0, tent_rot - 1.5))
+    for side in (-1.0, 1.0):
+        bx, by = at(road + side * math.pi / 2, 380.0)
+        props.append((CAMP_BEDROLL, bx, by, ground(bx, by) + 4.0, 0.0, toward_fire(bx, by)))
+    return props
+
+
+def camp_person_spot(place, slot: int, ground) -> tuple[float, float, float, float]:
+    """Where camp `place`'s person in `slot` stands: the men and women in a
+    ring about the fire, facing it; the trader toward the road."""
+    x0, y0, _, facing, _ = place
+    road = math.radians(facing)
+    if slot == 12:
+        angle, r = road, 420.0
+    else:
+        angle, r = road + math.radians(30.0 * (slot % 6) * 2 + (30.0 if slot >= 6 else 0.0) + 15.0), 230.0
+    x, y = x0 + math.sin(angle) * r, y0 + math.cos(angle) * r
+    rot = road if slot == 12 else math.atan2(x0 - x, y0 - y)
+    return x, y, ground(x, y) + 10.0, rot
+
+
+def build_map_marker(edid: str, name: str, x: float, y: float, z: float) -> bytes:
+    """As Crestbridge Camp's: EDID, NAME MapMarker, XMRK, FNAM 0 (hidden
+    until found), FULL, TNAM camp, DATA."""
+    return (subrecord(b"EDID", zstring(edid)) + subrecord(b"NAME", struct.pack("<I", MAP_MARKER))
+            + subrecord(b"XMRK", b"") + subrecord(b"FNAM", bytes([0])) + subrecord(b"FULL", zstring(name))
+            + subrecord(b"TNAM", bytes([MAP_MARKER_CAMP, 0]))
+            + subrecord(b"DATA", struct.pack("<6f", x, y, z, 0.0, 0.0, 0.0)))
+
+
+def world_groups(world: list[tuple[bytes, bytes]], cell: list[tuple[bytes, bytes]], cell_flags: int,
+                 refs: bytes) -> bytes:
+    """Tamriel's top WRLD group: its WRLD record (Oblivion.esm's, every
+    subrecord verbatim but OFST - the master file's own table of its cells'
+    offsets, 70200 bytes, past a subrecord's 16-bit size and meaningless in
+    another file), its children (GRUP type 1), the persistent cell's
+    record (verbatim) and its persistent children (types 6 and 8) - the
+    nesting Oblivion.esm has."""
+    world_record = record(b"WRLD", TAMRIEL, b"".join(subrecord(k, d) for k, d in world if k != b"OFST"))
+    cell_record = record(b"CELL", TAMRIEL_PERSISTENT_CELL, b"".join(subrecord(k, d) for k, d in cell), flags=cell_flags)
+    children = typed_group(TAMRIEL_PERSISTENT_CELL, 6, typed_group(TAMRIEL_PERSISTENT_CELL, 8, refs))
+    return group(b"WRLD", world_record + typed_group(TAMRIEL, 1, cell_record + children))
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -686,6 +861,73 @@ def main() -> int:
                            flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
             test_pool += 1
 
+    # The survivors' camps (4.20.6).
+    ids = camp_ids()
+    places = camp_places()
+    if len(places) != 12 or len(ids["outfits"]) != ids["kCampBaseCount"]:
+        raise SystemExit(f"CampPlaces.h has {len(places)} places, CampLogic.h {len(ids['outfits'])} outfits")
+    if ids["kCampBaseFirstLocalId"] != LOCAL_NIGHT_RUMOR + 1 or \
+            ids["kCampFirstLocalId"] + len(places) * ids["kCampBlock"] > LOCAL_TEST_POOL_FIRST or \
+            ids["kCampPoolFirstLocalId"] + ids["kCampShownMost"] * ids["kCampWalkersAtOnce"] != ids["kCampFirstLocalId"]:
+        raise SystemExit("CampLogic.h's IDs do not follow the night's rumor or overlap")
+    camp_templates = [find_record(esm, buf, b"NPC_", t)
+                      for t in CAMP_MEN_TEMPLATES + CAMP_WOMEN_TEMPLATES + CAMP_TRADER_TEMPLATES]
+    camp_base_forms = [index | (ids["kCampBaseFirstLocalId"] + i) for i in range(ids["kCampBaseCount"])]
+    camp_bases = b"".join(
+        record(b"NPC_", form, build_refugee(tpl, f"WalkersRefugee{i:02d}", ids["outfits"][i], i >= 12))
+        for i, (form, tpl) in enumerate(zip(camp_base_forms, camp_templates)))
+    chest_form = index | ids["kCampChestLocalId"]
+    camp_marker_forms = [index | (ids["kCampMarkerFirstLocalId"] + i) for i in range(ids["kCampShownMost"])]
+    camp_travel_forms = [index | (ids["kCampTravelFirstLocalId"] + i) for i in range(ids["kCampShownMost"])]
+    holding = record(b"REFR", chest_form, build_placed(CAMP_CHEST_BASE, 0.0, 1024.0, 0.0, edid="WalkersCampChest"),
+                     flags=RECORD_PERSISTENT)
+    holding += b"".join(record(b"REFR", form, build_marker(marker_template, f"WalkersCampMarker{i}", HORDE_GROUPS + i),
+                               flags=RECORD_PERSISTENT)
+                        for i, form in enumerate(camp_marker_forms))
+    packages += b"".join(record(b"PACK", form, build_travel(travel_template, f"WalkersCampTravel{i}", marker))
+                         for i, (form, marker) in enumerate(zip(camp_travel_forms, camp_marker_forms)))
+    camp_pool_count = ids["kCampShownMost"] * ids["kCampWalkersAtOnce"]
+    for n in range(camp_pool_count):
+        holding += record(b"ACRE", index | (ids["kCampPoolFirstLocalId"] + n),
+                          build_pool_ref(achr_template, f"WalkersCampPool{n:02d}",
+                                         vanilla_heads[(n * 5 + 3) % len(vanilla_heads)], 120 + n),
+                          flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    places_module = load_places_module()
+    land = places_module.read_land(esm, buf)
+
+    def ground(x: float, y: float) -> float:
+        h = places_module.ground_at(land, x, y)
+        if h is None:
+            raise SystemExit(f"no land at {x:.0f},{y:.0f}")
+        return h
+
+    world_refs = b""
+    camp_records = 0
+    for c, place in enumerate(places):
+        for slot in range(13):
+            x, y, z, rot = camp_person_spot(place, slot, ground)
+            base = camp_base_forms[camp_base_index(c, slot)]
+            extra = subrecord(b"XMRC", struct.pack("<I", chest_form)) if slot == 12 else b""
+            world_refs += record(b"ACHR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + slot),
+                                 build_placed(base, x, y, z, rz=rot, edid=f"WalkersCamp{c:02d}Person{slot:02d}",
+                                              extra=extra),
+                                 flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+        world_refs += record(b"REFR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + 13),
+                             build_map_marker(f"WalkersCamp{c:02d}MapMarker", "Refugee Camp", place[0], place[1],
+                                              ground(place[0], place[1])),
+                             flags=RECORD_PERSISTENT)
+        props = camp_layout(place, ground)
+        if len(props) != ids["kCampProps"]:
+            raise SystemExit(f"{len(props)} props, CampLogic.h has {ids['kCampProps']}")
+        for p, (base, x, y, z, rx, rz) in enumerate(props):
+            world_refs += record(b"REFR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + 14 + p),
+                                 build_placed(base, x, y, z, rx, rz), flags=RECORD_PERSISTENT)
+        camp_records += 13 + 1 + len(props)
+    world_record = find_record(esm, buf, b"WRLD", TAMRIEL)
+    persistent_cell = find_record(esm, buf, b"CELL", TAMRIEL_PERSISTENT_CELL)
+    world = world_groups(world_record, persistent_cell, RECORD_PERSISTENT, world_refs)
+    pool += holding
+
     edition_texts = load_editions_module().editions()
     if len(edition_texts) != EDITION_COUNT:
         raise SystemExit(f"{len(edition_texts)} editions, NewsLogic.h has {EDITION_COUNT}")
@@ -720,16 +962,19 @@ def main() -> int:
                      build_rumor(link_quest_form, night_global, load_editions_module().night_rumor(), INFO_RANDOM))
     dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors))
     body = (globals_group + group(b"RACE", races) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
-            + group(b"BOOK", books) + group(b"NPC_", guards) + group(b"CREA", creatures)
+            + group(b"BOOK", books) + group(b"NPC_", guards + camp_bases) + group(b"CREA", creatures)
             + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool)
+            + world
             + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
             + group(b"PACK", packages) + group(b"IDLE", idles))
-    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2
+    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
-               + len(siege_globals) + 1 + len(CITIES) + 2)
+               + len(siege_globals) + 1 + len(CITIES) + 2
+               + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
+               + camp_records + 2)
     next_id = LOCAL_TEST_POOL_FIRST + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
@@ -837,6 +1082,25 @@ def main() -> int:
     if (pool_local_id(0, 0) != 0x83F or pool_local_id(7, 5) != 0x86E or pool_local_id(0, 6) != 0x86F
             or pool_local_id(7, 11) != 0x89E):
         raise SystemExit("the pool's first banks moved: a save made with a smaller pool would lose its guards")
+    for i, form in enumerate(camp_base_forms):
+        back = find_record(esm, plugin, b"NPC_", form)
+        kinds = [k for k, _ in back]
+        got = dict(back)
+        flags = struct.unpack_from("<I", got[b"ACBS"], 0)[0]
+        services = struct.unpack_from("<I", got[b"AIDT"], 4)[0]
+        items = [struct.unpack_from("<I", d, 0)[0] for k, d in back if k == b"CNTO"]
+        if any(k in kinds for k in (b"SNAM", b"PKID", b"SCRI", b"SPLO")) or not flags & ACBS_NO_LOW_PROCESSING \
+                or flags & (ACBS_RESPAWN | ACBS_ESSENTIAL) or got[b"AIDT"][0] != 5 \
+                or services != (CAMP_SERVICES if i >= 12 else 0) or items != ids["outfits"][i]:
+            raise SystemExit(f"refugee base {form:08X} reads back wrong")
+    people = 0
+    for c in range(len(places)):
+        for slot in range(13):
+            back = dict(find_record(esm, plugin, b"ACHR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + slot)))
+            if struct.unpack("<I", back[b"NAME"])[0] != camp_base_forms[camp_base_index(c, slot)] \
+                    or (b"XMRC" in back) != (slot == 12):
+                raise SystemExit(f"camp {c}'s person {slot} reads back wrong")
+            people += 1
     if struct.unpack_from("<I", plugin, 8)[0] != (ESL_FLAG if args.esl else 0):
         raise SystemExit("the header's flags read back wrong")
     print(f"{out}: {len(plugin)} bytes{' (ESL-flagged)' if args.esl else ''} - RACE {race_form:08X} {RACE_EDID}, CREA "

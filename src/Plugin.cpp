@@ -178,6 +178,28 @@ bool ReadSettings(walkers::Settings* settings) {
 	noise.radius = std::max(0.0f, IniFloat("Noise", "Radius", 1200.0f, path));
 	noise.searchSeconds = std::max(0.0f, IniFloat("Noise", "SearchSeconds", 30.0f, path));
 	noise.travelSeconds = std::max(0.0f, IniFloat("Noise", "TravelSeconds", 60.0f, path));
+	// 4.20.6: the survivors' camps.
+	walkers::CampSettings& camps = rise.camps;
+	const auto whole = [path](const char* key, int fallback, int least, int most) {
+		const int v = GetPrivateProfileIntA("Survivors", key, fallback, path);
+		return static_cast<UInt32>(v < least ? least : (v > most ? most : v));
+	};
+	camps.enabled = GetPrivateProfileIntA("Survivors", "Enabled", 1, path) != 0;
+	camps.peoplePerCamp = whole("PeoplePerCamp", 6, 2, 6);
+	camps.womenPercent = whole("WomenPercent", 50, 0, 100);
+	camps.trader = GetPrivateProfileIntA("Survivors", "Trader", 1, path) != 0;
+	camps.rewardFame = GetPrivateProfileIntA("Survivors", "RewardFame", 1, path) != 0;
+	camps.famePoints = whole("FamePoints", 1, 0, 100);
+	camps.rewardGold = GetPrivateProfileIntA("Survivors", "RewardGold", 1, path) != 0;
+	camps.gold = whole("Gold", 150, 0, 100000);
+	camps.attackChancePercent = whole("AttackChancePercent", 15, 0, 100);
+	camps.walkersMin = whole("AttackWalkersMin", 6, 1, 100);
+	camps.walkersMax = whole("AttackWalkersMax", 12, 1, 100);
+	camps.campsAttackedAtOnce = whole("CampsAttackedAtOnce", 1, 1, 2);
+	camps.refugeeKillsPerHour = std::max(0.0f, IniFloat("Survivors", "RefugeeKillsPerHour", 2.0f, path));
+	camps.lossPercentPerHour = whole("LossPercentPerHour", 25, 0, 100);
+	camps.returnChancePercent = whole("ReturnChancePercent", 10, 0, 100);
+	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
 	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;

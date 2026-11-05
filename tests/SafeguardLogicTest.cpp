@@ -45,6 +45,9 @@ void TestTakes() {
 	other = v;
 	other.rises = true;
 	Check(!walkers::SafeguardTakes(s, other), "one who rises as a walker: not");
+	other = v;
+	other.campPerson = true;
+	Check(!walkers::SafeguardTakes(s, other), "a camp's refugee (4.20.6): not - left to the rise, even when it misses");
 	s.enabled = false;
 	Check(!walkers::SafeguardTakes(s, v), "[Safeguard] Enabled=0: nobody");
 }
@@ -71,6 +74,9 @@ void TestNoKiller() {
 	other = v;
 	other.rises = true;
 	Check(!walkers::SafeguardAsks(s, other), "one who rises: not");
+	other = v;
+	other.campPerson = true;
+	Check(!walkers::SafeguardAsks(s, other), "a camp's refugee: not");
 	s.enabled = false;
 	Check(!walkers::SafeguardAsks(s, v), "off: not");
 }

@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "Bytes.h"
+#include "CampLogic.h"
 #include "EndLogic.h"
 #include "GrabLogic.h"
 #include "GuardLogic.h"
@@ -172,6 +173,8 @@ struct RiseSettings {
 	EndSettings end;
 	// [Night] (4.20.5, NightLogic.h): nights are worse.
 	NightSettings night;
+	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
+	CampSettings camps;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk

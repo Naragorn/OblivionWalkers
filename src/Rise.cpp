@@ -13,6 +13,7 @@
 #include "SkillLogic.h"
 #include "Replace.h"
 #include "Siege.h"
+#include "Camps.h"
 
 #include <windows.h>
 #include <intrin.h>
@@ -610,7 +611,9 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	victim.rises = verdict == DeathVerdict::Waits || walkerUp;
 	if (walker && !swapKill && !walkerUp) {
 		NoteSiegeWalkerEnded(fallen.refId);
+		NoteCampWalkerEnded(fallen.refId);
 	}
+	victim.campPerson = IsCampPerson(fallen.refId);
 	if (g_settings.safeguard.testVictim != 0 && fallen.refId == g_settings.safeguard.testVictim) {
 		victim.killedByWalker = true;
 		g_log("Safeguard: test - TestVictim %08X died, taken as the walkers' doing", fallen.refId);
@@ -890,6 +893,7 @@ void FindWalkers() {
 	ConfigureGuards(g_settings.guards, g_log);
 	ConfigureNews(g_settings.news, base, g_log);
 	ConfigureSiegeEsp(base);
+	ConfigureCampsEsp(base);
 	ConfigureGrabIdles(base);
 }
 
@@ -1920,7 +1924,8 @@ UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 		HordeCandidate& c = out[count++];
 		c.ref = ref;
 		c.alive = !IsDead(ref);
-		c.busy = g_swap.active && ids[i] == g_swap.zombieId;
+		// A camp's attacker (4.20.6) keeps to its camp: no horde takes it.
+		c.busy = (g_swap.active && ids[i] == g_swap.zombieId) || IsCampWalker(ids[i]);
 	}
 	return count;
 }
@@ -1987,6 +1992,7 @@ void StepHeads() {
 			      refId, g_list.count);
 			if (walker) {
 				NoteSiegeWalkerEnded(refId);
+				NoteCampWalkerEnded(refId);
 			}
 		} else if (action == HeadAction::Kill) {
 			const bool killed = ConsoleOn(ref, "Kill");
@@ -2208,6 +2214,7 @@ void Tick() {
 		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
 		StepSiegeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepCampsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHeads();
 		StepLootless();
 		StepFame();
@@ -2268,6 +2275,12 @@ void OnSave(void*) {
 	    !g_serialization->WriteRecordData(siege, siegeLength)) {
 		g_log("Co-save: the sieges could not be written");
 	}
+	UInt8 camps[kCampImageBytes];
+	const UInt32 campsLength = CampImage(CurrentCamps(), camps, sizeof(camps));
+	if (!g_serialization->OpenRecord(kCampRecordType, kCampRecordVersion) ||
+	    !g_serialization->WriteRecordData(camps, campsLength)) {
+		g_log("Co-save: the camps could not be written");
+	}
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -2295,6 +2308,8 @@ void OnLoad(void*) {
 	ReleaseSiegeLocks();
 	CurrentSieges() = SiegeState{};
 	ResetSiegeInGame();
+	CurrentCamps() = CampsState{};
+	ResetCampsInGame();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -2344,6 +2359,22 @@ void OnLoad(void*) {
 			}
 			g_log("Co-save: %u sieges on read (version %u)%s", active, version,
 			      whole ? "" : " (version or length off: none)");
+			continue;
+		}
+		if (type == kCampRecordType) {
+			UInt8 camps[kCampImageBytes];
+			const UInt32 read = version == kCampRecordVersion && length <= sizeof(camps)
+			                        ? g_serialization->ReadRecordData(camps, length)
+			                        : 0;
+			const bool whole = ReadCampImage(CurrentCamps(), camps, read);
+			UInt32 attacked = 0;
+			UInt32 overrun = 0;
+			for (const Camp& c : CurrentCamps().camps) {
+				attacked += c.status == CampStatus::Attacked ? 1u : 0u;
+				overrun += c.status == CampStatus::Overrun ? 1u : 0u;
+			}
+			g_log("Co-save: the camps read - %u attacked, %u overrun (version %u)%s", attacked, overrun, version,
+			      whole ? "" : " (version or length off: all living)");
 			continue;
 		}
 		if (type == kFameRecordType) {
@@ -2402,6 +2433,8 @@ void OnNewGame(void*) {
 	ReleaseSiegeLocks();
 	CurrentSieges() = SiegeState{};
 	ResetSiegeInGame();
+	CurrentCamps() = CampsState{};
+	ResetCampsInGame();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -2495,6 +2528,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
+	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, log);
 	return true;
 }
 

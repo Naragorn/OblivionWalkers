@@ -2059,8 +2059,10 @@ Deviations from the design of 2026-11-05, none silent:
   OnMagicEffectHit: the latter also comes for effects not cast at that
   moment (derived from xOBSE's EventManager - it marks every magic effect
   applied; not measured in the game).
-- The throw: Walkers takes 'WNOI'; OBVR does not send it yet (OBVR's work,
-  the protocol sent to its session 2026-11-05).
+- The throw: Walkers takes 'WNOI'; OBVR sends it since its 8d6d2a2
+  (2026-11-05, `[Hands] ThrowNoise=1`): once a throw, at its first hard stop
+  or where it comes to rest - OBVR's harness throw-noise-weapon: "'WNOI' to
+  Walkers taken" (OBVR's measurement, not run here).
 
 Measured (harness/noise-draws.txt through tools/noise-harness.sh, Linux,
 headless, 2026-11-05 14:20, PASS): some hundred walkers out at Tamriel
@@ -2136,11 +2138,103 @@ counts "2 3 5 6 8 9 11 12 14 15 (150 % of the day's)", 12:00 back to 10 and
 35 to 84 (mean about 55) by day after. Open: the headset's feel, a horde at
 night, the rumor heard.
 
-#### 4.20.6 Survivors' camps - `[Survivors] Enabled=1`
+#### 4.20.6 Survivors' camps - `[Survivors] Enabled=1` - step 1 (defending) BUILT 2026-11-05
 
 Groups of refugees on the roads and in small camps, to escort to a city or
 to hold against a horde; a camp overrun becomes walkers. Cost **large**:
 NPC groups, their packages and places, the fight's outcome, the news.
+Nadi, 2026-11-05: "go 4.20.6 (default on)". Built as the design's first
+step - the camps and their defence; the escort (step 2) is not built.
+
+How (`CampLogic.h`, `CampPlaces.h`, `CampSpots.h`, `Camps.cpp`,
+`tools/camp-places.py`, `tools/esp-write.py`):
+- Places: twelve, proposed by `tools/camp-places.py` off Oblivion.esm's
+  roads (the ROAD record's points and links, sampled every 1000 units): at
+  least 9000 units from every city gate, 2500 from every door, 2000 from
+  every map marker, moved 450 units off the road to its flatter side, the
+  land within 400 units varying at most 90 (LAND VHGT); each the farthest
+  from those picked before. Named after the nearest map marker (no Oblivion
+  gate's): near Hrota Cave, Walker Camp, Darkfathom Cave, Ceyatatar,
+  Crestbridge Camp, Bruma Caverns, Pillaged Mine, Bawn, Mortal Camp, Fort
+  Urasek, Mingo Cave, Dragonclaw Rock. Not picked by Nadi yet (the "still to
+  settle" below) - a place is a row of `CampPlaces.h`; the ESP and
+  `CampSpots.h` are written anew from it.
+- The ESP: fourteen refugee bases (copies of Oblivion.esm's generic bandits
+  and marauders for faces, races and sexes - six men, six women, a trading
+  man and woman - without factions, packages, scripts, spells and things;
+  "Refugee", generic so the rise takes them, aggression 5, confidence 70,
+  dressed in lower-class clothes with a rusty weapon). Each camp in
+  Tamriel's persistent cell (00023777, the ESP carries Tamriel's WRLD record
+  verbatim but its OFST table): thirteen people (six men, six women, the
+  trader - persistent, initially disabled), a map marker "Refugee Camp"
+  (hidden until found), a campfire (DExteriorCampFire300, the flame node,
+  three log piles), two tents with a bedroll each, two bedrolls by the fire,
+  each on the land's height. The trader sells as Thoronir (services 0x359F)
+  from one merchant chest in the holding cell (XMRC). A pool of 24 walkers
+  (two camps of twelve), two markers and two travel packages in the holding
+  cell.
+- The roster: PeoplePerCamp (2..6) of the slots, WomenPercent of them women
+  (rounded half up), and the trader (Trader). A living camp nobody of which
+  is lost takes a changed setting at once; one that lost people when it
+  comes back.
+- Attacks: each new game day, each living camp by AttackChancePercent, at a
+  random hour of that day; AttackWalkersMin..Max walkers. The camp shown
+  (the player within 6000 units, outdoors, at most CampsAttackedAtOnce of
+  them, the nearest first): up to twelve walkers at once out of the pool on
+  a ring 1600 units out, away from the road, led at the camp by the travel
+  package (the marker moved onto the camp's map marker); each walker ended
+  (4.17) counts off, the next comes out; no horde takes them (busy). Not
+  shown: the toll each game hour - RefugeeKillsPerHour walkers cut down (a
+  part carried), one refugee lost by LossPercentPerHour (disabled).
+- Ends: the last walker ended with a refugee alive holds the camp; shown
+  during the attack it is defended - ModPCFame FamePoints (RewardFame),
+  Gold (RewardGold) and always a line ("The refugees near ... are safe") and
+  UIQuestUpdate's sound; held away, nothing. The last refugee dead (in the
+  game: each step reads the people of a camp the player is at) overruns it:
+  those killed in the game rise (generic, the safeguard leaves them alone -
+  `Victim::campPerson`); the walkers left and, away, the ones lost stay at
+  the camp, among its tents when the player comes (the pool). Each new day
+  an overrun camp comes back by ReturnChancePercent: its dead raised
+  (Resurrect), stripped and dressed anew (the rise moved their things onto
+  their walkers), all enabled where they lay.
+- Co-save "CAMP" v1: the last day rolled, per camp status, roster, lost,
+  walkers left, the coming attack, the toll's day and carry.
+- LINK (version 20): all fifteen (137..151), live. `TestCamp` only in the
+  INI (a test switch).
+
+Deviations from the design, none silent:
+- The escort (to the nearest city, 7 game days there) is step 2, not built.
+- "Gold or things": gold only; things (a leveled item) not built.
+- "The news": no Courier edition or rumor of the camps yet.
+- Rewards come only for an attack the player was at when it was shown; a
+  camp that holds while he is away gives none.
+- DieOnlyBeheaded=1 with OBVR cutting heads: a walker the refugees fell gets
+  up again (4.17) - only the player's cut ends one, so a camp is held only
+  with the player's help (derived from EndLogic.h; not seen in the game).
+- The refugees stand where they were put (no packages); after a fight they
+  stay where it left them; a refugee who comes back gets up where he lay.
+
+Measured (harness/camp-defend.txt through tools/camp-harness.sh, Linux,
+headless, 2026-11-05, PASS both): the twelve camps set up at the load (7
+enabled, 6 disabled each - roster 11C7: three men, three women, the trader).
+14:56, the INI's DieOnlyBeheaded=1 and OBVR cutting heads: TestCamp=7
+attacked, the player at it, six walkers out on the ring (MoveTo answered 1
+each), the refugees felled all six (their killers the refugees' IDs), each
+"down - it gets up again"; a refugee killed rose as walker 26000938 - none
+ended, so the attack could not end. 15:00, CAMP_ENDS=1 (DieOnlyBeheaded=0):
+two refugees killed by walkers (both rising), the six walkers ended one by
+one, "camp 07 near Bawn defended ... (+1 fame, 150 gold)". Found and fixed on
+the way: the walkers were led in the step they came out - now the step
+after. The console answers 0 for AddScriptPackage and PlaySound whether they
+take or not (the horde's lines say the same of AddScriptPackage): the walkers
+reached the camp and fought; the sound not heard (headless).
+Not seen in the game: the toll away, an overrun, a camp coming back (the dead
+raised and dressed), the trader's barter, the map markers on the map, the
+props' looks and collision, the reward's gold and fame in the player's
+stats, the headset. CampLogicTest covers the flows of the decisions.
+
+Open for Nadi: the end rule at camps (above: with OBVR's cuts only the
+player ends a walker); the places; the escort (step 2).
 
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
@@ -2248,6 +2342,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) - PASS 2026-10-24 10:26 (Walk=1) and 10:29 (Walk=0); SpeedMultiplier=2 PASS 21:00, 69 to 106 units/s | the plugin |
 | `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed; MaxCount 10 PASS 20:47: 15 walkers | the plugin, the ESP active |
 | `night-pace.txt` | the nights (4.20.5) through `tools/night-harness.sh`: noon, 1:00, noon - the records' pace x2 and back, the counts at 150 % and back, a risen walker's units/s at night and by day - PASS 2026-11-05 14:12 | the plugin, the ESP active |
+| `camp-defend.txt` | the survivors' camps (4.20.6) through `tools/camp-harness.sh` (TestCamp=7, six walkers; CAMP_ENDS=1 adds DieOnlyBeheaded=0): the camps set up, camp 07 attacked, its walkers out and led, refugees dead and rising, walkers ended, defended - PASS 2026-11-05 14:56 and 15:00 | the plugin, the ESP active |
 | `noise-draws.txt` | the noise (4.20.2) through `tools/noise-harness.sh`: walkers attacking the player at Tamriel -29,5 - blows and spells heard, groups 1000-1300 units off drawn, at the spot and searching - PASS 2026-11-05 14:20 | the plugin, the ESP active |
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |

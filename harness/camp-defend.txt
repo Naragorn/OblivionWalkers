@@ -1,0 +1,44 @@
+# Survivors' camps (docs/walkers-spec.md 4.20.6, built 2026-11-05): the
+# player taken to Tamriel 20,-15, some 1000 units from camp 07 "near Bawn"
+# (83104,-58886), untouchable (tgm). tools/camp-harness.sh sets [Survivors]
+# TestCamp=7 and AttackWalkersMin/Max=6 in the live INI, so the camp is
+# attacked at the plugin's first look: "Camps: test - TestCamp=7", "camp 07
+# near Bawn attacked - 6 walkers (... the player near)", "the player at camp
+# 07 ... its attackers come out", six "walker ... out at camp 07", then
+# "walkers led at camp 07". The refugees (enabled: "camp 07 ... 7 enabled")
+# fight them: "slot N ... dead" and "walker ... ended at camp 07" lines, and
+# at the end "defended" (the reward's line) or "overrun". The run waits two
+# minutes and a half for the fight.
+#
+# Runs on OBVR's harness through tools/camp-harness.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set GameHour to 12
+console-at ready cow Tamriel 20 -15
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 30
+mark t30
+wait 30
+mark t60
+wait 30
+mark t90
+wait 30
+mark t120
+wait 30
+mark t150
+wait 1
+mark end
+wait 1

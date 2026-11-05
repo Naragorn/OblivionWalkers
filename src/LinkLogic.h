@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 19.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2), 2026-11-05
+inline constexpr double kLinkVersion = 20.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -83,6 +83,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 10, "Grabbed - in reach (VR)"},
 	{68 + kReplaceCategoryCount + 15, "Nights are worse"},
 	{68 + kReplaceCategoryCount + 21, "Noise draws them"},
+	{68 + kReplaceCategoryCount + 24, "Survivors' camps"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -286,6 +287,36 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 5000, 100, 0, false, LinkEffect::Horde},
 	{"ini_noise_search", "Noise: search time", "Seconds they search the spot before going on.", LinkKind::Slider, 5, 120,
 	 5, 0, false, LinkEffect::Horde},
+	{"ini_camps_enabled", "Survivors' camps", "Refugees camp by the roads; walkers attack them - defend them for a reward.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_camps_people", "Camps: refugees", "Refugees in each camp (a camp that lost some keeps its own until it comes back).",
+	 LinkKind::Slider, 2, 6, 1, 0, false, LinkEffect::Live},
+	{"ini_camps_women", "Camps: women", "The share of women among the refugees.", LinkKind::Slider, 0, 100, 10, 0, true,
+	 LinkEffect::Live},
+	{"ini_camps_trader", "Camps: a trader", "Each camp has a trader among its refugees.", LinkKind::Toggle, 0, 1, 1, 0,
+	 false, LinkEffect::Live},
+	{"ini_camps_fame", "Camps: fame as reward", "A camp you defend gives fame.", LinkKind::Toggle, 0, 1, 1, 0, false,
+	 LinkEffect::Live},
+	{"ini_camps_fame_points", "Camps: fame points", "The fame a defended camp gives.", LinkKind::Slider, 1, 10, 1, 0,
+	 false, LinkEffect::Live},
+	{"ini_camps_gold", "Camps: gold as reward", "A camp you defend gives gold.", LinkKind::Toggle, 0, 1, 1, 0, false,
+	 LinkEffect::Live},
+	{"ini_camps_gold_amount", "Camps: gold", "The gold a defended camp gives.", LinkKind::Slider, 0, 1000, 25, 0, false,
+	 LinkEffect::Live},
+	{"ini_camps_attack_chance", "Camps: attacks a day", "The chance a camp is attacked each game day.", LinkKind::Slider, 0,
+	 100, 5, 0, true, LinkEffect::Live},
+	{"ini_camps_walkers_min", "Camps: walkers, fewest", "The fewest walkers in an attack.", LinkKind::Slider, 1, 40, 1, 0,
+	 false, LinkEffect::Live},
+	{"ini_camps_walkers_max", "Camps: walkers, most", "The most walkers in an attack.", LinkKind::Slider, 1, 40, 1, 0,
+	 false, LinkEffect::Live},
+	{"ini_camps_at_once", "Camps: attacked at once", "Camps fought out near you at once; the others are decided unseen.",
+	 LinkKind::Slider, 1, 2, 1, 0, false, LinkEffect::Live},
+	{"ini_camps_kills", "Camps: refugees' kills", "Walkers the refugees cut down each game hour while you are away.",
+	 LinkKind::Slider, 0, 10, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_camps_loss", "Camps: refugees lost", "The chance each game hour that a refugee dies while you are away.",
+	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
+	{"ini_camps_return", "Camps: back again", "The chance each game day that an overrun camp is settled again.",
+	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -388,6 +419,21 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 134: return rise.horde.noise.enabled ? 1.0 : 0.0;
 		case 135: return rise.horde.noise.radius;
 		case 136: return rise.horde.noise.searchSeconds;
+		case 137: return rise.camps.enabled ? 1.0 : 0.0;
+		case 138: return rise.camps.peoplePerCamp;
+		case 139: return rise.camps.womenPercent;
+		case 140: return rise.camps.trader ? 1.0 : 0.0;
+		case 141: return rise.camps.rewardFame ? 1.0 : 0.0;
+		case 142: return rise.camps.famePoints;
+		case 143: return rise.camps.rewardGold ? 1.0 : 0.0;
+		case 144: return rise.camps.gold;
+		case 145: return rise.camps.attackChancePercent;
+		case 146: return rise.camps.walkersMin;
+		case 147: return rise.camps.walkersMax;
+		case 148: return rise.camps.campsAttackedAtOnce;
+		case 149: return rise.camps.refugeeKillsPerHour;
+		case 150: return rise.camps.lossPercentPerHour;
+		case 151: return rise.camps.returnChancePercent;
 		default: return 0.0;
 	}
 }
@@ -511,6 +557,21 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 134: rise.horde.noise.enabled = on; break;
 		case 135: rise.horde.noise.radius = fraction; break;
 		case 136: rise.horde.noise.searchSeconds = fraction; break;
+		case 137: rise.camps.enabled = on; break;
+		case 138: rise.camps.peoplePerCamp = whole; break;
+		case 139: rise.camps.womenPercent = whole; break;
+		case 140: rise.camps.trader = on; break;
+		case 141: rise.camps.rewardFame = on; break;
+		case 142: rise.camps.famePoints = whole; break;
+		case 143: rise.camps.rewardGold = on; break;
+		case 144: rise.camps.gold = whole; break;
+		case 145: rise.camps.attackChancePercent = whole; break;
+		case 146: rise.camps.walkersMin = whole; break;
+		case 147: rise.camps.walkersMax = whole; break;
+		case 148: rise.camps.campsAttackedAtOnce = whole; break;
+		case 149: rise.camps.refugeeKillsPerHour = fraction; break;
+		case 150: rise.camps.lossPercentPerHour = whole; break;
+		case 151: rise.camps.returnChancePercent = whole; break;
 		default: return false;
 	}
 	return true;

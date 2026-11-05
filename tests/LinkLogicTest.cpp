@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 137,
-	      "137 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three - every INI setting but Name, "
+	Check(kLinkSettingCount == 152,
+	      "152 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -214,6 +214,35 @@ void TestValues() {
 	          kLinkSettings[noiseOn].effect == walkers::LinkEffect::Horde &&
 	          kLinkSettings[noiseRadius].effect == walkers::LinkEffect::Horde,
 	      "the noise off, farther, longer from the menu: the horde configured anew with it");
+	const char* campVars[] = {"ini_camps_enabled", "ini_camps_people", "ini_camps_women", "ini_camps_trader",
+	                          "ini_camps_fame", "ini_camps_fame_points", "ini_camps_gold", "ini_camps_gold_amount",
+	                          "ini_camps_attack_chance", "ini_camps_walkers_min", "ini_camps_walkers_max",
+	                          "ini_camps_at_once", "ini_camps_kills", "ini_camps_loss", "ini_camps_return"};
+	const double campDefaults[] = {1, 6, 50, 1, 1, 1, 1, 150, 15, 6, 12, 1, 2, 25, 10};
+	bool campsInOrder = true;
+	for (int k = 0; k < 15; ++k) {
+		const int at = IndexOf(campVars[k]);
+		campsInOrder = campsInOrder && at == 137 + k && walkers::LinkValue(rise, replace, at) == campDefaults[k] &&
+		               kLinkSettings[at].effect == walkers::LinkEffect::Live;
+	}
+	Check(campsInOrder, "the camps last, 137..151: on, 6 refugees, 50 % women, a trader, 1 fame, 150 gold, 15 % a day, "
+	                    "6..12 walkers, one at once, 2 kills and 25 % lost an hour away, 10 % back a day - live");
+	Check(walkers::SetLinkValue(rise, replace, 137, 0.0) && !rise.camps.enabled &&
+	          walkers::SetLinkValue(rise, replace, 138, 4.0) && rise.camps.peoplePerCamp == 4 &&
+	          walkers::SetLinkValue(rise, replace, 139, 70.0) && rise.camps.womenPercent == 70 &&
+	          walkers::SetLinkValue(rise, replace, 140, 0.0) && !rise.camps.trader &&
+	          walkers::SetLinkValue(rise, replace, 141, 0.0) && !rise.camps.rewardFame &&
+	          walkers::SetLinkValue(rise, replace, 142, 3.0) && rise.camps.famePoints == 3 &&
+	          walkers::SetLinkValue(rise, replace, 143, 0.0) && !rise.camps.rewardGold &&
+	          walkers::SetLinkValue(rise, replace, 144, 300.0) && rise.camps.gold == 300 &&
+	          walkers::SetLinkValue(rise, replace, 145, 40.0) && rise.camps.attackChancePercent == 40 &&
+	          walkers::SetLinkValue(rise, replace, 146, 3.0) && rise.camps.walkersMin == 3 &&
+	          walkers::SetLinkValue(rise, replace, 147, 20.0) && rise.camps.walkersMax == 20 &&
+	          walkers::SetLinkValue(rise, replace, 148, 2.0) && rise.camps.campsAttackedAtOnce == 2 &&
+	          walkers::SetLinkValue(rise, replace, 149, 3.5) && rise.camps.refugeeKillsPerHour == 3.5f &&
+	          walkers::SetLinkValue(rise, replace, 150, 50.0) && rise.camps.lossPercentPerHour == 50 &&
+	          walkers::SetLinkValue(rise, replace, 151, 30.0) && rise.camps.returnChancePercent == 30,
+	      "each of the camps' fifteen set from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -302,7 +331,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 19\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 20\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

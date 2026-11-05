@@ -103,10 +103,13 @@ struct Victim {
 	bool player = false;
 	bool gateGuard = false;
 	bool rises = false;  // the rise's verdict: Waits
+	// One of the survivors' camps' people (4.20.6, Nadi 2026-11-05): killed by
+	// walkers they rise as walkers - never raised by the safeguard.
+	bool campPerson = false;
 };
 
 inline bool SafeguardTakes(const SafeguardSettings& s, const Victim& v) {
-	return s.enabled && v.killedByWalker && !v.walker && !v.player && !v.gateGuard && !v.rises;
+	return s.enabled && v.killedByWalker && !v.walker && !v.player && !v.gateGuard && !v.rises && !v.campPerson;
 }
 
 // A death without a killer that the safeguard asks about: it counts as the
@@ -115,7 +118,7 @@ inline bool SafeguardTakes(const SafeguardSettings& s, const Victim& v) {
 inline constexpr float kSafeguardNearUnits = 1000.0f;
 
 inline bool SafeguardAsks(const SafeguardSettings& s, const Victim& v) {
-	return s.enabled && v.killerUnknown && !v.walker && !v.player && !v.gateGuard && !v.rises;
+	return s.enabled && v.killerUnknown && !v.walker && !v.player && !v.gateGuard && !v.rises && !v.campPerson;
 }
 
 // Noted once; false when the list is full (the caller says so in the log).
