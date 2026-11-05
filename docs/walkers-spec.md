@@ -2215,10 +2215,14 @@ Deviations from the design, none silent:
   refugee ends (EndLogic.h `EndedByRefugee`, its killer one of the camps'
   people), and OBVR is asked to cut its head off wherever the blow landed -
   'WGCT' to OBVR, one word, the walker's reference, sent the frame after the
-  death; OBVR answers with its 'WGHD' as for a cut of its own. OBVR's side
-  is OBVR's work (asked 2026-11-05). Open there: a pool walker raised for a
-  later attack (Resurrect) after OBVR cut its head - whether the head is
-  back.
+  death; OBVR answers with its 'WGHD' as for a cut of its own. OBVR's side:
+  its adcdbda (2026-11-05) - camp-defend twice PASS on OBVR's side, every
+  'WGCT' walker "its head cut" and its 'WGHD' taken; a pool walker raised
+  again gets its head back (the engine rebuilds it at the Resurrect, OBVR
+  forgets the cut of an actor alive again - its dismember-resurrect PASS).
+  OBVR's measurements, not run here. OBVR notes its roster stops at 64
+  actors (a camp attack had 142): 'WGCT' works around it, its killing-blow
+  search does not yet.
 - The refugees stand where they were put (no packages); after a fight they
   stay where it left them; a refugee who comes back gets up where he lay.
 
