@@ -2060,6 +2060,62 @@ Groups of refugees on the roads and in small camps, to escort to a city or
 to hold against a horde; a camp overrun becomes walkers. Cost **large**:
 NPC groups, their packages and places, the fight's outcome, the news.
 
+#### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
+
+Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting
+below goes into the INI and LINK.
+
+**4.20.6 Survivors' camps** - `[Survivors] Enabled=1`
+- Places: both, as options - fixed places chosen by hand (some 12 along the
+  roads, built by the ESP) on by default; random places off by default.
+- What the player does: both - defend a camp against a horde, and escort
+  its group to the nearest city; built in two steps, defending first.
+- Reward, each settable: fame (on), a trader in the camp (on), "gold or
+  things" (on - Nadi's "b on"), and without any of them a "quest completed"
+  moment (a line, a sound - Nadi: "a gibt ein quest completed ereignis oder
+  so").
+- Attacks: a chance a camp and game day (15 percent), whether the player is
+  there or not; away, the refugees lose by a chance, as the siege's toll.
+- People: the share of men and women settable, 50/50 by default.
+- Overrun: the dead rise as walkers (as designed in 4.20.6).
+
+**4.20.1 Walker blood as a disguise** - `[Disguise] Enabled=1`
+- Smearing: flat, activating a walker's corpse and a question; in VR a
+  gesture (a hand in the corpse, then over the chest) - OBVR's gesture,
+  a message to Walkers, as the shake.
+- Lasts: settable, 3 game minutes by default.
+- Breaks: an attack on a walker, and water (rain or swimming); running does
+  not break it.
+- Shown: a light red tint and a line; in VR a dark rim and blood on the
+  hands (OBVR).
+- The others: guards and people do not react (first step).
+
+**4.20.2 Noise draws them** - `[Noise] Enabled=1`, `Radius=500`
+- Noise: blows that land, spells, thrown things (xOBSE OnHit,
+  OnMagicEffectHit, OBVR's throws); doors and traps not (no clean hook).
+- Reach: settable, 500 units by default (Nadi; the proposal was 1500-3000
+  by kind - 500 is some 7 m, asked back 2026-11-05).
+- The walkers go to the spot and search it for 30 s, then back to their
+  horde; one that sees the player attacks as ever.
+- Distraction: yes - a thrown bottle draws them to where it breaks.
+
+**4.20.5 Nights are worse** - `[Night] Enabled=1`, `SpeedMultiplier=1.3`, `SpawnPercent=150`
+- At night the walkers are 1.3 times as quick and the spawns give 1.5 times
+  as many; the grab's chance stays. Each settable.
+- Night: 20:00 to 6:00, settable, the pace rising and falling over an hour.
+- Told by a rumor ("at night they are quicker ...").
+
+**Open, to settle before each is built** (asked 2026-11-05):
+- 4.20.2: 500 units meant for every kind of noise, or 5000?
+- 4.20.6: what becomes of an escorted group in the city (they live there,
+  or leave the game); whether an overrun camp comes back after some days;
+  the safeguard leaves camp people alone (they rise - by design) or raises
+  them; how many camps at most at once with a horde (the cost in VR).
+- 4.20.1: may a disguised player still be grabbed (proposed: no); does the
+  disguise also hide him from the siege's walkers (proposed: yes).
+- 4.20.5: do the siege's walkers and the hordes count as "spawns" for the
+  night's share (proposed: the hordes move farther, the siege unchanged).
+
 ## 5. Scenarios - `[Scenario] Preset=`
 
 All of 28 Days' plus one. A preset sets the switches above and the
