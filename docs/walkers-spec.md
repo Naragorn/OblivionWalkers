@@ -1169,38 +1169,40 @@ How:
   The fallen pool guards get no loot block (Nadi, 2026-10-26): what the
   player takes from one stays taken when it is raised and sent out again
   (derived from Resurrect keeping the inventory as it is; not run).
-- **Raised at home - next, for 2026-11-05** (Nadi, 2026-11-04: "kann der
-  sie wiederbeleben aber irgendwo anders wo sie halt spawnen zuhause zb",
-  then "A wenns easy geht ansonsten B", then "ok wir machen a als nächstes
-  ... wir gehen das erst morgen an"). Built in between (B, 5c16055): raised
-  where it lay, then `EvaluatePackage` so it walks back to its schedule -
-  not seen in the game (harness/safeguard-home.txt drafted, its victim not
-  found: the roster names base forms, not references). **A, to do:** the
-  body moved to where the reference started, then raised there.
-  - What is known: the start position is the reference's
-    ExtraStartingPosition (type 0x14: x, y, z at +0x0C, the angles at +0x18;
-    xOBSE GameExtraData.h, deepwiki 2026-11-04) and TESObjectREFR's virtual
-    GetStartingPos/GetStartingAngle.
-  - What is not: the start cell or worldspace - ExtraStartingWorldOrCell
-    (0x53) exists, its layout is not in xOBSE (derived: a form at +0x0C,
-    unverified); ExtraPersistentCell (0x11, a cell at +0x0C) may be the one
-    for persistent people. Read it in ../OBNG/re/export first (every
-    function of Oblivion.exe decompiled), then check on three people.
-  - The move: the console's PositionCell / PositionWorld take an editor ID,
-    which the game keeps for few forms at run time - better the engine's own
-    move of a reference to a cell and position (its address to find, the
-    same export), or MoveTo onto a reference standing at home (a bed, a
-    door marker: not general).
-  - The raise: at home the cell is often not loaded - the safeguard's list
-    already waits for a body's 3D and the player's cells, so the moved body
-    is raised when the player comes there (or raised without 3D, which is
-    not read: measure first).
-  - Tests: unit flows for the choice (start known / unknown, interior /
-    exterior, the same cell as now), a harness with a named NPC's reference
-    (to find first, e.g. from Oblivion.esm's ACHR in Bravil) killed by a
-    walker in the street and raised in its house.
-  - Cost: medium - two engine unknowns (the start cell, the move), the rest
-    is the safeguard as built.
+- **Raised at home - built 2026-11-05** (`[Safeguard] RaiseAtHome`; Nadi,
+  2026-11-04: "kann der sie wiederbeleben aber irgendwo anders wo sie halt
+  spawnen zuhause zb", then "A wenns easy geht ansonsten B", 2026-11-05:
+  "go"). B first (5c16055): raised where it lay, then `EvaluatePackage` so
+  it walks back to its schedule. A on top: before the raise, an actor whose
+  home is an interior with an editor ID is moved there by the console's
+  `PositionCell` to its start position, then raised; an outdoor home, an
+  interior without an editor ID or no start known: B.
+  - The start position: TESObjectREFR's virtual at vtable+0xF4 (an actor's
+    reads its +0xE8..+0xF0, 0x00628E40). The angle is vtable+0xF0 (read in
+    0x0045BB30) - not +0xF8, xOBSE's order, which left the raise unfinished
+    at 10:32; the raised one keeps the heading it lay with (the angle not
+    used yet).
+  - The start cell: Actor+0xF8, a TESObjectCELL (type 0x30) or a
+    TESWorldSpace (0x35) - read from the engine's own move to the editor
+    location 0x0045BB30 (0x005E0260 / 0x005E1F60 / 0x005E1F40). Measured
+    wrong first: ExtraPersistentCell (0x11) held Tamriel's persistent cell
+    00003615 for Dro'shanji (it follows where a persistent actor is, derived),
+    ExtraStartingWorldOrCell (0x53) was absent; and the cell type had been
+    taken as 0x39, it is 0x30 (xOBSE GameForms.h).
+  - Harness `safeguard-home.txt` PASS 2026-11-05 11:05: Dro'shanji (0002CA3B)
+    brought into Bravil's street, killed, 15 s later "its start world or cell
+    (Actor+0xF8) 0002CA39 (type 30)", "moved home (PositionCell handed
+    over)", "after the move in 0002CA39 at -34 54 -291", raised there with
+    his packages asked anew. Seconds later his schedule had him in cell
+    0002FF55 (where he stood before the test too) - the AI's doing, not the
+    safeguard's.
+  - Open: the engine's own move 0x0045BB30 (or 0x004DD4B0, its cell move)
+    instead of the console would take worldspace homes too and the angle -
+    its this-pointer (the extra list at +0x44, derived from its
+    `param_1 == -0x44` test) unverified; **small** to try, a harness run.
+    The raise of a body moved into an unloaded cell is the safeguard's
+    waiting as before (not run for a home far away). Unit flows:
+    `SafeguardLogicTest` (HomeMoveFor, every choice).
 
 Cost: towards cities and the hold **small**; the guards **medium**; the
 safeguard **small**. Tests: `GuardLogicTest` (every flow of the pool: how

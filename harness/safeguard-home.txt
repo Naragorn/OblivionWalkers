@@ -14,18 +14,14 @@
 # (A first draft of 2026-11-04 tried killing by a walker through the
 # console; the roster names base forms, so it never found its victim.)
 #
-# NOT WORKING YET (2026-11-05, three runs 09:20-09:24): no line of the
-# console on a placed NPC's reference took - "kill", "kill player" and
-# "ModAV2 Health -9999" on 0000A116 / 0002CA3B left the roster at 0 dead,
-# while "FF000F96.kill player" on a placed walker took (2026-11-04). To find
-# out first: whether "0002CA3B.moveto player" moved it at all (the roster
-# names bases; is base 0002CA36 near after it?), and whether the console
-# reaches an esm reference by its ID in this harness.
-#
-# Since 10:07: the plugin itself brings TestVictim beside the player 30 s
-# into the session and kills it at 38 s (Rise.cpp StepSafeguardInGame), the
-# console's lines on an esm reference not taking; the scenario only moves
-# the player into Bravil and waits.
+# PASS 2026-11-05 11:05: "its start world or cell (Actor+0xF8) 0002CA39
+# (type 30)", "moved home (PositionCell handed over)", "after the move in
+# 0002CA39 at -34 54 -291", then raised there. Before: 10:43 and 10:58 read
+# the extras ExtraPersistentCell (00003615, an exterior) and
+# ExtraStartingWorldOrCell (absent) - not the start cell. The plugin itself
+# brings TestVictim beside the player 30 s into the session and kills it at
+# 38 s (Rise.cpp StepSafeguardInGame): the console's lines on an esm
+# reference did not take in this harness (09:20-09:24).
 #
 # Runs through tools/safeguard-harness.sh, which sets the INI lines.
 
