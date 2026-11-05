@@ -2105,16 +2105,24 @@ below goes into the INI and LINK.
 - Night: 20:00 to 6:00, settable, the pace rising and falling over an hour.
 - Told by a rumor ("at night they are quicker ...").
 
-**Open, to settle before each is built** (asked 2026-11-05):
-- 4.20.2: 500 units meant for every kind of noise, or 5000?
-- 4.20.6: what becomes of an escorted group in the city (they live there,
-  or leave the game); whether an overrun camp comes back after some days;
-  the safeguard leaves camp people alone (they rise - by design) or raises
-  them; how many camps at most at once with a horde (the cost in VR).
-- 4.20.1: may a disguised player still be grabbed (proposed: no); does the
-  disguise also hide him from the siege's walkers (proposed: yes).
-- 4.20.5: do the siege's walkers and the hordes count as "spawns" for the
-  night's share (proposed: the hordes move farther, the siege unchanged).
+**Settled, 2026-11-05** (Nadi's answers):
+- 4.20.2: `Radius=1200` by default for every noise - "die sind dumpf".
+- 4.20.6: an escorted group stays in the city 7 game days, then leaves the
+  game; an overrun camp comes back by a chance (a chance a game day once
+  it lies empty, settable); camp people killed by walkers rise as walkers,
+  the safeguard leaves them alone; at most `CampsAttackedAtOnce=1` near the
+  player (settable), the others rolled in the background.
+- 4.20.1: a disguised player is not grabbed; the disguise also holds before
+  a siege's walkers.
+- 4.20.5: at night the hordes move farther, the siege stays as it is.
+- Order: 4.20.5, 4.20.1, 4.20.2, 4.20.6 - after the safeguard's raise at
+  home (4.11b, "A") and Nadi's headset test.
+
+**Still to settle when each is built:** the twelve camp places (Claude
+proposes them off Oblivion.esm's roads, Nadi picks); the reward's amounts
+(gold, fame points, the trader's goods); when an escort fails (the group
+dead, or left behind farther than some distance); the chance a day a camp
+comes back (proposed 10 percent).
 
 ## 5. Scenarios - `[Scenario] Preset=`
 
