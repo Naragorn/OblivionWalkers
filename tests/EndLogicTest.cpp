@@ -45,6 +45,24 @@ void TestFall() {
 	      "2026-10-30: \"bei Dismemberment=0 killt jeder schlag und walker steht auch nicht auf\")");
 	flat.headNoted = true;
 	Check(walkers::WalkerFallVerdict(true, flat) == WalkerFall::EndedHead, "a head noted ends it, whoever cut");
+	FallFacts refugee = f;
+	refugee.killedByRefugee = true;
+	Check(walkers::WalkerFallVerdict(true, refugee) == WalkerFall::EndedByRefugee &&
+	          walkers::AsksForCut(WalkerFall::EndedByRefugee) && walkers::Ends(WalkerFall::EndedByRefugee),
+	      "felled by a camp's refugee, OBVR cutting (4.20.6, Nadi 2026-11-05: \"go A\"): the end - OBVR asked to "
+	      "cut its head off, wherever the blow landed");
+	refugee.headNoted = true;
+	Check(walkers::WalkerFallVerdict(true, refugee) == WalkerFall::EndedHead, "its head off already: no cut asked");
+	FallFacts flatRefugee;
+	flatRefugee.killedByRefugee = true;
+	Check(walkers::WalkerFallVerdict(true, flatRefugee) == WalkerFall::EndedNoCutter &&
+	          !walkers::AsksForCut(WalkerFall::EndedNoCutter),
+	      "nobody cuts heads: ended as every kill, no cut asked");
+	Check(walkers::WalkerFallVerdict(false, refugee) == WalkerFall::EndedRuleOff, "the rule off: as ever");
+	UInt32 words[2] = {};
+	Check(walkers::CutHeadMessage(0x26000ABC, words) == 4 && words[0] == 0x26000ABC &&
+	          walkers::kCutHeadMessage == 0x54434757,
+	      "to OBVR, 'WGCT': the walker's reference, 4 bytes");
 	Check(walkers::Ends(WalkerFall::EndedRuleOff) && walkers::Ends(WalkerFall::EndedHeadless) &&
 	          walkers::Ends(WalkerFall::EndedHead) && walkers::Ends(WalkerFall::EndedNoCutter) &&
 	          !walkers::Ends(WalkerFall::RisesAgain),

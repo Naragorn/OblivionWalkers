@@ -2208,9 +2208,17 @@ Deviations from the design, none silent:
 - "The news": no Courier edition or rumor of the camps yet.
 - Rewards come only for an attack the player was at when it was shown; a
   camp that holds while he is away gives none.
-- DieOnlyBeheaded=1 with OBVR cutting heads: a walker the refugees fell gets
-  up again (4.17) - only the player's cut ends one, so a camp is held only
-  with the player's help (derived from EndLogic.h; not seen in the game).
+- The end rule at camps (4.17): with DieOnlyBeheaded=1 and OBVR cutting
+  heads, a walker the refugees felled got up again - the run of 14:56 below,
+  no attack could end. Nadi, 2026-11-05: "go A, aber der kopf fliegt einfach
+  ab egal ob trifft oder nicht beim kill": a walker felled by a camp's
+  refugee ends (EndLogic.h `EndedByRefugee`, its killer one of the camps'
+  people), and OBVR is asked to cut its head off wherever the blow landed -
+  'WGCT' to OBVR, one word, the walker's reference, sent the frame after the
+  death; OBVR answers with its 'WGHD' as for a cut of its own. OBVR's side
+  is OBVR's work (asked 2026-11-05). Open there: a pool walker raised for a
+  later attack (Resurrect) after OBVR cut its head - whether the head is
+  back.
 - The refugees stand where they were put (no packages); after a fight they
   stay where it left them; a refugee who comes back gets up where he lay.
 
@@ -2233,8 +2241,13 @@ raised and dressed), the trader's barter, the map markers on the map, the
 props' looks and collision, the reward's gold and fame in the player's
 stats, the headset. CampLogicTest covers the flows of the decisions.
 
-Open for Nadi: the end rule at camps (above: with OBVR's cuts only the
-player ends a walker); the places; the escort (step 2).
+15:1x, after "go A" (DieOnlyBeheaded=1, OBVR cutting): five walkers felled by
+the refugees, each "felled by a refugee - OBVR asked to cut its head ('WGCT'
+dispatched: 1)" and "ended at camp 07 ... N left"; one refugee dead (rising);
+the sixth walker still fighting when the run ended. The head flying off not
+seen (OBVR does not handle 'WGCT' yet; headless).
+
+Open for Nadi: the places; the escort (step 2).
 
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 

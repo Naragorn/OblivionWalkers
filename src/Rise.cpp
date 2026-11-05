@@ -435,6 +435,23 @@ UInt32 g_pluginHandle = 0;
 bool g_exceptionsSent = false;
 bool g_exceptionsSetting = false;
 
+// 4.20.6: the walkers a camp's refugee felled, whose heads OBVR is asked to
+// cut off ('WGCT') - from the death path, so sent at the next frame.
+UInt32 g_cuts[16] = {};
+UInt32 g_cutCount = 0;
+
+void SendCuts() {
+	for (UInt32 i = 0; i < g_cutCount; ++i) {
+		UInt32 words[1];
+		const UInt32 bytes = CutHeadMessage(g_cuts[i], words);
+		const bool sent = g_messaging != nullptr &&
+		                  g_messaging->Dispatch(g_pluginHandle, kCutHeadMessage, words, bytes, "OBVR");
+		g_log("End: walker %08X felled by a refugee - OBVR asked to cut its head ('WGCT' dispatched: %d)", g_cuts[i],
+		      sent ? 1 : 0);
+	}
+	g_cutCount = 0;
+}
+
 void SendSkillExceptions() {
 	if (g_messaging == nullptr || g_walkerCount == 0) {
 		return;
@@ -548,7 +565,11 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		facts.headless = headless;
 		facts.headNoted = HeadNoted(g_heads, fallen.refId);
 		facts.cutterOn = g_headCutter;
+		facts.killedByRefugee = IsCampPerson(FormIdOf(reinterpret_cast<UInt32>(arg1)));
 		fall = WalkerFallVerdict(g_settings.end.dieOnlyBeheaded, facts);
+		if (AsksForCut(fall) && g_cutCount < 16) {
+			g_cuts[g_cutCount++] = fallen.refId;
+		}
 	}
 	// A walker that gets up again keeps its corpse searchable and counts for
 	// no fame yet: both at its end (spec 4.17 point 7).
@@ -2216,6 +2237,7 @@ void Tick() {
 		StepSiegeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepCampsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHeads();
+		SendCuts();
 		StepLootless();
 		StepFame();
 	}

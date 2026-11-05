@@ -31,6 +31,11 @@ struct FallFacts {
 	bool headless = false;   // its base has no head (ACBS No Head)
 	bool headNoted = false;  // OBVR cut or crushed its head before the death
 	bool cutterOn = false;   // OBVR said it cuts heads ('WGDM' 1)
+	// Felled by one of the survivors' camps' refugees (4.20.6; Nadi,
+	// 2026-11-05: "go A, aber der kopf fliegt einfach ab egal ob trifft oder
+	// nicht beim kill"): they cannot cut a head, so their kill ends it and
+	// OBVR is asked to cut the head off.
+	bool killedByRefugee = false;
 };
 
 enum class WalkerFall : UInt8 {
@@ -39,6 +44,7 @@ enum class WalkerFall : UInt8 {
 	EndedHeadless,     // no head to lose
 	EndedHead,         // its head is off or crushed
 	EndedNoCutter,     // nobody cuts heads: every kill ends it
+	EndedByRefugee,    // felled by a camp's refugee: ended, OBVR cuts the head
 };
 
 inline WalkerFall WalkerFallVerdict(bool dieOnlyBeheaded, const FallFacts& f) {
@@ -54,6 +60,9 @@ inline WalkerFall WalkerFallVerdict(bool dieOnlyBeheaded, const FallFacts& f) {
 	if (!f.cutterOn) {
 		return WalkerFall::EndedNoCutter;
 	}
+	if (f.killedByRefugee) {
+		return WalkerFall::EndedByRefugee;
+	}
 	return WalkerFall::RisesAgain;
 }
 
@@ -66,6 +75,7 @@ inline const char* WalkerFallText(WalkerFall fall) {
 		case WalkerFall::EndedHeadless: return "ended (it has no head to lose)";
 		case WalkerFall::EndedHead: return "ended (its head is off)";
 		case WalkerFall::EndedNoCutter: return "ended (nobody cuts heads - OBVR's Dismemberment=0, or flat)";
+		case WalkerFall::EndedByRefugee: return "ended (felled by a camp's refugee - OBVR asked to cut its head)";
 	}
 	return "?";
 }
@@ -84,6 +94,18 @@ inline constexpr UInt32 kDismemberMessage = 0x4D444757;
 inline constexpr UInt32 kHeadMessage = 0x44484757;
 
 enum class HeadKind : UInt8 { Cut = 1, Crushed = 2 };
+
+// To OBVR ('WGCT'): one word, the walker whose head it is to cut off - a
+// walker a refugee felled (4.20.6), the head off wherever the blow landed.
+// OBVR answers with its 'WGHD' as for a cut of its own.
+inline constexpr UInt32 kCutHeadMessage = 0x54434757;
+
+inline bool AsksForCut(WalkerFall fall) { return fall == WalkerFall::EndedByRefugee; }
+
+inline UInt32 CutHeadMessage(UInt32 refId, UInt32* words) {
+	words[0] = refId;
+	return 4;
+}
 
 inline bool DismemberOf(const void* data, UInt32 length, bool& on) {
 	if (data == nullptr || length < 4) {
