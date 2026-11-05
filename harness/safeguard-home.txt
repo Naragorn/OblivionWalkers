@@ -1,24 +1,34 @@
 # The safeguard raises a walkers' victim at home (docs/walkers-spec.md
-# 4.11b, RaiseAtHome; Nadi, 2026-11-05: "A"). Ursanne Loche (reference
-# 0000A116, placed by Oblivion.esm in BravilAleronLochesHouse) brought out
+# 4.11b, RaiseAtHome; Nadi, 2026-11-05: "A"). Dro'shanji (reference
+# 0002CA3B, placed by Oblivion.esm in BravilDroshanjisHouse) brought out
 # into Bravil's streets beside the player, killed by the console; the run's
-# plugin INI carries [Safeguard] TestVictim=0000A116, so her death counts as
-# the walkers' doing. No walker near: 15 s later the safeguard raises her.
-# OblivionWalkers.log (by hand): "Safeguard: test - TestVictim 0000A116
-# died", "0000A116 home - start ... its editor cell ... (an interior,
-# BravilAleronLochesHouse) ... moved home (PositionCell handed over)", "after
-# the move in <her house's cell>".
+# plugin INI carries [Safeguard] TestVictim=0002CA3B, so its death counts as
+# the walkers' doing. No walker near: 15 s later the safeguard raises it.
+# OblivionWalkers.log (by hand): "Safeguard: test - TestVictim 0002CA3B
+# died", "0002CA3B home - start ... its editor cell ... (an interior,
+# BravilDroshanjisHouse) ... moved home (PositionCell handed over)", "after
+# the move in <the house's cell>".
 #
+# (2026-11-05 09:20: Ursanne Loche, 0000A116, did not die by "kill" - no death
+# in the log, alive in the roster; now Dro'shanji with the player as killer.)
 # (A first draft of 2026-11-04 tried killing by a walker through the
 # console; the roster names base forms, so it never found its victim.)
+#
+# NOT WORKING YET (2026-11-05, three runs 09:20-09:24): no line of the
+# console on a placed NPC's reference took - "kill", "kill player" and
+# "ModAV2 Health -9999" on 0000A116 / 0002CA3B left the roster at 0 dead,
+# while "FF000F96.kill player" on a placed walker took (2026-11-04). To find
+# out first: whether "0002CA3B.moveto player" moved it at all (the roster
+# names bases; is base 0002CA36 near after it?), and whether the console
+# reaches an esm reference by its ID in this harness.
 #
 # Runs through tools/safeguard-harness.sh, which sets the INI lines.
 
 ini Hands Enabled=1
 console-at ready tgm
 console-at inbravil player.moveto 00005603
-console-at brought 0000A116.moveto player 0 150 0
-console-at kill 0000A116.kill
+console-at brought 0002CA3B.moveto player 0 150 0
+console-at kill 0002CA3B.ModAV2 Health -9999
 
 expect HandScript: finished
 reject HandScript: WARNING
