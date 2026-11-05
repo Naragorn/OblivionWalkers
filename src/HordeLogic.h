@@ -22,6 +22,7 @@
 
 #include <cmath>
 
+#include "NoiseLogic.h"
 #include "Types.h"
 
 namespace walkers {
@@ -58,6 +59,7 @@ struct HordeSettings {
 	float gateHoldUnits = 800.0f;   // [Horde] GateHoldUnits
 	const HordeGate* gates = nullptr;
 	UInt32 gateCount = 0;
+	NoiseSettings noise;            // 4.20.2: [Noise]
 };
 
 struct HordeWalker {
@@ -68,6 +70,7 @@ struct HordeWalker {
 	UInt32 package = 0;  // the package it runs now (form ID), 0 none
 	bool fit = false;
 	bool tamriel = false;  // in the Tamriel worldspace, where the gates are
+	UInt32 world = 0;      // its worldspace (4.20.2: a noise is heard in its own only)
 };
 
 struct HordeGroup {
@@ -83,6 +86,15 @@ struct HordeGroup {
 	int gate = -1;         // the gate it heads for, -1 none
 	bool holding = false;  // at its gate: the marker stays
 	UInt32 aimedAt = 0;    // whom its follow package was last aimed at (an Aim order)
+	// 4.20.2: drawn to a noise at noiseX, noiseY - on the way while
+	// searchLeft < 0, then searching it; noiseFresh until its marker is set.
+	bool drawn = false;
+	bool noiseFresh = false;
+	float noiseX = 0.0f;
+	float noiseY = 0.0f;
+	float drawnSeconds = 0.0f;
+	float searchLeft = -1.0f;
+	float hopLeft = 0.0f;
 };
 
 struct HordeState {
@@ -304,6 +316,53 @@ inline int HordeHeadingGate(const HordeState& state) {
 	return gate;
 }
 
+// A noise at x, y in `world` (4.20.2): every group with a fit walker
+// within the noise's Radius is drawn to it (the fighters themselves are
+// unfit - they drop out of their group anyway) - a group drawn already to a spot within
+// SearchUnits searches it anew instead. Returns how many groups heard it.
+// The markers and packages follow in StepHorde.
+inline UInt32 HearNoise(HordeState& state, const HordeWalker* walkers, UInt32 n, const HordeSettings& s, float x,
+                        float y, UInt32 world) {
+	using namespace horde_detail;
+	if (!s.enabled || !s.noise.enabled) {
+		return 0;
+	}
+	UInt32 heard = 0;
+	for (HordeGroup& g : state.groups) {
+		if (!g.used) {
+			continue;
+		}
+		const HordeWalker* leader = Find(walkers, n, g.leader);
+		bool hears = false;
+		for (UInt32 i = 0; i <= g.count && !hears; ++i) {
+			const HordeWalker* w = i == g.count ? leader : Find(walkers, n, g.followers[i]);
+			hears = w != nullptr && w->fit && w->world == world && Distance(w->x, w->y, x, y) <= s.noise.radius;
+		}
+		if (!hears || leader == nullptr) {
+			continue;
+		}
+		++heard;
+		if (g.drawn && Distance(g.noiseX, g.noiseY, x, y) <= s.noise.searchUnits) {
+			if (g.searchLeft >= 0.0f) {
+				g.searchLeft = s.noise.searchSeconds;
+			}
+			continue;
+		}
+		g.drawn = true;
+		g.noiseFresh = true;
+		g.holding = false;
+		g.noiseX = x;
+		g.noiseY = y;
+		g.targetX = x;
+		g.targetY = y;
+		g.drawnSeconds = 0.0f;
+		g.searchLeft = -1.0f;
+		g.bestDistance = Distance(leader->x, leader->y, x, y);
+		g.sinceBetter = 0.0f;
+	}
+	return heard;
+}
+
 // One step: the groups kept up to date with the walkers as they are, the
 // orders for the engine (marker moves first, then the packages) into
 // `orders`. Returns how many orders.
@@ -448,6 +507,51 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			g.sinceBetter = 0.0f;
 		} else {
 			g.sinceBetter += dt;
+		}
+		if (g.drawn) {
+			// 4.20.2: to the noise, searching it, then on as before.
+			bool lead = false;
+			if (g.noiseFresh) {
+				g.noiseFresh = false;
+				lead = true;
+			} else if (g.searchLeft < 0.0f) {
+				g.drawnSeconds += dt;
+				if (d <= s.reachUnits || g.drawnSeconds >= s.noise.travelSeconds) {
+					g.searchLeft = s.noise.searchSeconds;
+					g.hopLeft = s.noise.hopSeconds;
+				}
+			} else {
+				g.searchLeft -= dt;
+				g.hopLeft -= dt;
+				if (g.searchLeft <= 0.0f) {
+					g.drawn = false;
+					g.searchLeft = -1.0f;
+					PlaceMarker(g, *leader, g.heading, s);
+					lead = true;
+				} else if (g.hopLeft <= 0.0f) {
+					g.hopLeft = s.noise.hopSeconds;
+					const float angle = Random01(seed) * 2.0f * kHordePi;
+					const float reach = Random01(seed) * s.noise.searchUnits;
+					g.targetX = g.noiseX + std::cos(angle) * reach;
+					g.targetY = g.noiseY + std::sin(angle) * reach;
+					g.bestDistance = Distance(leader->x, leader->y, g.targetX, g.targetY);
+					g.sinceBetter = 0.0f;
+					lead = true;
+				}
+			}
+			if (lead) {
+				out.Add(HordeOrder::MoveMarker, gi, g.leader, 0, g.targetX, g.targetY);
+				out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
+			} else if (leader->package != s.travelBase + gi && !out.Given(g.leader)) {
+				out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi, 0.0f, 0.0f, true);
+			}
+			for (UInt32 i = 0; i < g.count; ++i) {
+				const HordeWalker* w = Find(walkers, n, g.followers[i]);
+				if (w->package != s.followBase + gi && !out.Given(w->id)) {
+					out.Add(HordeOrder::Follow, gi, w->id, s.followBase + gi, 0.0f, 0.0f, true);
+				}
+			}
+			continue;
 		}
 		if (g.holding) {
 			// At the gate: the marker stays; only a leader drawn far off it (a

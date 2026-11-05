@@ -39,6 +39,12 @@ void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log);
 // farther at night; 1 by day. Kept across ConfigureHorde.
 void SetHordeNightLead(float factor);
 
+// 4.20.2: a noise at `ref` (a hit actor, a caster) - outdoors only; heard
+// at the next look at the groups. `source` names it in the log.
+void HordeNoiseAtRef(UInt32 ref, const char* source);
+// A noise at x, y, z in the player's worldspace (OBVR's 'WNOI', a throw).
+void HordeNoiseNearPlayer(float x, float y, float z, const char* source);
+
 // The gate guards' settings, once a session, after ConfigureHorde (the
 // pool is the ESP's). Without the ESP's guards: no guards.
 void ConfigureGuards(const GuardSettings& settings, LogFn log);

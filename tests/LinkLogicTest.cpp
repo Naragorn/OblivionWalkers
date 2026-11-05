@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 134,
-	      "134 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six - every INI setting but Name, "
+	Check(kLinkSettingCount == 137,
+	      "137 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three - every INI setting but Name, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -201,6 +201,19 @@ void TestValues() {
 	          kLinkSettings[nightOn].effect == walkers::LinkEffect::Live &&
 	          kLinkSettings[nightSpeed].effect == walkers::LinkEffect::Live,
 	      "the nights off and quicker from the menu, live: the night's step applies what changed");
+	const int noiseOn = IndexOf("ini_noise_enabled");
+	const int noiseRadius = IndexOf("ini_noise_radius");
+	const int noiseSearch = IndexOf("ini_noise_search");
+	Check(noiseOn == 134 && noiseRadius == 135 && noiseSearch == 136 && walkers::LinkValue(rise, replace, noiseOn) == 1.0 &&
+	          walkers::LinkValue(rise, replace, noiseRadius) == 1200.0 &&
+	          walkers::LinkValue(rise, replace, noiseSearch) == 30.0,
+	      "the noise last: on, heard within 1200, searched 30 s - the INI's defaults");
+	Check(walkers::SetLinkValue(rise, replace, noiseOn, 0.0) && !rise.horde.noise.enabled &&
+	          walkers::SetLinkValue(rise, replace, noiseRadius, 2500.0) && rise.horde.noise.radius == 2500.0f &&
+	          walkers::SetLinkValue(rise, replace, noiseSearch, 45.0) && rise.horde.noise.searchSeconds == 45.0f &&
+	          kLinkSettings[noiseOn].effect == walkers::LinkEffect::Horde &&
+	          kLinkSettings[noiseRadius].effect == walkers::LinkEffect::Horde,
+	      "the noise off, farther, longer from the menu: the horde configured anew with it");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -289,7 +302,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 18\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 19\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

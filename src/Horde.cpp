@@ -76,6 +76,18 @@ float g_againAge[kAgainMost] = {};
 UInt32 g_againCount = 0;
 UInt32 g_steps = 0;
 UInt32 g_summariesLeft = 60;
+// 4.20.2: the noises since the last look at the groups, heard there; a few
+// a second at most (a fight's every blow comes as a hit).
+struct PendingNoise {
+	float x = 0.0f;
+	float y = 0.0f;
+	UInt32 world = 0;
+	const char* source = "";
+};
+constexpr UInt32 kNoisesMost = 4;
+PendingNoise g_noises[kNoisesMost];
+UInt32 g_noiseCount = 0;
+UInt32 g_noiseLogsLeft = 300;
 constexpr UInt32 kSummaryEverySteps = 5;
 
 // The gate guards (4.11b; tools/esp-write.py): one guard record per city,
@@ -159,6 +171,32 @@ bool InTamriel(UInt32 ref) {
 	}
 	const UInt32 world = Read(cell + kCellWorldspaceOffset);
 	return LooksLikeObject(world) && FormIdOf(world) == kTamrielWorldspace;
+}
+
+// The worldspace of a reference outdoors; 0 indoors or unknown.
+UInt32 WorldOf(UInt32 ref) {
+	const UInt32 cell = LooksLikeObject(ref) ? Read(ref + kRefParentCellOffset) : 0;
+	if (!LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0) {
+		return 0;
+	}
+	const UInt32 world = Read(cell + kCellWorldspaceOffset);
+	return LooksLikeObject(world) ? world : 0;
+}
+
+void QueueNoise(float x, float y, UInt32 world, const char* source) {
+	if (!g_ready || !g_settings.noise.enabled || world == 0) {
+		return;
+	}
+	// A noise near one queued already is the same noise.
+	for (UInt32 i = 0; i < g_noiseCount; ++i) {
+		if (g_noises[i].world == world &&
+		    horde_detail::Distance(g_noises[i].x, g_noises[i].y, x, y) <= g_settings.noise.searchUnits) {
+			return;
+		}
+	}
+	if (g_noiseCount < kNoisesMost) {
+		g_noises[g_noiseCount++] = PendingNoise{x, y, world, source};
+	}
 }
 
 // A rank of its own per walker that stays the same across frames and loads.
@@ -427,6 +465,16 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 
 }  // namespace
 
+void HordeNoiseAtRef(UInt32 ref, const char* source) {
+	if (LooksLikeObject(ref)) {
+		QueueNoise(FloatAt(ref + kRefPositionOffset), FloatAt(ref + kRefPositionOffset + 4), WorldOf(ref), source);
+	}
+}
+
+void HordeNoiseNearPlayer(float x, float y, float, const char* source) {
+	QueueNoise(x, y, WorldOf(LookupForm(0x14)), source);
+}
+
 void SetHordeNightLead(float factor) {
 	g_nightLeadFactor = factor > 0.0f ? factor : 1.0f;
 	g_settings.leadUnits = g_dayLeadUnits * g_nightLeadFactor;
@@ -462,6 +510,9 @@ void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log) {
 		return;
 	}
 	g_ready = true;
+	log("Horde: noise (4.20.2) %s - heard within %.0f units, searched %.0f s, %.0f s at most on the way",
+	    g_settings.noise.enabled ? "on" : "off", g_settings.noise.radius, g_settings.noise.searchSeconds,
+	    g_settings.noise.travelSeconds);
 	log("Horde: on - %u groups, a walker joins a leader within %.0f units, the marker %.0f ahead, %u followers at "
 	    "most, a new heading after %.0f s without progress; toward the cities %d (%u gates, pull %.2f, within %.0f, "
 	    "holding %.0f in front of the door)",
@@ -517,6 +568,7 @@ void ResetHorde() {
 	g_guards = GuardState{};
 	g_guardsRead = false;
 	g_arrivalCount = 0;
+	g_noiseCount = 0;
 }
 
 bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UInt32 count) {
@@ -598,6 +650,7 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 		w.y = FloatAt(ref + kRefPositionOffset + 4);
 		w.rank = RankOf(w.id);
 		w.tamriel = InTamriel(ref);
+		w.world = WorldOf(ref);
 		const UInt32 process = ProcessOf(ref);
 		w.package = process != 0 ? CurrentPackageId(process) : 0;
 		// A package made at runtime (an FF form: the engine's own for an alarm
@@ -613,8 +666,41 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 	if (!g_ready) {
 		return;
 	}
+	for (UInt32 i = 0; i < g_noiseCount; ++i) {
+		const PendingNoise& noise = g_noises[i];
+		const UInt32 heard = HearNoise(g_state, walkers, n, g_settings, noise.x, noise.y, noise.world);
+		if (g_noiseLogsLeft > 0 && heard > 0) {
+			--g_noiseLogsLeft;
+			log("Horde: noise (%s) at %.0f %.0f - heard by %u group(s) within %.0f", noise.source, noise.x, noise.y,
+			    heard, g_settings.noise.radius);
+		}
+	}
+	g_noiseCount = 0;
+	bool wasDrawn[kHordeGroups];
+	bool wasSearching[kHordeGroups];
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		wasDrawn[gi] = g_state.groups[gi].used && g_state.groups[gi].drawn;
+		wasSearching[gi] = wasDrawn[gi] && g_state.groups[gi].searchLeft >= 0.0f;
+	}
 	HordeOrder orders[64];
 	const UInt32 ordered = StepHorde(g_state, walkers, n, g_settings, elapsed, g_seed, orders, 64);
+	for (UInt32 gi = 0; gi < kHordeGroups && g_noiseLogsLeft > 0; ++gi) {
+		const HordeGroup& g = g_state.groups[gi];
+		const HordeWalker* leader = g.used ? horde_detail::Find(walkers, n, g.leader) : nullptr;
+		if (leader == nullptr || !wasDrawn[gi]) {
+			continue;
+		}
+		const float d = horde_detail::Distance(leader->x, leader->y, g.noiseX, g.noiseY);
+		if (g.drawn && !wasSearching[gi] && g.searchLeft >= 0.0f) {
+			--g_noiseLogsLeft;
+			log("Horde: group %02u at the noise - leader %08X %.0f units from it after %.0f s; searching %.0f s",
+			    gi, g.leader, d, g.drawnSeconds, g.searchLeft);
+		} else if (!g.drawn) {
+			--g_noiseLogsLeft;
+			log("Horde: group %02u done searching the noise at %.0f %.0f (leader %08X %.0f units from it) - on again%s",
+			    gi, g.noiseX, g.noiseY, g.leader, d, g.holding ? ", back to its gate" : "");
+		}
+	}
 	// A horde holding at a gate besieges that city (4.12), once it is not
 	// besieged nor pausing.
 	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
@@ -680,9 +766,9 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 			moved[o.group] = true;
 			if (g_logsLeft > 0) {
 				--g_logsLeft;
-				log("Horde: group %02u's marker to %.0f %.0f, %.0f units ahead of %08X (heading %.0f degrees; %s "
+				log("Horde: group %02u's marker to %.0f %.0f, %s %08X (heading %.0f degrees; %s "
 				    "answered %d)",
-				    o.group, o.x, o.y, g_settings.leadUnits, o.walker,
+				    o.group, o.x, o.y, g_state.groups[o.group].drawn ? "on the noise for" : "LeadUnits ahead of", o.walker,
 				    std::atan2(o.y - FloatAt(leader + kRefPositionOffset + 4), o.x - FloatAt(leader + kRefPositionOffset)) *
 				        57.29578f,
 				    line, done ? 1 : 0);

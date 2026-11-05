@@ -321,11 +321,20 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	g_lastHit.target = reinterpret_cast<UInt32>(arg0);
 	g_lastHit.attacker = reinterpret_cast<UInt32>(arg1);
 	GrabOnHit(g_lastHit.target, g_lastHit.attacker);
+	// 4.20.2: a blow that lands is heard where it lands.
+	HordeNoiseAtRef(g_lastHit.target, "a blow");
 	if (g_hitLinesLeft > 0) {
 		--g_hitLinesLeft;
 		g_log("Hit: %08X hit by %08X (frame %u; this %08X)", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker),
 		      g_frame, FormIdOf(reinterpret_cast<UInt32>(thisObj)));
 	}
+}
+
+// 4.20.2: xOBSE's OnSpellCast and OnScrollCast - the caster, the spell; a
+// cast is heard where it is cast (its blow, where it lands, comes as OnHit).
+bool g_castWatchOn = false;
+void __cdecl OnCast(void* arg0, void*, void*) {
+	HordeNoiseAtRef(reinterpret_cast<UInt32>(arg0), "a spell");
 }
 
 // The caller's EDI as the hook was entered (SkillUseStub) - at the armor
@@ -644,6 +653,18 @@ void OnObvrHeads(UInt32 type, const void* data, UInt32 length) {
 			      on ? "only a lost head ends a walker" : "every kill ends a walker");
 		}
 		g_headCutter = on;
+	} else if (type == kNoiseMessage) {
+		float x = 0.0f;
+		float y = 0.0f;
+		float z = 0.0f;
+		const bool taken = NoiseMessageOf(data, length, x, y, z);
+		if (taken) {
+			HordeNoiseNearPlayer(x, y, z, "a throw");
+		}
+		static UInt32 s_noiseLines = 0;
+		if (s_noiseLines++ < 20) {
+			g_log("Noise: OBVR's 'WNOI' %s - %.0f %.0f %.0f (%u bytes)", taken ? "taken" : "refused", x, y, z, length);
+		}
 	} else if (type == kHeadMessage && HeadOf(data, length, refId, kind)) {
 		NoteHead(g_heads, refId);
 		if (g_headsDueCount < 8) {
@@ -1197,7 +1218,11 @@ bool TryRegisterDeath() {
 	g_deathWatchOn = true;
 	g_log("Death watch on (the OnDeath handler taken at try %u)", g_registerTries);
 	g_hitWatchOn = g_events->RegisterEvent("OnHit", &OnHit, nullptr, nullptr, nullptr);
-	g_log("Hit watch %s (the OnHit handler, for NoSkillGain)", g_hitWatchOn ? "on" : "REFUSED");
+	g_log("Hit watch %s (the OnHit handler, for NoSkillGain, the grab and the noise)", g_hitWatchOn ? "on" : "REFUSED");
+	g_castWatchOn = g_events->RegisterEvent("OnSpellCast", &OnCast, nullptr, nullptr, nullptr);
+	const bool scrolls = g_events->RegisterEvent("OnScrollCast", &OnCast, nullptr, nullptr, nullptr);
+	g_log("Cast watch %s, scrolls %s (OnSpellCast, OnScrollCast - the noise, 4.20.2)", g_castWatchOn ? "on" : "REFUSED",
+	      scrolls ? "on" : "REFUSED");
 	InstallSkillHook();
 	return true;
 }

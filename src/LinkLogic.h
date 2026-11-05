@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 18.0;  // 18: the nights' six (4.20.5), 2026-11-05
+inline constexpr double kLinkVersion = 19.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2), 2026-11-05
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -82,6 +82,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 3, "City sieges"},
 	{68 + kReplaceCategoryCount + 10, "Grabbed - in reach (VR)"},
 	{68 + kReplaceCategoryCount + 15, "Nights are worse"},
+	{68 + kReplaceCategoryCount + 21, "Noise draws them"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -279,6 +280,12 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 23, 1, 0, false, LinkEffect::Live},
 	{"ini_night_end", "Night ends at", "The hour the night ends (they calm over the hour before).", LinkKind::Slider, 0,
 	 23, 1, 0, false, LinkEffect::Live},
+	{"ini_noise_enabled", "Noise draws them", "Blows, spells and thrown things draw the hordes near; they search the spot, then go on.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Horde},
+	{"ini_noise_radius", "Noise: heard within", "Units from the noise a walker must be to hear it.", LinkKind::Slider, 200,
+	 5000, 100, 0, false, LinkEffect::Horde},
+	{"ini_noise_search", "Noise: search time", "Seconds they search the spot before going on.", LinkKind::Slider, 5, 120,
+	 5, 0, false, LinkEffect::Horde},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -378,6 +385,9 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 131: return rise.night.hordeLeadPercent;
 		case 132: return rise.night.startHour;
 		case 133: return rise.night.endHour;
+		case 134: return rise.horde.noise.enabled ? 1.0 : 0.0;
+		case 135: return rise.horde.noise.radius;
+		case 136: return rise.horde.noise.searchSeconds;
 		default: return 0.0;
 	}
 }
@@ -498,6 +508,9 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 131: rise.night.hordeLeadPercent = whole; break;
 		case 132: rise.night.startHour = fraction; break;
 		case 133: rise.night.endHour = fraction; break;
+		case 134: rise.horde.noise.enabled = on; break;
+		case 135: rise.horde.noise.radius = fraction; break;
+		case 136: rise.horde.noise.searchSeconds = fraction; break;
 		default: return false;
 	}
 	return true;

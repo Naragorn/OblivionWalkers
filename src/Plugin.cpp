@@ -172,6 +172,12 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.horde.gateHoldUnits = IniFloat("Horde", "GateHoldUnits", 800.0f, path);
 	const int groupMost = GetPrivateProfileIntA("Horde", "GroupMost", 8, path);
 	rise.horde.groupMost = groupMost < 0 ? 0u : static_cast<UInt32>(groupMost);
+	// 4.20.2: noise draws the hordes.
+	walkers::NoiseSettings& noise = rise.horde.noise;
+	noise.enabled = GetPrivateProfileIntA("Noise", "Enabled", 1, path) != 0;
+	noise.radius = std::max(0.0f, IniFloat("Noise", "Radius", 1200.0f, path));
+	noise.searchSeconds = std::max(0.0f, IniFloat("Noise", "SearchSeconds", 30.0f, path));
+	noise.travelSeconds = std::max(0.0f, IniFloat("Noise", "TravelSeconds", 60.0f, path));
 	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;

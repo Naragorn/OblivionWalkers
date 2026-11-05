@@ -2024,15 +2024,54 @@ the clock and what ends it, a harness walking the player through walkers.
 Open: what counts as "strikes one" in VR (OBVR's hits), whether the guards
 mind.
 
-#### 4.20.2 Noise draws them - `[Noise] Enabled=1`, `Radius=3000`
+#### 4.20.2 Noise draws them - `[Noise] Enabled=1`, `Radius=1200`, `SearchSeconds=30`, `TravelSeconds=60` - BUILT 2026-11-05
 
-Combat, spells and a sprung trap draw the walkers near it: the horde's
-marker (4.11) set on the noise, those not in combat walk there. A thrown
-bottle could lure them away. Cost **medium**: the noise events caught (a hit,
-a cast - xOBSE's OnHit and OnMagicEffectHit are there, a trap: unknown),
-the horde's markers and packages reused; a harness with a fight and the
-walkers turning towards it. Open: the throw (OBVR's thrown items) and how
-loud each noise is.
+A blow that lands, a spell cast and a thing thrown in VR draw the hordes
+near it. Nadi, 2026-11-05: "go 5", in the INI and LINK, on by default.
+
+How (`NoiseLogic.h`, `HordeLogic.h` HearNoise and StepHorde, `Horde.cpp`,
+`Rise.cpp`):
+- The noises: xOBSE's OnHit (where the hit actor stands), OnSpellCast and
+  OnScrollCast (where the caster stands; the spell's blow, where it lands,
+  comes as an OnHit), and OBVR's 'WNOI' (16 bytes: x, y, z floats, a kind
+  word 1 = thrown; the player's worldspace). Outdoors only - the hordes are.
+  Queued as they come, a noise within SearchUnits of one queued already
+  dropped, heard at the horde's next look (once a second).
+- Heard by every group with a fit walker (not fighting) within `Radius` in
+  the same worldspace. Its marker goes on the spot, the leader is led there,
+  its followers follow. On the spot (ReachUnits, 300) - or after
+  `TravelSeconds` on the way - they search for `SearchSeconds`, the marker
+  hopping within 400 units of the spot every 10 s; then the marker goes
+  LeadUnits ahead again (a group that held a gate holds it again).
+- A noise within 400 units of the spot a group searches makes the search
+  last anew (a fight going on); one farther off draws it on.
+- A walker that sees the player fights as ever: the engine's combat makes it
+  unfit, it drops out of its group (4.11).
+- LINK (version 19): `ini_noise_enabled`, `ini_noise_radius` (200-5000),
+  `ini_noise_search` (5-120 s), the horde configured anew on a change.
+
+Deviations from the design of 2026-11-05, none silent:
+- Per group, not per walker: a group goes as a whole when one of its fit
+  walkers hears - the horde's markers and packages are reused, no new
+  package per walker. Walkers the horde does not hold (low process, inside)
+  do not react.
+- Spells are heard at the caster (OnSpellCast), not through
+  OnMagicEffectHit: the latter also comes for effects not cast at that
+  moment (derived from xOBSE's EventManager - it marks every magic effect
+  applied; not measured in the game).
+- The throw: Walkers takes 'WNOI'; OBVR does not send it yet (OBVR's work,
+  the protocol sent to its session 2026-11-05).
+
+Measured (harness/noise-draws.txt through tools/noise-harness.sh, Linux,
+headless, 2026-11-05 14:20, PASS): some hundred walkers out at Tamriel
+-29,5, three attacking the untouchable player. 33 noises heard (blows and
+spells - the spells a fight's off to the south-west); groups drawn from
+1057 and 1328 units away ("marker to ..., on the noise for ..."); group 10
+at the noise and searching after 1 to 13 s, drawn on as its fight moved.
+Not seen in the game: a search running out (each fight went on through the
+run; NoiseLogicTest covers it), the throw, the headset. The first run
+(14:14, with tdetect) had no blow land at all; the second (14:17) showed the
+fighters' own group counted as hearing - since then only fit walkers hear.
 
 #### 4.20.3 Infection - see 4.14
 
@@ -2209,6 +2248,7 @@ python3 tools/hand-script-run.py ../OblivionWalkers/harness/<name>.txt --headles
 | `walker-speed.txt` | a walker's ground speed and that it never runs (4.4) - PASS 2026-10-24 10:26 (Walk=1) and 10:29 (Walk=0); SpeedMultiplier=2 PASS 21:00, 69 to 106 units/s | the plugin |
 | `spawn-replace.txt` | a placed goblin list yields only walkers, more than one per spawn, and a dead walker opens no container (4.6, 4.15) - PASS 2026-10-24 11:14; the control with NoLoot=0 opened it (11:15, FAIL on the reject as meant); with the ten-slot ESP (MinCount 1, MaxCount 3) PASS 20:38: 8 walkers, no goblin, eight set destroyed; MaxCount 10 PASS 20:47: 15 walkers | the plugin, the ESP active |
 | `night-pace.txt` | the nights (4.20.5) through `tools/night-harness.sh`: noon, 1:00, noon - the records' pace x2 and back, the counts at 150 % and back, a risen walker's units/s at night and by day - PASS 2026-11-05 14:12 | the plugin, the ESP active |
+| `noise-draws.txt` | the noise (4.20.2) through `tools/noise-harness.sh`: walkers attacking the player at Tamriel -29,5 - blows and spells heard, groups 1000-1300 units off drawn, at the spot and searching - PASS 2026-11-05 14:20 | the plugin, the ESP active |
 | `rise-loot.txt` | a walker risen from a corpse opens with the fallen's items after its own death, NoLoot=1 (4.15) - PASS 2026-10-24 20:36 | the plugin, the ESP active |
 | `fame.txt` | a walker killed by the player earns fame, one killed without a killer does not (4.8) - PASS 2026-10-24 21:01 | the plugin, the ESP active, FamePerKills=1 by hand |
 | `chapel.txt` | a bandit killed in Anvil's Chapel of Dibella stays down (4.7) - PASS 2026-10-24 21:13 | the plugin |
