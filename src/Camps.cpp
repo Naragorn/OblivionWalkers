@@ -1,5 +1,6 @@
 #include "Camps.h"
 
+#include "CampProbeLogic.h"
 #include "CampSpots.h"
 #include "CityGates.h"
 #include "Engine.h"
@@ -358,6 +359,185 @@ void CountEnded(UInt32 refId, CampEvent* events, UInt32& n) {
 	      g_state.camps[i].walkersLeft);
 }
 
+// The probe ([Survivors] TestProbe, CampProbeLogic.h): its first tent
+// (CampLogic.h's prop 5, camp_layout's first tent) and its map marker.
+constexpr UInt32 kProbeTentProp = 5;
+constexpr float kProbeShift = 500.0f;         // the tent moved this far out, away from the fire
+constexpr float kProbeNearSeconds = 5.0f;     // the player near the camp this long before it begins
+constexpr float kProbeSampleSeconds = 0.05f;  // a falling player's height read this often
+constexpr UInt32 kProbeSamplesKept = 96;
+
+struct Probe {
+	ProbeState state;
+	bool done = false;
+	float near = 0.0f;
+	float sampleClock = 0.0f;
+	float oldX = 0.0f, oldY = 0.0f, oldZ = 0.0f;
+	float newX = 0.0f, newY = 0.0f;
+	float z[kProbeSamplesKept] = {};
+	UInt32 n = 0;
+	float stops[static_cast<unsigned>(ProbeDrop::Count)] = {};
+};
+Probe g_probe;
+
+const char* const kProbeDropNames[] = {"new spot, before the move",      "old spot, before the move",
+                                       "new spot, after SetPos",         "old spot, after SetPos",
+                                       "new spot, after Disable/Enable", "old spot, after Disable/Enable",
+                                       "new spot, after Update3D",       "old spot, after Update3D",
+                                       "new spot, after the cells reloaded", "old spot, after the cells reloaded"};
+static_assert(sizeof(kProbeDropNames) / sizeof(kProbeDropNames[0]) == static_cast<unsigned>(ProbeDrop::Count),
+              "a name for each drop");
+constexpr float kProbeAwayUnits = 30000.0f;  // the player this far off, the camp's cells unloaded
+constexpr float kProbeAwayLift = 6000.0f;
+
+bool ProbeLine(UInt32 ref, const char* format, float value) {
+	char line[96];
+	std::snprintf(line, sizeof(line), format, value);
+	return Say(ref, line);
+}
+
+void ProbePlayerTo(float x, float y, float z) {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	ProbeLine(player, "SetPos x %.1f", x);
+	ProbeLine(player, "SetPos y %.1f", y);
+	ProbeLine(player, "SetPos z %.1f", z);
+}
+
+void ProbeDropAt(float x, float y) {
+	ProbePlayerTo(x, y, g_probe.oldZ + kProbeDropLift);
+	g_probe.n = 0;
+	g_probe.sampleClock = 0.0f;
+}
+
+// The drop just ended: where its fall stopped, against the new spot's ground.
+void ProbeDropEnded(ProbeDrop drop) {
+	const unsigned d = static_cast<unsigned>(drop);
+	const float stop = FallStopZ(g_probe.z, g_probe.n);
+	g_probe.stops[d] = stop;
+	const float ground = g_probe.stops[static_cast<unsigned>(ProbeDrop::NewBefore)];
+	const bool judged = drop == ProbeDrop::NewMoved || drop == ProbeDrop::NewReenabled ||
+	                    drop == ProbeDrop::NewUpdated || drop == ProbeDrop::NewReloaded;
+	g_log("Camps: probe - drop %u (%s): %u heights %.1f..%.1f, the fall stopped at %.1f (the tent's z %.1f)%s%s", d,
+	      kProbeDropNames[d], g_probe.n, g_probe.n > 0 ? g_probe.z[0] : 0.0f,
+	      g_probe.n > 0 ? g_probe.z[g_probe.n - 1] : 0.0f, stop, g_probe.oldZ, judged ? " - " : "",
+	      judged ? VerdictName(StopVerdict(stop, ground)) : "");
+}
+
+void ProbeRefLine(const char* what, UInt32 ref) {
+	if (!LooksLikeObject(ref)) {
+		g_log("Camps: probe - %s not loaded", what);
+		return;
+	}
+	g_log("Camps: probe - %s %08X at %.1f,%.1f,%.1f", what, FormIdOf(ref), FloatAt(ref + kRefPositionOffset),
+	      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8));
+}
+
+// Its first look: the player near the camp a while; the spots read off the
+// tent.
+bool BeginProbe(UInt32 camp, UInt32 tent, UInt32 marker, float dt) {
+	float distance[kCampCount];
+	Distances(distance);
+	g_probe.near = Near(distance, camp) ? g_probe.near + dt : 0.0f;
+	if (g_probe.near < kProbeNearSeconds) {
+		return false;
+	}
+	if (!LooksLikeObject(tent)) {
+		g_log("Camps: probe - camp %02u's tent not found, no probe", camp);
+		g_probe.done = true;
+		return false;
+	}
+	g_probe.oldX = FloatAt(tent + kRefPositionOffset);
+	g_probe.oldY = FloatAt(tent + kRefPositionOffset + 4);
+	g_probe.oldZ = FloatAt(tent + kRefPositionOffset + 8);
+	const float dx = g_probe.oldX - kCampPlaces[camp].x;
+	const float dy = g_probe.oldY - kCampPlaces[camp].y;
+	const float out = std::sqrt(dx * dx + dy * dy);
+	g_probe.newX = g_probe.oldX + (out > 1.0f ? dx / out : 1.0f) * kProbeShift;
+	g_probe.newY = g_probe.oldY + (out > 1.0f ? dy / out : 0.0f) * kProbeShift;
+	g_log("Camps: probe - camp %02u %s: the tent to go from %.1f,%.1f to %.1f,%.1f", camp, kCampPlaces[camp].name,
+	      g_probe.oldX, g_probe.oldY, g_probe.newX, g_probe.newY);
+	ProbeRefLine("the tent", tent);
+	ProbeRefLine("the map marker", marker);
+	return true;
+}
+
+void StepProbe(float dt) {
+	if (g_probe.done || g_settings->testProbe < 0 || static_cast<UInt32>(g_settings->testProbe) >= kCampCount) {
+		return;
+	}
+	const UInt32 camp = static_cast<UInt32>(g_settings->testProbe);
+	const UInt32 tent = Esp(CampPropLocalId(camp, kProbeTentProp));
+	const UInt32 marker = Esp(CampMarkerLocalId(camp));
+	if (!g_probe.state.begun && !BeginProbe(camp, tent, marker, dt)) {
+		return;
+	}
+	const ProbeDrop wasIn = ProbeDropOf(g_probe.state);
+	if (wasIn != ProbeDrop::Count) {
+		g_probe.sampleClock += dt;
+		const UInt32 player = LookupForm(kPlayerRefId);
+		if (g_probe.sampleClock >= kProbeSampleSeconds && g_probe.n < kProbeSamplesKept && LooksLikeObject(player)) {
+			g_probe.sampleClock = 0.0f;
+			g_probe.z[g_probe.n++] = FloatAt(player + kRefPositionOffset + 8);
+		}
+	}
+	const ProbeAction action = NextProbeAction(g_probe.state, dt);
+	if (action == ProbeAction::None) {
+		return;
+	}
+	if (wasIn != ProbeDrop::Count) {
+		ProbeDropEnded(wasIn);
+	}
+	switch (action) {
+	case ProbeAction::DropAtNew:
+		ProbeDropAt(g_probe.newX, g_probe.newY);
+		break;
+	case ProbeAction::DropAtOld:
+		ProbeDropAt(g_probe.oldX, g_probe.oldY);
+		break;
+	case ProbeAction::MoveTent: {
+		const bool x = ProbeLine(tent, "SetPos x %.1f", g_probe.newX);
+		const bool y = ProbeLine(tent, "SetPos y %.1f", g_probe.newY);
+		const bool mx = ProbeLine(marker, "SetPos x %.1f", g_probe.newX);
+		const bool my = ProbeLine(marker, "SetPos y %.1f", g_probe.newY);
+		g_log("Camps: probe - SetPos sent (tent %d %d, map marker %d %d)", x ? 1 : 0, y ? 1 : 0, mx ? 1 : 0,
+		      my ? 1 : 0);
+		ProbeRefLine("the tent", tent);
+		ProbeRefLine("the map marker", marker);
+		break;
+	}
+	case ProbeAction::Reenable: {
+		const bool off = Say(tent, "Disable");
+		const bool on = Say(tent, "Enable");
+		g_log("Camps: probe - the tent disabled (%d) and enabled (%d)", off ? 1 : 0, on ? 1 : 0);
+		ProbeRefLine("the tent", tent);
+		break;
+	}
+	case ProbeAction::Update3D: {
+		const bool done = Say(tent, "Update3D");
+		g_log("Camps: probe - the tent's Update3D (%d)", done ? 1 : 0);
+		ProbeRefLine("the tent", tent);
+		break;
+	}
+	case ProbeAction::GoAway:
+		ProbePlayerTo(g_probe.oldX + kProbeAwayUnits, g_probe.oldY, g_probe.oldZ + kProbeAwayLift);
+		g_log("Camps: probe - the player taken %.0f units away", kProbeAwayUnits);
+		break;
+	case ProbeAction::ComeBack:
+		ProbePlayerTo(kCampPlaces[camp].x, kCampPlaces[camp].y, g_probe.oldZ + kProbeDropLift);
+		ProbeRefLine("the tent", tent);
+		g_log("Camps: probe - the player back above camp %02u", camp);
+		break;
+	case ProbeAction::Done:
+		g_probe.done = true;
+		ProbeRefLine("the tent", tent);
+		ProbeRefLine("the map marker", marker);
+		g_log("Camps: probe - done");
+		break;
+	case ProbeAction::None:
+		break;
+	}
+}
+
 }  // namespace
 
 void ConfigureCamps(const CampSettings* settings, CampConsoleFn console, CampRollFn roll, CampDeadFn dead, LogFn log) {
@@ -368,12 +548,12 @@ void ConfigureCamps(const CampSettings* settings, CampConsoleFn console, CampRol
 	g_log = log;
 	g_log("Camps: [Survivors] Enabled=%d PeoplePerCamp=%u WomenPercent=%u Trader=%d RewardFame=%d FamePoints=%u "
 	      "RewardGold=%d Gold=%u AttackChancePercent=%u AttackWalkers=%u..%u CampsAttackedAtOnce=%u "
-	      "RefugeeKillsPerHour=%.1f LossPercentPerHour=%u ReturnChancePercent=%u TestCamp=%d",
+	      "RefugeeKillsPerHour=%.1f LossPercentPerHour=%u ReturnChancePercent=%u TestCamp=%d TestProbe=%d",
 	      settings->enabled ? 1 : 0, settings->peoplePerCamp, settings->womenPercent, settings->trader ? 1 : 0,
 	      settings->rewardFame ? 1 : 0, settings->famePoints, settings->rewardGold ? 1 : 0, settings->gold,
 	      settings->attackChancePercent, settings->walkersMin, settings->walkersMax, settings->campsAttackedAtOnce,
 	      settings->refugeeKillsPerHour, settings->lossPercentPerHour, settings->returnChancePercent,
-	      settings->testCamp);
+	      settings->testCamp, settings->testProbe);
 }
 
 void ConfigureCampsEsp(UInt32 espBase) { g_espBase = espBase; }
@@ -418,6 +598,7 @@ void StepCampsInGame(float dt) {
 	if (g_settings == nullptr || g_console == nullptr || g_espBase == 0) {
 		return;
 	}
+	StepProbe(dt);
 	g_clock += dt;
 	if (g_clock < kStepSeconds) {
 		return;

@@ -109,6 +109,10 @@ struct CampSettings {
 	// Test switch (harness/camp-defend.txt): camp N attacked at the first
 	// look (-1: never).
 	int testCamp = -1;
+	// Test switch (harness/camp-probe.txt, CampProbeLogic.h): camp N's tent
+	// and map marker moved by script and the player dropped onto both spots
+	// (-1: never).
+	int testProbe = -1;
 };
 
 enum class CampStatus : UInt8 { Living, Attacked, Overrun };

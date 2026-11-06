@@ -200,6 +200,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.lossPercentPerHour = whole("LossPercentPerHour", 25, 0, 100);
 	camps.returnChancePercent = whole("ReturnChancePercent", 10, 0, 100);
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
+	camps.testProbe = GetPrivateProfileIntA("Survivors", "TestProbe", -1, path);
 	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;

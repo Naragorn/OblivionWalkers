@@ -2260,6 +2260,32 @@ barrels from a pool. Before building, a probe (Nadi: "go"): move a static tent
 and a map marker by script and read whether the collision moves along and the
 marker shows at its new place on the map.
 
+Probe run 2026-11-06 09:4x (`tools/camp-probe.sh`, `harness/camp-probe.txt`,
+[Survivors] TestProbe=7, src/CampProbeLogic.h): camp 07's first tent
+(26000AC6) moved 500 units out by SetPos x/y, the player dropped from 600
+units above onto the new and the old spot after each step. Measured (where
+each fall first stopped; the tent's top reads 2327, the new spot's ground
+2173, the old spot's 2243):
+
+| After | new spot | old spot |
+|---|---|---|
+| nothing (before the move) | 2176 (ground) | 2327 (tent) |
+| SetPos | 2177 (ground) | 2327 (tent) |
+| Disable + Enable | 2173 (ground) | 2329 (tent) |
+| Update3D | **2327 (tent)** | **2243 (ground)** |
+
+- SetPos moves the reference (its position reads the new place) but not the
+  collision; Disable/Enable does not either; **Update3D does** - the
+  collision follows to the new spot and leaves the old.
+- The tent keeps its z (2224): at the new spot, 52 units lower, it floats.
+  Moved props need the new spot's ground (derived: precomputed with the
+  places, as tools/camp-places.py reads the land).
+- The map marker's reference reads the new place after SetPos; whether the
+  world map shows it there is **not seen** (the headless pictures are black).
+- The cells reloaded (player 30000 units off and back): **inconclusive** -
+  the player hung at the drop height for both drops (did not fall within 4 s
+  after 10 s back); not needed, Update3D answers it.
+
 Grab shock sound (Nadi, 2026-11-06: "go B"): a short stinger (about 2 s) once
 when a walker's grab begins (Grab.cpp, the hold idle), from Walkers' own WAV
 through a SOUN record in the ESP, a few seconds' cooldown so two grabs do not
