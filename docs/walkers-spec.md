@@ -2354,9 +2354,10 @@ candidates were rejected), under `sounds/fx/OblivionWalkers/`, deployed and
 packed to `Data\Sound\fx\OblivionWalkers\`; three SOUN records in the ESP
 (0xAA4..0xAA6, copies of UIQuestUpdate 00185DD3, a 2D sound), played by
 `PlaySound` on the player, none within 3 s of the last (GrabLogic.h
-ShockSoundDue, GrabLogicTest). Not yet run in the game; whether `PlaySound`
-from the console is heard is not known (the camps' reward line reads "the
-sound answered 0" - the answer is no success flag).
+ShockSoundDue, GrabLogicTest). Harness `grab-hold` 2026-11-06 12:4x PASS
+(ChancePercent=100 for the run): "Grab: shock sound 1 (PlaySound 26000AA4
+answered 0)" right with the grab. Whether it is heard is not known (headless;
+the console's answer is no success flag) - for the headset.
 
 #### 4.20.7 Refugees hold dungeons - idea (Nadi, 2026-11-05), not decided
 
