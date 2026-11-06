@@ -2344,11 +2344,19 @@ each fall first stopped; the tent's top reads 2327, the new spot's ground
   the player hung at the drop height for both drops (did not fall within 4 s
   after 10 s back); not needed, Update3D answers it.
 
-Grab shock sound (Nadi, 2026-11-06: "go B"): a short stinger (about 2 s) once
-when a walker's grab begins (Grab.cpp, the hold idle), from Walkers' own WAV
-through a SOUN record in the ESP, a few seconds' cooldown so two grabs do not
-stack. The freesound CC0 candidates were all rejected; own synthesised
-variants offered instead.
+Grab shock sound (Nadi, 2026-11-06: "go B"; then "default #1, wir bieten
+aber alle drei in LINK und oder ini an") - **BUILT 2026-11-06**: a stinger of
+about 2 s when a walker's grab begins (Grab.cpp PlayShock, at the hold idle
+and the test grab), `[Grab] ShockSound` 1..3 (0 none, default 1) in the INI
+and LINK (setting 153, LINK version 22). The three WAVs are the project's own,
+synthesised by `tools/grab-shock-sounds.py` (no samples; the freesound CC0
+candidates were rejected), under `sounds/fx/OblivionWalkers/`, deployed and
+packed to `Data\Sound\fx\OblivionWalkers\`; three SOUN records in the ESP
+(0xAA4..0xAA6, copies of UIQuestUpdate 00185DD3, a 2D sound), played by
+`PlaySound` on the player, none within 3 s of the last (GrabLogic.h
+ShockSoundDue, GrabLogicTest). Not yet run in the game; whether `PlaySound`
+from the console is heard is not known (the camps' reward line reads "the
+sound answered 0" - the answer is no success flag).
 
 #### 4.20.7 Refugees hold dungeons - idea (Nadi, 2026-11-05), not decided
 

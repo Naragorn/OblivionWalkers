@@ -262,6 +262,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.grab.lungeSeconds = std::max(0.0f, IniFloat("Grab", "LungeSeconds", 0.3f, path));
 	rise.grab.biteResetSeconds = IniFloat("Grab", "BiteResetSeconds", 30.0f, path);
 	rise.grab.testGrabSeconds = IniFloat("Grab", "TestGrabSeconds", 0.0f, path);
+	const int shock = GetPrivateProfileIntA("Grab", "ShockSound", 1, path);
+	rise.grab.shockSound = shock < 0 ? 0u : (shock > 3 ? 3u : static_cast<UInt32>(shock));
 	const int presses = GetPrivateProfileIntA("Grab", "StrugglePresses", 4, path);
 	rise.grab.strugglePresses = presses < 0 ? 0u : static_cast<UInt32>(presses);
 	rise.grab.struggleGapSeconds = IniFloat("Grab", "StruggleGapSeconds", 0.8f, path);

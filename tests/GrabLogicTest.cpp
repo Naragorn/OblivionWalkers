@@ -551,7 +551,22 @@ void TestRefusalNames() {
 
 }  // namespace
 
+void TestShockSound() {
+	std::printf("The shock sound\n");
+	float last = -1.0f;
+	Check(walkers::ShockSoundDue(1, 10.0f, last) == 0 && last == 10.0f, "ShockSound 1: the first sound, at once");
+	Check(walkers::ShockSoundDue(1, 12.9f, last) == -1 && last == 10.0f, "a second grab within 3 s: none");
+	Check(walkers::ShockSoundDue(3, 13.0f, last) == 2 && last == 13.0f, "3 s on: ShockSound 3, the third");
+	Check(walkers::ShockSoundDue(2, 20.0f, last) == 1, "ShockSound 2: the second");
+	float none = -1.0f;
+	Check(walkers::ShockSoundDue(0, 30.0f, none) == -1 && none < 0.0f, "0: none, the clock untouched");
+	Check(walkers::ShockSoundDue(4, 30.0f, none) == -1 && none < 0.0f, "past 3: none");
+	walkers::GrabSettings s;
+	Check(s.shockSound == 1, "the first by default");
+}
+
 int main() {
+	TestShockSound();
 	TestSide();
 	TestGrab();
 	TestHold();

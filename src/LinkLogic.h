@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 21.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps), 2026-11-06
+inline constexpr double kLinkVersion = 22.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -84,6 +84,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 15, "Nights are worse"},
 	{68 + kReplaceCategoryCount + 21, "Noise draws them"},
 	{68 + kReplaceCategoryCount + 24, "Survivors' camps"},
+	{68 + kReplaceCategoryCount + 40, "Grabbed - the shock sound"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -319,6 +320,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
 	{"ini_camps_count", "Camps: how many", "Camps over the land, placed once per game; more later are placed then.",
 	 LinkKind::Slider, 1, 64, 1, 0, false, LinkEffect::Live},
+	{"ini_grab_shock_sound", "Grab: shock sound", "The sting when a walker grabs you: one of three, 0 none.",
+	 LinkKind::Slider, 0, 3, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -437,6 +440,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 150: return rise.camps.lossPercentPerHour;
 		case 151: return rise.camps.returnChancePercent;
 		case 152: return rise.camps.campCount;
+		case 153: return rise.grab.shockSound;
 		default: return 0.0;
 	}
 }
@@ -576,6 +580,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 150: rise.camps.lossPercentPerHour = whole; break;
 		case 151: rise.camps.returnChancePercent = whole; break;
 		case 152: rise.camps.campCount = whole; break;
+		case 153: rise.grab.shockSound = whole; break;
 		default: return false;
 	}
 	return true;

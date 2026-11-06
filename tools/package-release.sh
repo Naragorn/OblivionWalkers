@@ -75,6 +75,8 @@ for variant in ESL ESP; do
 	fi
 	mkdir -p "$stage/Data/Meshes"
 	cp -r "$work/meshes/." "$stage/Data/Meshes/"
+	mkdir -p "$stage/Data/Sound/fx/OblivionWalkers"
+	cp "$root"/sounds/fx/OblivionWalkers/*.wav "$stage/Data/Sound/fx/OblivionWalkers/"
 	readme "$variant" "$stage/OblivionWalkers-README.txt"
 	zip_path="$root/dist/OblivionWalkers-$variant-$version.zip"
 	rm -f "$zip_path"

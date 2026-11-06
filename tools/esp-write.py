@@ -223,6 +223,7 @@ CAMP_BEDROLL = 0x0001D5BF       # BedrollSideEntry
 ACBS_RESPAWN = 0x8
 ACBS_NO_LOW_PROCESSING = 0x200
 LOCAL_TEST_POOL_FIRST = 0xB30
+SHOCK_SOUND_TEMPLATE = 0x00185DD3  # UIQuestUpdate
 
 
 def load_places_module():
@@ -977,7 +978,21 @@ def main() -> int:
     rumors += record(b"INFO", index | LOCAL_NIGHT_RUMOR,
                      build_rumor(link_quest_form, night_global, load_editions_module().night_rumor(), INFO_RANDOM))
     dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors))
-    body = (globals_group + group(b"RACE", races) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
+    # The grab's shock sounds (GrabLogic.h kGrabShockFirstLocalId): copies of
+    # UIQuestUpdate (00185DD3, a 2D sound) but EDID and FNAM, the WAVs of
+    # tools/grab-shock-sounds.py under Data\Sound\fx\OblivionWalkers.
+    grab_text = (Path(__file__).resolve().parent.parent / "src" / "GrabLogic.h").read_text()
+    shock_first = int(re.search(r"kGrabShockFirstLocalId = (0x[0-9A-Fa-f]+);", grab_text).group(1), 16)
+    shock_count = int(re.search(r"kGrabShockSounds = (\d+);", grab_text).group(1))
+    if shock_first < ids["kCampKitFirstLocalId"] + kits * block or shock_first + shock_count > LOCAL_TEST_POOL_FIRST:
+        raise SystemExit("GrabLogic.h's shock sounds overlap the camps or the test pool")
+    quest_sound = find_record(esm, buf, b"SOUN", SHOCK_SOUND_TEMPLATE)
+    shock_forms = [index | (shock_first + i) for i in range(shock_count)]
+    sounds = b"".join(record(b"SOUN", form, b"".join(
+        subrecord(k, zstring(f"WalkersGrabShock{i + 1}") if k == b"EDID"
+                  else zstring(f"fx\\OblivionWalkers\\GrabShock{i + 1}.wav") if k == b"FNAM" else d)
+        for k, d in quest_sound)) for i, form in enumerate(shock_forms))
+    body = (globals_group + group(b"RACE", races) + group(b"SOUN", sounds) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
             + group(b"BOOK", books) + group(b"NPC_", guards + camp_bases) + group(b"CREA", creatures)
             + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool)
@@ -985,12 +1000,12 @@ def main() -> int:
             + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
             + group(b"PACK", packages) + group(b"IDLE", idles))
-    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4
+    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
                + len(siege_globals) + 1 + len(CITIES) + 2
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
-               + camp_records + 2)
+               + camp_records + 2 + len(shock_forms))
     next_id = LOCAL_TEST_POOL_FIRST + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")

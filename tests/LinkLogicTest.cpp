@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 153,
-	      "153 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 154,
+	      "154 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -248,7 +248,12 @@ void TestValues() {
 	          kLinkSettings[campCount].min == 1 && kLinkSettings[campCount].max == 64 &&
 	          kLinkSettings[campCount].effect == walkers::LinkEffect::Live &&
 	          walkers::SetLinkValue(rise, replace, campCount, 20.0) && rise.camps.campCount == 20,
-	      "the camps' count last, 152: 64 by default, 1..64, live; 20 set from the menu");
+	      "the camps' count, 152: 64 by default, 1..64, live; 20 set from the menu");
+	const int shock = IndexOf("ini_grab_shock_sound");
+	Check(shock == 153 && walkers::LinkValue(rise, replace, shock) == 1.0 && kLinkSettings[shock].min == 0 &&
+	          kLinkSettings[shock].max == 3 && kLinkSettings[shock].effect == walkers::LinkEffect::Live &&
+	          walkers::SetLinkValue(rise, replace, shock, 3.0) && rise.grab.shockSound == 3,
+	      "the grab's shock sound last, 153: the first by default, 0..3, live; the third set from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -337,7 +342,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 21\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 22\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

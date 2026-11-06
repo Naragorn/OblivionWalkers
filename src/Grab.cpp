@@ -319,6 +319,23 @@ UInt32 g_lungeRefs[2] = {};
 // The player's health as the last frame left it: a hit that grabs gives back
 // what it took (Nadi: the walkers hold instead of the damage).
 float g_lastHealth = -1.0f;
+float g_shockClock = 0.0f;   // seconds of steps, for the shock sound's cooldown
+float g_lastShock = -1.0f;
+
+// The shock sound at a grab (ShockSound, GrabLogic.h ShockSoundDue): the
+// ESP's SOUN played at the player - a 2D sound, as the UI's it was copied
+// from.
+void PlayShock(UInt32 player) {
+	const int sound = ShockSoundDue(g_settings->shockSound, g_shockClock, g_lastShock);
+	if (sound < 0 || g_espBase == kNoEsp) {
+		return;
+	}
+	const UInt32 form = EspFormId(g_espBase, kGrabShockFirstLocalId + static_cast<UInt32>(sound));
+	char line[48];
+	std::snprintf(line, sizeof(line), "PlaySound %08X", form);
+	const bool played = g_services.console(player, line);
+	g_services.log("Grab: shock sound %d (%s answered %d)", sound + 1, line, played ? 1 : 0);
+}
 
 // The lunge begun: `by` units toward the forearm, on the ground.
 bool BeginLungeToward(UInt32 walker, Arm arm, float by) {
@@ -414,6 +431,7 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 			givenBack = g_services.console(player, line);
 		}
 		const bool played = PlayIdle(hit.attacker, kHold);
+		PlayShock(player);
 		UpdateNeeded(player);
 		Say(g_state.count >= 2 ? GrabSay::Rooted : GrabSay::Grabbed, arm, 0);
 		g_services.log("Grab: the grabbing hit took %.1f health - given back: %d", taken, givenBack ? 1 : 0);
@@ -510,6 +528,7 @@ void TestGrab(UInt32 player) {
 	               "(the hold played: %d)",
 	               refId, moved ? 1 : 0, turned ? 1 : 0, RefusalName(r), ArmName(arm), played ? 1 : 0);
 	if (r == GrabRefusal::None) {
+		PlayShock(player);
 		SendState();
 	}
 }
@@ -694,6 +713,7 @@ void StepGrabInGame(float dt) {
 	if (g_settings == nullptr) {
 		return;
 	}
+	g_shockClock += dt > 0.0f && dt < 1.0f ? dt : 0.0f;
 	const UInt32 player = Player();
 	if (!LooksLikeObject(player)) {
 		g_hitCount = 0;
@@ -794,6 +814,7 @@ void StepGrabInGame(float dt) {
 
 void ResetGrabInGame() {
 	g_lastHealth = -1.0f;
+	g_lastShock = -1.0f;
 	for (UInt32 slot = 0; slot < 2; ++slot) {
 		g_lunges[slot] = Lunge{};
 		g_lungeRefs[slot] = 0;

@@ -73,7 +73,33 @@ struct GrabSettings {
 	float reachUnits = 37.0f;
 	float lungeUnits = 100.0f;
 	float lungeSeconds = 0.3f;
+	// The shock sound at a grab (Nadi, 2026-11-06: "default #1, alle drei in
+	// LINK und oder ini" - like Saints & Sinners' sting): which of the three
+	// (tools/grab-shock-sounds.py), 0 none.
+	UInt32 shockSound = 1;
 };
+
+// The shock sounds' SOUN records in the ESP (tools/esp-write.py reads these
+// lines), right after the camps' records (CampLogic.h kCampLocalIdEnd).
+inline constexpr UInt32 kGrabShockSounds = 3;
+inline constexpr UInt32 kGrabShockFirstLocalId = 0xAA4;
+// A grab within this of the last one's sound makes none (two walkers at once
+// would stack the sting).
+inline constexpr float kGrabShockCooldownSeconds = 3.0f;
+
+// The shock sound due at a grab at `now` (seconds): its index (0..2), -1 for
+// none - ShockSound 0 or past 3, or within the cooldown of the last
+// (`lastAt`, -1 none yet; set when one is due).
+inline int ShockSoundDue(UInt32 setting, float now, float& lastAt) {
+	if (setting == 0 || setting > kGrabShockSounds) {
+		return -1;
+	}
+	if (lastAt >= 0.0f && now - lastAt < kGrabShockCooldownSeconds) {
+		return -1;
+	}
+	lastAt = now;
+	return static_cast<int>(setting) - 1;
+}
 
 
 // Whether the test grab is due: `clock` runs while nobody holds.

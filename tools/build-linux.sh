@@ -99,5 +99,12 @@ if [[ $deploy -eq 1 ]]; then
 				echo "  $dir/$(basename "$kf")"
 			done < <(find "$root/build-linux/meshes" -type f -name '*.kf' -print0)
 		fi
+		# The grab's shock sounds (tools/grab-shock-sounds.py).
+		for wav in "$root"/sounds/fx/OblivionWalkers/*.wav; do
+			[[ -f "$wav" ]] || continue
+			dir="$(resolve_dir "$game/Data" "Sound/fx/OblivionWalkers")"
+			cp "$wav" "$dir/"
+			echo "  $dir/$(basename "$wav")"
+		done
 	done
 fi
