@@ -281,6 +281,15 @@ bool IsWalkerRef(UInt32 ref) {
 	return false;
 }
 
+// A camp kit's person raised before it rose (Camps.cpp): off the list.
+bool UnlistRising(UInt32 refId) {
+	const bool listed = Unlist(g_list, refId);
+	if (listed) {
+		g_log("Rise: %08X taken off the list - a camp's refugee raised again (%u waiting)", refId, g_list.count);
+	}
+	return listed;
+}
+
 bool ConsoleOn(UInt32 ref, const char* line);
 UInt32 FindEspBase();
 
@@ -2550,7 +2559,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
-	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, log);
+	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
 	return true;
 }
 

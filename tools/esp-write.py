@@ -195,11 +195,12 @@ INFO_RANDOM = 0x02
 # what attacks them, not the player), dressed as CampLogic.h kCampOutfits. The
 # two traders sell as Thoronir (Copious Coinpurse, 00015E9E: AIDT services
 # 0x359F) from one merchant chest in the holding cell. The camps stand in
-# Tamriel's persistent cell (00023777): each camp's thirteen people persistent
-# and initially disabled (the plugin enables its roster), its map marker (a
-# camp, hidden until found) and eleven props - a campfire (light, flame, three
-# log piles), two tents with a bedroll each, two bedrolls by the fire - laid
-# out about src/CampPlaces.h's place on the land's heights
+# Tamriel's persistent cell (00023777): each camp's map marker (a camp, hidden
+# until found), and four kits - thirteen people and eleven props each, a
+# campfire (light, flame, three log piles), two tents with a bedroll each, two
+# bedrolls by the fire - all persistent and initially disabled (the plugin
+# moves a kit to a camp and enables its roster), laid out about
+# src/CampCandidates.h's first places on the land's heights
 # (tools/camp-places.py read_land), as Oblivion.esm's camps are built (the one
 # at -13408,68206: DExteriorCampFire300, ActivatorFlameNode3 turned -90
 # degrees about x, FireLogPile01s, Tent01 with a BedrollCrawlEntry).
@@ -237,18 +238,21 @@ def camp_ids() -> dict[str, int]:
     ids = {name: int(value, 0) for name, value in
            re.findall(r"inline constexpr UInt32 (kCamp\w+) = (0x[0-9A-Fa-f]+|\d+);", text)}
     outfits = re.search(r"kCampOutfits\[kCampBaseCount\]\[4\] = \{(.*?)\n\};", text, re.S).group(1)
-    if "kCampBlock = 13 + 1 + kCampProps;" not in text:
-        raise SystemExit("CampLogic.h's kCampBlock is no longer people, marker and props")
-    ids["kCampBlock"] = 13 + 1 + ids["kCampProps"]
+    for line in ("kCampKitBlock = kCampSlots + kCampProps;", "kCampKitFirstLocalId = kCampFirstLocalId + kCampMost;"):
+        if line not in text:
+            raise SystemExit(f"CampLogic.h no longer reads {line}")
+    ids["kCampKitBlock"] = ids["kCampSlots"] + ids["kCampProps"]
+    ids["kCampKitFirstLocalId"] = ids["kCampFirstLocalId"] + ids["kCampMost"]
     ids["outfits"] = [[int(v, 16) for v in re.findall(r"0x[0-9A-Fa-f]+", row)]
                       for row in re.findall(r"\{([^{}]+)\}", outfits)]
     return ids
 
 
 def camp_places() -> list[tuple[float, float, float, float, str]]:
-    text = (Path(__file__).resolve().parent.parent / "src" / "CampPlaces.h").read_text()
-    return [(float(x), float(y), float(z), float(f), name) for x, y, z, f, name in
-            re.findall(r"\{(-?[\d.]+)f, (-?[\d.]+)f, (-?[\d.]+)f, (-?[\d.]+)f, \"([^\"]+)\"\}", text)]
+    """src/CampCandidates.h's candidates: x, y, z, facing (the names unread)."""
+    text = (Path(__file__).resolve().parent.parent / "src" / "CampCandidates.h").read_text()
+    return [(float(x), float(y), float(z), float(f), "") for x, y, z, f in
+            re.findall(r"\n\t\{(-?[\d.]+)f, (-?[\d.]+)f, (-?[\d.]+)f, (-?[\d.]+)f, \d+, \d,", text)]
 
 
 def camp_base_index(camp: int, slot: int) -> int:
@@ -864,10 +868,11 @@ def main() -> int:
     # The survivors' camps (4.20.6).
     ids = camp_ids()
     places = camp_places()
-    if len(places) != 12 or len(ids["outfits"]) != ids["kCampBaseCount"]:
-        raise SystemExit(f"CampPlaces.h has {len(places)} places, CampLogic.h {len(ids['outfits'])} outfits")
+    camps, kits, block = ids["kCampMost"], ids["kCampKits"], ids["kCampKitBlock"]
+    if len(places) < max(camps, kits) or len(ids["outfits"]) != ids["kCampBaseCount"]:
+        raise SystemExit(f"CampCandidates.h has {len(places)} places, CampLogic.h {len(ids['outfits'])} outfits")
     if ids["kCampBaseFirstLocalId"] != LOCAL_NIGHT_RUMOR + 1 or \
-            ids["kCampFirstLocalId"] + len(places) * ids["kCampBlock"] > LOCAL_TEST_POOL_FIRST or \
+            ids["kCampKitFirstLocalId"] + kits * block > LOCAL_TEST_POOL_FIRST or \
             ids["kCampPoolFirstLocalId"] + ids["kCampShownMost"] * ids["kCampWalkersAtOnce"] != ids["kCampFirstLocalId"]:
         raise SystemExit("CampLogic.h's IDs do not follow the night's rumor or overlap")
     camp_templates = [find_record(esm, buf, b"NPC_", t)
@@ -901,28 +906,39 @@ def main() -> int:
             raise SystemExit(f"no land at {x:.0f},{y:.0f}")
         return h
 
+    # The dynamic camps: kCampMost map markers (hidden until found, initially
+    # disabled - the plugin puts those in play at their rolled places and
+    # enables them), then kCampKits kits of thirteen people and eleven props,
+    # all persistent and initially disabled, laid out at the first
+    # candidates; the plugin moves a kit to a camp near the player.
     world_refs = b""
     camp_records = 0
-    for c, place in enumerate(places):
+    for c in range(camps):
+        place = places[c]
+        world_refs += record(b"REFR", index | (ids["kCampFirstLocalId"] + c),
+                             build_map_marker(f"WalkersCamp{c:02d}MapMarker", "Refugee Camp", place[0], place[1],
+                                              place[2]),
+                             flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+        camp_records += 1
+    for k in range(kits):
+        place = places[k]
+        first = ids["kCampKitFirstLocalId"] + k * block
         for slot in range(13):
             x, y, z, rot = camp_person_spot(place, slot, ground)
-            base = camp_base_forms[camp_base_index(c, slot)]
+            base = camp_base_forms[camp_base_index(k, slot)]
             extra = subrecord(b"XMRC", struct.pack("<I", chest_form)) if slot == 12 else b""
-            world_refs += record(b"ACHR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + slot),
-                                 build_placed(base, x, y, z, rz=rot, edid=f"WalkersCamp{c:02d}Person{slot:02d}",
+            world_refs += record(b"ACHR", index | (first + slot),
+                                 build_placed(base, x, y, z, rz=rot, edid=f"WalkersCampKit{k}Person{slot:02d}",
                                               extra=extra),
                                  flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
-        world_refs += record(b"REFR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + 13),
-                             build_map_marker(f"WalkersCamp{c:02d}MapMarker", "Refugee Camp", place[0], place[1],
-                                              ground(place[0], place[1])),
-                             flags=RECORD_PERSISTENT)
         props = camp_layout(place, ground)
         if len(props) != ids["kCampProps"]:
             raise SystemExit(f"{len(props)} props, CampLogic.h has {ids['kCampProps']}")
         for p, (base, x, y, z, rx, rz) in enumerate(props):
-            world_refs += record(b"REFR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + 14 + p),
-                                 build_placed(base, x, y, z, rx, rz), flags=RECORD_PERSISTENT)
-        camp_records += 13 + 1 + len(props)
+            world_refs += record(b"REFR", index | (first + 13 + p),
+                                 build_placed(base, x, y, z, rx, rz, edid=f"WalkersCampKit{k}Prop{p:02d}"),
+                                 flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+        camp_records += 13 + len(props)
     world_record = find_record(esm, buf, b"WRLD", TAMRIEL)
     persistent_cell = find_record(esm, buf, b"CELL", TAMRIEL_PERSISTENT_CELL)
     world = world_groups(world_record, persistent_cell, RECORD_PERSISTENT, world_refs)
@@ -1094,12 +1110,12 @@ def main() -> int:
                 or services != (CAMP_SERVICES if i >= 12 else 0) or items != ids["outfits"][i]:
             raise SystemExit(f"refugee base {form:08X} reads back wrong")
     people = 0
-    for c in range(len(places)):
+    for k in range(kits):
         for slot in range(13):
-            back = dict(find_record(esm, plugin, b"ACHR", index | (ids["kCampFirstLocalId"] + c * ids["kCampBlock"] + slot)))
-            if struct.unpack("<I", back[b"NAME"])[0] != camp_base_forms[camp_base_index(c, slot)] \
+            back = dict(find_record(esm, plugin, b"ACHR", index | (ids["kCampKitFirstLocalId"] + k * block + slot)))
+            if struct.unpack("<I", back[b"NAME"])[0] != camp_base_forms[camp_base_index(k, slot)] \
                     or (b"XMRC" in back) != (slot == 12):
-                raise SystemExit(f"camp {c}'s person {slot} reads back wrong")
+                raise SystemExit(f"kit {k}'s person {slot} reads back wrong")
             people += 1
     if struct.unpack_from("<I", plugin, 8)[0] != (ESL_FLAG if args.esl else 0):
         raise SystemExit("the header's flags read back wrong")

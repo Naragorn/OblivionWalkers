@@ -5,7 +5,7 @@
 // default). The first of the design's two steps: the camps and their defence;
 // the escort to a city comes second.
 //
-// Twelve camps by the roads (CampPlaces.h), each with PeoplePerCamp refugees,
+// CampCount camps (the dynamic camps below), each with PeoplePerCamp refugees,
 // WomenPercent of them women, and a trader. A camp is attacked by a chance a
 // game day (AttackChancePercent), at an hour of that day, whether the player
 // is there or not:
@@ -28,10 +28,28 @@
 #include <cstring>
 
 #include "Bytes.h"
-#include "CampPlaces.h"
 #include "Types.h"
 
 namespace walkers {
+
+// The dynamic camps (Nadi, 2026-11-06: "go dynamic"): up to kCampMost camps,
+// CampCount of them, each at a place rolled once per game from the
+// candidates (CampCandidates.h, tools/camp-places.py --candidates), at least
+// CampSpacingUnits apart. A camp's people and props are a kit of the ESP's,
+// kCampKits kits, moved to the camps nearest the player (ChooseCampKits); its
+// map marker is its own.
+inline constexpr UInt32 kCampMost = 64;
+inline constexpr UInt16 kCampNoPlace = 0xFFFF;
+
+// A spot about a camp: where, and turned about x and z (radians, the
+// engine's: 0 north, clockwise).
+struct CampSpot {
+	float x;
+	float y;
+	float z;
+	float rx;
+	float rz;
+};
 
 // A camp's people in the ESP (tools/esp-write.py): six men, six women and a
 // trader, slots 0..5, 6..11 and 12; the roster says which are in the camp.
@@ -39,11 +57,30 @@ inline constexpr UInt32 kCampMen = 6;
 inline constexpr UInt32 kCampWomen = 6;
 inline constexpr UInt32 kCampTraderSlot = 12;
 inline constexpr UInt32 kCampSlots = 13;
+inline constexpr UInt32 kCampProps = 11;
+inline constexpr UInt32 kCampWalkersAtOnce = 12;
+
+// A place a camp can be rolled to: its fire, the way to the road (degrees),
+// the name's index (kCampNames), whether it is by a road, the props' spots
+// (tools/esp-write.py camp_layout's order), the people's (camp_person_spot's)
+// and the land's height under the walker spots (CampWalkerSpot: the attack's
+// ring, then the overrun camp's).
+struct CampCandidate {
+	float x;
+	float y;
+	float z;
+	float facing;
+	UInt16 name;
+	UInt8 byRoad;
+	CampSpot props[kCampProps];
+	CampSpot people[kCampSlots];
+	float spotZ[2 * kCampWalkersAtOnce];
+};
 // The ESP's records (tools/esp-write.py reads these lines): the refugees'
 // fourteen bases (six men, six women, a man and a woman who trade), the
 // merchant chest the traders sell from, the attack's two markers and travel
-// packages, the pool of attacking walkers, then each camp's block - its
-// thirteen people, its map marker and its eleven props.
+// packages, the pool of attacking walkers, then each camp's map marker
+// (kCampMost), then the kits - each thirteen people and eleven props.
 inline constexpr UInt32 kCampBaseFirstLocalId = 0x9D9;
 inline constexpr UInt32 kCampBaseCount = 14;
 inline constexpr UInt32 kCampChestLocalId = 0x9E7;
@@ -51,11 +88,15 @@ inline constexpr UInt32 kCampMarkerFirstLocalId = 0x9E8;
 inline constexpr UInt32 kCampTravelFirstLocalId = 0x9EA;
 inline constexpr UInt32 kCampPoolFirstLocalId = 0x9EC;
 inline constexpr UInt32 kCampFirstLocalId = 0xA04;
-inline constexpr UInt32 kCampProps = 11;
-inline constexpr UInt32 kCampBlock = 13 + 1 + kCampProps;  // people, the map marker, the props
-inline constexpr UInt32 CampPersonLocalId(UInt32 camp, UInt32 slot) { return kCampFirstLocalId + camp * kCampBlock + slot; }
-inline constexpr UInt32 CampMarkerLocalId(UInt32 camp) { return kCampFirstLocalId + camp * kCampBlock + 13; }
-inline constexpr UInt32 CampPropLocalId(UInt32 camp, UInt32 prop) { return kCampFirstLocalId + camp * kCampBlock + 14 + prop; }
+inline constexpr UInt32 kCampKits = 4;
+inline constexpr UInt32 kCampKitBlock = kCampSlots + kCampProps;  // the people, the props
+inline constexpr UInt32 kCampKitFirstLocalId = kCampFirstLocalId + kCampMost;
+inline constexpr UInt32 kCampLocalIdEnd = kCampKitFirstLocalId + kCampKits * kCampKitBlock;
+inline constexpr UInt32 CampMarkerLocalId(UInt32 camp) { return kCampFirstLocalId + camp; }
+inline constexpr UInt32 KitPersonLocalId(UInt32 kit, UInt32 slot) { return kCampKitFirstLocalId + kit * kCampKitBlock + slot; }
+inline constexpr UInt32 KitPropLocalId(UInt32 kit, UInt32 prop) {
+	return kCampKitFirstLocalId + kit * kCampKitBlock + kCampSlots + prop;
+}
 
 // Each base's outfit, Oblivion.esm's: a shirt, trousers, shoes and a rusty
 // weapon (the ESP gives them; a refugee who comes back is dressed anew - the
@@ -70,9 +111,9 @@ inline constexpr UInt32 kCampOutfits[kCampBaseCount][4] = {
 	{0x000229AD, 0x000229AE, 0x000229AF, 0x00090616}, {0x00000B86, 0x0001047C, 0x00000BEA, 0x00090616},
 };
 
-// The base of camp `camp`'s person in `slot`: the men and the women each
-// turned by the camp's number, so the camps do not all look alike; the
-// trader a man in the even camps, a woman in the odd ones.
+// The base of kit `camp`'s person in `slot`: the men and the women each
+// turned by the kit's number, so the kits do not all look alike; the trader
+// a man in the even kits, a woman in the odd ones.
 inline constexpr UInt32 CampBaseIndex(UInt32 camp, UInt32 slot) {
 	return slot < 6 ? (slot + camp) % 6 : (slot < 12 ? 6 + (slot - 6 + camp) % 6 : 12 + camp % 2);
 }
@@ -81,17 +122,23 @@ inline constexpr UInt32 kCampPeopleLeast = 2;
 inline constexpr UInt32 kCampPeopleMost = 6;
 // The pool of attacking walkers: twelve at one camp at once, two camps.
 inline constexpr UInt32 kCampShownMost = 2;
-inline constexpr UInt32 kCampWalkersAtOnce = 12;
 inline constexpr UInt32 kCampPool = kCampShownMost * kCampWalkersAtOnce;
 // The player is at a camp within this of its place, outdoors in Tamriel: its
 // people are loaded and fight (the exterior grid's two cells around).
 inline constexpr float kCampSeenUnits = 6000.0f;
+// A kit is put at a camp within this of the player (before its cells load:
+// the exterior grid's two cells around reach some 10000), and kept while the
+// player is within the second.
+inline constexpr float kCampKitUnits = 14000.0f;
+inline constexpr float kCampKitKeepUnits = 18000.0f;
 // Hours of the away toll rolled at one look at most (a week waited).
 inline constexpr UInt32 kCampTollHoursMost = 24 * 7;
 
 // [Survivors] in OblivionWalkers.ini.
 struct CampSettings {
 	bool enabled = true;                // Enabled
+	UInt32 campCount = kCampMost;       // CampCount, held to 1..kCampMost
+	float spacingUnits = 10000.0f;      // CampSpacingUnits: the places at least this far apart
 	UInt32 peoplePerCamp = 6;           // PeoplePerCamp, held to 2..6
 	UInt32 womenPercent = 50;           // WomenPercent
 	bool trader = true;                 // Trader: one more in each camp, who trades
@@ -106,18 +153,15 @@ struct CampSettings {
 	float refugeeKillsPerHour = 2.0f;   // RefugeeKillsPerHour: away
 	UInt32 lossPercentPerHour = 25;     // LossPercentPerHour: away, one refugee lost an hour by this
 	UInt32 returnChancePercent = 10;    // ReturnChancePercent: an overrun camp back, a game day
-	// Test switch (harness/camp-defend.txt): camp N attacked at the first
-	// look (-1: never).
+	// Test switch (harness/camp-defend.txt): camp N attacked 30 s after the
+	// load and the player taken to it (-1: never).
 	int testCamp = -1;
-	// Test switch (harness/camp-probe.txt, CampProbeLogic.h): camp N's tent
-	// and map marker moved by script and the player dropped onto both spots
-	// (-1: never).
-	int testProbe = -1;
 };
 
 enum class CampStatus : UInt8 { Living, Attacked, Overrun };
 
 struct Camp {
+	UInt16 place = kCampNoPlace;  // the candidate it was rolled to
 	CampStatus status = CampStatus::Living;
 	bool set = false;   // the roster chosen
 	bool seen = false;  // the player near during this attack
@@ -130,9 +174,154 @@ struct Camp {
 };
 
 struct CampsState {
-	Camp camps[kCampCount];
+	Camp camps[kCampMost];
 	int lastDay = -1;
 };
+
+// The camps in play: CampCount, held to 1..kCampMost.
+inline UInt32 CampActive(const CampSettings& s) {
+	return s.campCount < 1 ? 1u : (s.campCount > kCampMost ? kCampMost : s.campCount);
+}
+
+// Whether camp `i` is in play: one of CampActive, rolled to a place.
+inline bool CampInPlay(const CampsState& st, const CampSettings& s, UInt32 i) {
+	return i < CampActive(s) && st.camps[i].place != kCampNoPlace;
+}
+
+// One roll: a place for each camp in play that has none, from the `count`
+// candidates in an order drawn by `roll()` (each candidate once), taking one
+// at least CampSpacingUnits from every camp placed - the earlier rolls kept.
+// Returns the camps placed now; a camp left without one when no candidate is
+// far enough (CampInPlay false: it is not in play).
+template <typename RollFn>
+UInt32 RollCampPlacesOnce(CampsState& st, const CampSettings& s, const CampCandidate* candidates, UInt32 count,
+                      RollFn roll) {
+	const UInt32 active = CampActive(s);
+	UInt32 wanted = 0;
+	for (UInt32 i = 0; i < active; ++i) {
+		wanted += st.camps[i].place == kCampNoPlace ? 1u : 0u;
+	}
+	if (wanted == 0 || count == 0) {
+		return 0;
+	}
+	const float apart = s.spacingUnits > 0.0f ? s.spacingUnits * s.spacingUnits : 0.0f;
+	// The order: a draw among those not yet tried, each step (Fisher-Yates
+	// over the indices, kept in a small window of the space at a time).
+	UInt16 order[4096];
+	const UInt32 n = count < 4096 ? count : 4096;
+	for (UInt32 k = 0; k < n; ++k) {
+		order[k] = static_cast<UInt16>(k);
+	}
+	UInt32 placed = 0;
+	UInt32 next = 0;
+	for (UInt32 k = 0; k < n && placed < wanted; ++k) {
+		const UInt32 pick = k + roll() % (n - k);
+		const UInt16 c = order[pick];
+		order[pick] = order[k];
+		order[k] = c;
+		bool far = true;
+		for (UInt32 i = 0; i < kCampMost && far; ++i) {
+			const UInt16 p = st.camps[i].place;
+			if (p == kCampNoPlace || p >= count) {
+				continue;
+			}
+			const float dx = candidates[p].x - candidates[c].x;
+			const float dy = candidates[p].y - candidates[c].y;
+			far = p != c && dx * dx + dy * dy >= apart;
+		}
+		if (!far) {
+			continue;
+		}
+		while (next < active && st.camps[next].place != kCampNoPlace) {
+			++next;
+		}
+		st.camps[next].place = c;
+		++placed;
+	}
+	return placed;
+}
+
+// The places rolled up to kCampRollTries times, the roll that placed the
+// most kept (the first that placed all ends it): the reachable land free of
+// trees and rocks holds some 64 to 71 camps 10000 apart (tools/camp-places.py
+// on 2026-11-06, 200 random orders of its 140 candidates), so one order may
+// fall short of 64 where another does not.
+inline constexpr UInt32 kCampRollTries = 8;
+
+template <typename RollFn>
+UInt32 RollCampPlaces(CampsState& st, const CampSettings& s, const CampCandidate* candidates, UInt32 count,
+                      RollFn roll) {
+	UInt32 wanted = 0;
+	for (UInt32 i = 0; i < CampActive(s); ++i) {
+		wanted += st.camps[i].place == kCampNoPlace ? 1u : 0u;
+	}
+	CampsState best = st;
+	UInt32 bestPlaced = 0;
+	for (UInt32 t = 0; t < kCampRollTries && bestPlaced < wanted; ++t) {
+		CampsState trial = st;
+		// The draws go on across the tries (a functor is not copied anew).
+		const UInt32 placed = RollCampPlacesOnce(trial, s, candidates, count, [&roll]() { return roll(); });
+		if (placed > bestPlaced || t == 0) {
+			best = trial;
+			bestPlaced = placed;
+		}
+	}
+	st = best;
+	return bestPlaced;
+}
+
+// The kits (kCampKits, each a camp's people and props): `kitCamp[k]` the camp
+// kit k is at (-1 none), `distance` the player's from each camp in play (a
+// negative one: not in Tamriel, or not in play). A kit is kept at a camp
+// within kCampKitKeepUnits and freed farther (or when the camp is out of
+// play); the camps within kCampKitUnits without one, the nearest first, take
+// the free kits. `moved[k]` says kit k was put at a camp now (to be set up).
+inline void ChooseCampKits(int* kitCamp, const float* distance, UInt32 active, bool* moved) {
+	for (UInt32 k = 0; k < kCampKits; ++k) {
+		moved[k] = false;
+		const int c = kitCamp[k];
+		if (c >= 0 && (static_cast<UInt32>(c) >= active || distance[c] < 0.0f || distance[c] > kCampKitKeepUnits)) {
+			kitCamp[k] = -1;
+		}
+	}
+	for (;;) {
+		int free = -1;
+		for (UInt32 k = 0; k < kCampKits && free < 0; ++k) {
+			free = kitCamp[k] < 0 ? static_cast<int>(k) : -1;
+		}
+		if (free < 0) {
+			return;
+		}
+		int best = -1;
+		for (UInt32 i = 0; i < active; ++i) {
+			if (distance[i] < 0.0f || distance[i] > kCampKitUnits) {
+				continue;
+			}
+			bool has = false;
+			for (UInt32 k = 0; k < kCampKits; ++k) {
+				has = has || kitCamp[k] == static_cast<int>(i);
+			}
+			if (!has && (best < 0 || distance[i] < distance[best])) {
+				best = static_cast<int>(i);
+			}
+		}
+		if (best < 0) {
+			return;
+		}
+		kitCamp[free] = best;
+		moved[free] = true;
+	}
+}
+
+// The kit at camp `i`, -1 none.
+inline int KitOf(const int* kitCamp, UInt32 i) {
+	for (UInt32 k = 0; k < kCampKits; ++k) {
+		if (kitCamp[k] == static_cast<int>(i)) {
+			return static_cast<int>(k);
+		}
+	}
+	return -1;
+}
 
 struct CampEvent {
 	enum Kind : UInt8 { Begin, PersonLost, HeldAway, Defended, Overrun, Return };
@@ -256,8 +445,11 @@ UInt32 StepCampDays(CampsState& st, const CampSettings& s, float now, RollFn rol
 	}
 	st.lastDay = day;
 	UInt32 n = 0;
-	for (UInt32 i = 0; s.enabled && i < kCampCount; ++i) {
+	for (UInt32 i = 0; s.enabled && i < CampActive(s); ++i) {
 		Camp& c = st.camps[i];
+		if (c.place == kCampNoPlace) {
+			continue;
+		}
 		if (c.status == CampStatus::Living && c.startAt < 0.0f) {
 			if (roll() % 100 < s.attackChancePercent) {
 				const float at = static_cast<float>(day) + static_cast<float>(roll() % 24) / 24.0f;
@@ -265,7 +457,9 @@ UInt32 StepCampDays(CampsState& st, const CampSettings& s, float now, RollFn rol
 			}
 		} else if (c.status == CampStatus::Overrun) {
 			if (roll() % 100 < s.returnChancePercent) {
+				const UInt16 place = c.place;
 				c = Camp{};
+				c.place = place;
 				c.roster = CampRoster(s);
 				c.set = true;
 				n = camp_detail::Put(out, n, most, CampEvent::Return, i);
@@ -398,7 +592,7 @@ inline UInt32 ChooseShownCamps(const CampsState& st, const CampSettings& s, cons
 		return 0;
 	}
 	for (UInt32 pass = 0; pass < 2; ++pass) {
-		bool taken[kCampCount] = {};
+		bool taken[kCampMost] = {};
 		for (UInt32 k = 0; k < n; ++k) {
 			taken[shown[k]] = true;
 		}
@@ -408,7 +602,7 @@ inline UInt32 ChooseShownCamps(const CampsState& st, const CampSettings& s, cons
 				break;
 			}
 			int best = -1;
-			for (UInt32 i = 0; i < kCampCount; ++i) {
+			for (UInt32 i = 0; i < CampActive(s); ++i) {
 				const Camp& c = st.camps[i];
 				const bool wanted = pass == 0 ? c.status == CampStatus::Attacked
 				                              : c.status == CampStatus::Overrun && c.walkersLeft > 0;
@@ -441,9 +635,9 @@ inline UInt32 CampWalkersOut(const Camp& c) {
 inline constexpr float kCampAttackUnits = 1600.0f;
 inline constexpr float kCampNestUnits = 350.0f;
 
-inline void CampWalkerSpot(const CampPlace& place, bool attack, UInt32 slot, float& dx, float& dy) {
+inline void CampWalkerSpot(float facing, bool attack, UInt32 slot, float& dx, float& dy) {
 	const float pi = 3.14159265f;
-	const float away = (place.facing + 180.0f) * pi / 180.0f;
+	const float away = (facing + 180.0f) * pi / 180.0f;
 	// An attack's: away from the road, then a thirtieth to either side in turn
 	// (0, +1, -1, +2, -2 ...); an overrun camp's: all around.
 	const float side = slot % 2 == 1 ? 1.0f : -1.0f;
@@ -454,14 +648,16 @@ inline void CampWalkerSpot(const CampPlace& place, bool attack, UInt32 slot, flo
 	dy = std::cos(at) * r;
 }
 
-// The co-save record: type "CAMP", version 1 - the last day rolled, then per
-// camp: status, set, seen, a pad byte, roster and lost (16 bits each), the
-// walkers left, the coming attack's day, the toll's day and its carry
-// (floats as their bits).
+// The co-save record: type "CAMP", version 2 (the dynamic camps) - the last
+// day rolled, then per camp of kCampMost: status, set, seen, a pad byte,
+// roster and lost (16 bits each), the walkers left, the coming attack's day,
+// the toll's day and its carry (floats as their bits), the place (16 bits)
+// and two pad bytes. Version 1 (the twelve fixed camps) is not read: its
+// camps stood elsewhere, the camps are rolled anew.
 inline constexpr UInt32 kCampRecordType = 0x43414D50;  // 'CAMP'
-inline constexpr UInt32 kCampRecordVersion = 1;
-inline constexpr UInt32 kCampBytes = 24;
-inline constexpr UInt32 kCampImageBytes = 4 + kCampCount * kCampBytes;
+inline constexpr UInt32 kCampRecordVersion = 2;
+inline constexpr UInt32 kCampBytes = 28;
+inline constexpr UInt32 kCampImageBytes = 4 + kCampMost * kCampBytes;
 
 namespace camp_detail {
 
@@ -484,7 +680,7 @@ inline UInt32 CampImage(const CampsState& st, UInt8* out, UInt32 capacity) {
 		return 0;
 	}
 	Put32(out, static_cast<UInt32>(st.lastDay));
-	for (UInt32 i = 0; i < kCampCount; ++i) {
+	for (UInt32 i = 0; i < kCampMost; ++i) {
 		const Camp& c = st.camps[i];
 		UInt8* at = out + 4 + i * kCampBytes;
 		at[0] = static_cast<UInt8>(c.status);
@@ -496,6 +692,7 @@ inline UInt32 CampImage(const CampsState& st, UInt8* out, UInt32 capacity) {
 		Put32(at + 12, camp_detail::Bits(c.startAt));
 		Put32(at + 16, camp_detail::Bits(c.tollFrom));
 		Put32(at + 20, camp_detail::Bits(c.carry));
+		Put32(at + 24, c.place);
 	}
 	return kCampImageBytes;
 }
@@ -508,7 +705,7 @@ inline bool ReadCampImage(CampsState& st, const UInt8* in, UInt32 length) {
 	}
 	st.lastDay = static_cast<int>(Get32(in));
 	const UInt32 slots = (1u << kCampSlots) - 1u;
-	for (UInt32 i = 0; i < kCampCount; ++i) {
+	for (UInt32 i = 0; i < kCampMost; ++i) {
 		Camp& c = st.camps[i];
 		const UInt8* at = in + 4 + i * kCampBytes;
 		c.status = at[0] <= static_cast<UInt8>(CampStatus::Overrun) ? static_cast<CampStatus>(at[0]) : CampStatus::Living;
@@ -521,6 +718,7 @@ inline bool ReadCampImage(CampsState& st, const UInt8* in, UInt32 length) {
 		c.startAt = camp_detail::Float(Get32(at + 12));
 		c.tollFrom = camp_detail::Float(Get32(at + 16));
 		c.carry = camp_detail::Float(Get32(at + 20));
+		c.place = static_cast<UInt16>(Get32(at + 24) & 0xFFFF);
 	}
 	return true;
 }

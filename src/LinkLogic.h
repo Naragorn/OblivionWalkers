@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 20.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05
+inline constexpr double kLinkVersion = 21.0;  // 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps), 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -287,7 +287,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 5000, 100, 0, false, LinkEffect::Horde},
 	{"ini_noise_search", "Noise: search time", "Seconds they search the spot before going on.", LinkKind::Slider, 5, 120,
 	 5, 0, false, LinkEffect::Horde},
-	{"ini_camps_enabled", "Survivors' camps", "Refugees camp by the roads; walkers attack them - defend them for a reward.",
+	{"ini_camps_enabled", "Survivors' camps", "Refugees camp across the land; walkers attack them - defend them for a reward.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_camps_people", "Camps: refugees", "Refugees in each camp (a camp that lost some keeps its own until it comes back).",
 	 LinkKind::Slider, 2, 6, 1, 0, false, LinkEffect::Live},
@@ -317,6 +317,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
 	{"ini_camps_return", "Camps: back again", "The chance each game day that an overrun camp is settled again.",
 	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
+	{"ini_camps_count", "Camps: how many", "Camps over the land, placed once per game; more later are placed then.",
+	 LinkKind::Slider, 1, 64, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -434,6 +436,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 149: return rise.camps.refugeeKillsPerHour;
 		case 150: return rise.camps.lossPercentPerHour;
 		case 151: return rise.camps.returnChancePercent;
+		case 152: return rise.camps.campCount;
 		default: return 0.0;
 	}
 }
@@ -572,6 +575,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 149: rise.camps.refugeeKillsPerHour = fraction; break;
 		case 150: rise.camps.lossPercentPerHour = whole; break;
 		case 151: rise.camps.returnChancePercent = whole; break;
+		case 152: rise.camps.campCount = whole; break;
 		default: return false;
 	}
 	return true;

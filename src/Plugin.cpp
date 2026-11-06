@@ -185,6 +185,8 @@ bool ReadSettings(walkers::Settings* settings) {
 		return static_cast<UInt32>(v < least ? least : (v > most ? most : v));
 	};
 	camps.enabled = GetPrivateProfileIntA("Survivors", "Enabled", 1, path) != 0;
+	camps.campCount = whole("CampCount", static_cast<int>(walkers::kCampMost), 1, static_cast<int>(walkers::kCampMost));
+	camps.spacingUnits = std::max(0.0f, IniFloat("Survivors", "CampSpacingUnits", 10000.0f, path));
 	camps.peoplePerCamp = whole("PeoplePerCamp", 6, 2, 6);
 	camps.womenPercent = whole("WomenPercent", 50, 0, 100);
 	camps.trader = GetPrivateProfileIntA("Survivors", "Trader", 1, path) != 0;
@@ -200,7 +202,6 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.lossPercentPerHour = whole("LossPercentPerHour", 25, 0, 100);
 	camps.returnChancePercent = whole("ReturnChancePercent", 10, 0, 100);
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
-	camps.testProbe = GetPrivateProfileIntA("Survivors", "TestProbe", -1, path);
 	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;

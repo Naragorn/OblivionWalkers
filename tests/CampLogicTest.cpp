@@ -37,6 +37,7 @@ struct Rolls {
 
 Camp Set(const CampSettings& s) {
 	Camp c;
+	c.place = 0;
 	walkers::CampTakeRoster(c, s);
 	return c;
 }
@@ -100,8 +101,27 @@ void TestDays() {
 	Rolls ret{back, 2};
 	const UInt32 n = walkers::StepCampDays(st, s, 6.0f, ret, ev, 16);
 	Check(n == 1 && ev[0].kind == CampEvent::Return && ev[0].camp == 2 && st.camps[2].status == CampStatus::Living &&
-	          st.camps[2].lost == 0 && st.camps[2].walkersLeft == 0 && walkers::CampAlive(st.camps[2]) == 7,
-	      "an overrun camp, a roll under 10: back, its people set up anew, its walkers gone");
+	          st.camps[2].lost == 0 && st.camps[2].walkersLeft == 0 && walkers::CampAlive(st.camps[2]) == 7 &&
+	          st.camps[2].place == 0,
+	      "an overrun camp, a roll under 10: back, its people set up anew, its walkers gone, its place kept");
+	CampsState unplaced;
+	unplaced.camps[0] = Set(s);
+	unplaced.camps[1] = Set(s);
+	unplaced.camps[1].place = walkers::kCampNoPlace;
+	walkers::StepCampDays(unplaced, s, 1.0f, quiet, ev, 16);
+	const UInt32 always[] = {0};
+	Rolls all{always, 1};
+	walkers::StepCampDays(unplaced, s, 2.0f, all, ev, 16);
+	Check(unplaced.camps[0].startAt >= 0.0f && unplaced.camps[1].startAt < 0.0f,
+	      "a camp without a place is not rolled");
+	CampSettings few = s;
+	few.campCount = 1;
+	CampsState two;
+	two.camps[0] = Set(s);
+	two.camps[1] = Set(s);
+	walkers::StepCampDays(two, few, 1.0f, quiet, ev, 16);
+	walkers::StepCampDays(two, few, 2.0f, all, ev, 16);
+	Check(two.camps[0].startAt >= 0.0f && two.camps[1].startAt < 0.0f, "CampCount 1: the second camp not in play");
 	CampSettings off = s;
 	off.enabled = false;
 	CampsState offState = st;
@@ -221,7 +241,7 @@ void TestShown() {
 	std::printf("The camps shown\n");
 	CampSettings s;
 	CampsState st;
-	float distance[walkers::kCampCount];
+	float distance[walkers::kCampMost];
 	for (float& d : distance) {
 		d = -1.0f;
 	}
@@ -254,7 +274,7 @@ void TestShown() {
 
 void TestSpots() {
 	std::printf("The spots\n");
-	const walkers::CampPlace place{0.0f, 0.0f, 0.0f, 0.0f, "test"};  // the road to the north
+	const float place = 0.0f;  // the road to the north
 	float dx = 0.0f;
 	float dy = 0.0f;
 	walkers::CampWalkerSpot(place, true, 0, dx, dy);
@@ -284,8 +304,9 @@ void TestImage() {
 	st.camps[0].seen = true;
 	st.camps[0].tollFrom = 41.25f;
 	st.camps[0].carry = 0.5f;
-	st.camps[11].status = CampStatus::Overrun;
-	st.camps[11].startAt = 3.0f;
+	st.camps[0].place = 517;
+	st.camps[63].status = CampStatus::Overrun;
+	st.camps[63].startAt = 3.0f;
 	UInt8 image[walkers::kCampImageBytes];
 	Check(walkers::CampImage(st, image, sizeof(image) - 1) == 0, "too small a buffer: nothing written");
 	Check(walkers::CampImage(st, image, sizeof(image)) == walkers::kCampImageBytes, "written whole");
@@ -293,9 +314,12 @@ void TestImage() {
 	Check(walkers::ReadCampImage(back, image, sizeof(image)), "read back");
 	const Camp& c = back.camps[0];
 	Check(back.lastDay == 41 && c.status == CampStatus::Attacked && c.set && c.seen && c.roster == st.camps[0].roster &&
-	          c.lost == 3 && c.walkersLeft == 7 && c.tollFrom == 41.25f && c.carry == 0.5f,
-	      "every field of an attacked camp");
-	Check(back.camps[11].status == CampStatus::Overrun && back.camps[11].startAt == 3.0f, "the last camp too");
+	          c.lost == 3 && c.walkersLeft == 7 && c.tollFrom == 41.25f && c.carry == 0.5f && c.place == 517,
+	      "every field of an attacked camp, its place too");
+	Check(back.camps[63].status == CampStatus::Overrun && back.camps[63].startAt == 3.0f &&
+	          back.camps[63].place == walkers::kCampNoPlace,
+	      "the last of the 64 too; no place stays none");
+	Check(walkers::kCampImageBytes == 4 + 64 * 28 && walkers::kCampRecordVersion == 2, "version 2: 64 camps of 28 bytes");
 	image[4] = 9;
 	image[8] = 0xFF;
 	image[9] = 0xFF;
@@ -306,6 +330,102 @@ void TestImage() {
 	          back.camps[0].lost == 0x1FFF,
 	      "a status out of range read as living; masks held to the 13 slots");
 	Check(!walkers::ReadCampImage(back, image, 10) && back.lastDay == -1, "cut short: nothing read");
+}
+
+walkers::CampCandidate At(float x, float y) {
+	walkers::CampCandidate c{};
+	c.x = x;
+	c.y = y;
+	return c;
+}
+
+void TestPlaces() {
+	std::printf("The places rolled\n");
+	CampSettings s;
+	s.campCount = 3;
+	s.spacingUnits = 1000.0f;
+	// Five on a line 600 apart: 0, 600, 1200, 1800, 2400.
+	const walkers::CampCandidate line[] = {At(0, 0), At(600, 0), At(1200, 0), At(1800, 0), At(2400, 0)};
+	CampsState st;
+	const UInt32 zero[] = {0};
+	Rolls first{zero, 1};
+	Check(walkers::RollCampPlaces(st, s, line, 5, first) == 3 && st.camps[0].place == 0 && st.camps[1].place == 2 &&
+	          st.camps[2].place == 4,
+	      "rolls of 0: in order, each 1000 from those taken - 0, 1200, 2400");
+	Check(walkers::CampInPlay(st, s, 2) && !walkers::CampInPlay(st, s, 3), "three in play, the fourth not");
+	Check(walkers::RollCampPlaces(st, s, line, 5, first) == 0, "all placed: nothing rolled again");
+	s.campCount = 4;
+	Check(walkers::RollCampPlaces(st, s, line, 5, first) == 0 && st.camps[3].place == walkers::kCampNoPlace &&
+	          !walkers::CampInPlay(st, s, 3),
+	      "a fourth wanted, none far enough: left without, not in play; the three kept");
+	s.spacingUnits = 500.0f;
+	Check(walkers::RollCampPlaces(st, s, line, 5, first) == 1 && st.camps[3].place == 1,
+	      "500 apart: the fourth takes 600, the earlier kept");
+	CampsState other;
+	other.camps[0].place = 4;
+	s.campCount = 2;
+	s.spacingUnits = 1000.0f;
+	const UInt32 picks[] = {4, 0};
+	Rolls r{picks, 2};
+	Check(walkers::RollCampPlaces(other, s, line, 5, r) == 1 && other.camps[1].place == 1,
+	      "an earlier camp at 2400 kept: drawn first it is taken, the next draw (600) far enough");
+	CampSettings three;
+	three.campCount = 3;
+	three.spacingUnits = 1000.0f;
+	CampsState retry;
+	const UInt32 shortFirst[] = {1, 2, 0};  // 600 and 1800 first: two only
+	Rolls sf{shortFirst, 3};
+	Check(walkers::RollCampPlaces(retry, three, line, 5, sf) == 3 && retry.camps[0].place == 0 &&
+	          retry.camps[2].place == 4,
+	      "a roll short of three (600, 1800) tried again: the next order places all three");
+	CampsState once;
+	Rolls sf2{shortFirst, 3};
+	Check(walkers::RollCampPlacesOnce(once, three, line, 5, sf2) == 2 && once.camps[0].place == 1 &&
+	          once.camps[1].place == 3,
+	      "the one roll alone: 600 and 1800, two");
+	CampsState none;
+	Check(walkers::RollCampPlaces(none, s, line, 0, first) == 0, "no candidates: none placed");
+	CampSettings big;
+	big.campCount = 200;
+	Check(walkers::CampActive(big) == 64, "CampCount 200 held to 64");
+	big.campCount = 0;
+	Check(walkers::CampActive(big) == 1, "0 held to 1");
+}
+
+void TestKits() {
+	std::printf("The kits\n");
+	int kits[walkers::kCampKits] = {-1, -1, -1, -1};
+	bool moved[walkers::kCampKits];
+	float distance[walkers::kCampMost];
+	for (float& d : distance) {
+		d = -1.0f;
+	}
+	distance[5] = 9000.0f;
+	distance[2] = 3000.0f;
+	distance[9] = 20000.0f;
+	walkers::ChooseCampKits(kits, distance, 64, moved);
+	Check(kits[0] == 2 && kits[1] == 5 && kits[2] == -1 && moved[0] && moved[1] && !moved[2],
+	      "the nearest first take the kits; 20000 off none");
+	Check(walkers::KitOf(kits, 5) == 1 && walkers::KitOf(kits, 9) == -1, "the kit of a camp");
+	walkers::ChooseCampKits(kits, distance, 64, moved);
+	Check(kits[0] == 2 && kits[1] == 5 && !moved[0] && !moved[1], "the same again: kept, nothing moved");
+	distance[5] = 16000.0f;
+	walkers::ChooseCampKits(kits, distance, 64, moved);
+	Check(kits[1] == 5 && !moved[1], "16000: past the setting up, within the keeping - kept");
+	distance[5] = 19000.0f;
+	walkers::ChooseCampKits(kits, distance, 64, moved);
+	Check(kits[1] == -1, "19000: freed");
+	for (UInt32 i = 10; i < 16; ++i) {
+		distance[i] = 1000.0f + static_cast<float>(i);
+	}
+	walkers::ChooseCampKits(kits, distance, 64, moved);
+	Check(kits[0] == 2 && kits[1] == 10 && kits[2] == 11 && kits[3] == 12 && moved[1] && moved[3] && !moved[0],
+	      "six near, three kits free: the three nearest; the kept one stays");
+	walkers::ChooseCampKits(kits, distance, 11, moved);
+	Check(kits[2] == -1 && kits[3] == -1 && kits[1] == 10, "CampCount 11: the kits at 11 and 12 freed");
+	distance[10] = -1.0f;
+	walkers::ChooseCampKits(kits, distance, 64, moved);
+	Check(kits[1] != 10, "a camp not in Tamriel's distance: its kit freed");
 }
 
 }  // namespace
@@ -319,6 +439,8 @@ int main() {
 	TestShown();
 	TestSpots();
 	TestImage();
+	TestPlaces();
+	TestKits();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

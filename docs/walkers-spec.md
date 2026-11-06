@@ -2253,12 +2253,70 @@ seen (OBVR does not handle 'WGCT' yet; headless).
 
 Open for Nadi: the escort (step 2).
 
-Dynamic camps (Nadi, 2026-11-05/06, decided, not built): `CampCount` default
-64 (INI and LINK), the places rolled once per game, at least about 140 m
-(10000 units) apart (Nadi, 2026-11-06: "ok"), each with tents, stools and
-barrels from a pool. Before building, a probe (Nadi: "go"): move a static tent
-and a map marker by script and read whether the collision moves along and the
-marker shows at its new place on the map.
+Dynamic camps (Nadi, 2026-11-05/06: "Go dynamic") - **BUILT 2026-11-06**,
+props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,
+153 settings), `CampSpacingUnits` 10000 (about 140 m, INI only; Nadi: "ok").
+- Places: `tools/camp-places.py` prints `src/CampCandidates.h` - 140
+  candidates (21 by the roads, 119 off them): flat land above the water,
+  within 12000 units of a road point (Tamriel's land goes on past the border
+  and up the peaks; the first list without it put camps at 283136,-107008 and
+  z 49808), 450 units clear of every tree, rock and other solid reference and
+  each prop 300, away from gates, doors and map markers, 2500 apart. Each
+  carries its props', people's and walker spots' heights.
+- Measured off the file: the land the player reaches, free of trees and
+  rocks, holds only 64 to 71 camps 10000 apart (200 random orders of the 140);
+  with 900 units clear only some 35. So 64 at 140 m is at the edge:
+  `RollCampPlaces` tries up to 8 orders and keeps the one placing most; a
+  camp left without a place is out of play (logged).
+- Rolled once per game (a new game, or CampCount raised), kept in the co-save
+  'CAMP' version 2 (64 camps, 28 bytes each, the place added). Version 1 (the
+  twelve fixed camps) is not read: those camps are rolled anew.
+- ESP: 64 map markers (initially disabled; the plugin puts those in play at
+  their places with SetPos and enables them) and 4 kits of 13 people and 11
+  props (persistent, initially disabled). A kit goes to a camp within 14000
+  units of the player, the nearest first, and is freed past 18000
+  (`ChooseCampKits`); 52 refugees instead of 156. A kit's dead are raised and
+  dressed before it moves and taken off the rise's list (`UnlistRising`).
+- `TestCamp=N` now also takes the player to camp N, 30 s after the load (the
+  harness cannot know where it was rolled).
+- Harness `camp-defend` 2026-11-06 12:03 PASS: 64 places rolled, camp 07 near
+  Wellspring Cave attacked, kit 0 moved there, six walkers out and led, all
+  six cut down by the refugees ('WGCT' each), defended with the reward.
+- Gone: the twelve fixed places (CampPlaces.h, CampSpots.h), the probe's
+  code (CampProbeLogic.h, camp-probe.txt/.sh - in history at d9f4e6d).
+
+Open - the props across the map (measured 2026-11-06, the far probe, camp
+07's tent to camp 04's place 77000 units off, the player dropped onto the
+tent's spot and a ground spot):
+
+| How | after | the tent's spot |
+|---|---|---|
+| SetPos x y z + Update3D | the player taken there (MoveTo) | ground (1016) |
+| same | Update3D there again | ground (1016) |
+| MoveTo the far map marker + Update3D | taken there | ground (1019) |
+| same | Update3D there | ground (1016) |
+| same | SaveGame, Load | ground (1009) |
+
+The tent's top would stop a fall near 1103 (its base 1000; at camp 07 the
+top read 103 over the base). MoveTo set its parent cell to the far one
+(000066DB to 00006059), the word at 0x3C (read as its 3D node, offset
+unverified) held its old value after Update3D. So a prop moved across the
+map is **not solid** there, whatever was tried; within the loaded cells
+(500 units) SetPos + Update3D was. Whether it is seen there is not known
+(headless pictures are black). The kits' props are moved that way now: the
+camps work (people, walkers, rewards), the tents likely stand unseen or
+without collision. Options for Nadi, 2026-11-06:
+- A: the props laid out at every candidate in the ESP (140 x 11 = 1540
+  references in their exterior cells, each under one persistent enable
+  parent per candidate, initially disabled), the plugin enabling a camp's
+  parent - the engine's own way, nothing moved. Cost medium: the ESP's
+  exterior cell groups are new (some 140 cells' CELL records copied), the
+  kits keep only the people.
+- B: PlaceAtMe the props at a kit's setting up and delete them on freeing -
+  the new reference catching unknown (the console gives it back to no one),
+  medium and unmeasured.
+- C: probe further (moved while the far cells are loaded, Disable before the
+  move) - small each, the outcome unknown.
 
 Probe run 2026-11-06 09:4x (`tools/camp-probe.sh`, `harness/camp-probe.txt`,
 [Survivors] TestProbe=7, src/CampProbeLogic.h): camp 07's first tent

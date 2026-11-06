@@ -14,10 +14,15 @@ namespace walkers {
 using CampConsoleFn = bool (*)(UInt32 ref, const char* line);
 using CampRollFn = UInt32 (*)();
 using CampDeadFn = bool (*)(UInt32 actor);
+// Takes a reference off the rise's waiting list (a kit person raised before
+// it rose); false when it was not on it.
+using CampUnlistFn = bool (*)(UInt32 refId);
 
 // Once a session, at the plugin's load: the live settings (LINK writes into
-// them), the console on a reference, a draw, the dead, the log.
-void ConfigureCamps(const CampSettings* settings, CampConsoleFn console, CampRollFn roll, CampDeadFn dead, LogFn log);
+// them), the console on a reference, a draw, the dead, the rise's list, the
+// log.
+void ConfigureCamps(const CampSettings* settings, CampConsoleFn console, CampRollFn roll, CampDeadFn dead,
+                    CampUnlistFn unlist, LogFn log);
 
 // The ESP's base (RiseLogic.h EspFormId), once it is known.
 void ConfigureCampsEsp(UInt32 espBase);
@@ -42,8 +47,8 @@ CampsState& CurrentCamps();
 // A new game or a load: the pool and what was shown start again.
 void ResetCampsInGame();
 
-// After the co-save is read (or none was): every camp's people as its
-// roster says, the pool back in.
+// After the co-save is read (or none was): the rosters taken, the pool and
+// the kits back in (the next step puts the kits and markers).
 void ApplyCampsLoaded();
 
 }  // namespace walkers

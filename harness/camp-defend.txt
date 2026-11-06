@@ -1,14 +1,16 @@
-# Survivors' camps (docs/walkers-spec.md 4.20.6, built 2026-11-05): the
-# player taken to Tamriel 20,-15, some 1000 units from camp 07 "near Bawn"
-# (83104,-58886), untouchable (tgm). tools/camp-harness.sh sets [Survivors]
-# TestCamp=7 and AttackWalkersMin/Max=6 in the live INI, so the camp is
-# attacked at the plugin's first look: "Camps: test - TestCamp=7", "camp 07
-# near Bawn attacked - 6 walkers (... the player near)", "the player at camp
-# 07 ... its attackers come out", six "walker ... out at camp 07", then
-# "walkers led at camp 07". The refugees (enabled: "camp 07 ... 7 enabled")
-# fight them: "slot N ... dead" and "walker ... ended at camp 07" lines, and
-# at the end "defended" (the reward's line) or "overrun". The run waits two
-# minutes and a half for the fight.
+# Survivors' camps (docs/walkers-spec.md 4.20.6, built 2026-11-05; the
+# dynamic camps 2026-11-06): tools/camp-harness.sh sets [Survivors]
+# TestCamp=7 and AttackWalkersMin/Max=6 in the live INI, so camp 07 - at the
+# place rolled for this game, "Camps: N places rolled", "camp 07 ... at
+# x,y,z" - is attacked 30 s after the load and the player taken 1000
+# units off its fire: "Camps: test - TestCamp=7 ... the player taken there",
+# untouchable (tgm). A kit is put at it ("kit N to camp 07", its props
+# rebuilt once the player is near), "camp 07 ... attacked - 6 walkers",
+# "the player at camp 07 ... its attackers come out", six "walker ... out at
+# camp 07", then "walkers led at camp 07". The refugees (enabled: "camp 07
+# ... 7 enabled") fight them: "slot N ... dead" and "walker ... ended at camp
+# 07" lines, and at the end "defended" (the reward's line) or "overrun". The
+# run waits two minutes and a half for the fight.
 #
 # Runs on OBVR's harness through tools/camp-harness.sh.
 
