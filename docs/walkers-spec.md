@@ -2251,7 +2251,20 @@ dispatched: 1)" and "ended at camp 07 ... N left"; one refugee dead (rising);
 the sixth walker still fighting when the run ended. The head flying off not
 seen (OBVR does not handle 'WGCT' yet; headless).
 
-Open for Nadi: the places; the escort (step 2).
+Open for Nadi: the escort (step 2).
+
+Dynamic camps (Nadi, 2026-11-05/06, decided, not built): `CampCount` default
+64 (INI and LINK), the places rolled once per game, at least about 140 m
+(10000 units) apart (Nadi, 2026-11-06: "ok"), each with tents, stools and
+barrels from a pool. Before building, a probe (Nadi: "go"): move a static tent
+and a map marker by script and read whether the collision moves along and the
+marker shows at its new place on the map.
+
+Grab shock sound (Nadi, 2026-11-06: "go B"): a short stinger (about 2 s) once
+when a walker's grab begins (Grab.cpp, the hold idle), from Walkers' own WAV
+through a SOUN record in the ESP, a few seconds' cooldown so two grabs do not
+stack. The freesound CC0 candidates were all rejected; own synthesised
+variants offered instead.
 
 #### 4.20.7 Refugees hold dungeons - idea (Nadi, 2026-11-05), not decided
 
