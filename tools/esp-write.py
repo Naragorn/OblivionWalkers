@@ -222,7 +222,10 @@ CAMP_BEDROLL_TENT = 0x0001D5C0  # BedrollCrawlEntry
 CAMP_BEDROLL = 0x0001D5BF       # BedrollSideEntry
 ACBS_RESPAWN = 0x8
 ACBS_NO_LOW_PROCESSING = 0x200
-LOCAL_TEST_POOL_FIRST = 0xB30
+SHOCK_FIRST_LOCAL = 0xAA4  # GrabLogic.h kGrabShockFirstLocalId
+SHOCK_LAST_LOCAL = 0xAA6
+CAMP_PROPS = 11  # camp_layout's
+ESL_CAMP_PROPS = (0, 1, 2, 5, 6, 7, 8, 9)  # the light, the flame, a log pile, both tents and their bedrolls, a bedroll
 SHOCK_SOUND_TEMPLATE = 0x00185DD3  # UIQuestUpdate
 
 
@@ -239,11 +242,13 @@ def camp_ids() -> dict[str, int]:
     ids = {name: int(value, 0) for name, value in
            re.findall(r"inline constexpr UInt32 (kCamp\w+) = (0x[0-9A-Fa-f]+|\d+);", text)}
     outfits = re.search(r"kCampOutfits\[kCampBaseCount\]\[4\] = \{(.*?)\n\};", text, re.S).group(1)
-    for line in ("kCampKitBlock = kCampSlots + kCampProps;", "kCampKitFirstLocalId = kCampFirstLocalId + kCampMost;"):
+    for line in ("kCampKitBlock = kCampSlots;", "kCampKitFirstLocalId = kCampFirstLocalId;"):
         if line not in text:
             raise SystemExit(f"CampLogic.h no longer reads {line}")
-    ids["kCampKitBlock"] = ids["kCampSlots"] + ids["kCampProps"]
-    ids["kCampKitFirstLocalId"] = ids["kCampFirstLocalId"] + ids["kCampMost"]
+    ids["kCampKitBlock"] = ids["kCampSlots"]
+    ids["kCampKitFirstLocalId"] = ids["kCampFirstLocalId"]
+    ids["kCandidateMarkerFirstLocalId"] = int(re.search(r"kCandidateMarkerFirstLocalId = (0x[0-9A-Fa-f]+);",
+                                                        text).group(1), 16)
     ids["outfits"] = [[int(v, 16) for v in re.findall(r"0x[0-9A-Fa-f]+", row)]
                       for row in re.findall(r"\{([^{}]+)\}", outfits)]
     return ids
@@ -356,17 +361,83 @@ def build_map_marker(edid: str, name: str, x: float, y: float, z: float) -> byte
 
 
 def world_groups(world: list[tuple[bytes, bytes]], cell: list[tuple[bytes, bytes]], cell_flags: int,
-                 refs: bytes) -> bytes:
+                 refs: bytes, exterior: bytes = b"") -> bytes:
     """Tamriel's top WRLD group: its WRLD record (Oblivion.esm's, every
     subrecord verbatim but OFST - the master file's own table of its cells'
     offsets, 70200 bytes, past a subrecord's 16-bit size and meaningless in
     another file), its children (GRUP type 1), the persistent cell's
     record (verbatim) and its persistent children (types 6 and 8) - the
-    nesting Oblivion.esm has."""
+    nesting Oblivion.esm has - then `exterior`, the exterior cells' blocks
+    (exterior_groups)."""
     world_record = record(b"WRLD", TAMRIEL, b"".join(subrecord(k, d) for k, d in world if k != b"OFST"))
     cell_record = record(b"CELL", TAMRIEL_PERSISTENT_CELL, b"".join(subrecord(k, d) for k, d in cell), flags=cell_flags)
     children = typed_group(TAMRIEL_PERSISTENT_CELL, 6, typed_group(TAMRIEL_PERSISTENT_CELL, 8, refs))
-    return group(b"WRLD", world_record + typed_group(TAMRIEL, 1, cell_record + children))
+    return group(b"WRLD", world_record + typed_group(TAMRIEL, 1, cell_record + children + exterior))
+
+
+RECORD_COMPRESSED = 0x00040000
+
+
+def exterior_cells(esm, buf: bytes) -> dict:
+    """Tamriel's exterior cells by grid off Oblivion.esm: (form ID, record
+    flags, its block's and sub-block's group labels, its subrecords) - walked
+    as the file nests them (WRLD children, GRUP type 4 blocks, type 5
+    sub-blocks, the CELL records; their children skipped)."""
+    places = load_places_module()
+    start, end = places.tamriel_range(buf)
+    out = {}
+
+    def walk(i: int, stop: int, block, sub) -> None:
+        while i + 20 <= stop:
+            if buf[i:i + 4] == b"GRUP":
+                size, label, gtype = struct.unpack_from("<IIi", buf, i + 4)
+                if gtype == 4:
+                    walk(i + 20, i + size, label, None)
+                elif gtype == 5:
+                    walk(i + 20, i + size, block, label)
+                i += size
+                continue
+            typ = buf[i:i + 4]
+            size, flags, form = struct.unpack_from("<III", buf, i + 4)
+            if typ == b"CELL" and block is not None:
+                subs = list(esm.subrecords(esm.record_data(buf, i, size, flags)))
+                data = dict(subs)
+                if b"XCLC" in data:
+                    out[struct.unpack_from("<ii", data[b"XCLC"], 0)] = (form, flags, block, sub, subs)
+            i += 20 + size
+
+    walk(start, end, None, None)
+    return out
+
+
+def exterior_groups(cells: dict, refs_by_cell: dict) -> tuple[bytes, int, int]:
+    """The exterior cells holding `refs_by_cell`'s references, nested as
+    Oblivion.esm has them: per block (GRUP type 4) and sub-block (type 5)
+    each cell's record (verbatim, uncompressed) and its children (type 6)
+    with its temporary references (type 9). Returns the bytes, the groups
+    and the cell records written."""
+    tree: dict[int, dict[int, list]] = {}
+    for grid in sorted(refs_by_cell):
+        form, flags, block, sub, subs = cells[grid]
+        tree.setdefault(block, {}).setdefault(sub, []).append((form, flags, subs, refs_by_cell[grid]))
+    out = b""
+    groups = 0
+    count = 0
+    for block in sorted(tree):
+        block_bytes = b""
+        for sub in sorted(tree[block]):
+            sub_bytes = b""
+            for form, flags, subs, refs in tree[block][sub]:
+                sub_bytes += record(b"CELL", form, b"".join(subrecord(k, d) for k, d in subs),
+                                    flags=flags & ~RECORD_COMPRESSED)
+                sub_bytes += typed_group(form, 6, typed_group(form, 9, refs))
+                groups += 2
+                count += 1
+            block_bytes += typed_group(sub, 5, sub_bytes)
+            groups += 1
+        out += typed_group(block, 4, block_bytes)
+        groups += 1
+    return out, groups, count
 HORDE_GROUPS = 16  # HordeLogic.h kHordeGroups
 LOCAL_TRAVEL_IDS = [0x806 + i for i in range(HORDE_GROUPS)]
 LOCAL_FOLLOW_IDS = [0x816 + i for i in range(HORDE_GROUPS)]
@@ -856,24 +927,13 @@ def main() -> int:
                                             n),
                              flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
     pool += siege_pool
-    test_pool = 0
-    for c in range(len(CITIES)):
-        for n in range(args.test_walker_pool):
-            local = LOCAL_TEST_POOL_FIRST + test_pool
-            pool += record(b"ACRE", index | local,
-                           build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
-                                          test_pool),
-                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
-            test_pool += 1
-
     # The survivors' camps (4.20.6).
     ids = camp_ids()
     places = camp_places()
-    camps, kits, block = ids["kCampMost"], ids["kCampKits"], ids["kCampKitBlock"]
-    if len(places) < max(camps, kits) or len(ids["outfits"]) != ids["kCampBaseCount"]:
+    kits, block = ids["kCampKits"], ids["kCampKitBlock"]
+    if len(places) < max(ids["kCampMost"], kits) or len(ids["outfits"]) != ids["kCampBaseCount"]:
         raise SystemExit(f"CampCandidates.h has {len(places)} places, CampLogic.h {len(ids['outfits'])} outfits")
     if ids["kCampBaseFirstLocalId"] != LOCAL_NIGHT_RUMOR + 1 or \
-            ids["kCampKitFirstLocalId"] + kits * block > LOCAL_TEST_POOL_FIRST or \
             ids["kCampPoolFirstLocalId"] + ids["kCampShownMost"] * ids["kCampWalkersAtOnce"] != ids["kCampFirstLocalId"]:
         raise SystemExit("CampLogic.h's IDs do not follow the night's rumor or overlap")
     camp_templates = [find_record(esm, buf, b"NPC_", t)
@@ -907,20 +967,18 @@ def main() -> int:
             raise SystemExit(f"no land at {x:.0f},{y:.0f}")
         return h
 
-    # The dynamic camps: kCampMost map markers (hidden until found, initially
-    # disabled - the plugin puts those in play at their rolled places and
-    # enables them), then kCampKits kits of thirteen people and eleven props,
-    # all persistent and initially disabled, laid out at the first
-    # candidates; the plugin moves a kit to a camp near the player.
+    # The dynamic camps: kCampKits kits of thirteen people (persistent and
+    # initially disabled, laid out at the first candidates; the plugin moves
+    # a kit to a camp near the player), then at every candidate of
+    # CampCandidates.h its map marker (persistent, initially disabled, hidden
+    # until found) and its props in their exterior cells, the marker their
+    # enable parent - the plugin enables the markers of the candidates in
+    # play. The plain ESP lays out camp_layout's eleven props, the ESL eight
+    # (ESL_CAMP_PROPS: one log pile of three, one bedroll by the fire of two),
+    # its IDs ending at 0xFFF (Nadi, 2026-11-06: "Mach die esp großzügiger,
+    # und die esl light").
     world_refs = b""
     camp_records = 0
-    for c in range(camps):
-        place = places[c]
-        world_refs += record(b"REFR", index | (ids["kCampFirstLocalId"] + c),
-                             build_map_marker(f"WalkersCamp{c:02d}MapMarker", "Refugee Camp", place[0], place[1],
-                                              place[2]),
-                             flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
-        camp_records += 1
     for k in range(kits):
         place = places[k]
         first = ids["kCampKitFirstLocalId"] + k * block
@@ -932,18 +990,53 @@ def main() -> int:
                                  build_placed(base, x, y, z, rz=rot, edid=f"WalkersCampKit{k}Person{slot:02d}",
                                               extra=extra),
                                  flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+        camp_records += 13
+    marker_first = ids["kCandidateMarkerFirstLocalId"]
+    if marker_first <= SHOCK_LAST_LOCAL or ids["kCampKitFirstLocalId"] + kits * block > SHOCK_FIRST_LOCAL:
+        raise SystemExit("CampLogic.h's kits or candidate markers overlap the grab's shock sounds")
+    cells = exterior_cells(esm, buf)
+    refs_by_cell: dict[tuple[int, int], bytes] = {}
+    next_prop = marker_first + len(places)
+    props_laid = 0
+    for c, place in enumerate(places):
+        marker_form = index | (marker_first + c)
+        world_refs += record(b"REFR", marker_form,
+                             build_map_marker(f"WalkersCampSite{c:03d}MapMarker", "Refugee Camp", place[0], place[1],
+                                              place[2]),
+                             flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+        camp_records += 1
         props = camp_layout(place, ground)
-        if len(props) != ids["kCampProps"]:
-            raise SystemExit(f"{len(props)} props, CampLogic.h has {ids['kCampProps']}")
-        for p, (base, x, y, z, rx, rz) in enumerate(props):
-            world_refs += record(b"REFR", index | (first + 13 + p),
-                                 build_placed(base, x, y, z, rx, rz, edid=f"WalkersCampKit{k}Prop{p:02d}"),
-                                 flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
-        camp_records += 13 + len(props)
+        if len(props) != CAMP_PROPS:
+            raise SystemExit(f"{len(props)} props, CAMP_PROPS is {CAMP_PROPS}")
+        for p in (ESL_CAMP_PROPS if args.esl else range(CAMP_PROPS)):
+            base, x, y, z, rx, rz = props[p]
+            grid = (math.floor(x / 4096.0), math.floor(y / 4096.0))
+            if grid not in cells:
+                raise SystemExit(f"candidate {c}'s prop {p} at {x:.0f},{y:.0f}: no exterior cell {grid}")
+            xesp = subrecord(b"XESP", struct.pack("<II", marker_form, 0))
+            refs_by_cell[grid] = refs_by_cell.get(grid, b"") + record(
+                b"REFR", index | next_prop, build_placed(base, x, y, z, rx, rz, extra=xesp))
+            next_prop += 1
+            props_laid += 1
+    camp_records += props_laid
+    exterior, exterior_groups_count, exterior_cells_count = exterior_groups(cells, refs_by_cell)
+    camp_records += exterior_cells_count
+    camp_end = next_prop
     world_record = find_record(esm, buf, b"WRLD", TAMRIEL)
     persistent_cell = find_record(esm, buf, b"CELL", TAMRIEL_PERSISTENT_CELL)
-    world = world_groups(world_record, persistent_cell, RECORD_PERSISTENT, world_refs)
+    world = world_groups(world_record, persistent_cell, RECORD_PERSISTENT, world_refs, exterior)
     pool += holding
+    test_pool = 0
+    for c in range(len(CITIES)):
+        for n in range(args.test_walker_pool):
+            local = camp_end + test_pool
+            pool += record(b"ACRE", index | local,
+                           build_pool_ref(achr_template, f"WalkersTestPool{CITIES[c]}{n}", walker_forms[n % 4],
+                                          test_pool),
+                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+            test_pool += 1
+
+
 
     edition_texts = load_editions_module().editions()
     if len(edition_texts) != EDITION_COUNT:
@@ -984,8 +1077,8 @@ def main() -> int:
     grab_text = (Path(__file__).resolve().parent.parent / "src" / "GrabLogic.h").read_text()
     shock_first = int(re.search(r"kGrabShockFirstLocalId = (0x[0-9A-Fa-f]+);", grab_text).group(1), 16)
     shock_count = int(re.search(r"kGrabShockSounds = (\d+);", grab_text).group(1))
-    if shock_first < ids["kCampKitFirstLocalId"] + kits * block or shock_first + shock_count > LOCAL_TEST_POOL_FIRST:
-        raise SystemExit("GrabLogic.h's shock sounds overlap the camps or the test pool")
+    if shock_first != SHOCK_FIRST_LOCAL or shock_first + shock_count - 1 != SHOCK_LAST_LOCAL:
+        raise SystemExit("GrabLogic.h's shock sounds moved: SHOCK_FIRST_LOCAL / SHOCK_LAST_LOCAL")
     quest_sound = find_record(esm, buf, b"SOUN", SHOCK_SOUND_TEMPLATE)
     shock_forms = [index | (shock_first + i) for i in range(shock_count)]
     sounds = b"".join(record(b"SOUN", form, b"".join(
@@ -1000,18 +1093,22 @@ def main() -> int:
             + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
             + group(b"PACK", packages) + group(b"IDLE", idles))
-    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1
+    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + exterior_groups_count
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
                + len(siege_globals) + 1 + len(CITIES) + 2
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
                + camp_records + 2 + len(shock_forms))
-    next_id = LOCAL_TEST_POOL_FIRST + test_pool
+    next_id = camp_end + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
-    if next_id - 1 > LIGHT_LOCAL_LAST and not args.test_walker_pool:
-        raise SystemExit(f"the last local ID {next_id - 1:03X} is past 0xFFF: the ESL variant (and the plugin's "
-                         "0xFFF mask, RiseLogic.h kEspLocalMask) would break")
+    # Every record the plugin looks up (by its 0xFFF mask, RiseLogic.h
+    # kEspLocalMask) ends at the candidates' markers; only the plain ESP's
+    # camp props, never looked up, may run past 0xFFF.
+    looked_up_last = marker_first + len(places) - 1
+    if looked_up_last > LIGHT_LOCAL_LAST or (next_id - 1 > LIGHT_LOCAL_LAST and args.esl):
+        raise SystemExit(f"the last local ID looked up {looked_up_last:03X} or the ESL's last {next_id - 1:03X} is "
+                         "past 0xFFF: the ESL variant (and the plugin's 0xFFF mask) would break")
     plugin = header(num_records=groups + records,
                     next_object_id=next_id,
                     masters=masters, flags=ESL_FLAG if args.esl else 0) + body

@@ -21,8 +21,9 @@ solid base (SOLID_TYPES). A candidate is a spot
     the peaks),
   - at least --apart-units from the candidates taken before it.
 Each is named after the nearest map marker that is no Oblivion gate's, and
-carries its props' and people's spots (tools/esp-write.py camp_layout,
-camp_person_spot) and the land's height under its walker spots.
+carries its people's spots (tools/esp-write.py camp_person_spot) and the
+land's height under its walker spots; its props (camp_layout) the ESP lays
+out itself.
 
     python3 tools/camp-places.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm \\
         > src/CampCandidates.h
@@ -283,7 +284,7 @@ def main() -> int:
     parser.add_argument("--clear-units", type=float, default=450.0)
     parser.add_argument("--prop-clear-units", type=float, default=300.0)
     parser.add_argument("--grid-units", type=float, default=1024.0)
-    parser.add_argument("--apart-units", type=float, default=6000.0)
+    parser.add_argument("--apart-units", type=float, default=2500.0)
     parser.add_argument("--road-units", type=float, default=12000.0)
     args = parser.parse_args()
     esm = load_esm_module()
@@ -396,8 +397,6 @@ def print_candidates(args, esm, buf: bytes) -> int:
     for c, props, people, spots in taken:
         name = names.index(marker_name(markers, c[0], c[1])[2])
         out.append(f"	{{{c[0]:.0f}.0f, {c[1]:.0f}.0f, {c[2]:.0f}.0f, {c[4]:.0f}.0f, {name}, {1 if c[5] else 0},")
-        out.append("	 {" + ", ".join(f"{{{x:.0f}.0f, {y:.0f}.0f, {z:.0f}.0f, {rx:.4f}f, {rz:.4f}f}}"
-                                       for _, x, y, z, rx, rz in props) + "},")
         out.append("	 {" + ", ".join(f"{{{x:.0f}.0f, {y:.0f}.0f, {z:.0f}.0f, 0.0f, {r:.4f}f}}"
                                        for x, y, z, r in people) + "},")
         out.append("	 {" + ", ".join(f"{h:.0f}.0f" for h in spots) + "}},")

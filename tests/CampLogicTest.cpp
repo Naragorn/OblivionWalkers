@@ -290,6 +290,18 @@ void TestSpots() {
 	      "the next two to either side alike");
 	walkers::CampWalkerSpot(place, false, 3, dx, dy);
 	Check(std::fabs(std::sqrt(dx * dx + dy * dy) - walkers::kCampNestUnits) < 1.0f, "an overrun camp's among the tents");
+	walkers::CampTentSpot(0.0f, -1.0f, dx, dy);
+	Check(std::fabs(dx - 620.0f * std::sin(3.14159265f * 0.75f)) < 1.0f && dy < -400.0f,
+	      "the first tent: behind the fire from a road to the north, 45 degrees to the side, 620 out");
+	walkers::CampTentSpot(0.0f, 1.0f, dx1, dy1);
+	Check(std::fabs(dx + dx1) < 1.0f && std::fabs(dy - dy1) < 1.0f, "the second the mirror of the first");
+	const float roof[] = {700.0f, 640.0f, 520.0f, 300.0f, 300.0f, 260.0f, 120.0f, 100.0f, 100.0f};
+	Check(walkers::CampFallStop(roof, 9) == 300.0f, "a fall: the first stop counts, not where it slid to");
+	const float falling[] = {700.0f, 600.0f, 400.0f};
+	Check(walkers::CampFallStop(falling, 3) < -1e8f && walkers::CampFallStop(falling, 0) < -1e8f,
+	      "still falling, or no heights: no stop");
+	const float shallow[] = {100.0f, 90.0f, 90.0f};
+	Check(walkers::CampFallStop(shallow, 3) < -1e8f, "a stop before 20 units of fall does not count");
 }
 
 void TestImage() {

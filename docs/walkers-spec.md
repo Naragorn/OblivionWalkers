@@ -2271,21 +2271,42 @@ props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,
 - Rolled once per game (a new game, or CampCount raised), kept in the co-save
   'CAMP' version 2 (64 camps, 28 bytes each, the place added). Version 1 (the
   twelve fixed camps) is not read: those camps are rolled anew.
-- ESP: 64 map markers (initially disabled; the plugin puts those in play at
-  their places with SetPos and enables them) and 4 kits of 13 people and 11
-  props (persistent, initially disabled). A kit goes to a camp within 14000
-  units of the player, the nearest first, and is freed past 18000
-  (`ChooseCampKits`); 52 refugees instead of 156. A kit's dead are raised and
-  dressed before it moves and taken off the rise's list (`UnlistRising`).
+- ESP (since Nadi's "A", 2026-11-06, below): at every candidate its map
+  marker (persistent, initially disabled, hidden until found, 0xAA7 + the
+  candidate) and its props in their exterior cells (156 cells' CELL records
+  copied from Oblivion.esm, nested in their blocks and sub-blocks), the
+  marker their enable parent. The plugin moves nothing: it enables the
+  markers of the candidates in play and disables the rest. The plain ESP
+  lays out all eleven props (1540 references, their IDs past 0xFFF - only
+  the props, which the plugin never looks up); the ESL eight (one log pile
+  of three, one bedroll by the fire of two: 1120, the last ID 0xF93) - Nadi,
+  2026-11-06: "Mach die esp großzügiger. und die esl light".
+- 4 kits of 13 people (persistent, initially disabled). A kit goes to a camp
+  within 14000 units of the player, the nearest first, and is freed past
+  18000 (`ChooseCampKits`); 52 refugees instead of 156. A kit's dead are
+  raised and dressed before it moves and taken off the rise's list
+  (`UnlistRising`).
 - `TestCamp=N` now also takes the player to camp N, 30 s after the load (the
-  harness cannot know where it was rolled).
+  harness cannot know where it was rolled), and 15 s after the attack drops
+  the player from 600 units onto the camp's first tent, then onto the ground
+  toward the road.
 - Harness `camp-defend` 2026-11-06 12:03 PASS: 64 places rolled, camp 07 near
   Wellspring Cave attacked, kit 0 moved there, six walkers out and led, all
   six cut down by the refugees ('WGCT' each), defended with the reward.
 - Gone: the twelve fixed places (CampPlaces.h, CampSpots.h), the probe's
   code (CampProbeLogic.h, camp-probe.txt/.sh - in history at d9f4e6d).
 
-Open - the props across the map (measured 2026-11-06, the far probe, camp
+Harness `camp-defend` 2026-11-06 13:14 PASS with the props in the ESP: 64
+places rolled, "64 candidates' markers and props enabled, the other 76
+disabled (0 not found)", camp 07 near Imperial Sewer attacked, the six
+walkers out, led and cut down, defended with the reward. The drop onto the
+first tent (38109,63453) stopped at 3685 - the land there 3584 (Oblivion.esm,
+tools/camp-places.py ground_at), 101 over it, the tent's roof as at the
+first probe (103) - then slid to 3663: **the tent is solid**. Not seen: the
+camps' looks, the map markers on the world map (whether a disabled marker
+stays off it), the ESL variant in the game.
+
+Superseded (Nadi chose A) - the props across the map (measured 2026-11-06, the far probe, camp
 07's tent to camp 04's place 77000 units off, the player dropped onto the
 tent's spot and a ground spot):
 
@@ -2305,7 +2326,7 @@ map is **not solid** there, whatever was tried; within the loaded cells
 (500 units) SetPos + Update3D was. Whether it is seen there is not known
 (headless pictures are black). The kits' props are moved that way now: the
 camps work (people, walkers, rewards), the tents likely stand unseen or
-without collision. Options for Nadi, 2026-11-06:
+without collision. Options for Nadi, 2026-11-06 (A chosen):
 - A: the props laid out at every candidate in the ESP (140 x 11 = 1540
   references in their exterior cells, each under one persistent enable
   parent per candidate, initially disabled), the plugin enabling a camp's

@@ -25,7 +25,7 @@ constexpr UInt32 kCellFlagsOffset = 0x24;
 constexpr UInt32 kCellWorldspaceOffset = 0x50;
 constexpr float kStepSeconds = 1.0f;
 constexpr float kSpotLift = 40.0f;  // a walker put this far above its spot's land
-constexpr float kRadToDeg = 57.2957795f;
+constexpr float kRadToDeg = 57.2957795f;  // the people's SetAngle
 constexpr UInt32 kEventsMost = 64;
 constexpr UInt32 kLogLines = 64;
 
@@ -42,13 +42,27 @@ bool g_wasEnabled = true;
 bool g_testDone = false;
 float g_testClock = 0.0f;  // seconds of steps since the load, for TestCamp
 constexpr float kTestCampAfterSeconds = 30.0f;  // the harness's script started by then
+// TestCamp's drops: 15 s after the camp's attack the player dropped from 600
+// units above onto its first tent, 6 s on onto the ground 620 units toward
+// the road - whether the props stand solid (the props are the ESP's own,
+// under the candidate's marker; moved props were not, 2026-11-06).
+constexpr float kTestDropAfterSeconds = 15.0f;
+constexpr float kTestDropSeconds = 6.0f;
+constexpr float kTestDropSample = 0.05f;
+struct TestDrop {
+	int stage = -1;  // -1 waiting, 0 the tent, 1 the ground, 2 done
+	float clock = 0.0f;
+	float sampleClock = 0.0f;
+	float z[128] = {};
+	UInt32 n = 0;
+	float stops[2] = {-1e9f, -1e9f};
+};
+TestDrop g_drop;
 bool g_applied = false;  // the rosters and markers set since the load
 UInt32 g_markersActive = 0;  // CampActive when the markers were last set
-// The kits: the camp each is at (-1 none), the slots it has enabled, and
-// whether its props' 3D was rebuilt since the camp's cells came in.
+// The kits: the camp each is at (-1 none), the slots it has enabled.
 int g_kitCamp[kCampKits] = {-1, -1, -1, -1};
 UInt16 g_kitPeople[kCampKits] = {};
-bool g_kitRebuilt[kCampKits] = {};
 // The pool: per bank (kCampWalkersAtOnce slots each) the camp it is out at
 // (-1 none), whether the camp's package is still to be given, and per slot
 // out or lying ended.
@@ -213,40 +227,22 @@ void RaisePeople(UInt32 i) {
 	      CampAlive(g_state.camps[i]));
 }
 
-// Kit `kit`'s props and people put away: disabled where they stand.
+// Kit `kit`'s people put away: disabled where they stand.
 void FreeKit(UInt32 kit) {
-	for (UInt32 p = 0; p < kCampProps; ++p) {
-		Say(Esp(KitPropLocalId(kit, p)), "Disable");
-	}
 	for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
 		Say(Esp(KitPersonLocalId(kit, slot)), "Disable");
 	}
 	g_kitPeople[kit] = 0;
-	g_kitRebuilt[kit] = false;
 }
 
-// A prop onto its spot: SetPos x, y, z, SetAngle x and z, enabled, its 3D
-// rebuilt - the collision follows only with Update3D (the probe of
-// 2026-11-06, docs/walkers-spec.md 4.20.6).
-void PutProp(UInt32 ref, const CampSpot& at) {
-	SayF(ref, "SetPos x %.1f", at.x);
-	SayF(ref, "SetPos y %.1f", at.y);
-	SayF(ref, "SetPos z %.1f", at.z);
-	SayF(ref, "SetAngle x %.2f", at.rx * kRadToDeg);
-	SayF(ref, "SetAngle z %.2f", at.rz * kRadToDeg);
-	Say(ref, "Enable");
-	Say(ref, "Update3D");
-}
+// Camp `i`'s map marker: its candidate's (the props' enable parent).
+UInt32 MarkerId(UInt32 i) { return EspFormId(g_espBase, CandidateMarkerLocalId(g_state.camps[i].place)); }
 
-// Kit `kit` put at camp `i`: its props onto the camp's spots, its people
-// (the dead raised) onto theirs by the camp's map marker, then enabled as the
-// roster says.
+// Kit `kit` put at camp `i`: its people (the dead raised) onto their spots by
+// the camp's map marker, then enabled as the roster says.
 void SetUpKit(UInt32 kit, UInt32 i) {
 	const CampCandidate& place = Place(i);
-	for (UInt32 p = 0; p < kCampProps; ++p) {
-		PutProp(Esp(KitPropLocalId(kit, p)), place.props[p]);
-	}
-	const UInt32 marker = EspFormId(g_espBase, CampMarkerLocalId(i));
+	const UInt32 marker = MarkerId(i);
 	UInt32 raised = 0;
 	for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
 		const UInt32 ref = Esp(KitPersonLocalId(kit, slot));
@@ -263,34 +259,34 @@ void SetUpKit(UInt32 kit, UInt32 i) {
 		SayF(ref, "SetAngle z %.2f", at.rz * kRadToDeg);
 	}
 	g_kitPeople[kit] = 0;
-	g_kitRebuilt[kit] = false;
 	g_log("Camps: kit %u to camp %02u %s (%.0f,%.0f,%.0f; %u raised)", kit, i, Name(i), place.x, place.y, place.z,
 	      raised);
 	ApplyPeople(i, true);
 }
 
-// Every camp's map marker: those in play at their places and enabled, the
-// others disabled.
+// Every candidate's map marker - its props' enable parent: those of the camps
+// in play enabled (the camp and its props show), the others disabled.
 void PlaceMarkers() {
-	UInt32 shown = 0;
+	bool used[kCampCandidateCount] = {};
 	for (UInt32 i = 0; i < kCampMost; ++i) {
-		const UInt32 marker = Esp(CampMarkerLocalId(i));
+		if (g_settings->enabled && CampInPlay(g_state, *g_settings, i)) {
+			used[g_state.camps[i].place] = true;
+		}
+	}
+	UInt32 shown = 0;
+	UInt32 missing = 0;
+	for (UInt32 c = 0; c < kCampCandidateCount; ++c) {
+		const UInt32 marker = Esp(CandidateMarkerLocalId(c));
 		if (!LooksLikeObject(marker)) {
+			++missing;
 			continue;
 		}
-		if (!g_settings->enabled || !CampInPlay(g_state, *g_settings, i)) {
-			Say(marker, "Disable");
-			continue;
-		}
-		const CampCandidate& place = Place(i);
-		SayF(marker, "SetPos x %.1f", place.x);
-		SayF(marker, "SetPos y %.1f", place.y);
-		SayF(marker, "SetPos z %.1f", place.z);
-		Say(marker, "Enable");
-		++shown;
+		Say(marker, used[c] ? "Enable" : "Disable");
+		shown += used[c] ? 1u : 0u;
 	}
 	g_markersActive = CampActive(*g_settings);
-	g_log("Camps: %u map markers at their camps, the other %u disabled", shown, kCampMost - shown);
+	g_log("Camps: %u candidates' markers and props enabled, the other %u disabled (%u not found)", shown,
+	      kCampCandidateCount - shown - missing, missing);
 }
 
 UInt32 PoolRef(UInt32 slot) { return Esp(kCampPoolFirstLocalId + slot); }
@@ -332,7 +328,7 @@ void ShowBank(UInt32 bank, UInt32 i) {
 			// The bank's marker on the camp; the package a step later (the
 			// horde's MoveTo notes: a package's target is read when given).
 			char line[48];
-			std::snprintf(line, sizeof(line), "MoveTo %08X 0 0 0", EspFormId(g_espBase, CampMarkerLocalId(i)));
+			std::snprintf(line, sizeof(line), "MoveTo %08X 0 0 0", MarkerId(i));
 			const bool moved = Say(Esp(kCampMarkerFirstLocalId + bank), line);
 			g_log("Camps: marker %u onto camp %02u (%s answered %d)", bank, i, line, moved ? 1 : 0);
 			g_bankLead[bank] = true;
@@ -378,7 +374,7 @@ void ShowBank(UInt32 bank, UInt32 i) {
 			CampWalkerSpot(place.facing, attack, k, dx, dy);
 			const float dz = place.spotZ[(attack ? 0 : kCampWalkersAtOnce) + k] - place.z + kSpotLift;
 			char line[96];
-			std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", EspFormId(g_espBase, CampMarkerLocalId(i)),
+			std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", MarkerId(i),
 			              dx, dy, dz);
 			Say(ref, "Enable");
 			const bool moved = Say(ref, line);
@@ -511,8 +507,7 @@ void RollPlaces() {
 	}
 }
 
-// The kits to the camps nearest the player; a kit at a camp whose cells came
-// in (the player near) has its props' 3D rebuilt once more.
+// The kits to the camps nearest the player.
 void StepKits(const float* distance) {
 	bool moved[kCampKits];
 	int before[kCampKits];
@@ -527,17 +522,6 @@ void StepKits(const float* distance) {
 		}
 		if (moved[k]) {
 			SetUpKit(k, static_cast<UInt32>(g_kitCamp[k]));
-		}
-		const int c = g_kitCamp[k];
-		if (c >= 0 && !g_kitRebuilt[k] && Near(distance, static_cast<UInt32>(c))) {
-			g_kitRebuilt[k] = true;
-			for (UInt32 p = 0; p < kCampProps; ++p) {
-				Say(Esp(KitPropLocalId(k, p)), "Update3D");
-			}
-			if (Logged()) {
-				g_log("Camps: kit %u's props rebuilt at camp %02d %s (the player %.0f off)", k, c,
-				      Name(static_cast<UInt32>(c)), distance[c]);
-			}
 		}
 	}
 }
@@ -600,10 +584,75 @@ bool IsCampPerson(UInt32 refId) {
 	return (local - kCampKitFirstLocalId) % kCampKitBlock < kCampSlots;
 }
 
+namespace {
+
+// The player put 600 units above spot `stage` of TestCamp's camp.
+void DropAt(UInt32 i, int stage) {
+	const CampCandidate& place = Place(i);
+	float dx = 0.0f;
+	float dy = 0.0f;
+	if (stage == 0) {
+		CampTentSpot(place.facing, -1.0f, dx, dy);
+	} else {
+		const float road = place.facing * 3.14159265f / 180.0f;
+		dx = std::sin(road) * kCampTentUnits;
+		dy = std::cos(road) * kCampTentUnits;
+	}
+	const UInt32 player = LookupForm(kPlayerRefId);
+	SayF(player, "SetPos x %.1f", place.x + dx);
+	SayF(player, "SetPos y %.1f", place.y + dy);
+	SayF(player, "SetPos z %.1f", place.z + 600.0f);
+	g_drop.n = 0;
+	g_drop.sampleClock = 0.0f;
+	g_log("Camps: test - the player dropped onto camp %02u's %s (%.0f,%.0f from %.0f)", i,
+	      stage == 0 ? "first tent" : "ground toward the road", place.x + dx, place.y + dy, place.z + 600.0f);
+}
+
+void StepTestDrop(float dt) {
+	if (!g_testDone || g_drop.stage >= 2 || g_settings->testCamp < 0) {
+		return;
+	}
+	const UInt32 i = static_cast<UInt32>(g_settings->testCamp);
+	g_drop.clock += dt > 0.0f && dt < 1.0f ? dt : 0.0f;
+	if (g_drop.stage < 0) {
+		if (g_drop.clock >= kTestDropAfterSeconds) {
+			g_drop.stage = 0;
+			g_drop.clock = 0.0f;
+			DropAt(i, 0);
+		}
+		return;
+	}
+	g_drop.sampleClock += dt;
+	const UInt32 player = LookupForm(kPlayerRefId);
+	if (g_drop.sampleClock >= kTestDropSample && g_drop.n < 128 && LooksLikeObject(player)) {
+		g_drop.sampleClock = 0.0f;
+		g_drop.z[g_drop.n++] = FloatAt(player + kRefPositionOffset + 8);
+	}
+	if (g_drop.clock < kTestDropSeconds) {
+		return;
+	}
+	const float stop = CampFallStop(g_drop.z, g_drop.n);
+	g_drop.stops[g_drop.stage] = stop;
+	g_log("Camps: test - the fall onto the %s stopped at %.1f (%u heights %.1f..%.1f; the camp's fire at z %.1f)",
+	      g_drop.stage == 0 ? "first tent" : "ground", stop, g_drop.n, g_drop.n > 0 ? g_drop.z[0] : 0.0f,
+	      g_drop.n > 0 ? g_drop.z[g_drop.n - 1] : 0.0f, Place(i).z);
+	g_drop.clock = 0.0f;
+	if (++g_drop.stage == 1) {
+		DropAt(i, 1);
+	} else {
+		g_log("Camps: test - the tent's stop %.1f units over the ground's (a tent's roof stands some 100 over its "
+		      "base: solid there)",
+		      g_drop.stops[0] - g_drop.stops[1]);
+	}
+}
+
+}  // namespace
+
 void StepCampsInGame(float dt) {
 	if (g_settings == nullptr || g_console == nullptr || g_espBase == 0) {
 		return;
 	}
+	StepTestDrop(dt);
 	g_clock += dt;
 	if (g_clock < kStepSeconds) {
 		return;
@@ -657,7 +706,7 @@ void StepCampsInGame(float dt) {
 		// The player taken to it, 1000 units off its fire (the places are
 		// rolled: the harness cannot know where it is).
 		char line[64];
-		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -1000 200", EspFormId(g_espBase, CampMarkerLocalId(i)));
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -1000 200", MarkerId(i));
 		const bool moved = Say(LookupForm(kPlayerRefId), line);
 		g_log("Camps: test - TestCamp=%d attacked 30 s after the load, the player taken there (%s answered %d)",
 		      g_settings->testCamp, line, moved ? 1 : 0);
@@ -788,12 +837,12 @@ void ResetCampsInGame() {
 	for (UInt32 k = 0; k < kCampKits; ++k) {
 		g_kitCamp[k] = -1;
 		g_kitPeople[k] = 0;
-		g_kitRebuilt[k] = false;
 	}
 	g_endedCount = 0;
 	g_wasEnabled = true;
 	g_testDone = false;
 	g_testClock = 0.0f;
+	g_drop = TestDrop{};
 	g_applied = false;
 	g_markersActive = 0;
 	g_logLines = 0;

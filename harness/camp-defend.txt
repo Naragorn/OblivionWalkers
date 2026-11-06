@@ -4,13 +4,17 @@
 # place rolled for this game, "Camps: N places rolled", "camp 07 ... at
 # x,y,z" - is attacked 30 s after the load and the player taken 1000
 # units off its fire: "Camps: test - TestCamp=7 ... the player taken there",
-# untouchable (tgm). A kit is put at it ("kit N to camp 07", its props
-# rebuilt once the player is near), "camp 07 ... attacked - 6 walkers",
+# untouchable (tgm). A kit of people is put at it ("kit N to camp 07"), its
+# marker and props enabled with the others in play ("... candidates' markers
+# and props enabled"), "camp 07 ... attacked - 6 walkers",
 # "the player at camp 07 ... its attackers come out", six "walker ... out at
 # camp 07", then "walkers led at camp 07". The refugees (enabled: "camp 07
 # ... 7 enabled") fight them: "slot N ... dead" and "walker ... ended at camp
-# 07" lines, and at the end "defended" (the reward's line) or "overrun". The
-# run waits two minutes and a half for the fight.
+# 07" lines, and at the end "defended" (the reward's line) or "overrun". 15 s
+# after the attack the player is dropped onto the camp's first tent and then
+# onto the ground toward the road: "the tent's stop N units over the
+# ground's" - some 100 when the tent is solid. The run waits two minutes and
+# a half for the fight.
 #
 # Runs on OBVR's harness through tools/camp-harness.sh.
 

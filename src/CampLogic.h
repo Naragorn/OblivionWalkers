@@ -35,9 +35,12 @@ namespace walkers {
 // The dynamic camps (Nadi, 2026-11-06: "go dynamic"): up to kCampMost camps,
 // CampCount of them, each at a place rolled once per game from the
 // candidates (CampCandidates.h, tools/camp-places.py --candidates), at least
-// CampSpacingUnits apart. A camp's people and props are a kit of the ESP's,
-// kCampKits kits, moved to the camps nearest the player (ChooseCampKits); its
-// map marker is its own.
+// CampSpacingUnits apart. A camp's people are a kit of the ESP's, kCampKits
+// kits, moved to the camps nearest the player (ChooseCampKits). Its map marker
+// and props stand at every candidate in the ESP, the marker the props' enable
+// parent, enabled for the candidates in play - a prop moved across the map is
+// not solid there (the probes of 2026-11-06); the engine's own enable parents
+// need no move (Nadi, 2026-11-06: "A").
 inline constexpr UInt32 kCampMost = 64;
 inline constexpr UInt16 kCampNoPlace = 0xFFFF;
 
@@ -57,14 +60,13 @@ inline constexpr UInt32 kCampMen = 6;
 inline constexpr UInt32 kCampWomen = 6;
 inline constexpr UInt32 kCampTraderSlot = 12;
 inline constexpr UInt32 kCampSlots = 13;
-inline constexpr UInt32 kCampProps = 11;
 inline constexpr UInt32 kCampWalkersAtOnce = 12;
 
 // A place a camp can be rolled to: its fire, the way to the road (degrees),
-// the name's index (kCampNames), whether it is by a road, the props' spots
-// (tools/esp-write.py camp_layout's order), the people's (camp_person_spot's)
-// and the land's height under the walker spots (CampWalkerSpot: the attack's
-// ring, then the overrun camp's).
+// the name's index (kCampNames), whether it is by a road, the people's spots
+// (tools/esp-write.py camp_person_spot's) and the land's height under the
+// walker spots (CampWalkerSpot: the attack's ring, then the overrun camp's).
+// Its props are the ESP's (camp_layout), at the candidate itself.
 struct CampCandidate {
 	float x;
 	float y;
@@ -72,15 +74,19 @@ struct CampCandidate {
 	float facing;
 	UInt16 name;
 	UInt8 byRoad;
-	CampSpot props[kCampProps];
 	CampSpot people[kCampSlots];
 	float spotZ[2 * kCampWalkersAtOnce];
 };
 // The ESP's records (tools/esp-write.py reads these lines): the refugees'
 // fourteen bases (six men, six women, a man and a woman who trade), the
 // merchant chest the traders sell from, the attack's two markers and travel
-// packages, the pool of attacking walkers, then each camp's map marker
-// (kCampMost), then the kits - each thirteen people and eleven props.
+// packages, the pool of attacking walkers, then the kits - each thirteen
+// people; after the grab's shock sounds (GrabLogic.h) the candidates' map
+// markers, one per candidate in CampCandidates.h's order, each its props'
+// enable parent, then their props (the ESP's alone: eleven a candidate in the
+// plain ESP, eight in the ESL, whose IDs end at 0xFFF - Nadi, 2026-11-06:
+// "Mach die esp großzügiger, und die esl light"; the plugin only enables the
+// markers).
 inline constexpr UInt32 kCampBaseFirstLocalId = 0x9D9;
 inline constexpr UInt32 kCampBaseCount = 14;
 inline constexpr UInt32 kCampChestLocalId = 0x9E7;
@@ -89,13 +95,13 @@ inline constexpr UInt32 kCampTravelFirstLocalId = 0x9EA;
 inline constexpr UInt32 kCampPoolFirstLocalId = 0x9EC;
 inline constexpr UInt32 kCampFirstLocalId = 0xA04;
 inline constexpr UInt32 kCampKits = 4;
-inline constexpr UInt32 kCampKitBlock = kCampSlots + kCampProps;  // the people, the props
-inline constexpr UInt32 kCampKitFirstLocalId = kCampFirstLocalId + kCampMost;
+inline constexpr UInt32 kCampKitBlock = kCampSlots;  // the people
+inline constexpr UInt32 kCampKitFirstLocalId = kCampFirstLocalId;
 inline constexpr UInt32 kCampLocalIdEnd = kCampKitFirstLocalId + kCampKits * kCampKitBlock;
-inline constexpr UInt32 CampMarkerLocalId(UInt32 camp) { return kCampFirstLocalId + camp; }
 inline constexpr UInt32 KitPersonLocalId(UInt32 kit, UInt32 slot) { return kCampKitFirstLocalId + kit * kCampKitBlock + slot; }
-inline constexpr UInt32 KitPropLocalId(UInt32 kit, UInt32 prop) {
-	return kCampKitFirstLocalId + kit * kCampKitBlock + kCampSlots + prop;
+inline constexpr UInt32 kCandidateMarkerFirstLocalId = 0xAA7;
+inline constexpr UInt32 CandidateMarkerLocalId(UInt32 candidate) {
+	return kCandidateMarkerFirstLocalId + candidate;
 }
 
 // Each base's outfit, Oblivion.esm's: a shirt, trousers, shoes and a rusty
@@ -634,6 +640,31 @@ inline UInt32 CampWalkersOut(const Camp& c) {
 // camp's among the tents.
 inline constexpr float kCampAttackUnits = 1600.0f;
 inline constexpr float kCampNestUnits = 350.0f;
+
+// Where a camp's tent stands off its fire (tools/esp-write.py camp_layout:
+// side -1 the first, +1 the second): behind the fire from the road, 45
+// degrees to the side, 620 units out.
+inline constexpr float kCampTentUnits = 620.0f;
+
+inline void CampTentSpot(float facing, float side, float& dx, float& dy) {
+	const float pi = 3.14159265f;
+	const float at = facing * pi / 180.0f + pi + side * pi / 4.0f;
+	dx = std::sin(at) * kCampTentUnits;
+	dy = std::cos(at) * kCampTentUnits;
+}
+
+// The test switch's drop (TestCamp): where a fall first stopped - the first
+// height no lower than the one before by more than half a unit, once it has
+// come 20 units down from the first; -1e9 when it never stopped (or never
+// fell). A stop on a tent's roof counts, not where the player slid to.
+inline float CampFallStop(const float* z, UInt32 n) {
+	for (UInt32 i = 1; i < n; ++i) {
+		if (z[0] - z[i] >= 20.0f && z[i - 1] - z[i] <= 0.5f) {
+			return z[i];
+		}
+	}
+	return -1e9f;
+}
 
 inline void CampWalkerSpot(float facing, bool attack, UInt32 slot, float& dx, float& dy) {
 	const float pi = 3.14159265f;
