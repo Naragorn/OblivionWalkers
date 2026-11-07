@@ -2,8 +2,8 @@
 
 A zombie apocalypse for Oblivion (the 2006 one), built to sit beside
 [OBVR](https://github.com/Naragorn/OBVR) but not depending on it: an xOBSE
-plugin plus a small ESP. The dead get up, spawns become walkers, cities get
-besieged, and everything has a switch in an INI.
+plugin plus a small ESP. The dead are now rising as walkers, spawns become walkers, cities get
+besieged by hordes, and everything has a switch in an INI.
 
 What exists:
 
@@ -44,7 +44,7 @@ is `docs/nexus.md`.
 
 ## Before a public release
 
-- **Two downloads** (Nadi, 2026-10-28): the ESL one first, needing
+- **Two downloads**: the ESL one first, needing
   OblivionESL (Nexus 56578) and Cell Lookup Robustness (Nexus 55924), and the
   plain ESP beside it. `tools/package-release.sh <version>` writes both into
   `dist/` from the game's own data (the ESP and the grab's animations are
@@ -72,18 +72,7 @@ is `docs/nexus.md`.
 
 ## Known conflicts
 
-- **Maskar's Oblivion Overhaul (MOO): walkers that never stay dead.** MOO
-  gives every creature with a zombie model (`\Zombie\`) a brain in its
-  inventory (70 % by default) and raises a dead zombie again while it still
-  carries one (MOOAddZombieBrainFunctionScript and MOOTokenZombieScript in
-  its ESP). The walkers wear the zombie models, so MOO takes them for
-  zombies - and with `[Zombies] NoLoot=1` nobody can take the brain from the
-  corpse. Handled since 2026-10-25: with `[Zombies] BlockMooResurrect=1`
-  (the default) a dead walker loses MOO's zombie token and brain right after
-  its death, so MOO leaves it down and MOO's INI can stay as it is - MOO's
-  own zombies keep MOO's behaviour. With `0`, set
-  `set MOO.ini_zombie_resurrect to 0` in `Maskar's Oblivion Overhaul.ini`
-  instead (MOO's own zombies stay down then too).
+- **Maskar's Oblivion Overhaul (MOO): is now compatible.
 
 ## License
 
