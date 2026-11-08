@@ -895,6 +895,8 @@ UInt32 FindZombieRace() {
 
 // The ESP's Walker creatures (WalkerLooks.h kWalkerLooks), looked up once per
 // session; g_walkerCount stays 0 without the ESP.
+void ReadWalkerRecords();
+
 void FindWalkers() {
 	if (g_walkersLooked) {
 		return;
@@ -925,6 +927,7 @@ void FindWalkers() {
 	ConfigureSiegeEsp(base);
 	ConfigureCampsEsp(base);
 	ConfigureGrabIdles(base);
+	ReadWalkerRecords();
 }
 
 // Maskar's Oblivion Overhaul's zombie token and brain, once a session: the
@@ -1588,85 +1591,88 @@ bool StepChapel(UInt32 actor, UInt32 refId) {
 	return true;
 }
 
-// A live walker whose values NoLevelingXP set to 0 at its death gets them
-// back from its record (LevelingLogic.h kHeldValues). GetBaseActorValue
-// 0x005F1910 (thiscall, as Grab.cpp and OBVR read it): the base value, which
-// SetAV changes and a Calm spell does not. Checked once a second.
-constexpr UInt32 kGetBaseActorValue = 0x005F1910;
-float g_heldClock = 0.0f;
-UInt32 g_heldLogsLeft = 32;
-
-void RestoreHeld(UInt32 actor, UInt32 refId) {
-	const UInt32 base = Read(actor + kRefBaseFormOffset);
-	if (!LooksLikeObject(base) || Read8(base + kFormTypeOffset) != kFormTypeCreature) {
-		return;
-	}
-	using GetBaseFn = SInt32(__fastcall*)(void* self, void* edx, UInt32 av);
-	const auto baseValue = [actor](UInt32 av) {
-		return static_cast<float>(
-			reinterpret_cast<GetBaseFn>(kGetBaseActorValue)(reinterpret_cast<void*>(actor), nullptr, av));
-	};
-	for (const HeldValue& value : kHeldValues) {
-		const UInt32 record = value.recordSize == 4 ? Read(base + value.recordOffset) : Read8(base + value.recordOffset);
-		const float before = baseValue(value.actorValue);
-		if (!StillHeld(before, record)) {
-			continue;
-		}
-		char line[48];
-		const bool handed = RestoreLine(value, record, line, sizeof line) && ConsoleOn(actor, line);
-		if (g_heldLogsLeft > 0) {
-			--g_heldLogsLeft;
-			g_log("Leveling: walker %08X up with %s %.0f - set back to its record's %u (handed to xOBSE: %d, base now %.0f)",
-			      refId, value.name, before, record, handed ? 1 : 0, baseValue(value.actorValue));
-		}
-	}
-	// 4.21: with the slow aggression on, a walker's own aggression is 0 too
-	// (an older save's SetAV, or the way back above from a record of before).
-	const float aggression = baseValue(kHeldValues[0].actorValue);
-	if (AboveSlow(g_settings.slowAggression.enabled, aggression)) {
-		const bool handed = ConsoleOn(actor, "SetAV Aggression 0");
-		if (g_heldLogsLeft > 0) {
-			--g_heldLogsLeft;
-			g_log("Slow aggression: walker %08X had Aggression %.0f of its own - set to 0 (handed to xOBSE: %d, base now %.0f)",
-			      refId, aggression, handed ? 1 : 0, baseValue(kHeldValues[0].actorValue));
-		}
-	}
-}
-
 UInt32 HighProcessOf(UInt32 actor);
 
-// 4.21 Slow aggression (AggressionLogic.h): the walker records' aggression,
-// as each record had it at the start, and whether the rule is on in them.
-UInt8 g_recordAggression[kWalkerCount] = {};
-bool g_recordAggressionRead = false;
-int g_slowApplied = -1;  // -1 not yet, else the setting last written
+// The walker records' held values (LevelingLogic.h kHeldValues): the hold's
+// SetAV on a dead walker writes the creature record that every walker of
+// that base shares (measured 2026-11-08, leveling-rise-again.txt). Each
+// frame the record gets its values back (RecordValueBack) once the leveling
+// mods have counted the kill, and its aggression is what the slow
+// aggression wants (4.21, RecordAggression).
+struct WalkerRecord {
+	UInt32 atStart[kHeldValueCount];
+	UInt32 lastGood[kHeldValueCount];
+};
+WalkerRecord g_records[kWalkerCount] = {};
+bool g_recordsRead = false;
+int g_slowApplied = -1;  // -1 not yet, else the setting last logged
+UInt32 g_recordLogsLeft = 32;
 NearTracker g_near;
 float g_nearClock = 0.0f;
 UInt32 g_nearLogsLeft = 64;
 
-void ApplySlowAggression() {
-	const bool on = g_settings.slowAggression.enabled;
-	if (g_slowApplied == (on ? 1 : 0)) {
-		return;
+UInt32 RecordValue(UInt32 base, const HeldValue& value) {
+	return value.recordSize == 4 ? Read(base + value.recordOffset) : Read8(base + value.recordOffset);
+}
+
+void WriteRecordValue(UInt32 base, const HeldValue& value, UInt32 v) {
+	if (value.recordSize == 4) {
+		*reinterpret_cast<UInt32*>(base + value.recordOffset) = v;
+	} else {
+		*reinterpret_cast<UInt8*>(base + value.recordOffset) = static_cast<UInt8>(v > 255 ? 255 : v);
 	}
+}
+
+// At the main menu, before any save is loaded: the records as the ESP has them.
+void ReadWalkerRecords() {
 	for (UInt32 w = 0; w < g_walkerCount; ++w) {
 		const UInt32 base = LookupForm(g_walkers[w]);
-		if (!LooksLikeObject(base)) {
+		for (UInt32 i = 0; i < kHeldValueCount; ++i) {
+			const UInt32 v = LooksLikeObject(base) ? RecordValue(base, kHeldValues[i]) : 0;
+			g_records[w].atStart[i] = v;
+			g_records[w].lastGood[i] = v;
+		}
+	}
+	g_recordsRead = true;
+}
+
+void KeepWalkerRecords() {
+	if (!g_recordsRead) {
+		ReadWalkerRecords();
+	}
+	const bool slow = g_settings.slowAggression.enabled;
+	for (UInt32 w = 0; w < g_walkerCount; ++w) {
+		const UInt32 base = LookupForm(g_walkers[w]);
+		if (!LooksLikeObject(base) || Read8(base + kFormTypeOffset) != kFormTypeCreature) {
 			continue;
 		}
-		UInt8* const aggression = reinterpret_cast<UInt8*>(base + kHeldValues[0].recordOffset);
-		if (!g_recordAggressionRead) {
-			g_recordAggression[w] = *aggression;
+		WalkerRecord& r = g_records[w];
+		for (UInt32 i = 0; i < kHeldValueCount; ++i) {
+			const UInt32 now = RecordValue(base, kHeldValues[i]);
+			const UInt32 want = i == 0 ? RecordAggression(slow, static_cast<UInt8>(r.atStart[0]))
+			                           : RecordValueBack(now, r.lastGood[i], r.atStart[i]);
+			if (now > 0 && i != 0) {
+				r.lastGood[i] = now;
+			}
+			if (want == now) {
+				continue;
+			}
+			WriteRecordValue(base, kHeldValues[i], want);
+			if (g_recordLogsLeft > 0 && (i != 0 || g_slowApplied == (slow ? 1 : 0))) {
+				--g_recordLogsLeft;
+				g_log("Leveling: walker record %08X %s %u - back to %u", g_walkers[w], kHeldValues[i].name, now, want);
+			}
 		}
-		*aggression = RecordAggression(on, g_recordAggression[w]);
 	}
-	g_recordAggressionRead = true;
-	g_slowApplied = on ? 1 : 0;
-	g_log("Slow aggression: %s - the %u walker records' aggression %u (the first's own %u); a walker attacks one near "
-	      "it for %.1f s within %.0f units",
-	      on ? "on" : "off", g_walkerCount, g_walkerCount > 0 ? RecordAggression(on, g_recordAggression[0]) : 0u,
-	      g_walkerCount > 0 ? g_recordAggression[0] : 0u, g_settings.slowAggression.seconds,
-	      g_settings.slowAggression.units);
+	if (g_slowApplied != (slow ? 1 : 0)) {
+		g_slowApplied = slow ? 1 : 0;
+		g_log("Slow aggression: %s - the %u walker records' aggression %u (the first's own %u); a walker attacks one "
+		      "near it for %.1f s within %.0f units",
+		      slow ? "on" : "off", g_walkerCount,
+		      g_walkerCount > 0 ? RecordAggression(slow, static_cast<UInt8>(g_records[0].atStart[0])) : 0u,
+		      g_walkerCount > 0 ? g_records[0].atStart[0] : 0u, g_settings.slowAggression.seconds,
+		      g_settings.slowAggression.units);
+	}
 }
 
 // The living ones a walker may turn on: the player and every actor on the
@@ -1708,7 +1714,6 @@ UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
 
 // Every half second: who stayed near which walker long enough is attacked.
 void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
-	ApplySlowAggression();
 	g_nearClock += dt;
 	if (g_nearClock < 0.5f) {
 		return;
@@ -1731,8 +1736,11 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 		const float wy = FloatAt(walker + kRefPositionOffset + 4);
 		const float wz = FloatAt(walker + kRefPositionOffset + 8);
 		for (UInt32 k = 0; k < found; ++k) {
-			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, g_settings.slowAggression.units) ||
-			    !NoteNear(g_near, g_settings.slowAggression, walkerRefs[i], ones[k].refId, step)) {
+			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, g_settings.slowAggression.units)) {
+				continue;
+			}
+			const NearVerdict verdict = NoteNear(g_near, g_settings.slowAggression, walkerRefs[i], ones[k].refId, step);
+			if (verdict == NearVerdict::None) {
 				continue;
 			}
 			char line[40];
@@ -1742,9 +1750,9 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 				std::snprintf(line, sizeof line, "StartCombat %08X", ones[k].refId);
 			}
 			const bool handed = ConsoleOn(walker, line);
-			if (g_nearLogsLeft > 0) {
+			if (verdict == NearVerdict::Start && g_nearLogsLeft > 0) {
 				--g_nearLogsLeft;
-				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (StartCombat handed to xOBSE: %d)",
+				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (StartCombat answered %d)",
 				      walkerRefs[i], ones[k].refId, g_settings.slowAggression.seconds, handed ? 1 : 0);
 			}
 		}
@@ -1774,11 +1782,7 @@ void StepWalkers(float dt) {
 	if (logNow) {
 		g_walkLogSeconds = 0.0f;
 	}
-	g_heldClock += dt;
-	const bool heldNow = g_heldClock >= 1.0f;
-	if (heldNow) {
-		g_heldClock = 0.0f;
-	}
+	KeepWalkerRecords();
 	static UInt32 refs[kHordeCandidatesMost];
 	const UInt32 count = CollectAllWalkers(refs, kHordeCandidatesMost);
 	StepSlowAggression(refs, count, dt);
@@ -1787,9 +1791,6 @@ void StepWalkers(float dt) {
 		const UInt32 actor = LookupForm(refs[i]);
 		if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
 			continue;
-		}
-		if (heldNow) {
-			RestoreHeld(actor, refs[i]);
 		}
 		if (StepChapel(actor, refs[i])) {
 			continue;

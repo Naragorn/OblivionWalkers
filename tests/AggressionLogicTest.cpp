@@ -22,11 +22,18 @@ using walkers::SlowAggressionSettings;
 
 // One tick with the pair (walker 1, target 2) near or not; true when the
 // walker is to start the fight.
-bool Tick(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt) {
+using walkers::NearVerdict;
+
+NearVerdict Verdict(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt) {
 	walkers::BeginNearTick(tracker);
-	const bool fire = near && walkers::NoteNear(tracker, settings, 1, 2, dt);
+	const NearVerdict v = near ? walkers::NoteNear(tracker, settings, 1, 2, dt) : NearVerdict::None;
 	walkers::EndNearTick(tracker);
-	return fire;
+	return v;
+}
+
+// True when the walker is to start the fight (the first StartCombat).
+bool Tick(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt) {
+	return Verdict(tracker, settings, near, dt) == NearVerdict::Start;
 }
 
 void TestDefaults() {
@@ -36,9 +43,6 @@ void TestDefaults() {
 	      "on, 5 s, 1000 units (some 14 m, Nadi: \"ja ok 14m\")");
 	Check(walkers::RecordAggression(true, 100) == 0, "on: the walker records' aggression 0 - no fight of their own");
 	Check(walkers::RecordAggression(false, 100) == 100, "off: the record's own aggression back");
-	Check(walkers::AboveSlow(true, 100.0f), "on, a walker with its own aggression 100 (an older save's SetAV): to 0");
-	Check(!walkers::AboveSlow(true, 0.0f), "on, already 0: nothing");
-	Check(!walkers::AboveSlow(false, 100.0f), "off: never lowered by this rule");
 }
 
 void TestReach() {
@@ -58,7 +62,13 @@ void TestTime() {
 	}
 	Check(!fired, "4.5 s near: still calm");
 	Check(Tick(t, s, true, 0.5f), "5 s near: the fight starts");
-	Check(!Tick(t, s, true, 0.5f) && !Tick(t, s, true, 10.0f), "still near: started once, not again and again");
+	// Measured 2026-11-08 (slow-aggression.txt): with Aggression 0 a walker
+	// that StartCombat sent swung once and walked off - the engine drops the
+	// fight. So the fight is sent again every second while the one stays near.
+	Check(Verdict(t, s, true, 0.5f) == NearVerdict::None, "still near, half a second on: nothing yet");
+	Check(Verdict(t, s, true, 0.5f) == NearVerdict::Keep, "a second on: the fight sent again (kept up)");
+	Check(Verdict(t, s, true, 0.25f) == NearVerdict::None && Verdict(t, s, true, 0.75f) == NearVerdict::Keep,
+	      "and again each second, never a second start");
 
 	Check(!Tick(t, s, false, 0.5f), "gone: nothing");
 	Check(t.count == 0, "gone: the pair forgotten");
@@ -105,19 +115,19 @@ void TestMany() {
 		walkers::NoteNear(t, s, 100 + w, 2, 1.0f);
 	}
 	Check(t.count == walkers::kNearPairsMost, "the table full");
-	Check(!walkers::NoteNear(t, s, 9999, 2, 10.0f), "one more: no room, no fight, no crash");
+	Check(walkers::NoteNear(t, s, 9999, 2, 10.0f) == NearVerdict::None, "one more: no room, no fight, no crash");
 	walkers::EndNearTick(t);
 	walkers::BeginNearTick(t);
 	walkers::EndNearTick(t);
 	Check(t.count == 0, "a tick with none near: the table empty again");
 	walkers::BeginNearTick(t);
-	Check(!walkers::NoteNear(t, s, 1, 2, 2.0f) && !walkers::NoteNear(t, s, 1, 3, 2.0f),
+	Check(walkers::NoteNear(t, s, 1, 2, 2.0f) == NearVerdict::None && walkers::NoteNear(t, s, 1, 3, 2.0f) == NearVerdict::None,
 	      "one walker, two near: each its own clock");
 	walkers::EndNearTick(t);
 	Check(t.count == 2, "the two kept");
 	walkers::BeginNearTick(t);
-	const bool first = walkers::NoteNear(t, s, 1, 2, 3.0f);
-	const bool second = walkers::NoteNear(t, s, 1, 3, 3.0f);
+	const bool first = walkers::NoteNear(t, s, 1, 2, 3.0f) == NearVerdict::Start;
+	const bool second = walkers::NoteNear(t, s, 1, 3, 3.0f) == NearVerdict::Start;
 	walkers::EndNearTick(t);
 	Check(first && second, "5 s each: the walker turns on both, one after the other");
 }

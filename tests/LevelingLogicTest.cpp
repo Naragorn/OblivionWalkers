@@ -83,16 +83,18 @@ void TestRestore() {
 		all = all && Covered(line);
 	}
 	Check(all, "every value either hold sets to 0 has a way back");
-	Check(walkers::StillHeld(0.0f, 100), "base 0, the record 100: still held, set back");
-	Check(!walkers::StillHeld(100.0f, 100), "base as the record: nothing to do");
-	Check(!walkers::StillHeld(50.0f, 100), "base lowered by someone else, not to 0: not ours, left");
-	Check(!walkers::StillHeld(0.0f, 0), "the record itself 0: nothing held");
-	char line[32];
-	Check(walkers::RestoreLine(walkers::kHeldValues[0], 100, line, sizeof line) &&
-	          std::strcmp(line, "SetAV Aggression 100") == 0,
-	      "the line: SetAV Aggression 100");
-	char tiny[8];
-	Check(!walkers::RestoreLine(walkers::kHeldValues[0], 100, tiny, sizeof tiny), "no room: no line");
+	// Measured 2026-11-08 (leveling-rise-again.txt, slow aggression off):
+	// the hold's SetAV writes the creature RECORD, shared by every walker of
+	// that base - "base Aggression 0, Confidence 0 (its record 0, 0)" after
+	// one kill. So the record gets its values back, the frame after.
+	Check(walkers::RecordValueBack(100, 100, 100) == 100, "the record as it was: kept");
+	Check(walkers::RecordValueBack(0, 100, 100) == 100, "the hold's 0: back to the last value seen before it");
+	Check(walkers::RecordValueBack(0, 12, 120) == 12,
+	      "the last seen wins over the one at the start (Health after HealthPercent scaled it)");
+	Check(walkers::RecordValueBack(0, 0, 100) == 100,
+	      "none seen yet (a save loaded with the record at 0): the one at the start");
+	Check(walkers::RecordValueBack(0, 0, 0) == 0, "0 at the start too: a 0 of its own, left");
+	Check(walkers::RecordValueBack(45, 100, 100) == 45, "changed but not to 0 (the night's speed): not ours, left");
 	Check(walkers::kHeldValues[0].actorValue == 33 && walkers::kHeldValues[1].actorValue == 34 &&
 	          walkers::kHeldValues[0].recordOffset == 0x6C && walkers::kHeldValues[1].recordOffset == 0x6D,
 	      "Aggression 33 and Confidence 34, the record's AI bytes +0x6C and +0x6D");

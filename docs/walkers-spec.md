@@ -2460,7 +2460,7 @@ proposes them off Oblivion.esm's roads, Nadi picks); the reward's amounts
 dead, or left behind farther than some distance); the chance a day a camp
 comes back (proposed 10 percent).
 
-### 4.21 Slow aggression - BUILT 2026-11-08, harness not run yet
+### 4.21 Slow aggression - BUILT 2026-11-08, harness PASS, headset open
 
 What (Nadi, 2026-11-08): walkers are slow to anger. A walker turns on the
 player or anyone else only once that one has stayed near it for 5 s. Default
@@ -2470,23 +2470,35 @@ How (AggressionLogic.h, Rise.cpp StepSlowAggression):
 - The walker records' aggression goes to 0 while the rule is on and back to
   each record's own (100, read at the start) when it is off. No walker starts
   a fight of its own.
-- A live walker whose own base Aggression is above 0 (an older save's SetAV,
-  or the way back of NoLevelingXP, 7a) is set to 0 too.
+- The records are kept every frame (Rise.cpp KeepWalkerRecords, together with
+  the way back of NoLevelingXP, 7a).
 - Every 0.5 s the plugin times every pair of a walker in high process and a
   living one within the range: the player, and every person or creature on
   the high process list that is no walker. A pair that stays near for the
   setting's seconds in one go gets `StartCombat <that one>` on the walker,
-  once. Out of range, its clock starts anew.
+  then again every second while it stays near (kNearKeepSeconds). Out of
+  range, its clock starts anew.
 - A walker that is hit fights back: that is the engine's own rule.
 
 Settings: `[Zombies] SlowAggression=1`, `SlowAggressionSeconds=5`,
 `SlowAggressionUnits=1000`; in LINK as the last three (version 23, header
 "Walkers - slow aggression"). Unit flows in AggressionLogicTest.
 
-Not measured yet: that the record's aggression byte is what a live walker's
-base Aggression reads; that a walker with Aggression 0 keeps the fight a
-StartCombat gave it; how guards, sieges and camps feel with calm walkers
-(the guards are sent by StartCombat already, 4.11b).
+Harness `harness/slow-aggression.txt`, 2026-11-08 (Linux, headless):
+- 10:29 - one StartCombat only: the walker swung once ("hit on the player -
+  no grab") and walked off, 429 units away at the end. Measured: with
+  Aggression 0 the engine drops the fight StartCombat gave. Hence the fight
+  sent again every second.
+- 10:31 PASS - "Slow aggression: on - the 64 walker records' aggression 0",
+  "walker FF000F85 turns on 00000014, near it 5.0 s", then it held the
+  player's arm and bit three times until the player went down.
+- `StartCombat` answers 0 through RunScriptLine2 although the fight starts
+  (the hit and the grab follow): the answer is no success flag here.
+- The test cannot show the calm phase: the walker came back to the player by
+  itself while it stood 1500 units off (46 units at the next mark) - it walks
+  to him without fighting. Not measured: the 5 s with no fight before.
+Not measured: how guards, sieges and camps feel with calm walkers (the
+guards are sent by StartCombat already, 4.11b); the headset.
 
 ## 5. Scenarios - `[Scenario] Preset=`
 
@@ -2625,17 +2637,21 @@ roster line's counts.
   to 0). Not loaded on Windows.
   OblivionCombatExtender.esp is still in Windows' Data folder and Plugins.txt (line 55,
   2026-11-08), so the first suspect stays open beside this one.
-  **Fix BUILT 2026-11-08:** once a second StepWalkers checks every live walker. A value
-  the holds set to 0 (its base actor value 0, its record's above 0) gets the record's value
-  back by SetAV (LevelingLogic.h kHeldValues, StillHeld, RestoreLine; Rise.cpp
-  RestoreHeld). One place covers every path back up, also walkers already zeroed in a save.
-  Unit flows in LevelingLogicTest. A base another mod lowered but not to 0 is left, and a
-  Calm spell changes no base value. Log: "Leveling: walker ... up with Aggression 0 - set
-  back to its record's 100 (handed to xOBSE: 1, base now 100)".
-  Harness `harness/leveling-rise-again.txt` written, NOT run yet (SteamVR was off on
-  2026-11-08). It also settles whether SetAV writes the reference or the shared creature
-  record: if the record reads 0 after a kill, no line appears and the fix needs a value
-  captured before the hold.
+  **Cause measured 2026-11-08** (harness/leveling-rise-again.txt, Linux, Ultimate
+  Leveling loaded, SlowAggression=0): before the kill "base Aggression 100, Confidence 100
+  (its record 100, 100)", after it "base Aggression 0, Confidence 0 (its record 0, 0)". The
+  hold's SetAV writes the creature RECORD, which every walker of that base shares. So one
+  kill made every walker of that look passive, risen or not - worse than first thought.
+  **Fix, harness PASS 2026-11-08 10:27:** the plugin reads the walker records at the main
+  menu, before any save, and gives each record its held values back every frame
+  (Rise.cpp KeepWalkerRecords, LevelingLogic.h RecordValueBack: the last value above 0
+  it saw, else the one at the start; a value changed but not to 0, like the night's speed,
+  is left). Ultimate Leveling has counted the kill by then: "XP 0 before, 0 after". Log:
+  "Leveling: walker record 26000801 Aggression 0 - back to 100", the same for Confidence;
+  the walker got up and held and bit the player again. A first per-reference fix (SetAV
+  back on the live walker, 1c945f0) never fired, because the record itself read 0; it is
+  gone. Not measured: whether a save stores the zeroed record (Nadi's Windows save of
+  2026-11-07 may hold zeroed walker records; the fix writes them back either way).
 
 - **Fix BUILT 2026-11-08 - a quest's creature became a walker** (Nadi, Windows: Revenge
   Served Cold, "alle goblins durch walker ersetzt"). Measured in Oblivion.esm: SQ03 needs

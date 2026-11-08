@@ -30,21 +30,29 @@ struct SlowAggressionSettings {
 // The walker records' aggression: 0 with the rule on, their own without.
 inline UInt8 RecordAggression(bool enabled, UInt8 original) { return enabled ? 0 : original; }
 
-// A live walker whose own aggression is above 0 while the rule is on - an
-// older save's SetAV, the way back of NoLevelingXP: set to 0 too.
-inline bool AboveSlow(bool enabled, float baseNow) { return enabled && baseNow > 0.5f; }
-
 // Near: within `units` in all three axes together.
 inline bool InReach(float dx, float dy, float dz, float units) {
 	return dx * dx + dy * dy + dz * dz <= units * units;
 }
 
 inline constexpr UInt32 kNearPairsMost = 512;
+// Measured 2026-11-08 (harness/slow-aggression.txt): a walker with
+// Aggression 0 that StartCombat sent swung once and walked off - the engine
+// drops its fight. So while the one stays near, the fight is sent again
+// every second.
+inline constexpr float kNearKeepSeconds = 1.0f;
+
+enum class NearVerdict : UInt8 {
+	None,   // nothing to do
+	Start,  // the first StartCombat: the one stayed near long enough
+	Keep,   // the fight sent again to hold it
+};
 
 struct NearPair {
 	UInt32 walker = 0;
 	UInt32 target = 0;
 	float seconds = 0.0f;
+	float sinceSent = 0.0f;
 	bool fired = false;
 	bool seen = false;
 };
@@ -61,12 +69,13 @@ inline void BeginNearTick(NearTracker& tracker) {
 	}
 }
 
-// `target` is near `walker` this tick, `dt` seconds after the last one: true
-// once, when it has stayed near for the setting's seconds in one go.
-inline bool NoteNear(NearTracker& tracker, const SlowAggressionSettings& settings, UInt32 walker, UInt32 target,
+// `target` is near `walker` this tick, `dt` seconds after the last one:
+// Start once it has stayed near for the setting's seconds in one go, then
+// Keep every kNearKeepSeconds while it stays near.
+inline NearVerdict NoteNear(NearTracker& tracker, const SlowAggressionSettings& settings, UInt32 walker, UInt32 target,
                      float dt) {
 	if (!settings.enabled) {
-		return false;
+		return NearVerdict::None;
 	}
 	NearPair* pair = nullptr;
 	for (UInt32 i = 0; i < tracker.count && pair == nullptr; ++i) {
@@ -76,7 +85,7 @@ inline bool NoteNear(NearTracker& tracker, const SlowAggressionSettings& setting
 	}
 	if (pair == nullptr) {
 		if (tracker.count >= kNearPairsMost) {
-			return false;
+			return NearVerdict::None;
 		}
 		pair = &tracker.pairs[tracker.count++];
 		*pair = NearPair{};
@@ -85,11 +94,20 @@ inline bool NoteNear(NearTracker& tracker, const SlowAggressionSettings& setting
 	}
 	pair->seen = true;
 	pair->seconds += dt;
-	if (pair->fired || pair->seconds < settings.seconds) {
-		return false;
+	if (pair->fired) {
+		pair->sinceSent += dt;
+		if (pair->sinceSent + 1e-4f < kNearKeepSeconds) {
+			return NearVerdict::None;
+		}
+		pair->sinceSent = 0.0f;
+		return NearVerdict::Keep;
+	}
+	if (pair->seconds < settings.seconds) {
+		return NearVerdict::None;
 	}
 	pair->fired = true;
-	return true;
+	pair->sinceSent = 0.0f;
+	return NearVerdict::Start;
 }
 
 // The tick's end: a pair not seen again is gone - its time starts anew.

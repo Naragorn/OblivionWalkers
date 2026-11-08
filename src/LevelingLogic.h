@@ -23,7 +23,6 @@
 
 #include "Types.h"
 
-#include <cstdio>
 
 namespace walkers {
 
@@ -59,11 +58,9 @@ inline bool HoldsLevelingXp(bool setting, bool levelingLoaded, bool isWalker) {
 	return setting && levelingLoaded && isWalker;
 }
 
-// The way back (Nadi, 2026-11-08: walkers killed by the player got up again
-// with Aggression 0 and stayed passive; the Windows log of 2026-11-07 shows
-// 103 of them). A walker that gets up again - by the rise again, the
-// safeguard, the swap or in an older save - gets the values the holds set
-// to 0 back from its record. Each value: its actor value code (xOBSE's
+// The way back (Nadi, 2026-11-08: walkers stayed passive; the Windows log of
+// 2026-11-07 shows the hold on 103 kills that got up again). Each value the
+// holds set to 0: its actor value code (xOBSE's
 // actor value list: Strength 0 .. Luck 7, Health 8, Aggression 33,
 // Confidence 34) and where TESCreature keeps it (xOBSE GameForms.h:
 // AISettings at +0x6C, aggression then confidence; TESHealthForm's health
@@ -82,15 +79,17 @@ inline constexpr HeldValue kHeldValues[] = {
 };
 inline constexpr UInt32 kHeldValueCount = sizeof(kHeldValues) / sizeof(kHeldValues[0]);
 
-// Still held: the live walker's base value is the hold's 0 while its record
-// has more. A base another mod lowered but not to 0 is not ours to touch,
-// and a magic effect (Calm, Demoralize) changes no base value.
-inline bool StillHeld(float baseNow, UInt32 record) { return baseNow < 0.5f && record > 0; }
-
-// The console line that sets the value back, false when `out` is too small.
-inline bool RestoreLine(const HeldValue& value, UInt32 record, char* out, UInt32 capacity) {
-	const int n = std::snprintf(out, capacity, "SetAV %s %u", value.name, record);
-	return n > 0 && static_cast<UInt32>(n) < capacity;
+// Measured 2026-11-08 (harness/leveling-rise-again.txt): the hold's SetAV on
+// a dead walker writes the creature record itself, which every walker of
+// that base shares - one kill made all of them passive. So the plugin gives
+// the record its value back the frame after the leveling mods counted the
+// kill: the last value above 0 it saw, else the one at the start (a save
+// loaded with the record at 0). A value changed but not to 0 is not ours.
+inline UInt32 RecordValueBack(UInt32 now, UInt32 lastGood, UInt32 atStart) {
+	if (now > 0) {
+		return now;
+	}
+	return lastGood > 0 ? lastGood : atStart;
 }
 
 }  // namespace walkers
