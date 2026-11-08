@@ -27,6 +27,25 @@ constexpr float kStepSeconds = 1.0f;
 constexpr float kSpotLift = 40.0f;  // a walker put this far above its spot's land
 constexpr float kRadToDeg = 57.2957795f;  // the people's SetAngle
 constexpr UInt32 kEventsMost = 64;
+constexpr UInt32 kRefBaseOffset = 0x1C;
+// The player's level: his TESNPC's TESActorBaseData (at +0x24, as the
+// creatures' flags at +0x28 say) level at its +0x0E (xOBSE GameForms.h) -
+// derived, logged at each reward so a run shows it.
+constexpr UInt32 kNpcLevelOffset = 0x24 + 0x0E;
+// TESLevItem: TESLeveledList at +0x24, its entries {data, next} at +0x28,
+// ListData {level, pad, form, count} (xOBSE GameForms.h/GameObjects.h), as
+// the creature lists Replace.cpp reads.
+constexpr UInt8 kFormTypeLeveledItem = 0x2B;
+constexpr UInt32 kLevListOffset = 0x28;
+// The things reward's lists (Oblivion.esm, read 2026-11-08): LL1LootWeapon100,
+// LL1LootArmor100, LL1LootPotions2Average - one drawn, then an entry of it.
+constexpr UInt32 kThingLists[] = {0x00032D6E, 0x00032D79, 0x00058F36};
+// The escort: the follow package sent again this often (AddScriptPackage
+// does not take while the actor is in dialogue - UESP CS wiki - and the yes
+// is said in one).
+constexpr float kEscortFollowEverySeconds = 5.0f;
+// A camp asks while the player is this near it.
+constexpr float kEscortAskUnits = 3000.0f;
 constexpr UInt32 kLogLines = 64;
 
 const CampSettings* g_settings = nullptr;
@@ -59,6 +78,9 @@ struct TestDrop {
 };
 TestDrop g_drop;
 bool g_applied = false;  // the rosters and markers set since the load
+float g_followClock = 0.0f;
+bool g_escortShown = false;  // the escorted kit still out, by the city
+int g_testEscortStage = 0;
 UInt32 g_markersActive = 0;  // CampActive when the markers were last set
 // The kits: the camp each is at (-1 none), the slots it has enabled.
 int g_kitCamp[kCampKits] = {-1, -1, -1, -1};
@@ -141,18 +163,124 @@ void Distances(float* distance) {
 		const float dy = py - Place(i).y;
 		distance[i] = std::sqrt(dx * dx + dy * dy);
 	}
+	// The escorted camp's kit goes with them: kept on the way; by the city
+	// while the player stays within the kits' keep, then freed for good
+	// (they are in the city, unseen) - an empty camp's place takes no kit.
+	const int e = g_state.escort.camp;
+	for (UInt32 i = 0; i < kCampMost; ++i) {
+		const CampStatus st = g_state.camps[i].status;
+		if (st == CampStatus::Left || (st == CampStatus::Gone && static_cast<int>(i) != e)) {
+			distance[i] = -1.0f;
+		}
+	}
+	if (e >= 0 && e < static_cast<int>(kCampMost)) {
+		const Camp& c = g_state.camps[e];
+		if (c.status == CampStatus::Escort) {
+			distance[e] = 0.0f;
+		} else if (c.status == CampStatus::Gone) {
+			const int g = g_state.escort.gate;
+			float d = -1.0f;
+			if (g >= 0 && g < static_cast<int>(kCityGateCount)) {
+				const float gx = px - kCityGates[g].outX;
+				const float gy = py - kCityGates[g].outY;
+				d = std::sqrt(gx * gx + gy * gy);
+			}
+			g_escortShown = g_escortShown && d >= 0.0f && d <= kCampKitKeepUnits;
+			distance[e] = g_escortShown ? 0.0f : -1.0f;
+		}
+	}
+}
+
+// A reference outdoors in Tamriel: its x and y.
+bool OutdoorsAt(UInt32 ref, float& x, float& y) {
+	if (!LooksLikeObject(ref)) {
+		return false;
+	}
+	const UInt32 cell = Read(ref + kRefParentCellOffset);
+	if (!LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0) {
+		return false;
+	}
+	const UInt32 world = Read(cell + kCellWorldspaceOffset);
+	if (!LooksLikeObject(world) || FormIdOf(world) != kTamrielWorldspace) {
+		return false;
+	}
+	x = FloatAt(ref + kRefPositionOffset);
+	y = FloatAt(ref + kRefPositionOffset + 4);
+	return true;
 }
 
 bool Near(const float* distance, UInt32 camp) { return distance[camp] >= 0.0f && distance[camp] <= kCampSeenUnits; }
 
+UInt32 PlayerLevel() {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	const UInt32 base = LooksLikeObject(player) ? Read(player + kRefBaseOffset) : 0;
+	if (!LooksLikeObject(base)) {
+		return 1;
+	}
+	const SInt16 level = *reinterpret_cast<const SInt16*>(base + kNpcLevelOffset);
+	return level < 1 ? 1u : static_cast<UInt32>(level);
+}
+
+// One entry off leveled item list `list` for `level` (PickLeveled), nested
+// lists followed down to four deep; its form and count, 0 none.
+UInt32 DrawThing(UInt32 list, UInt32 level, UInt32& count) {
+	for (UInt32 depth = 0; depth < 4; ++depth) {
+		if (!LooksLikeObject(list) || Read8(list + kFormTypeOffset) != kFormTypeLeveledItem) {
+			return 0;
+		}
+		UInt16 levels[64];
+		UInt32 forms[64];
+		UInt16 counts[64];
+		UInt32 n = 0;
+		for (UInt32 node = list + kLevListOffset; LooksLikeObject(node) && n < 64; node = Read(node + 4)) {
+			const UInt32 data = Read(node);
+			if (!LooksLikeObject(data)) {
+				break;
+			}
+			levels[n] = *reinterpret_cast<const UInt16*>(data);
+			forms[n] = Read(data + 4);
+			counts[n] = *reinterpret_cast<const UInt16*>(data + 8);
+			++n;
+		}
+		const int k = PickLeveled(levels, n, static_cast<int>(level), g_roll());
+		if (k < 0 || !LooksLikeObject(forms[k])) {
+			return 0;
+		}
+		if (Read8(forms[k] + kFormTypeOffset) != kFormTypeLeveledItem) {
+			count = counts[k] > 0 ? counts[k] : 1;
+			return forms[k];
+		}
+		list = forms[k];
+	}
+	return 0;
+}
+
+// `things` of the loot lists given to the player; how many were.
+UInt32 GiveThings(UInt32 things) {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	const UInt32 level = PlayerLevel();
+	UInt32 given = 0;
+	for (UInt32 k = 0; k < things; ++k) {
+		const UInt32 list = LookupForm(kThingLists[g_roll() % (sizeof(kThingLists) / sizeof(kThingLists[0]))]);
+		UInt32 count = 1;
+		const UInt32 item = DrawThing(list, level, count);
+		if (item == 0) {
+			g_log("Camps: a thing - none drawn off %08X at level %u", LooksLikeObject(list) ? FormIdOf(list) : 0, level);
+			continue;
+		}
+		char line[48];
+		std::snprintf(line, sizeof(line), "AddItem %08X %u", FormIdOf(item), count);
+		const bool said = Say(player, line);
+		g_log("Camps: a thing - %08X x%u off %08X at the player's level %u (%s answered %d)", FormIdOf(item), count,
+		      FormIdOf(list), level, line, said ? 1 : 0);
+		++given;
+	}
+	return given;
+}
+
 // The people a camp should have out: its roster's living, none when off or
 // overrun.
-UInt16 Wanted(const Camp& c) {
-	if (!g_settings->enabled || c.status == CampStatus::Overrun || !c.set) {
-		return 0;
-	}
-	return static_cast<UInt16>(c.roster & ~c.lost);
-}
+UInt16 Wanted(const Camp& c) { return CampPeopleOut(c, g_settings->enabled); }
 
 // Camp `i`'s people enabled and disabled as Wanted says, when a kit is at it;
 // `all`: every slot told, else only the changes. A dead one is left to the
@@ -178,6 +306,11 @@ void ApplyPeople(UInt32 i, bool all) {
 			continue;
 		}
 		Say(ref, want ? "Enable" : "Disable");
+		if (want) {
+			// Their camp life's packages (sleep, wander) near where they now
+			// stand.
+			Say(ref, "EvaluatePackage");
+		}
 		want ? ++enabled : ++disabled;
 	}
 	g_kitPeople[kit] = wanted;
@@ -398,31 +531,79 @@ bool Shown(UInt32 i) {
 	return false;
 }
 
-void Reward(UInt32 i) {
+// The reward's fame, gold and things given; `what` gets " (+N fame, N gold,
+// N things)" or stays empty.
+void GiveReward(UInt32 fame, UInt32 gold, UInt32 things, char* what, UInt32 size) {
 	const UInt32 player = LookupForm(kPlayerRefId);
 	char line[64];
-	char text[160];
-	char what[64] = "";
-	if (g_settings->rewardFame && g_settings->famePoints > 0) {
-		std::snprintf(line, sizeof(line), "ModPCFame %u", g_settings->famePoints);
+	what[0] = '\0';
+	if (fame > 0) {
+		std::snprintf(line, sizeof(line), "ModPCFame %u", fame);
 		Say(player, line);
-		std::snprintf(what, sizeof(what), " (+%u fame", g_settings->famePoints);
+		std::snprintf(what, size, " (+%u fame", fame);
 	}
-	if (g_settings->rewardGold && g_settings->gold > 0) {
-		std::snprintf(line, sizeof(line), "AddItem %08X %u", kGoldId, g_settings->gold);
+	if (gold > 0) {
+		std::snprintf(line, sizeof(line), "AddItem %08X %u", kGoldId, gold);
 		Say(player, line);
-		char gold[32];
-		std::snprintf(gold, sizeof(gold), "%s%u gold", what[0] != '\0' ? ", " : " (", g_settings->gold);
-		std::snprintf(what + std::strlen(what), sizeof(what) - std::strlen(what), "%s", gold);
+		std::snprintf(what + std::strlen(what), size - std::strlen(what), "%s%u gold", what[0] != '\0' ? ", " : " (",
+		              gold);
+	}
+	const UInt32 given = GiveThings(things);
+	if (given > 0) {
+		std::snprintf(what + std::strlen(what), size - std::strlen(what), "%s%s", what[0] != '\0' ? ", " : " (",
+		              given == 1 ? "a thing of theirs" : "some of their things");
 	}
 	if (what[0] != '\0') {
-		std::snprintf(what + std::strlen(what), sizeof(what) - std::strlen(what), ")");
+		std::snprintf(what + std::strlen(what), size - std::strlen(what), ")");
 	}
+}
+
+bool QuestSound() {
+	char line[32];
+	std::snprintf(line, sizeof(line), "PlaySound %08X", kQuestSound);
+	return Say(LookupForm(kPlayerRefId), line);
+}
+
+void Reward(UInt32 i) {
+	char text[200];
+	char what[96];
+	GiveReward(g_settings->rewardFame ? g_settings->famePoints : 0, g_settings->rewardGold ? g_settings->gold : 0,
+	           CampThings(g_settings->rewardThings, CampAlive(g_state.camps[i]), 0, false), what, sizeof(what));
 	std::snprintf(text, sizeof(text), "The refugees %s are safe - the walkers are beaten%s.", Name(i), what);
 	Line(text);
-	std::snprintf(line, sizeof(line), "PlaySound %08X", kQuestSound);
-	const bool sound = Say(player, line);
+	const bool sound = QuestSound();
 	g_log("Camps: camp %02u %s defended - %s (the sound answered %d)", i, Name(i), text, sound ? 1 : 0);
+	NoteCampInNews(true);
+}
+
+const char* GateName(int gate) {
+	return gate >= 0 && gate < static_cast<int>(kCityGateCount) ? kCityGates[gate].name : "the city";
+}
+
+// Every living escorted person told `line`; how many.
+UInt32 TellEscorted(UInt32 i, const char* line) {
+	const Camp& c = g_state.camps[i];
+	UInt32 told = 0;
+	for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+		if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+			continue;
+		}
+		const UInt32 ref = Person(i, slot);
+		if (LooksLikeObject(ref) && (g_dead == nullptr || !g_dead(ref))) {
+			Say(ref, line);
+			++told;
+		}
+	}
+	return told;
+}
+
+void FollowLine(char* line, UInt32 size) {
+	std::snprintf(line, size, "AddScriptPackage %08X", EspFormId(g_espBase, kEscortFollowLocalId));
+}
+
+void StopFollowing(UInt32 i) {
+	TellEscorted(i, "RemoveScriptPackage");
+	TellEscorted(i, "EvaluatePackage");
 }
 
 void Carry(const CampEvent& ev, const float* distance, float now) {
@@ -457,6 +638,7 @@ void Carry(const CampEvent& ev, const float* distance, float now) {
 			Reward(i);
 			break;
 		case CampEvent::Overrun:
+			NoteCampInNews(false);
 			g_log("Camps: camp %02u %s overrun (game day %.3f) - %u walkers stay at it", i, Name(i), now,
 			      c.walkersLeft);
 			if (near) {
@@ -468,6 +650,70 @@ void Carry(const CampEvent& ev, const float* distance, float now) {
 		case CampEvent::Return:
 			RaisePeople(i);
 			break;
+		case CampEvent::EscortBegin: {
+			char line[48];
+			FollowLine(line, sizeof(line));
+			g_state.escort.kit = KitOf(g_kitCamp, i);
+			const UInt32 told = TellEscorted(i, line);
+			g_followClock = 0.0f;
+			std::snprintf(text, sizeof(text), "The refugees %s follow you. Lead them to %s - and don't leave them behind.",
+			              Name(i), GateName(g_state.escort.gate));
+			Line(text);
+			g_log("Camps: camp %02u %s - the escort begun, %u set out for %s (%s to %u; game day %.3f)", i, Name(i),
+			      g_state.escort.started, GateName(g_state.escort.gate), line, told, now);
+			break;
+		}
+		case CampEvent::EscortArrived: {
+			const UInt32 alive = CampAlive(c);
+			const UInt32 started = g_state.escort.started;
+			char what[96];
+			GiveReward(ScaledReward(g_settings->escortFame, alive, started),
+			           ScaledReward(g_settings->escortGold, alive, started),
+			           CampThings(g_settings->rewardThings, alive, started, true), what, sizeof(what));
+			StopFollowing(i);
+			g_escortShown = true;
+			std::snprintf(text, sizeof(text), "You brought %u of %u refugees safe to %s%s.", alive, started,
+			              GateName(g_state.escort.gate), what);
+			Line(text);
+			const bool sound = QuestSound();
+			NoteCampInNews(true);
+			g_log("Camps: camp %02u %s - the escort arrived: %s (the sound answered %d; game day %.3f)", i, Name(i), text,
+			      sound ? 1 : 0, now);
+			break;
+		}
+		case CampEvent::EscortBehind:
+			StopFollowing(i);
+			std::snprintf(text, sizeof(text), "You left the refugees %s behind - they go back to their camp.", Name(i));
+			Line(text);
+			g_log("Camps: camp %02u %s - the escort failed: left behind; %u go back to the camp", i, Name(i),
+			      CampAlive(c));
+			// Back at their camp: the kit set up there anew when the player next
+			// comes near.
+			{
+				const int kit = KitOf(g_kitCamp, i);
+				if (kit >= 0) {
+					g_kitCamp[kit] = -1;
+					FreeKit(static_cast<UInt32>(kit));
+				}
+			}
+			break;
+		case CampEvent::EscortDead:
+			std::snprintf(text, sizeof(text), "None of the refugees %s made it.", Name(i));
+			Line(text);
+			NoteCampInNews(false);
+			g_log("Camps: camp %02u %s - the escort failed: all dead on the way; the camp lies empty", i, Name(i));
+			break;
+		case CampEvent::EscortLeft: {
+			const int kit = KitOf(g_kitCamp, i);
+			if (kit >= 0) {
+				g_kitCamp[kit] = -1;
+				FreeKit(static_cast<UInt32>(kit));
+			}
+			g_escortShown = false;
+			g_log("Camps: camp %02u %s - its refugees moved on from the city (game day %.3f); the camp lies empty", i,
+			      Name(i), now);
+			break;
+		}
 	}
 }
 
@@ -505,6 +751,170 @@ void RollPlaces() {
 	if (placed > 0 || g_markersActive != CampActive(*g_settings)) {
 		PlaceMarkers();
 	}
+}
+
+// The escort's globals, its ask and its step: the offer (1 a camp within
+// kEscortAskUnits asks, 2 one on the way, 0 none) for the refugees' lines;
+// the ask the yes sets - taken by the nearest camp that asks; the escort's
+// distances from its living people.
+UInt32 SetGlobal(UInt32 local, float value) {
+	const UInt32 global = Esp(local);
+	if (!LooksLikeObject(global) || Read8(global + kFormTypeOffset) != kFormTypeGlobal) {
+		return 0;
+	}
+	*reinterpret_cast<float*>(global + kGlobalValueOffset) = value;
+	return global;
+}
+
+float GlobalOf(UInt32 local) {
+	const UInt32 global = Esp(local);
+	return LooksLikeObject(global) && Read8(global + kFormTypeOffset) == kFormTypeGlobal
+	           ? FloatAt(global + kGlobalValueOffset)
+	           : 0.0f;
+}
+
+int AskingCamp(const float* distance) {
+	int best = -1;
+	for (UInt32 i = 0; i < CampActive(*g_settings); ++i) {
+		if (distance[i] < 0.0f || distance[i] > kEscortAskUnits || KitOf(g_kitCamp, i) < 0 ||
+		    !CampOffersEscort(g_state, *g_settings, i)) {
+			continue;
+		}
+		if (best < 0 || distance[i] < distance[best]) {
+			best = static_cast<int>(i);
+		}
+	}
+	return best;
+}
+
+UInt32 StepEscortInGame(const float* distance, float now, CampEvent* events, UInt32 most) {
+	UInt32 n = 0;
+	const int asking = AskingCamp(distance);
+	if (GlobalOf(kEscortAskGlobalLocalId) >= 1.0f) {
+		SetGlobal(kEscortAskGlobalLocalId, 0.0f);
+		if (asking >= 0) {
+			const CampCandidate& place = Place(static_cast<UInt32>(asking));
+			const int gate = NearestGate(kCityGates, kCityGateCount, place.x, place.y);
+			n += BeginEscort(g_state, *g_settings, static_cast<UInt32>(asking), gate, now, events + n, most - n);
+		} else {
+			g_log("Camps: the escort asked for, but no camp near asks (an escort under way, or none within %.0f units)",
+			      kEscortAskUnits);
+		}
+	}
+	const int e = g_state.escort.camp;
+	SetGlobal(kEscortOfferGlobalLocalId,
+	          e >= 0 && g_state.camps[e].status == CampStatus::Escort ? 2.0f : (asking >= 0 ? 1.0f : 0.0f));
+	if (e < 0) {
+		return n;
+	}
+	const UInt32 i = static_cast<UInt32>(e);
+	float behind = -1.0f;
+	float toGate = -1.0f;
+	float px = 0.0f;
+	float py = 0.0f;
+	const bool playerOut = OutdoorsAt(LookupForm(kPlayerRefId), px, py);
+	const int g = g_state.escort.gate;
+	const Camp& c = g_state.camps[i];
+	for (UInt32 slot = 0; playerOut && c.status == CampStatus::Escort && slot < kCampSlots; ++slot) {
+		if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+			continue;
+		}
+		const UInt32 ref = Person(i, slot);
+		float x = 0.0f;
+		float y = 0.0f;
+		if ((g_dead != nullptr && g_dead(ref)) || !OutdoorsAt(ref, x, y)) {
+			continue;
+		}
+		const float d = std::sqrt((x - px) * (x - px) + (y - py) * (y - py));
+		behind = behind < 0.0f || d < behind ? d : behind;
+		if (g >= 0 && g < static_cast<int>(kCityGateCount)) {
+			const float gx = x - kCityGates[g].outX;
+			const float gy = y - kCityGates[g].outY;
+			const float dg = std::sqrt(gx * gx + gy * gy);
+			toGate = toGate < 0.0f || dg < toGate ? dg : toGate;
+		}
+	}
+	if (c.status == CampStatus::Escort) {
+		g_followClock += kStepSeconds;
+		if (g_followClock >= kEscortFollowEverySeconds) {
+			g_followClock = 0.0f;
+			char line[48];
+			FollowLine(line, sizeof(line));
+			TellEscorted(i, line);
+			if (Logged()) {
+				g_log("Camps: escort of camp %02u - the nearest %.0f units from the player, %.0f from %s", i, behind,
+				      toGate, GateName(g));
+			}
+		}
+	}
+	n += StepEscort(g_state, *g_settings, now, behind, toGate, events + n, most - n);
+	return n;
+}
+
+// TestEscort: camp N's refugees asked and led - the player taken to the camp
+// 30 s after the load (1500 units off its fire), the ask set at 40 s, at 60 s
+// the escorted's distance logged (whether they followed), then the player
+// and they taken to the gate (or, TestEscortBehind, the player 7000 off).
+void StepTestEscort(float now, CampEvent* events, UInt32& n) {
+	const int t = g_settings->testEscort;
+	if (t < 0 || !CampInPlay(g_state, *g_settings, static_cast<UInt32>(t)) || g_testEscortStage >= 4) {
+		return;
+	}
+	const UInt32 i = static_cast<UInt32>(t);
+	const UInt32 player = LookupForm(kPlayerRefId);
+	char line[96];
+	if (g_testEscortStage == 0 && g_testClock >= kTestCampAfterSeconds) {
+		g_testEscortStage = 1;
+		CampTakeRoster(g_state.camps[i], *g_settings);
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -1500 200", MarkerId(i));
+		g_log("Camps: test - TestEscort=%d, the player taken to the camp (%s answered %d)", t, line,
+		      Say(player, line) ? 1 : 0);
+	} else if (g_testEscortStage == 1 && g_testClock >= kTestCampAfterSeconds + 10.0f) {
+		g_testEscortStage = 2;
+		const UInt32 global = SetGlobal(kEscortAskGlobalLocalId, 1.0f);
+		g_log("Camps: test - the ask set as the topic's yes would (global %08X; camp %02u %s, offer %.0f)",
+		      global != 0 ? FormIdOf(global) : 0, i, CampOffersEscort(g_state, *g_settings, i) ? "asks" : "does not ask",
+		      GlobalOf(kEscortOfferGlobalLocalId));
+	} else if (g_testEscortStage == 2 && g_testClock >= kTestCampAfterSeconds + 30.0f) {
+		g_testEscortStage = 3;
+		const Camp& c = g_state.camps[i];
+		for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+			if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+				continue;
+			}
+			float x = 0.0f;
+			float y = 0.0f;
+			float px = 0.0f;
+			float py = 0.0f;
+			const UInt32 ref = Person(i, slot);
+			if (OutdoorsAt(ref, x, y) && OutdoorsAt(player, px, py)) {
+				g_log("Camps: test - escorted slot %u (%08X) %.0f units from the player (20 s after the ask; set out "
+				      "some 1500 off)",
+				      slot, FormIdOf(ref), std::sqrt((x - px) * (x - px) + (y - py) * (y - py)));
+			}
+		}
+	} else if (g_testEscortStage == 3 && g_testClock >= kTestCampAfterSeconds + 32.0f) {
+		g_testEscortStage = 4;
+		if (g_settings->testEscortBehind) {
+			std::snprintf(line, sizeof(line), "MoveTo %08X 0 -7000 300", MarkerId(i));
+			g_log("Camps: test - the player 7000 units off (%s answered %d)", line, Say(player, line) ? 1 : 0);
+			return;
+		}
+		const int g = g_state.escort.gate;
+		if (g < 0 || g >= static_cast<int>(kCityGateCount)) {
+			g_log("Camps: test - no escort under way to take to a gate");
+			return;
+		}
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -300 50", kCityGates[g].door);
+		const bool moved = Say(player, line);
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -400 50", kCityGates[g].door);
+		const UInt32 told = TellEscorted(i, line);
+		g_log("Camps: test - the player and %u escorted taken to %s (%08X; the player's MoveTo answered %d)", told,
+		      GateName(g), kCityGates[g].door, moved ? 1 : 0);
+	}
+	(void)now;
+	(void)events;
+	(void)n;
 }
 
 // The kits to the camps nearest the player.
@@ -668,6 +1078,8 @@ void StepCampsInGame(float dt) {
 	if (!g_settings->enabled) {
 		if (g_wasEnabled) {
 			g_log("Camps: [Survivors] Enabled=0 - every camp's people, props, markers and walkers taken in");
+			SetGlobal(kCampRumorGlobalLocalId, 0.0f);
+			SetGlobal(kEscortOfferGlobalLocalId, 0.0f);
 			for (UInt32 b = 0; b < kCampShownMost; ++b) {
 				HideBank(b);
 			}
@@ -695,6 +1107,9 @@ void StepCampsInGame(float dt) {
 	}
 	g_endedCount = 0;
 	g_testClock += kStepSeconds;
+	SetGlobal(kCampRumorGlobalLocalId, 1.0f);
+	StepTestEscort(now, events, n);
+	n += StepEscortInGame(distance, now, events + n, kEventsMost - n);
 	if (!g_testDone && g_testClock >= kTestCampAfterSeconds && g_settings->testCamp >= 0 &&
 	    CampInPlay(g_state, *g_settings, static_cast<UInt32>(g_settings->testCamp))) {
 		g_testDone = true;
@@ -726,7 +1141,7 @@ void StepCampsInGame(float dt) {
 		n += StepCamp(c, i, *g_settings, now, Shown(i), g_roll, events + n, kEventsMost - n);
 		// The dead among the people of a camp the player is at (only there
 		// does the game fight).
-		if (Near(distance, i) && c.status != CampStatus::Overrun) {
+		if (Near(distance, i) && c.status != CampStatus::Overrun && c.status != CampStatus::Left) {
 			const int kit = KitOf(g_kitCamp, i);
 			for (UInt32 slot = 0; kit >= 0 && slot < kCampSlots; ++slot) {
 				const UInt16 bit = static_cast<UInt16>(1u << slot);
@@ -797,9 +1212,30 @@ void ApplyCampsLoaded() {
 	}
 	// The kits start put away: the save may hold them anywhere; the next
 	// step puts them at the camps near the player.
+	// The escort's kit, though, stays where the save holds its people: on
+	// the way, or by the city.
+	const CampEscort& escort = g_state.escort;
+	const bool escorted = escort.camp >= 0 && escort.camp < static_cast<int>(kCampMost) && escort.kit >= 0 &&
+	                      (g_state.camps[escort.camp].status == CampStatus::Escort ||
+	                       g_state.camps[escort.camp].status == CampStatus::Gone);
 	for (UInt32 k = 0; k < kCampKits; ++k) {
 		g_kitCamp[k] = -1;
+		if (escorted && static_cast<int>(k) == escort.kit) {
+			g_kitCamp[k] = escort.camp;
+			g_kitPeople[k] = 0;
+			continue;
+		}
 		FreeKit(k);
+	}
+	g_escortShown = escorted && g_state.camps[escort.camp].status == CampStatus::Gone;
+	if (escorted) {
+		ApplyPeople(static_cast<UInt32>(escort.camp), true);
+		g_log("Camps: loaded - camp %02d's escort %s, kit %d kept where the save holds its people", escort.camp,
+		      g_state.camps[escort.camp].status == CampStatus::Escort ? "on the way" : "in the city", escort.kit);
+	} else if (escort.camp >= 0 && g_state.camps[escort.camp].status == CampStatus::Escort) {
+		// On the way without a kit known: they go back to their camp.
+		g_state.camps[escort.camp].status = CampStatus::Living;
+		g_state.escort = CampEscort{};
 	}
 	UInt32 living = 0;
 	UInt32 attacked = 0;
@@ -846,6 +1282,9 @@ void ResetCampsInGame() {
 	g_applied = false;
 	g_markersActive = 0;
 	g_logLines = 0;
+	g_followClock = 0.0f;
+	g_escortShown = false;
+	g_testEscortStage = 0;
 }
 
 }  // namespace walkers

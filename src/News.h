@@ -31,6 +31,8 @@ void StepNewsInGame(float dt, int headingCity, LogFn log);
 float GameDaysNow();
 
 // The attacks kept across saves (Rise.cpp's co-save callbacks).
+// 4.20.6: a refugee camp saved (defended, or brought to a city) or overrun.
+void NoteCampInNews(bool saved);
 NewsState& CurrentNews();
 
 }  // namespace walkers

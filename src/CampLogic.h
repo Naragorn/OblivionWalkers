@@ -23,6 +23,17 @@
 // 4.1, for those killed in the game; the ones lost away and the attack's
 // walkers left stay at the camp, shown when the player comes near). An overrun
 // camp comes back by ReturnChancePercent a game day.
+//
+// The escort, the design's second step (Nadi, 2026-11-08: "go A B C D", the
+// escort failing "passt" - all dead, or left behind farther than 5000 units -
+// and its reward "skaliert je nachdem wieviele überleben"): a living camp's
+// refugees ask the player (their greeting, a topic in the ESP) to lead them
+// to the nearest city; said yes, they follow him to its gate. All dead on the
+// way, or the nearest of them farther than EscortBehindUnits from him: failed
+// - the dead rise, the living go back to their camp. At the gate: arrived -
+// fame and gold scaled by those who made it, a thing for each two; they stay
+// EscortStayDays game days, then leave the game, the camp empty until it is
+// settled again by ReturnChancePercent. One escort at a time.
 
 #include <cmath>
 #include <cstring>
@@ -99,6 +110,23 @@ inline constexpr UInt32 kCampKitBlock = kCampSlots;  // the people
 inline constexpr UInt32 kCampKitFirstLocalId = kCampFirstLocalId;
 inline constexpr UInt32 kCampLocalIdEnd = kCampKitFirstLocalId + kCampKits * kCampKitBlock;
 inline constexpr UInt32 KitPersonLocalId(UInt32 kit, UInt32 slot) { return kCampKitFirstLocalId + kit * kCampKitBlock + slot; }
+// After the kits, before the grab's shock sounds (0xAA4): the camps' news
+// (two editions, NewsLogic.h EditionLocalId), their rumor and its global,
+// the escort's globals, topic, lines and package, and the refugees' camp
+// life packages (tools/esp-write.py writes them in this order).
+inline constexpr UInt32 kCampExtraFirstLocalId = kCampLocalIdEnd;           // 0xA38: the editions
+inline constexpr UInt32 kCampRumorGlobalLocalId = kCampExtraFirstLocalId + 2;  // 1 while the camps are on
+inline constexpr UInt32 kCampRumorLocalId = kCampExtraFirstLocalId + 3;
+inline constexpr UInt32 kEscortOfferGlobalLocalId = kCampExtraFirstLocalId + 4;  // 1 a camp near asks, 2 on the way
+inline constexpr UInt32 kEscortAskGlobalLocalId = kCampExtraFirstLocalId + 5;    // set 1 by the topic's line
+inline constexpr UInt32 kEscortTopicLocalId = kCampExtraFirstLocalId + 6;
+inline constexpr UInt32 kEscortGreetingLocalId = kCampExtraFirstLocalId + 7;
+inline constexpr UInt32 kEscortYesLocalId = kCampExtraFirstLocalId + 8;
+inline constexpr UInt32 kEscortOnTheWayLocalId = kCampExtraFirstLocalId + 9;
+inline constexpr UInt32 kEscortFollowLocalId = kCampExtraFirstLocalId + 10;
+inline constexpr UInt32 kRefugeeWanderLocalId = kCampExtraFirstLocalId + 11;
+inline constexpr UInt32 kRefugeeSleepLocalId = kCampExtraFirstLocalId + 12;
+inline constexpr UInt32 kCampExtraEnd = kCampExtraFirstLocalId + 13;
 inline constexpr UInt32 kCandidateMarkerFirstLocalId = 0xAA7;
 inline constexpr UInt32 CandidateMarkerLocalId(UInt32 candidate) {
 	return kCandidateMarkerFirstLocalId + candidate;
@@ -159,12 +187,27 @@ struct CampSettings {
 	float refugeeKillsPerHour = 2.0f;   // RefugeeKillsPerHour: away
 	UInt32 lossPercentPerHour = 25;     // LossPercentPerHour: away, one refugee lost an hour by this
 	UInt32 returnChancePercent = 10;    // ReturnChancePercent: an overrun camp back, a game day
+	bool rewardThings = true;           // RewardThings: a thing off the game's loot lists
+	bool escort = true;                 // Escort: the refugees ask to be led to the nearest city
+	UInt32 escortFame = 2;              // EscortFame: all brought there; scaled by those who made it
+	UInt32 escortGold = 300;            // EscortGold: the same
+	float escortBehindUnits = 5000.0f;  // EscortBehindUnits: the nearest farther from the player: failed
+	float escortStayDays = 7.0f;        // EscortStayDays: in the city, then they leave the game
 	// Test switch (harness/camp-defend.txt): camp N attacked 30 s after the
 	// load and the player taken to it (-1: never).
 	int testCamp = -1;
+	// Test switch (harness/camp-escort.txt): camp N's refugees asked 40 s
+	// after the load (the player taken there 30 s after it, 1500 units off),
+	// then the player and they taken to the nearest gate - or, with
+	// TestEscortBehind, the player 7000 units off (-1: never).
+	int testEscort = -1;
+	bool testEscortBehind = false;
 };
 
-enum class CampStatus : UInt8 { Living, Attacked, Overrun };
+// Escort: its refugees on the way to a city; Gone: there, for
+// EscortStayDays; Left: empty (they left the game, or died on the way),
+// settled again as an overrun camp is.
+enum class CampStatus : UInt8 { Living, Attacked, Overrun, Escort, Gone, Left };
 
 struct Camp {
 	UInt16 place = kCampNoPlace;  // the candidate it was rolled to
@@ -179,9 +222,22 @@ struct Camp {
 	float carry = 0.0f;      // the toll's kills short of a whole walker
 };
 
+// The one escort: the camp (-1 none), the city gate it heads for
+// (CityGates.h kCityGates), how many set out, the game day it arrived (-1
+// on the way), the kit its people are (-1 not known) - a save loaded on the
+// way finds them where they were, not at their camp.
+struct CampEscort {
+	int camp = -1;
+	int gate = -1;
+	UInt32 started = 0;
+	float arrivedAt = -1.0f;
+	int kit = -1;
+};
+
 struct CampsState {
 	Camp camps[kCampMost];
 	int lastDay = -1;
+	CampEscort escort;
 };
 
 // The camps in play: CampCount, held to 1..kCampMost.
@@ -330,7 +386,19 @@ inline int KitOf(const int* kitCamp, UInt32 i) {
 }
 
 struct CampEvent {
-	enum Kind : UInt8 { Begin, PersonLost, HeldAway, Defended, Overrun, Return };
+	enum Kind : UInt8 {
+		Begin,
+		PersonLost,
+		HeldAway,
+		Defended,
+		Overrun,
+		Return,
+		EscortBegin,    // they follow the player
+		EscortArrived,  // at the gate: the reward
+		EscortBehind,   // failed: left behind, back to their camp
+		EscortDead,     // failed: none made it
+		EscortLeft,     // their days in the city over: gone from the game
+	};
 	Kind kind;
 	UInt8 camp;
 	UInt8 slot;  // PersonLost: the slot
@@ -461,7 +529,7 @@ UInt32 StepCampDays(CampsState& st, const CampSettings& s, float now, RollFn rol
 				const float at = static_cast<float>(day) + static_cast<float>(roll() % 24) / 24.0f;
 				c.startAt = at < now ? now : at;
 			}
-		} else if (c.status == CampStatus::Overrun) {
+		} else if (c.status == CampStatus::Overrun || c.status == CampStatus::Left) {
 			if (roll() % 100 < s.returnChancePercent) {
 				const UInt16 place = c.place;
 				c = Camp{};
@@ -568,7 +636,7 @@ inline UInt32 CampWalkerEnded(Camp& c, UInt32 i, CampEvent* out, UInt32 most) {
 // them overruns the camp (the rise raises them - the attack's walkers left
 // stay at the camp).
 inline UInt32 CampPersonDied(Camp& c, UInt32 i, UInt32 slot, CampEvent* out, UInt32 most) {
-	if (slot >= kCampSlots || c.status == CampStatus::Overrun) {
+	if (slot >= kCampSlots || c.status == CampStatus::Overrun || c.status == CampStatus::Left) {
 		return 0;
 	}
 	const UInt16 bit = static_cast<UInt16>(1u << slot);
@@ -576,7 +644,8 @@ inline UInt32 CampPersonDied(Camp& c, UInt32 i, UInt32 slot, CampEvent* out, UIn
 		return 0;
 	}
 	c.lost = static_cast<UInt16>(c.lost | bit);
-	if (CampAlive(c) > 0) {
+	// On the way or in the city: StepEscort decides what the last one means.
+	if (CampAlive(c) > 0 || c.status == CampStatus::Escort || c.status == CampStatus::Gone) {
 		return 0;
 	}
 	if (c.status != CampStatus::Attacked) {
@@ -679,16 +748,159 @@ inline void CampWalkerSpot(float facing, bool attack, UInt32 slot, float& dx, fl
 	dy = std::cos(at) * r;
 }
 
+// The people a camp has out: its roster's living - in the camp, on the way
+// and in the city - none when the camps are off or it lies empty.
+inline UInt16 CampPeopleOut(const Camp& c, bool enabled) {
+	if (!enabled || !c.set || c.status == CampStatus::Overrun || c.status == CampStatus::Left) {
+		return 0;
+	}
+	return static_cast<UInt16>(c.roster & ~c.lost);
+}
+
+// The things reward (Nadi's "gold or things", 2026-11-05): one entry of a
+// leveled list for the player's `level` - its entries' `levels` in the
+// ascending order the game keeps them in. The top level at or below the
+// player's and every entry down to kThingsLevelSpread below it (the game's
+// iLevItemLevelDifferenceMax, 8 by default - derived from UESP's leveled
+// lists page, not read off the engine), `roll` picking among them; -1 when
+// none is low enough.
+inline constexpr int kThingsLevelSpread = 8;
+
+inline int PickLeveled(const UInt16* levels, UInt32 n, int level, UInt32 roll) {
+	int top = -1;
+	for (UInt32 k = 0; k < n; ++k) {
+		if (static_cast<int>(levels[k]) <= level && static_cast<int>(levels[k]) > top) {
+			top = levels[k];
+		}
+	}
+	if (top < 0) {
+		return -1;
+	}
+	UInt32 count = 0;
+	for (UInt32 k = 0; k < n; ++k) {
+		count += static_cast<int>(levels[k]) <= top && static_cast<int>(levels[k]) >= top - kThingsLevelSpread ? 1u : 0u;
+	}
+	UInt32 nth = roll % count;
+	for (UInt32 k = 0; k < n; ++k) {
+		if (static_cast<int>(levels[k]) <= top && static_cast<int>(levels[k]) >= top - kThingsLevelSpread) {
+			if (nth == 0) {
+				return static_cast<int>(k);
+			}
+			--nth;
+		}
+	}
+	return -1;
+}
+
+// How many things: a defended camp one; an escort one for each two who made
+// it, rounded up; none with RewardThings off or nobody alive.
+inline UInt32 CampThings(bool rewardThings, UInt32 alive, UInt32 started, bool escort) {
+	if (!rewardThings || alive == 0) {
+		return 0;
+	}
+	(void)started;
+	return escort ? (alive + 1) / 2 : 1;
+}
+
+// The escort's fame or gold: `base` for all who set out, scaled by those
+// alive, rounded half up.
+inline UInt32 ScaledReward(UInt32 base, UInt32 alive, UInt32 started) {
+	if (started == 0 || alive == 0) {
+		return 0;
+	}
+	const UInt32 a = alive > started ? started : alive;
+	return (base * a * 2 + started) / (started * 2);
+}
+
+// An escort arrives with the nearest of them this near the gate's outside
+// spot (some 21 m).
+inline constexpr float kEscortArriveUnits = 1500.0f;
+
+// Whether camp `i`'s refugees ask to be led to a city: the camps and the
+// escort on, the camp living and not under attack, someone alive, no escort
+// under way or in a city.
+inline bool CampOffersEscort(const CampsState& st, const CampSettings& s, UInt32 i) {
+	if (!s.enabled || !s.escort || i >= kCampMost || st.escort.camp >= 0) {
+		return false;
+	}
+	const Camp& c = st.camps[i];
+	return c.place != kCampNoPlace && c.set && c.status == CampStatus::Living && CampAlive(c) > 0;
+}
+
+// Camp `i`'s refugees said yes: on the way to city gate `gate`.
+inline UInt32 BeginEscort(CampsState& st, const CampSettings& s, UInt32 i, int gate, float now, CampEvent* out,
+                          UInt32 most) {
+	(void)now;
+	if (!CampOffersEscort(st, s, i) || gate < 0) {
+		return 0;
+	}
+	Camp& c = st.camps[i];
+	c.status = CampStatus::Escort;
+	c.startAt = -1.0f;
+	st.escort = CampEscort{};
+	st.escort.camp = static_cast<int>(i);
+	st.escort.gate = gate;
+	st.escort.started = CampAlive(c);
+	return camp_detail::Put(out, 0, most, CampEvent::EscortBegin, i);
+}
+
+// Once a second at game day `now`: `behind` the player's distance from the
+// nearest of the escorted, `toGate` the nearest's from the gate (each -1 when
+// not known - indoors, or not loaded). On the way: none alive fails it (the
+// camp empty), the nearest farther than EscortBehindUnits fails it (they go
+// back, the camp living), one within kEscortArriveUnits of the gate brings
+// them there. In the city: EscortStayDays on, or none alive, they leave.
+inline UInt32 StepEscort(CampsState& st, const CampSettings& s, float now, float behind, float toGate, CampEvent* out,
+                         UInt32 most) {
+	if (!s.enabled || st.escort.camp < 0 || st.escort.camp >= static_cast<int>(kCampMost)) {
+		return 0;
+	}
+	const UInt32 i = static_cast<UInt32>(st.escort.camp);
+	Camp& c = st.camps[i];
+	if (c.status == CampStatus::Gone) {
+		if (CampAlive(c) == 0 || now - st.escort.arrivedAt >= s.escortStayDays) {
+			c.status = CampStatus::Left;
+			st.escort = CampEscort{};
+			return camp_detail::Put(out, 0, most, CampEvent::EscortLeft, i);
+		}
+		return 0;
+	}
+	if (c.status != CampStatus::Escort) {
+		st.escort = CampEscort{};
+		return 0;
+	}
+	if (CampAlive(c) == 0) {
+		c.status = CampStatus::Left;
+		st.escort = CampEscort{};
+		return camp_detail::Put(out, 0, most, CampEvent::EscortDead, i);
+	}
+	if (toGate >= 0.0f && toGate <= kEscortArriveUnits) {
+		c.status = CampStatus::Gone;
+		st.escort.arrivedAt = now;
+		return camp_detail::Put(out, 0, most, CampEvent::EscortArrived, i);
+	}
+	if (behind > s.escortBehindUnits) {
+		c.status = CampStatus::Living;
+		st.escort = CampEscort{};
+		return camp_detail::Put(out, 0, most, CampEvent::EscortBehind, i);
+	}
+	return 0;
+}
+
 // The co-save record: type "CAMP", version 2 (the dynamic camps) - the last
 // day rolled, then per camp of kCampMost: status, set, seen, a pad byte,
 // roster and lost (16 bits each), the walkers left, the coming attack's day,
 // the toll's day and its carry (floats as their bits), the place (16 bits)
 // and two pad bytes. Version 1 (the twelve fixed camps) is not read: its
 // camps stood elsewhere, the camps are rolled anew.
+// Version 3 adds the escort: its camp and gate (-1 none), those set out,
+// the day it arrived and its kit; a version 2 image reads with none.
 inline constexpr UInt32 kCampRecordType = 0x43414D50;  // 'CAMP'
-inline constexpr UInt32 kCampRecordVersion = 2;
+inline constexpr UInt32 kCampRecordVersion = 3;
 inline constexpr UInt32 kCampBytes = 28;
-inline constexpr UInt32 kCampImageBytes = 4 + kCampMost * kCampBytes;
+inline constexpr UInt32 kCampImageV2Bytes = 4 + kCampMost * kCampBytes;
+inline constexpr UInt32 kCampEscortBytes = 20;
+inline constexpr UInt32 kCampImageBytes = kCampImageV2Bytes + kCampEscortBytes;
 
 namespace camp_detail {
 
@@ -725,13 +937,19 @@ inline UInt32 CampImage(const CampsState& st, UInt8* out, UInt32 capacity) {
 		Put32(at + 20, camp_detail::Bits(c.carry));
 		Put32(at + 24, c.place);
 	}
+	UInt8* e = out + kCampImageV2Bytes;
+	Put32(e, static_cast<UInt32>(st.escort.camp));
+	Put32(e + 4, static_cast<UInt32>(st.escort.gate));
+	Put32(e + 8, st.escort.started);
+	Put32(e + 12, camp_detail::Bits(st.escort.arrivedAt));
+	Put32(e + 16, static_cast<UInt32>(st.escort.kit));
 	return kCampImageBytes;
 }
 
 // `st` emptied first; false when too short (nothing read then).
 inline bool ReadCampImage(CampsState& st, const UInt8* in, UInt32 length) {
 	st = CampsState{};
-	if (length < kCampImageBytes) {
+	if (length < kCampImageV2Bytes) {
 		return false;
 	}
 	st.lastDay = static_cast<int>(Get32(in));
@@ -739,7 +957,7 @@ inline bool ReadCampImage(CampsState& st, const UInt8* in, UInt32 length) {
 	for (UInt32 i = 0; i < kCampMost; ++i) {
 		Camp& c = st.camps[i];
 		const UInt8* at = in + 4 + i * kCampBytes;
-		c.status = at[0] <= static_cast<UInt8>(CampStatus::Overrun) ? static_cast<CampStatus>(at[0]) : CampStatus::Living;
+		c.status = at[0] <= static_cast<UInt8>(CampStatus::Left) ? static_cast<CampStatus>(at[0]) : CampStatus::Living;
 		c.set = at[1] != 0;
 		c.seen = at[2] != 0;
 		const UInt32 masks = Get32(at + 4);
@@ -750,6 +968,18 @@ inline bool ReadCampImage(CampsState& st, const UInt8* in, UInt32 length) {
 		c.tollFrom = camp_detail::Float(Get32(at + 16));
 		c.carry = camp_detail::Float(Get32(at + 20));
 		c.place = static_cast<UInt16>(Get32(at + 24) & 0xFFFF);
+	}
+	if (length >= kCampImageBytes) {
+		const UInt8* e = in + kCampImageV2Bytes;
+		const int camp = static_cast<int>(Get32(e));
+		if (camp >= 0 && camp < static_cast<int>(kCampMost)) {
+			st.escort.camp = camp;
+			st.escort.gate = static_cast<int>(Get32(e + 4));
+			st.escort.started = Get32(e + 8);
+			st.escort.arrivedAt = camp_detail::Float(Get32(e + 12));
+			const int kit = static_cast<int>(Get32(e + 16));
+			st.escort.kit = kit >= 0 && kit < static_cast<int>(kCampKits) ? kit : -1;
+		}
 	}
 	return true;
 }

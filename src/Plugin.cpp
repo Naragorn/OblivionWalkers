@@ -218,7 +218,15 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.refugeeKillsPerHour = std::max(0.0f, IniFloat("Survivors", "RefugeeKillsPerHour", 2.0f, path));
 	camps.lossPercentPerHour = whole("LossPercentPerHour", 25, 0, 100);
 	camps.returnChancePercent = whole("ReturnChancePercent", 10, 0, 100);
+	camps.rewardThings = GetPrivateProfileIntA("Survivors", "RewardThings", 1, path) != 0;
+	camps.escort = GetPrivateProfileIntA("Survivors", "Escort", 1, path) != 0;
+	camps.escortFame = whole("EscortFame", 2, 0, 100);
+	camps.escortGold = whole("EscortGold", 300, 0, 100000);
+	camps.escortBehindUnits = static_cast<float>(whole("EscortBehindUnits", 5000, 500, 100000));
+	camps.escortStayDays = static_cast<float>(whole("EscortStayDays", 7, 1, 365));
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
+	camps.testEscort = GetPrivateProfileIntA("Survivors", "TestEscort", -1, path);
+	camps.testEscortBehind = GetPrivateProfileIntA("Survivors", "TestEscortBehind", 0, path) != 0;
 	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;

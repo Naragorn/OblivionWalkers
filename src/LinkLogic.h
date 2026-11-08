@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 26.0;  // 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 27.0;  // 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -87,6 +87,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 40, "Grabbed - the shock sound"},
 	{68 + kReplaceCategoryCount + 41, "Walkers - slow aggression"},
 	{68 + kReplaceCategoryCount + 46, "Spawns - quests"},
+	{68 + kReplaceCategoryCount + 47, "Survivors' camps - things and the escort"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -340,6 +341,18 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_keep_quest_lists", "Quests keep their foes",
 	 "A spawn a quest needs - its boss, its wave, its bears - stays as the game made it, no walker.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_camps_things", "Camps: things as reward", "A camp you defend or lead to safety gives a thing off the game's loot.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_camps_escort", "Camps: escort", "A camp's refugees ask you to lead them to the nearest city.", LinkKind::Toggle, 0, 1,
+	 1, 0, false, LinkEffect::Live},
+	{"ini_camps_escort_fame", "Escort: fame", "The fame for all brought to the city; fewer alive, less.", LinkKind::Slider,
+	 0, 10, 1, 0, false, LinkEffect::Live},
+	{"ini_camps_escort_gold", "Escort: gold", "The gold for all brought to the city; fewer alive, less.", LinkKind::Slider,
+	 0, 2000, 50, 0, false, LinkEffect::Live},
+	{"ini_camps_escort_behind", "Escort: left behind", "Farther than this from you (game units, 5000 is some 70 m), the escort fails.",
+	 LinkKind::Slider, 1000, 20000, 500, 0, false, LinkEffect::Live},
+	{"ini_camps_escort_days", "Escort: days in the city", "How long they stay in the city before they move on.",
+	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -465,6 +478,12 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 157: return rise.slowAggression.secondsMax;
 		case 158: return rise.slowAggression.units;
 		case 159: return replace.keepQuestLists ? 1.0 : 0.0;
+		case 160: return rise.camps.rewardThings ? 1.0 : 0.0;
+		case 161: return rise.camps.escort ? 1.0 : 0.0;
+		case 162: return rise.camps.escortFame;
+		case 163: return rise.camps.escortGold;
+		case 164: return rise.camps.escortBehindUnits;
+		case 165: return rise.camps.escortStayDays;
 		default: return 0.0;
 	}
 }
@@ -611,6 +630,12 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 157: rise.slowAggression.secondsMax = static_cast<float>(whole); break;
 		case 158: rise.slowAggression.units = static_cast<float>(whole); break;
 		case 159: replace.keepQuestLists = on; break;
+		case 160: rise.camps.rewardThings = on; break;
+		case 161: rise.camps.escort = on; break;
+		case 162: rise.camps.escortFame = whole; break;
+		case 163: rise.camps.escortGold = whole; break;
+		case 164: rise.camps.escortBehindUnits = static_cast<float>(whole); break;
+		case 165: rise.camps.escortStayDays = static_cast<float>(whole); break;
 		default: return false;
 	}
 	return true;

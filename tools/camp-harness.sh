@@ -12,7 +12,13 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
-keys='TestCamp=7\nAttackWalkersMin=6\nAttackWalkersMax=6'
+scenario="${CAMP_SCENARIO:-defend}"
+if [[ "$scenario" == escort ]]; then
+	keys='TestEscort=7\nAttackChancePercent=0'
+	[[ "${ESCORT_BEHIND:-0}" == 1 ]] && keys="$keys\\nTestEscortBehind=1"
+else
+	keys='TestCamp=7\nAttackWalkersMin=6\nAttackWalkersMax=6'
+fi
 if grep -q '^\[Survivors\]' "$ini"; then
 	sed -i "s/^\[Survivors\]\r\?$/[Survivors]\n$keys/" "$ini"
 else
@@ -25,7 +31,7 @@ if [[ "${CAMP_ENDS:-0}" == 1 ]]; then
 	grep -q '^\[Zombies\]' "$ini" || { echo "no [Zombies] section in $ini"; exit 1; }
 	sed -i '0,/^\[Zombies\]\r\?$/s//[Zombies]\nDieOnlyBeheaded=0/' "$ini"
 fi
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/camp-defend.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/camp-$scenario.txt" --headless \
 	--artifact-root "$root/artifacts/hand-script")
 grep -E '^(Camps:|Co-save: the camps|Death: |End: walker)' "$game/OblivionWalkers.log" | head -150 \
 	|| echo "no camp line"

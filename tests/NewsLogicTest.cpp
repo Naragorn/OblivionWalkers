@@ -121,13 +121,19 @@ void TestIndex() {
 		mark(Edition{EditionKind::Besieged, c});
 		mark(Edition{EditionKind::Lifted, c});
 	}
+	mark(Edition{EditionKind::CampSaved, -1});
+	mark(Edition{EditionKind::CampLost, -1});
 	bool all = true;
 	for (bool s : seen) {
 		all = all && s;
 	}
 	Check(unique && inRange && all,
-	      "34 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
-	      "lifted 26-33");
+	      "36 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
+	      "lifted 26-33, the camps' 34 and 35");
+	Check(walkers::EditionIndex(Edition{EditionKind::CampSaved, -1}) == 34 &&
+	          walkers::EditionIndex(Edition{EditionKind::CampLost, -1}) == 35 && walkers::EditionLocalId(34) == 0xA38 &&
+	          walkers::EditionLocalId(35) == 0xA39,
+	      "the camps' two books after the camps' kits (CampLogic.h kCampExtraFirstLocalId)");
 	Check(walkers::EditionIndex(Edition{EditionKind::Besieged, 0}) == 18 &&
 	          walkers::EditionIndex(Edition{EditionKind::Lifted, 7}) == 33 && walkers::EditionLocalId(0) == 0x8FC &&
 	          walkers::EditionLocalId(17) == 0x90D && walkers::EditionLocalId(18) == 0x9B7 &&
@@ -166,6 +172,28 @@ void TestSiegeNews() {
 	NewsState v2;
 	Check(walkers::ReadNewsImage(v2, image, walkers::kNewsImageV2Bytes) && v2.besiegedDays[kSkingrad] < 0.0f,
 	      "a version 2 record: no sieges read");
+}
+
+void TestCampNews() {
+	std::printf("The camps in the news\n");
+	NewsState news;
+	walkers::NoteCampNews(news, true, 10.0f);
+	Check(Is(Choose(news, 11.0f), EditionKind::CampSaved, -1), "a camp saved a day ago: the news");
+	Check(Is(Choose(news, 13.5f), EditionKind::General, -1), "past RecentDays: the outbreak again");
+	walkers::NoteCampNews(news, false, 12.0f);
+	Check(Is(Choose(news, 12.5f), EditionKind::CampLost, -1), "a camp lost later: the latest is the news");
+	Check(Is(Choose(news, 12.5f, 3, 12.4f), EditionKind::CampLost, -1), "a camp's news before a horde heading");
+	NewsState attacked = news;
+	walkers::NoteCityAttack(attacked, kBruma, 12.2f);
+	Check(Is(Choose(attacked, 12.5f), EditionKind::Attack, static_cast<int>(kBruma)), "a city attacked before a camp");
+	UInt8 image[walkers::kNewsImageBytes];
+	NewsState back;
+	Check(walkers::NewsImage(news, image, sizeof(image)) == walkers::kNewsImageBytes &&
+	          walkers::ReadNewsImage(back, image, sizeof(image)) && back.campDays == 12.0f && !back.campSaved,
+	      "the camps' news in the co-save");
+	Check(walkers::ReadNewsImage(back, image, walkers::kNewsImageV3Bytes) && back.campDays < 0.0f &&
+	          walkers::kNewsRecordVersion == 4,
+	      "a version 3 record: no camp news");
 }
 
 void TestGameTime() {
@@ -215,6 +243,7 @@ int main() {
 	TestNote();
 	TestIndex();
 	TestSiegeNews();
+	TestCampNews();
 	TestGameTime();
 	TestImage();
 	if (g_failures != 0) {

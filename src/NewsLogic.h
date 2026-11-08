@@ -32,7 +32,7 @@ struct NewsSettings {
 	float headingHoldDays = 0.5f;
 };
 
-enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted };
+enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost };
 
 struct Edition {
 	EditionKind kind = EditionKind::General;
@@ -41,8 +41,8 @@ struct Edition {
 
 // The edition's number - the order tools/esp-write.py writes the books in:
 // general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25 and
-// lifted 26-33 (4.12).
-inline constexpr UInt32 kEditionCount = 2 + 4 * kNewsCities;
+// lifted 26-33 (4.12), a refugee camp saved 34 and lost 35 (4.20.6).
+inline constexpr UInt32 kEditionCount = 4 + 4 * kNewsCities;
 
 inline UInt32 EditionIndex(const Edition& e) {
 	switch (e.kind) {
@@ -56,6 +56,10 @@ inline UInt32 EditionIndex(const Edition& e) {
 			return 2 + 2 * kNewsCities + static_cast<UInt32>(e.city);
 		case EditionKind::Lifted:
 			return 2 + 3 * kNewsCities + static_cast<UInt32>(e.city);
+		case EditionKind::CampSaved:
+			return 2 + 4 * kNewsCities;
+		case EditionKind::CampLost:
+			return 3 + 4 * kNewsCities;
 		case EditionKind::General:
 		default:
 			return 0;
@@ -63,8 +67,12 @@ inline UInt32 EditionIndex(const Edition& e) {
 }
 
 // The ESP's book of edition `index`: the first 18 at 0x8FC.., the siege's
-// after the siege pool at 0x9B7.. (tools/esp-write.py LOCAL_EDITION_IDS).
-inline UInt32 EditionLocalId(UInt32 index) { return index < 18 ? 0x8FC + index : 0x9B7 + (index - 18); }
+// after the siege pool at 0x9B7.., the camps' two after the camps' kits at
+// 0xA38 (CampLogic.h kCampExtraFirstLocalId; tools/esp-write.py
+// LOCAL_EDITION_IDS).
+inline UInt32 EditionLocalId(UInt32 index) {
+	return index < 18 ? 0x8FC + index : (index < 34 ? 0x9B7 + (index - 18) : 0xA38 + (index - 34));
+}
 
 struct NewsState {
 	float lastAttackDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};  // -1: never
@@ -74,7 +82,20 @@ struct NewsState {
 	// last one was lifted, -1 never.
 	float besiegedDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
 	float liftedDays[kNewsCities] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+	// 4.20.6: the game day of the camps' latest news (-1 none) and whether
+	// it was a camp saved (defended, or its refugees brought to a city) or
+	// lost (overrun).
+	float campDays = -1.0f;
+	bool campSaved = false;
 };
+
+// A camp saved or lost at game day `days`: the camps' latest news.
+inline void NoteCampNews(NewsState& news, bool saved, float days) {
+	if (days >= news.campDays) {
+		news.campDays = days;
+		news.campSaved = saved;
+	}
+}
 
 // A siege of `city` begun (`begun`) or lifted at game day `days`.
 inline void NoteSiegeNews(NewsState& news, UInt32 city, bool begun, float days) {
@@ -148,6 +169,9 @@ inline Edition ChooseEdition(const NewsState& news, float now, float recentDays,
 	if (recent == 1) {
 		return Edition{EditionKind::Attack, attacked};
 	}
+	if (news.campDays >= 0.0f && now - news.campDays <= recentDays) {
+		return Edition{news.campSaved ? EditionKind::CampSaved : EditionKind::CampLost, -1};
+	}
 	if (news.headingCity >= 0 && news.headingCity < static_cast<int>(kNewsCities) && news.headingDays >= 0.0f &&
 	    now - news.headingDays <= holdDays) {
 		return Edition{EditionKind::Approaching, news.headingCity};
@@ -167,15 +191,17 @@ inline float GameTimeDays(float daysPassed, float hour) {
 	return hour >= 0.0f && hour < 24.0f ? day + hour / 24.0f : day;
 }
 
-// The co-save record: type "NEWS", version 3 - the last attack's game day
-// per city, the last sighting's city and game day, then each city's siege
-// begun and lifted days. Version 1 had the attacks alone, version 2 no
-// sieges, read as such.
+// The co-save record: type "NEWS", version 4 - the last attack's game day
+// per city, the last sighting's city and game day, each city's siege begun
+// and lifted days, then the camps' news day and kind (1 saved). Version 1
+// had the attacks alone, version 2 no sieges, version 3 no camps, read as
+// such.
 inline constexpr UInt32 kNewsRecordType = 0x4E455753;  // 'NEWS'
-inline constexpr UInt32 kNewsRecordVersion = 3;
+inline constexpr UInt32 kNewsRecordVersion = 4;
 inline constexpr UInt32 kNewsImageV1Bytes = 4 * kNewsCities;
 inline constexpr UInt32 kNewsImageV2Bytes = kNewsImageV1Bytes + 8;
-inline constexpr UInt32 kNewsImageBytes = kNewsImageV2Bytes + 8 * kNewsCities;
+inline constexpr UInt32 kNewsImageV3Bytes = kNewsImageV2Bytes + 8 * kNewsCities;
+inline constexpr UInt32 kNewsImageBytes = kNewsImageV3Bytes + 8;
 
 inline UInt32 NewsImage(const NewsState& news, UInt8* out, UInt32 capacity) {
 	if (capacity < kNewsImageBytes) {
@@ -198,6 +224,10 @@ inline UInt32 NewsImage(const NewsState& news, UInt8* out, UInt32 capacity) {
 		Put32(out + kNewsImageV2Bytes + 4 * c, begun);
 		Put32(out + kNewsImageV2Bytes + 4 * kNewsCities + 4 * c, lifted);
 	}
+	UInt32 camp = 0;
+	std::memcpy(&camp, &news.campDays, sizeof(camp));
+	Put32(out + kNewsImageV3Bytes, camp);
+	Put32(out + kNewsImageV3Bytes + 4, news.campSaved ? 1u : 0u);
 	return kNewsImageBytes;
 }
 
@@ -213,6 +243,11 @@ inline bool ReadNewsImage(NewsState& news, const UInt8* in, UInt32 length) {
 		std::memcpy(&news.lastAttackDays[c], &bits, sizeof(bits));
 	}
 	if (length >= kNewsImageBytes) {
+		const UInt32 camp = Get32(in + kNewsImageV3Bytes);
+		std::memcpy(&news.campDays, &camp, sizeof(camp));
+		news.campSaved = Get32(in + kNewsImageV3Bytes + 4) != 0;
+	}
+	if (length >= kNewsImageV3Bytes) {
 		for (UInt32 c = 0; c < kNewsCities; ++c) {
 			const UInt32 begun = Get32(in + kNewsImageV2Bytes + 4 * c);
 			const UInt32 lifted = Get32(in + kNewsImageV2Bytes + 4 * kNewsCities + 4 * c);

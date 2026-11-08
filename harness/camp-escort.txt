@@ -1,0 +1,45 @@
+# The escort (docs/walkers-spec.md 4.20.6, step 2, built 2026-11-08):
+# tools/camp-harness.sh with CAMP_SCENARIO=escort sets [Survivors]
+# TestEscort=7 (and TestEscortBehind=1 with ESCORT_BEHIND=1) in the live INI.
+# 30 s after the load the player is taken 1500 units off camp 07's fire
+# ("Camps: test - TestEscort=7, the player taken to the camp"), a kit goes
+# there ("kit N to camp 07"); at 40 s the ask is set as the topic's yes would
+# ("the ask set ... camp 07 ... asks, offer 1") and the escort begins ("the
+# escort begun, N set out for <gate>"). At 60 s each escorted one's distance
+# from the player is logged ("escorted slot N ... units from the player") -
+# well under 1500 when they followed. At 62 s the player and they are taken
+# to the gate: "the escort arrived: You brought N of N refugees safe to
+# <gate> (+2 fame, 300 gold, ...)" and "a thing - <item> ... at the player's
+# level N". With ESCORT_BEHIND=1 the player is taken 7000 units off instead:
+# "the escort failed: left behind".
+#
+# Runs on OBVR's harness through tools/camp-harness.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set GameHour to 12
+console-at ready cow Tamriel 20 -15
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 30
+mark t30
+wait 20
+mark t50
+wait 20
+mark t70
+wait 20
+mark t90
+wait 1
+mark end
+wait 1

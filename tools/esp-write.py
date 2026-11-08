@@ -227,6 +227,26 @@ SHOCK_LAST_LOCAL = 0xAA6
 CAMP_PROPS = 11  # camp_layout's
 ESL_CAMP_PROPS = (0, 1, 2, 5, 6, 7, 8, 9)  # the light, the flame, a log pile, both tents and their bedrolls, a bedroll
 SHOCK_SOUND_TEMPLATE = 0x00185DD3  # UIQuestUpdate
+# The camps' extras (CampLogic.h kCampExtraFirstLocalId, read in camp_ids()):
+# after the kits, the camps' two editions, their rumor's global and line, the
+# escort's two globals, its topic "Safety" and three lines - the refugees'
+# greeting asking to be led (it adds the topic), the topic's yes (its result
+# script sets the ask global, the plugin reads it), their greeting on the way
+# - its follow package and the refugees' camp life: sleep near where they
+# stand at night (aaaSleepCurrent22x8), wander about it otherwise (TWander).
+GREETING_TOPIC = 0x000000C8
+GET_IS_ID = 72  # the condition function (UESP CS wiki, GetIsID)
+CONDITION_OR = 0x01
+INFO_GOODBYE = 0x01
+# A result script "set <global> to 1", as Oblivion.esm's INFO 000A343E has it
+# (read 2026-11-08: SCHR one reference, 11 bytes compiled; SCDA 'set', the
+# global as reference 1, 'to' 1): only its SCRO and SCTX differ.
+SET_GLOBAL_SCHR = bytes.fromhex("00000000010000000b0000000000000000000000")
+SET_GLOBAL_SCDA = bytes.fromhex("1500070047010002002031")
+WANDER_TEMPLATE = 0x000177D6  # TWander: wander near the current location, 300 units, all day
+SLEEP_TEMPLATE = 0x000A3A5A   # aaaSleepCurrent22x8: sleep near the current location, 1000 units, 22 for 8 hours
+REFUGEE_WANDER_UNITS = 600
+ESCORT_FOLLOW_UNITS = 200
 
 
 def load_places_module():
@@ -251,6 +271,12 @@ def camp_ids() -> dict[str, int]:
                                                         text).group(1), 16)
     ids["outfits"] = [[int(v, 16) for v in re.findall(r"0x[0-9A-Fa-f]+", row)]
                       for row in re.findall(r"\{([^{}]+)\}", outfits)]
+    if "kCampExtraFirstLocalId = kCampLocalIdEnd;" not in text:
+        raise SystemExit("CampLogic.h no longer reads kCampExtraFirstLocalId = kCampLocalIdEnd;")
+    extra = ids["kCampFirstLocalId"] + ids["kCampKits"] * ids["kCampSlots"]
+    ids["kCampExtraFirstLocalId"] = extra
+    for name, offset in re.findall(r"inline constexpr UInt32 (k\w+) = kCampExtraFirstLocalId \+ (\d+);", text):
+        ids[name] = extra + int(offset)
     return ids
 
 
@@ -270,10 +296,12 @@ def camp_base_index(camp: int, slot: int) -> int:
     return 12 + camp % 2
 
 
-def build_refugee(template: list[tuple[bytes, bytes]], edid: str, outfit: list[int], trader: bool) -> bytes:
-    """A refugee off a bandit's record: EDID, FULL, no factions, packages,
-    script or spells, the outfit in place of its things, generic and never
-    respawning, calm; a trader buys and sells, with barter gold."""
+def build_refugee(template: list[tuple[bytes, bytes]], edid: str, outfit: list[int], trader: bool,
+                  packages: list[int] = ()) -> bytes:
+    """A refugee off a bandit's record: EDID, FULL, no factions, script or
+    spells, the camp life's `packages` in place of its own, the outfit in
+    place of its things, generic and never respawning, calm; a trader buys
+    and sells, with barter gold."""
     out = b""
     dressed = False
     for kind, data in template:
@@ -296,6 +324,9 @@ def build_refugee(template: list[tuple[bytes, bytes]], edid: str, outfit: list[i
                 out += b"".join(subrecord(b"CNTO", struct.pack("<Ii", item, 1)) for item in outfit)
                 dressed = True
             data = bytes([5, 70, 50, 50]) + struct.pack("<I", CAMP_SERVICES if trader else 0) + data[8:]
+            out += subrecord(kind, data)
+            out += b"".join(subrecord(b"PKID", struct.pack("<I", form)) for form in packages)
+            continue
         out += subrecord(kind, data)
     return out
 
@@ -469,10 +500,11 @@ def pool_local_id(city: int, slot: int) -> int:
 
 LOCAL_POOL_IDS = sorted(pool_local_id(c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL))
 BROADSHEET_TEMPLATE = 0x0006D6F3  # Broadsheet01VampireNest
-EDITION_COUNT = 34  # NewsLogic.h kEditionCount
+EDITION_COUNT = 36  # NewsLogic.h kEditionCount
 # The first 18 (4.9) at 0x8FC.., the siege's 16 (4.12) after the siege pool
 # (NewsLogic.h EditionLocalId).
-LOCAL_EDITION_IDS = [0x8FC + i for i in range(18)] + [0x9B7 + i for i in range(EDITION_COUNT - 18)]
+LOCAL_EDITION_IDS = ([0x8FC + i for i in range(18)] + [0x9B7 + i for i in range(16)]
+                     + [0xA38 + i for i in range(EDITION_COUNT - 34)])  # the camps' two: CampLogic.h kCampExtraFirstLocalId
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
@@ -816,6 +848,56 @@ def build_rumor(quest_form: int, global_form: int, text: str, flags: int = 0) ->
     return out
 
 
+def build_line(quest_form: int, text: str, conditions: bytes, flags: int = 0, add_topic: int = 0,
+               set_global: int = 0, set_name: str = "") -> bytes:
+    """A topic's line (4.20.6's escort): DATA (type 0, a topic's, as GREETING
+    is), QSTI the quest, PNAM none (first), NAME the topic it adds, TRDT
+    neutral, NAM1 the text, NAM2 no notes, the conditions, then no script or
+    "set <global> to 1" (SET_GLOBAL_*)."""
+    out = subrecord(b"DATA", bytes([0, 0, flags]))
+    out += subrecord(b"QSTI", struct.pack("<I", quest_form))
+    out += subrecord(b"PNAM", struct.pack("<I", 0))
+    if add_topic:
+        out += subrecord(b"NAME", struct.pack("<I", add_topic))
+    out += subrecord(b"TRDT", struct.pack("<IiIB3s", 0, 50, 0, 1, b"\0\0\0"))
+    out += subrecord(b"NAM1", zstring(text))
+    out += subrecord(b"NAM2", b"\0")
+    out += conditions
+    if set_global:
+        out += subrecord(b"SCHR", SET_GLOBAL_SCHR) + subrecord(b"SCDA", SET_GLOBAL_SCDA)
+        out += subrecord(b"SCTX", f"set {set_name} to 1".encode("latin-1"))
+        out += subrecord(b"SCRO", struct.pack("<I", set_global))
+    else:
+        out += subrecord(b"SCHR", bytes(20))
+    return out
+
+
+def refugee_conditions(bases: list[int], global_form: int, value: float) -> bytes:
+    """The speaker one of the refugees' bases (GetIsID, OR'd), and the global
+    at `value`."""
+    out = b""
+    for k, base in enumerate(bases):
+        flag = CONDITION_OR if k < len(bases) - 1 else 0
+        out += subrecord(b"CTDA", struct.pack("<B3xfIIII", flag, 1.0, GET_IS_ID, base, 0, 0))
+    out += subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, value, GET_GLOBAL_VALUE, global_form, 0, 0))
+    return out
+
+
+def build_package(template: list[tuple[bytes, bytes]], edid: str, radius: int = -1, follow_units: int = -1) -> bytes:
+    """A package off `template`: its EDID, the location's radius (PLDT) or the
+    follow distance (PTDT) set when given."""
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring(edid)
+        elif kind == b"PLDT" and radius >= 0:
+            data = data[:8] + struct.pack("<i", radius)
+        elif kind == b"PTDT" and follow_units >= 0:
+            data = data[:8] + struct.pack("<i", follow_units)
+        out += subrecord(kind, data)
+    return out
+
+
 def topic_group(topic: int, records: bytes) -> bytes:
     """A topic's children (GRUP type 7, labelled with the DIAL's form ID)."""
     return b"GRUP" + struct.pack("<IIiI", 20 + len(records), topic, 7, 0) + records
@@ -939,9 +1021,20 @@ def main() -> int:
     camp_templates = [find_record(esm, buf, b"NPC_", t)
                       for t in CAMP_MEN_TEMPLATES + CAMP_WOMEN_TEMPLATES + CAMP_TRADER_TEMPLATES]
     camp_base_forms = [index | (ids["kCampBaseFirstLocalId"] + i) for i in range(ids["kCampBaseCount"])]
+    refugee_packages = [index | ids["kRefugeeSleepLocalId"], index | ids["kRefugeeWanderLocalId"]]
     camp_bases = b"".join(
-        record(b"NPC_", form, build_refugee(tpl, f"WalkersRefugee{i:02d}", ids["outfits"][i], i >= 12))
+        record(b"NPC_", form, build_refugee(tpl, f"WalkersRefugee{i:02d}", ids["outfits"][i], i >= 12,
+                                            refugee_packages))
         for i, (form, tpl) in enumerate(zip(camp_base_forms, camp_templates)))
+    if ids["kCampExtraEnd"] > SHOCK_FIRST_LOCAL or LOCAL_EDITION_IDS[34] != ids["kCampExtraFirstLocalId"]:
+        raise SystemExit("CampLogic.h's extras overlap the shock sounds, or the camps' editions moved")
+    packages += record(b"PACK", index | ids["kEscortFollowLocalId"],
+                       build_package(follow_template, "WalkersRefugeeFollow", follow_units=ESCORT_FOLLOW_UNITS))
+    packages += record(b"PACK", index | ids["kRefugeeWanderLocalId"],
+                       build_package(find_record(esm, buf, b"PACK", WANDER_TEMPLATE), "WalkersRefugeeWander",
+                                     radius=REFUGEE_WANDER_UNITS))
+    packages += record(b"PACK", index | ids["kRefugeeSleepLocalId"],
+                       build_package(find_record(esm, buf, b"PACK", SLEEP_TEMPLATE), "WalkersRefugeeSleep"))
     chest_form = index | ids["kCampChestLocalId"]
     camp_marker_forms = [index | (ids["kCampMarkerFirstLocalId"] + i) for i in range(ids["kCampShownMost"])]
     camp_travel_forms = [index | (ids["kCampTravelFirstLocalId"] + i) for i in range(ids["kCampShownMost"])]
@@ -1059,9 +1152,15 @@ def main() -> int:
     link_quest_form = index | LOCAL_LINK_QUEST_ID
     siege_globals = [index | (LOCAL_SIEGE_GLOBAL_FIRST + c) for c in range(len(CITIES))]
     night_global = index | LOCAL_NIGHT_GLOBAL
+    camps_global = index | ids["kCampRumorGlobalLocalId"]
+    offer_global = index | ids["kEscortOfferGlobalLocalId"]
+    ask_global = index | ids["kEscortAskGlobalLocalId"]
     globals_group = group(b"GLOB", b"".join(record(b"GLOB", form, build_global(f"WalkersSiege{CITIES[c]}"))
                                             for c, form in enumerate(siege_globals))
-                          + record(b"GLOB", night_global, build_global("WalkersNight")))
+                          + record(b"GLOB", night_global, build_global("WalkersNight"))
+                          + record(b"GLOB", camps_global, build_global("WalkersCamps"))
+                          + record(b"GLOB", offer_global, build_global("WalkersEscortOffer"))
+                          + record(b"GLOB", ask_global, build_global("WalkersEscortAsk")))
     rumors_dial = find_record(esm, buf, b"DIAL", RUMORS_TOPIC)
     dial_data = b"".join(subrecord(k, d) for k, d in rumors_dial) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
     rumor_texts = load_editions_module().rumors()
@@ -1070,7 +1169,30 @@ def main() -> int:
                       for c in range(len(CITIES)))
     rumors += record(b"INFO", index | LOCAL_NIGHT_RUMOR,
                      build_rumor(link_quest_form, night_global, load_editions_module().night_rumor(), INFO_RANDOM))
-    dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors))
+    rumors += record(b"INFO", index | ids["kCampRumorLocalId"],
+                     build_rumor(link_quest_form, camps_global, load_editions_module().camp_rumor(), INFO_RANDOM))
+    # The escort's topic and lines (4.20.6): GREETING (Oblivion.esm's, the
+    # quest added as the Rumors topic is) gets the refugees' two greetings;
+    # the new topic "Safety" its yes, which sets the ask global.
+    greeting_dial = find_record(esm, buf, b"DIAL", GREETING_TOPIC)
+    greeting_data = b"".join(subrecord(k, d) for k, d in greeting_dial) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
+    topic_form = index | ids["kEscortTopicLocalId"]
+    topic_data = (subrecord(b"EDID", zstring("WalkersEscortSafety")) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
+                  + subrecord(b"FULL", zstring("Safety")) + subrecord(b"DATA", bytes([0])))
+    greetings = record(b"INFO", index | ids["kEscortGreetingLocalId"],
+                       build_line(link_quest_form, "The walkers will be back, and we won't last another night out here. "
+                                  "Will you lead us to the city? We'd follow you anywhere safe.",
+                                  refugee_conditions(camp_base_forms, offer_global, 1.0), add_topic=topic_form))
+    greetings += record(b"INFO", index | ids["kEscortOnTheWayLocalId"],
+                        build_line(link_quest_form, "Keep going, we're right behind you. Just don't leave us behind.",
+                                   refugee_conditions(camp_base_forms, offer_global, 2.0), flags=INFO_GOODBYE))
+    yes = record(b"INFO", index | ids["kEscortYesLocalId"],
+                 build_line(link_quest_form, "You'll take us to the city? Thank the Nine! Lead the way - we'll stay "
+                            "close behind you.", refugee_conditions(camp_base_forms, offer_global, 1.0),
+                            flags=INFO_GOODBYE, set_global=ask_global, set_name="WalkersEscortAsk"))
+    dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors)
+                       + record(b"DIAL", GREETING_TOPIC, greeting_data) + topic_group(GREETING_TOPIC, greetings)
+                       + record(b"DIAL", topic_form, topic_data) + topic_group(topic_form, yes))
     # The grab's shock sounds (GrabLogic.h kGrabShockFirstLocalId): copies of
     # UIQuestUpdate (00185DD3, a 2D sound) but EDID and FNAM, the WAVs of
     # tools/grab-shock-sounds.py under Data\Sound\fx\OblivionWalkers.
@@ -1093,12 +1215,13 @@ def main() -> int:
             + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
             + group(b"PACK", packages) + group(b"IDLE", idles))
-    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + exterior_groups_count
+    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + exterior_groups_count  # + the escort's two topic groups
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
                + len(siege_globals) + 1 + len(CITIES) + 2
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
-               + camp_records + 2 + len(shock_forms))
+               + camp_records + 2 + len(shock_forms)
+               + 3 + 1 + 2 + 3 + 3)  # the camps' globals, rumor, two DIALs, three lines, three packages
     next_id = camp_end + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
@@ -1217,10 +1340,27 @@ def main() -> int:
         flags = struct.unpack_from("<I", got[b"ACBS"], 0)[0]
         services = struct.unpack_from("<I", got[b"AIDT"], 4)[0]
         items = [struct.unpack_from("<I", d, 0)[0] for k, d in back if k == b"CNTO"]
-        if any(k in kinds for k in (b"SNAM", b"PKID", b"SCRI", b"SPLO")) or not flags & ACBS_NO_LOW_PROCESSING \
+        packs = [struct.unpack_from("<I", d, 0)[0] for k, d in back if k == b"PKID"]
+        if any(k in kinds for k in (b"SNAM", b"SCRI", b"SPLO")) or packs != refugee_packages \
+                or not flags & ACBS_NO_LOW_PROCESSING \
                 or flags & (ACBS_RESPAWN | ACBS_ESSENTIAL) or got[b"AIDT"][0] != 5 \
                 or services != (CAMP_SERVICES if i >= 12 else 0) or items != ids["outfits"][i]:
             raise SystemExit(f"refugee base {form:08X} reads back wrong")
+    for form, kind_wanted in ((index | ids["kEscortFollowLocalId"], 1), (index | ids["kRefugeeWanderLocalId"], 5),
+                              (index | ids["kRefugeeSleepLocalId"], 4)):
+        back = dict(find_record(esm, plugin, b"PACK", form))
+        if back[b"PKDT"][4] != kind_wanted:
+            raise SystemExit(f"package {form:08X} is not of type {kind_wanted}")
+    back_yes = find_record(esm, plugin, b"INFO", index | ids["kEscortYesLocalId"])
+    yes_got = dict(back_yes)
+    conditions = [d for k, d in back_yes if k == b"CTDA"]
+    if (yes_got[b"SCDA"] != SET_GLOBAL_SCDA or struct.unpack("<I", yes_got[b"SCRO"])[0] != ask_global
+            or len(conditions) != len(camp_base_forms) + 1 or conditions[0][0] != CONDITION_OR
+            or conditions[-2][0] != 0):
+        raise SystemExit("the escort's yes reads back wrong")
+    back_greet = dict(find_record(esm, plugin, b"INFO", index | ids["kEscortGreetingLocalId"]))
+    if struct.unpack("<I", back_greet[b"NAME"])[0] != topic_form:
+        raise SystemExit("the escort's greeting does not add its topic")
     people = 0
     for k in range(kits):
         for slot in range(13):

@@ -2575,7 +2575,7 @@ void OnLoad(void*) {
 		}
 		if (type == kCampRecordType) {
 			UInt8 camps[kCampImageBytes];
-			const UInt32 read = version == kCampRecordVersion && length <= sizeof(camps)
+			const UInt32 read = (version == 2 || version == kCampRecordVersion) && length <= sizeof(camps)
 			                        ? g_serialization->ReadRecordData(camps, length)
 			                        : 0;
 			const bool whole = ReadCampImage(CurrentCamps(), camps, read);

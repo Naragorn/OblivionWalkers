@@ -169,7 +169,54 @@ def editions() -> list[tuple[str, str, str]]:
     out.append(_several())
     out += [_besieged(key, name, region) for key, name, region in CITIES]
     out += [_lifted(key, name, region) for key, name, region in CITIES]
+    out += [_camp_saved(), _camp_lost()]
     return out
+
+
+def _camp_saved() -> tuple[str, str, str]:
+    """A refugee camp defended, or its people brought to a city (4.20.6)."""
+    return (
+        "WalkersCourierCampSaved",
+        "Refugees Saved on the Road!",
+        _sheet(
+            "Refugees Saved on the Road!",
+            [
+                "Not every tale from the roads ends badly. Travellers report that a band of refugees, camped in the "
+                "wilds with little more than a fire and two tents, was saved from the walkers in the last days.",
+                "A lone traveller is said to have stood with them when the dead came out of the dark, and to have "
+                "fought until the last walker fell. Some say the same hero led a whole camp safely to the gates of "
+                "a city.",
+                "The Courier salutes such courage, and reminds its readers that many still wait by their fires along "
+                "the roads of Cyrodiil, hoping for help.",
+            ],
+        ),
+    )
+
+
+def _camp_lost() -> tuple[str, str, str]:
+    """A refugee camp overrun (4.20.6)."""
+    return (
+        "WalkersCourierCampLost",
+        "A Refugee Camp Overrun",
+        _sheet(
+            "A Refugee Camp Overrun",
+            [
+                "Sad news reaches us from the wilds. A camp of refugees who had fled the walkers was found overrun, "
+                "its fire cold and its tents empty.",
+                "Those who passed it tell of the dead walking among the bedrolls - the refugees themselves, risen "
+                "with the rest. Travellers are warned to give the place a wide berth.",
+                "The Courier asks anyone who can wield a blade to look in on the camps along the roads. They cannot "
+                "hold out alone.",
+            ],
+        ),
+    )
+
+
+def camp_rumor() -> str:
+    """The Rumors topic's line about the refugee camps (4.20.6), said at random
+    among the others while [Survivors] Enabled is on."""
+    return ("There are refugees camped all along the roads now, people who fled the walkers with nothing. "
+            "If you see their fire, look in on them - they could use a sword arm.")
 
 
 def night_rumor() -> str:

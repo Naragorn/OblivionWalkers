@@ -2138,7 +2138,7 @@ counts "2 3 5 6 8 9 11 12 14 15 (150 % of the day's)", 12:00 back to 10 and
 35 to 84 (mean about 55) by day after. Open: the headset's feel, a horde at
 night, the rumor heard.
 
-#### 4.20.6 Survivors' camps - `[Survivors] Enabled=1` - step 1 (defending) BUILT 2026-11-05
+#### 4.20.6 Survivors' camps - `[Survivors] Enabled=1` - step 1 (defending) BUILT 2026-11-05, step 2 (escort, things, news, camp life) BUILT 2026-11-08
 
 Groups of refugees on the roads and in small camps, to escort to a city or
 to hold against a horde; a camp overrun becomes walkers. Cost **large**:
@@ -2203,9 +2203,8 @@ How (`CampLogic.h`, `CampPlaces.h`, `CampSpots.h`, `Camps.cpp`,
   INI (a test switch).
 
 Deviations from the design, none silent:
-- The escort (to the nearest city, 7 game days there) is step 2, not built.
-- "Gold or things": gold only; things (a leveled item) not built.
-- "The news": no Courier edition or rumor of the camps yet.
+- The escort, "gold or things" and the news: built 2026-11-08 (step 2,
+  below).
 - Rewards come only for an attack the player was at when it was shown; a
   camp that holds while he is away gives none.
 - The end rule at camps (4.17): with DieOnlyBeheaded=1 and OBVR cutting
@@ -2223,8 +2222,8 @@ Deviations from the design, none silent:
   OBVR's measurements, not run here. OBVR notes its roster stops at 64
   actors (a camp attack had 142): 'WGCT' works around it, its killing-blow
   search does not yet.
-- The refugees stand where they were put (no packages); after a fight they
-  stay where it left them; a refugee who comes back gets up where he lay.
+- The refugees stood where they were put (no packages) until 2026-11-08:
+  since then they sleep and wander about where they stand (step 2, below).
 
 Measured (harness/camp-defend.txt through tools/camp-harness.sh, Linux,
 headless, 2026-11-05, PASS both): the twelve camps set up at the load (7
@@ -2251,7 +2250,79 @@ dispatched: 1)" and "ended at camp 07 ... N left"; one refugee dead (rising);
 the sixth walker still fighting when the run ended. The head flying off not
 seen (OBVR does not handle 'WGCT' yet; headless).
 
-Open for Nadi: the escort (step 2).
+Open for Nadi: the escort (step 2) - built 2026-11-08, below.
+
+**Step 2, BUILT 2026-11-08** (Nadi, 2026-11-08: "go A B C D. 1) passt, und
+reward gibts/skaliert je nachdem wieviele überleben. 2) ja" - A the escort,
+B things, C the news, D the refugees' camp life; 1 the failure rule proposed
+- all dead, or left behind farther than 5000 units; 2 a reward of its own on
+arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
+`RewardThings=1`, `Escort=1`, `EscortFame=2`, `EscortGold=300`,
+`EscortBehindUnits=5000`, `EscortStayDays=7`; test switches INI only:
+`TestEscort=N`, `TestEscortBehind=1`.
+- B, things: a defended camp gives one thing, an escort one for each two
+  who made it (rounded up). A thing is an entry of one of Oblivion.esm's
+  LL1LootWeapon100 (00032D6E), LL1LootArmor100 (00032D79) or
+  LL1LootPotions2Average (00058F36), drawn at random, picked by the plugin
+  for the player's level (`PickLeveled`: the top level at or below his, and
+  every entry down to 8 below it; nested lists followed) and given by
+  AddItem. Derived, not read off the engine: the 8 is the game's default
+  iLevItemLevelDifferenceMax (UESP's leveled lists page), the player's level
+  read at his TESNPC's TESActorBaseData +0x0E (xOBSE GameForms.h) - logged at
+  each thing ("at the player's level N"). Not used: AddItem with the list
+  itself (whether the engine resolves a list there is not documented - CS
+  wiki AddItem says nothing; xOBSE's CalcLeveledItem exists but is a script
+  function).
+- C, the news: two Courier editions, "Refugees Saved on the Road!" (a camp
+  defended or brought to a city) and "A Refugee Camp Overrun" - the camps'
+  latest within RecentDays, after the sieges and the attacked cities, before
+  a horde heading (`ChooseEdition`; co-save NEWS version 4). The books are
+  generic: they name no camp (the editions are pre-written ESP books). A
+  rumor at random among the others while the camps are on (global
+  WalkersCamps).
+- D, camp life: the refugees' bases carry two packages - sleep near where
+  they stand at night (a copy of aaaSleepCurrent22x8, 000A3A5A: 22:00 for 8
+  hours, 1000 units) and wander about it otherwise (TWander, 000177D6, at 600
+  units); "EvaluatePackage" after each Enable, so "where they stand" is the
+  camp after a kit moved. Whether they lie down on the camp's bedrolls and
+  how it looks: not seen (headless).
+- A, the escort: the refugees' greeting (GREETING, 000000C8, two lines with
+  the speaker one of the 14 refugee bases by GetIsID, OR'd, and the global
+  WalkersEscortOffer at 1) asks to be led to the city and adds the topic
+  "Safety"; its line's result script sets WalkersEscortAsk to 1 (the
+  compiled bytes of Oblivion.esm's INFO 000A343E "set HighwaymanGotMoney to
+  1", its SCRO swapped). The plugin sets the offer (1 while a living,
+  unattacked camp with a kit is within 3000 units and no escort runs, 2 on
+  the way - their greeting then "Keep going ..."), reads the ask, and begins
+  the escort of the nearest such camp to the city gate whose outside spot is
+  nearest the camp (`NearestGate`). Its people get the follow package
+  (FollowPlayer's copy, 200 units) by AddScriptPackage, sent again every
+  5 s (it does not take in dialogue - CS wiki AddScriptPackage). Each second
+  outdoors: the nearest of them farther than EscortBehindUnits from the
+  player fails it - RemoveScriptPackage, their kit freed, the camp living
+  again (set up anew when the player comes); all dead fails it - the camp
+  empty (`Left`), its dead rise as any; one within 1500 units of the gate
+  brings them - fame and gold scaled by those who made it (`ScaledReward`,
+  half up), things, the line "You brought N of M refugees safe to <gate>",
+  the quest sound, the news; RemoveScriptPackage, they wander by the gate.
+  Their kit stays with them while the player is within 18000 units of the
+  gate, then is freed (they are in the city, unseen); EscortStayDays after
+  the arrival they leave the game, the camp `Left` - settled again by
+  ReturnChancePercent as an overrun camp. One escort at a time. Co-save
+  CAMP version 3 (the escort's camp, gate, those set out, arrival day, kit;
+  version 2 read with none); a save loaded on the way keeps the kit where
+  its people are.
+- Deviation, said now: "stays 7 game days in the city" - they stay by the
+  gate outside while the player is near, then unseen; they are not moved
+  into the city's worldspace (where inside is not chosen, and a MoveTo into
+  another worldspace for 4 kits is unmeasured). Cheap to change if wanted.
+- Unknowns, for the harness and the headset: whether the greeting wins over
+  the vanilla greetings for a refugee (PNAM none - first in the topic - as
+  the siege's rumors come first; not measured), whether the follow package
+  holds across a load, whether the followers keep up through doors.
+- Harness `camp-escort` (tools/camp-harness.sh CAMP_SCENARIO=escort, with
+  ESCORT_BEHIND=1 the failure): the ask set as the yes would, the distance
+  after 20 s, then arrival at the gate (or the failure). Not run yet.
 
 Dynamic camps (Nadi, 2026-11-05/06: "Go dynamic") - **BUILT 2026-11-06**,
 props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,

@@ -55,6 +55,10 @@ const char* EditionText(const Edition& edition) {
 			return "the siege of";
 		case EditionKind::Lifted:
 			return "the siege lifted at";
+		case EditionKind::CampSaved:
+			return "a refugee camp saved";
+		case EditionKind::CampLost:
+			return "a refugee camp overrun";
 		case EditionKind::General:
 		default:
 			return "the outbreak";
@@ -104,6 +108,13 @@ void NoteGateAttack(UInt32 city) {
 	const float now = GameTime();
 	if (now >= 0.0f) {
 		NoteCityAttack(g_news, city, now);
+	}
+}
+
+void NoteCampInNews(bool saved) {
+	const float now = GameTime();
+	if (now >= 0.0f) {
+		NoteCampNews(g_news, saved, now);
 	}
 }
 

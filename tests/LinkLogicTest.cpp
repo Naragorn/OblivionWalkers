@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 160,
-	      "160 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 166,
+	      "166 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -285,7 +285,27 @@ void TestValues() {
 	          kLinkSettings[questLists].kind == walkers::LinkKind::Toggle &&
 	          kLinkSettings[questLists].effect == walkers::LinkEffect::Spawns &&
 	          walkers::SetLinkValue(rise, replace, questLists, 0.0) && !replace.keepQuestLists,
-	      "KeepQuestLists last, 159: on by default, the spawns redone when switched; off from the menu");
+	      "KeepQuestLists, 159: on by default, the spawns redone when switched; off from the menu");
+	const int things = IndexOf("ini_camps_things");
+	const int escort = IndexOf("ini_camps_escort");
+	const int escortFame = IndexOf("ini_camps_escort_fame");
+	const int escortGold = IndexOf("ini_camps_escort_gold");
+	const int escortBehind = IndexOf("ini_camps_escort_behind");
+	const int escortDays = IndexOf("ini_camps_escort_days");
+	Check(things == 160 && escort == 161 && escortFame == 162 && escortGold == 163 && escortBehind == 164 &&
+	          escortDays == 165 && walkers::LinkValue(rise, replace, things) == 1.0 &&
+	          walkers::LinkValue(rise, replace, escort) == 1.0 && walkers::LinkValue(rise, replace, escortFame) == 2.0 &&
+	          walkers::LinkValue(rise, replace, escortGold) == 300.0 &&
+	          walkers::LinkValue(rise, replace, escortBehind) == 5000.0 &&
+	          walkers::LinkValue(rise, replace, escortDays) == 7.0 && kLinkSettings[escort].effect == walkers::LinkEffect::Live,
+	      "the camps' things and the escort last, 160..165: on, on, fame 2, 300 gold, 5000 units, 7 days, live");
+	Check(walkers::SetLinkValue(rise, replace, things, 0.0) && !rise.camps.rewardThings &&
+	          walkers::SetLinkValue(rise, replace, escort, 0.0) && !rise.camps.escort &&
+	          walkers::SetLinkValue(rise, replace, escortFame, 4.0) && rise.camps.escortFame == 4 &&
+	          walkers::SetLinkValue(rise, replace, escortGold, 500.0) && rise.camps.escortGold == 500 &&
+	          walkers::SetLinkValue(rise, replace, escortBehind, 8000.0) && rise.camps.escortBehindUnits == 8000.0f &&
+	          walkers::SetLinkValue(rise, replace, escortDays, 3.0) && rise.camps.escortStayDays == 3.0f,
+	      "each set from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -374,7 +394,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 26\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 27\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

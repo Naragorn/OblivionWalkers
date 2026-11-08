@@ -6,6 +6,7 @@
 // co-save image.
 
 #include "CampLogic.h"
+#include "CityGates.h"
 
 #include <cmath>
 #include <cstdio>
@@ -331,7 +332,9 @@ void TestImage() {
 	Check(back.camps[63].status == CampStatus::Overrun && back.camps[63].startAt == 3.0f &&
 	          back.camps[63].place == walkers::kCampNoPlace,
 	      "the last of the 64 too; no place stays none");
-	Check(walkers::kCampImageBytes == 4 + 64 * 28 && walkers::kCampRecordVersion == 2, "version 2: 64 camps of 28 bytes");
+	Check(walkers::kCampImageBytes == 4 + 64 * 28 + 20 && walkers::kCampRecordVersion == 3,
+	      "version 3: 64 camps of 28 bytes, then the escort's 20");
+	Check(walkers::kCampImageV2Bytes == 4 + 64 * 28, "version 2's image: the camps alone");
 	image[4] = 9;
 	image[8] = 0xFF;
 	image[9] = 0xFF;
@@ -440,6 +443,146 @@ void TestKits() {
 	Check(kits[1] != 10, "a camp not in Tamriel's distance: its kit freed");
 }
 
+
+void TestThings() {
+	std::printf("The things reward: a pick off a leveled list\n");
+	const UInt16 levels[] = {1, 1, 3, 6, 9, 12, 16, 20};
+	Check(walkers::PickLeveled(levels, 8, 0, 0) == -1, "level 0, the lowest entry at 1: nothing");
+	Check(walkers::PickLeveled(levels, 0, 5, 0) == -1, "an empty list: nothing");
+	Check(walkers::PickLeveled(levels, 8, 1, 0) == 0 && walkers::PickLeveled(levels, 8, 1, 1) == 1,
+	      "level 1: the two at 1, the roll picks");
+	Check(walkers::PickLeveled(levels, 8, 2, 2) == 0, "level 2: still only the two at 1 (the roll wraps)");
+	Check(walkers::PickLeveled(levels, 8, 10, 0) == 0 && walkers::PickLeveled(levels, 8, 10, 4) == 4,
+	      "level 10: the top 9, down to 1 (9 - 8): five, from the first");
+	Check(walkers::PickLeveled(levels, 8, 30, 0) == 5 && walkers::PickLeveled(levels, 8, 30, 2) == 7,
+	      "level 30: the top 20, down to 12: three");
+	Check(walkers::CampThings(true, 6, 6, false) == 1 && walkers::CampThings(true, 1, 6, false) == 1,
+	      "a defended camp: one thing however many live");
+	Check(walkers::CampThings(true, 6, 6, true) == 3 && walkers::CampThings(true, 5, 6, true) == 3 &&
+	          walkers::CampThings(true, 1, 6, true) == 1,
+	      "an escort: one thing for each two who made it, rounded up");
+	Check(walkers::CampThings(false, 6, 6, true) == 0 && walkers::CampThings(true, 0, 6, true) == 0,
+	      "RewardThings off, or nobody made it: none");
+}
+
+void TestScaled() {
+	std::printf("The escort's reward scales with those who made it\n");
+	Check(walkers::ScaledReward(300, 6, 6) == 300 && walkers::ScaledReward(300, 3, 6) == 150,
+	      "all six: the whole 300; three of six: half");
+	Check(walkers::ScaledReward(2, 1, 6) == 0 && walkers::ScaledReward(2, 2, 6) == 1 && walkers::ScaledReward(2, 5, 6) == 2,
+	      "fame 2: a sixth rounds to 0, a third to 1 (half up), five sixths to 2");
+	Check(walkers::ScaledReward(300, 0, 6) == 0 && walkers::ScaledReward(300, 4, 0) == 0, "none alive, none set out: 0");
+}
+
+void TestEscort() {
+	std::printf("The escort\n");
+	CampSettings s;
+	CampsState st;
+	st.camps[0] = Set(s);
+	st.camps[1] = Set(s);
+	CampEvent ev[8];
+	Check(walkers::CampOffersEscort(st, s, 0), "a living camp, nobody escorted: it asks");
+	CampSettings no = s;
+	no.escort = false;
+	Check(!walkers::CampOffersEscort(st, no, 0), "Escort off: it does not");
+	st.camps[1].status = CampStatus::Attacked;
+	Check(!walkers::CampOffersEscort(st, s, 1), "an attacked camp does not ask");
+	st.camps[1].status = CampStatus::Living;
+	st.camps[0].startAt = 5.5f;
+	Check(walkers::BeginEscort(st, s, 0, 3, 5.0f, ev, 8) == 1 && ev[0].kind == CampEvent::EscortBegin &&
+	          st.camps[0].status == CampStatus::Escort && st.escort.camp == 0 && st.escort.gate == 3 &&
+	          st.escort.started == 7 && st.camps[0].startAt < 0.0f,
+	      "begun: the camp on the way, the gate, seven set out, its coming attack off");
+	Check(!walkers::CampOffersEscort(st, s, 1) && walkers::BeginEscort(st, s, 1, 2, 5.0f, ev, 8) == 0,
+	      "one escort at a time: the other camp neither asks nor begins");
+	Check(walkers::StepEscort(st, s, 5.1f, -1.0f, -1.0f, ev, 8) == 0, "nothing known (indoors): nothing");
+	Check(walkers::StepEscort(st, s, 5.1f, 4000.0f, 20000.0f, ev, 8) == 0, "4000 behind, far from the gate: on");
+	CampsState behind = st;
+	Check(walkers::StepEscort(behind, s, 5.2f, 5001.0f, 20000.0f, ev, 8) == 1 && ev[0].kind == CampEvent::EscortBehind &&
+	          behind.camps[0].status == CampStatus::Living && behind.escort.camp == -1,
+	      "past EscortBehindUnits: failed, they go back to their camp, living");
+	CampsState dead = st;
+	dead.camps[0].lost = dead.camps[0].roster;
+	Check(walkers::StepEscort(dead, s, 5.2f, -1.0f, -1.0f, ev, 8) == 1 && ev[0].kind == CampEvent::EscortDead &&
+	          dead.camps[0].status == CampStatus::Left && dead.escort.camp == -1,
+	      "all dead on the way: failed, the camp empty");
+	Check(walkers::CampPersonDied(st.camps[0], 0, 0, ev, 8) == 0 && walkers::CampAlive(st.camps[0]) == 6 &&
+	          st.camps[0].status == CampStatus::Escort,
+	      "one dies on the way: lost, the escort goes on");
+	Check(walkers::StepEscort(st, s, 5.3f, 200.0f, walkers::kEscortArriveUnits, ev, 8) == 1 &&
+	          ev[0].kind == CampEvent::EscortArrived && st.camps[0].status == CampStatus::Gone &&
+	          st.escort.arrivedAt == 5.3f && st.escort.camp == 0,
+	      "within reach of the gate: arrived, in the city");
+	Check(walkers::StepEscort(st, s, 6.0f, 9000.0f, 9000.0f, ev, 8) == 0, "in the city: the distances no longer count");
+	Check(walkers::StepEscort(st, s, 12.29f, -1.0f, -1.0f, ev, 8) == 0, "not yet 7 days: they stay");
+	Check(walkers::StepEscort(st, s, 12.31f, -1.0f, -1.0f, ev, 8) == 1 && ev[0].kind == CampEvent::EscortLeft &&
+	          st.camps[0].status == CampStatus::Left && st.escort.camp == -1,
+	      "7 game days on: they leave the game, the camp empty");
+	Check(walkers::CampOffersEscort(st, s, 1), "the escort over: the other camp asks again");
+	const UInt32 back[] = {5};
+	Rolls ret{back, 1};
+	st.lastDay = 12;
+	Check(walkers::StepCampDays(st, s, 13.0f, ret, ev, 8) >= 1 && st.camps[0].status == CampStatus::Living &&
+	          walkers::CampAlive(st.camps[0]) == 7,
+	      "an empty camp comes back by ReturnChancePercent as an overrun one does");
+	CampSettings off = s;
+	off.enabled = false;
+	Check(!walkers::CampOffersEscort(st, off, 1) && walkers::StepEscort(st, off, 14.0f, 9000.0f, 0.0f, ev, 8) == 0,
+	      "camps off: no ask, no step");
+	Check(walkers::CampPeopleOut(st.camps[1], true) == st.camps[1].roster, "a living camp's people are out");
+	Camp walking = st.camps[1];
+	walking.status = CampStatus::Escort;
+	walking.lost = 1;
+	Check(walkers::CampPeopleOut(walking, true) == (walking.roster & ~1u), "on the way: the living out");
+	walking.status = CampStatus::Gone;
+	Check(walkers::CampPeopleOut(walking, true) == (walking.roster & ~1u), "in the city: still out");
+	walking.status = CampStatus::Left;
+	Check(walkers::CampPeopleOut(walking, true) == 0, "left: none");
+	walking.status = CampStatus::Living;
+	Check(walkers::CampPeopleOut(walking, false) == 0, "camps off: none");
+}
+
+void TestEscortImage() {
+	std::printf("The escort in the co-save\n");
+	CampSettings s;
+	CampsState st;
+	st.camps[2] = Set(s);
+	st.camps[2].status = CampStatus::Gone;
+	st.escort.camp = 2;
+	st.escort.gate = 11;
+	st.escort.started = 5;
+	st.escort.arrivedAt = 8.25f;
+	st.escort.kit = 3;
+	UInt8 image[walkers::kCampImageBytes];
+	walkers::CampImage(st, image, sizeof(image));
+	CampsState back;
+	Check(walkers::ReadCampImage(back, image, sizeof(image)) && back.camps[2].status == CampStatus::Gone &&
+	          back.escort.camp == 2 && back.escort.gate == 11 && back.escort.started == 5 &&
+	          back.escort.arrivedAt == 8.25f && back.escort.kit == 3,
+	      "the escort read back: its camp, gate, those set out, the day it arrived, its kit");
+	Check(walkers::ReadCampImage(back, image, walkers::kCampImageV2Bytes) && back.escort.camp == -1 &&
+	          back.camps[2].status == CampStatus::Gone,
+	      "a version 2 image: no escort");
+	image[4 + 2 * 28] = static_cast<UInt8>(CampStatus::Left);
+	walkers::ReadCampImage(back, image, sizeof(image));
+	Check(back.camps[2].status == CampStatus::Left, "the new statuses read");
+	st.escort.camp = 70;
+	walkers::CampImage(st, image, sizeof(image));
+	walkers::ReadCampImage(back, image, sizeof(image));
+	Check(back.escort.camp == -1, "an escort's camp out of range: none");
+}
+
+void TestNearestGate() {
+	std::printf("The nearest city gate\n");
+	const walkers::CityGate gates[] = {
+		{walkers::City::Anvil, 1, 0, 0, 0, 100.0f, 0.0f, 0.0f, 0, "a"},
+		{walkers::City::Bruma, 2, 0, 0, 0, 5000.0f, 5000.0f, 0.0f, 0, "b"},
+	};
+	Check(walkers::NearestGate(gates, 2, 4000.0f, 4500.0f) == 1 && walkers::NearestGate(gates, 2, 0.0f, 0.0f) == 0,
+	      "the gate whose outside spot is nearest");
+	Check(walkers::NearestGate(gates, 0, 0.0f, 0.0f) == -1, "no gates: none");
+}
+
 }  // namespace
 
 int main() {
@@ -453,6 +596,11 @@ int main() {
 	TestImage();
 	TestPlaces();
 	TestKits();
+	TestThings();
+	TestScaled();
+	TestEscort();
+	TestEscortImage();
+	TestNearestGate();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

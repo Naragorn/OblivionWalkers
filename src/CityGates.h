@@ -74,4 +74,21 @@ inline const HordeGate* HordeGates() {
 	return gates;
 }
 
+// The gate whose outside spot lies nearest x, y (an escort's goal, 4.20.6);
+// -1 with none.
+inline int NearestGate(const CityGate* gates, UInt32 n, float x, float y) {
+	int best = -1;
+	float bestD = 0.0f;
+	for (UInt32 k = 0; k < n; ++k) {
+		const float dx = gates[k].outX - x;
+		const float dy = gates[k].outY - y;
+		const float d = dx * dx + dy * dy;
+		if (best < 0 || d < bestD) {
+			best = static_cast<int>(k);
+			bestD = d;
+		}
+	}
+	return best;
+}
+
 }  // namespace walkers
