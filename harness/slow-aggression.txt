@@ -1,12 +1,13 @@
 # Slow aggression (docs/walkers-spec.md 4.21; Nadi, 2026-11-08): a walker
 # turns on the player only once the player has stayed within 1000 units of it
-# for 5 s. A walker (0x801) is placed 1500 units before the player (out of
-# reach) 2 s after it appears beside him - too short for the 5 s - for 10 s,
-# then moved to 600 units. OblivionWalkers.log (read by
+# for its time, drawn per pair between 2 and 5 s (since d1d5186). A walker
+# (0x801) is placed 1500 units before the player (out of reach) 1 s after it
+# appears beside him - below the fewest 2 s - for 10 s, then moved to 600
+# units. OblivionWalkers.log (read by
 # hand - the runner checks OBVR.log only): "Slow aggression: on - the 64
 # walker records' aggression 0 (the first's own 100)", no "turns on" while
 # it stands far, then "Slow aggression: walker ... turns on 00000014, near
-# it 5.0 s (StartCombat handed to xOBSE: 1)" some 5 s after the move. The
+# it x s (drawn x of 2.0..5.0 ...)" 2 to 5 s after the move. The
 # log's "Spawns: ... carries a quest item - kept" lines show the quest item
 # rule (SQ03's goblins among them).
 #
@@ -35,7 +36,7 @@ right pos 0.20 -0.40 -0.30
 left pos -0.20 -0.40 -0.30
 wait 1
 mark ready
-wait 2
+wait 1
 mark placed
 wait 10
 mark near
