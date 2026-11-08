@@ -2506,6 +2506,10 @@ Harness `harness/slow-aggression.txt`, 2026-11-08 (Linux, headless):
 - The test cannot show the calm phase: the walker came back to the player by
   itself while it stood 1500 units off (46 units at the next mark) - it walks
   to him without fighting. Not measured: the 5 s with no fight before.
+- Levels (d1b0fe6), PASS: "for 5.0 to 10.0 s (level 1, drawn per pair)",
+  "turns on 00000014, near it 6.6 s (drawn 6.5 of 5.0..10.0)", then the
+  walker held the player's right arm. Only Medium run; Low, High and Custom
+  only in the unit flows.
 Not measured: how guards, sieges and camps feel with calm walkers (the
 guards are sent by StartCombat already, 4.11b); the headset.
 

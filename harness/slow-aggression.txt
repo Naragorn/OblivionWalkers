@@ -15,6 +15,9 @@
 # hold and three bites. 10:29 (StartCombat once) the walker swung once and
 # walked off - hence the fight sent again every second. The calm phase is not
 # shown: the walker walked back to the player by itself while far.
+# Result 2026-11-08 (levels, d1b0fe6, Medium) PASS: "a walker attacks one near
+# it for 5.0 to 10.0 s (level 1, drawn per pair)", one "turns on 00000014,
+# near it 6.6 s (drawn 6.5 of 5.0..10.0)", then a hold of the right arm.
 #
 # Runs on OBVR's harness, from the OBVR folder:
 #   python3 tools/hand-script-run.py ../OblivionWalkers/harness/slow-aggression.txt --headless \
