@@ -2707,6 +2707,21 @@ roster line's counts.
     by reference (GetDead) likely still counts - but a walker that rises again, an
     item the quest needs, or a line to speak are lost. Not seen: names built at run
     time, leveled item lists in inventories.
+  - Measured in memory 2026-11-08 (`harness/quest-probe.txt`, Linux, [Debug]
+    QuestProbe=1, Replace.cpp ProbeQuests): at the main menu, before any load, the
+    quests' scripts (TESQuest +0x1C), their stage result scripts and their targets
+    (+0x48, target +0x0C) are in memory with every name resolved - placed references
+    with their base (SQ06's 18BA01 base 18AE3C LVLC, MS18's nine wave refs, SE03A's
+    three knights, TG09Arrow's target 9836C base 3EE6B). A stage item holds its result
+    script inline at +0x0C (the Script vtable 00A49DA4 there, in every item of seven
+    quests); a Script's names at +0x40 {var, next}, a name's form at +0x08. Dialogue
+    result scripts are read from the file on demand (xOBSE GameForms.h TESTopicInfo
+    unk34) - not in memory; only NPCAdventurer would need them.
+  - What a keep rule would keep (the audit, quest scripts, stage results, targets):
+    20 lists named directly, 43 with the lists nested in them. Among them generic
+    lists used across the world: LL1MythicEnemy100 (FGC03's respawn), LL1ConjurerDaeda75
+    (TG09's target) directly; LL1BanditMelee100, LL1Minotaur100, LL0WraithFaded100 and
+    Shivering Isles creature lists only nested.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem

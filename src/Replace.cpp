@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <cstdio>
+#include <cstring>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -373,6 +374,119 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 	return added;
 }
 
+// MEASUREMENT ONLY (docs/walkers-spec.md 7a, the quest audit's B1/B2): what
+// a quest names in memory. [Debug] QuestProbe=1 logs, for the quests the
+// audit found, the quest script's names, each stage item's embedded result
+// script (found by the Script vtable) and its names, and the targets - with
+// each named form's type and, for a reference, its base. Layouts from xOBSE
+// GameForms.h (TESQuest: script +0x1C, stageList +0x40, targetList +0x48,
+// editorName +0x60; TargetEntry target +0x0C) and Script.h (refList +0x40,
+// RefVariable form +0x08); the stage item's layout is what this measures.
+constexpr UInt8 kFormTypeScript = 0x0D;
+constexpr UInt8 kFormTypeQuest = 0x3B;
+
+void ProbeNames(UInt32 script, const char* what, LogFn log) {
+	UInt32 visited = 0;
+	for (UInt32 node = script + 0x40; LooksLikeObject(node) && visited < 128; node = Read(node + 4), ++visited) {
+		const UInt32 var = Read(node);
+		if (!LooksLikeObject(var)) {
+			continue;
+		}
+		const UInt32 form = Read(var + 8);
+		if (!LooksLikeObject(form)) {
+			log("QuestProbe:   %s name %u: no form (%08X)", what, visited, form);
+			continue;
+		}
+		const UInt8 type = Read8(form + kFormTypeOffset);
+		const UInt32 base = type >= 0x31 && type <= 0x33 ? Read(form + 0x1C) : 0;
+		log("QuestProbe:   %s name %u: %08X type %02X, base %08X type %02X", what, visited, FormIdOf(form), type,
+		    LooksLikeObject(base) ? FormIdOf(base) : 0, LooksLikeObject(base) ? Read8(base + kFormTypeOffset) : 0);
+	}
+}
+
+void ProbeQuests(const char* iniPath, LogFn log) {
+	static int s_runs = 0;
+	if (iniPath == nullptr || GetPrivateProfileIntA("Debug", "QuestProbe", 0, iniPath) == 0 || s_runs >= 2) {
+		return;
+	}
+	++s_runs;
+	const char* const wanted[] = {"SQ06", "MS18", "MG01Destruct", "Dark07Medicine", "TG09Arrow", "SE03A", "SE14"};
+	UInt32 scriptVtbl = 0;
+	const UInt32 buckets = Read(kFormTable + kMapBucketsOffset);
+	const UInt32 bucketCount = Read(kFormTable + kMapBucketCountOffset);
+	for (UInt32 pass = 0; pass < 2; ++pass) {
+		for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
+			for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
+				const UInt32 form = Read(entry + kMapEntryFormOffset);
+				if (!LooksLikeObject(form)) {
+					continue;
+				}
+				const UInt8 type = Read8(form + kFormTypeOffset);
+				if (pass == 0 && type == kFormTypeScript && scriptVtbl == 0) {
+					scriptVtbl = Read(form);
+					log("QuestProbe: run %d, the Script vtable %08X (from %08X)", s_runs, scriptVtbl, FormIdOf(form));
+				}
+				if (pass != 1 || type != kFormTypeQuest) {
+					continue;
+				}
+				const UInt32 nameAt = Read(form + 0x60);
+				if (!LooksLikeObject(nameAt)) {
+					continue;
+				}
+				const char* name = reinterpret_cast<const char*>(nameAt);
+				bool want = false;
+				for (const char* w : wanted) {
+					want = want || std::strcmp(name, w) == 0;
+				}
+				if (!want) {
+					continue;
+				}
+				log("QuestProbe: quest %s %08X, script %08X", name, FormIdOf(form), FormIdOf(Read(form + 0x1C)));
+				if (LooksLikeObject(Read(form + 0x1C))) {
+					ProbeNames(Read(form + 0x1C), "quest script", log);
+				}
+				UInt32 stages = 0;
+				for (UInt32 node = form + 0x40; LooksLikeObject(node) && stages < 64; node = Read(node + 4), ++stages) {
+					const UInt32 stage = Read(node);
+					if (!LooksLikeObject(stage)) {
+						continue;
+					}
+					UInt32 items = 0;
+					for (UInt32 inode = stage + 4; LooksLikeObject(inode) && items < 32; inode = Read(inode + 4), ++items) {
+						const UInt32 item = Read(inode);
+						if (!LooksLikeObject(item)) {
+							continue;
+						}
+						int at = -1;
+						for (UInt32 off = 0; off < 0x100 && at < 0; off += 4) {
+							if (Read(item + off) == scriptVtbl) {
+								at = static_cast<int>(off);
+							}
+						}
+						log("QuestProbe:  stage %u item %u at %08X: Script vtable at +%X", Read8(stage), items, item,
+						    at < 0 ? 0xFFFu : static_cast<UInt32>(at));
+						if (at >= 0) {
+							char what[32];
+							std::snprintf(what, sizeof what, "stage %u result", Read8(stage));
+							ProbeNames(item + static_cast<UInt32>(at), what, log);
+						}
+					}
+				}
+				UInt32 targets = 0;
+				for (UInt32 node = form + 0x48; LooksLikeObject(node) && targets < 16; node = Read(node + 4), ++targets) {
+					const UInt32 target = Read(node);
+					if (!LooksLikeObject(target)) {
+						continue;
+					}
+					const UInt32 ref = Read(target + 0x0C);
+					log("QuestProbe:  target %u: %08X, base %08X", targets, FormIdOf(ref),
+					    LooksLikeObject(ref) ? FormIdOf(Read(ref + 0x1C)) : 0);
+				}
+			}
+		}
+	}
+}
+
 }  // namespace
 
 void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt32 nightPercent, LogFn log) {
@@ -389,6 +503,7 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log) {
+	ProbeQuests(iniPath, log);
 	if (espBase == kNoEsp) {
 		log("Spawns: no ESP, the lists as they are");
 		return 0;
