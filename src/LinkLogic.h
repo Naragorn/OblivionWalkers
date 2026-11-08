@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 23.0;  // 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 24.0;  // 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -325,7 +325,11 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 3, 1, 0, false, LinkEffect::Live},
 	{"ini_slow_aggression", "Slow aggression", "A walker turns on someone only once that one has stayed near it a while.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_slow_aggression_seconds", "Slow aggression: seconds", "How long one must stay near a walker before it attacks.",
+	{"ini_slow_aggression_seconds_min", "Slow aggression: fewest seconds",
+	 "How long one must stay near a walker before it attacks, at the least (drawn at random up to the most).",
+	 LinkKind::Slider, 0, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_slow_aggression_seconds_max", "Slow aggression: most seconds",
+	 "How long one must stay near a walker before it attacks, at the most.",
 	 LinkKind::Slider, 0, 30, 1, 0, false, LinkEffect::Live},
 	{"ini_slow_aggression_units", "Slow aggression: how near", "How near, in game units (1000 is some 14 m).",
 	 LinkKind::Slider, 200, 4000, 100, 0, false, LinkEffect::Live},
@@ -449,8 +453,9 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 152: return rise.camps.campCount;
 		case 153: return rise.grab.shockSound;
 		case 154: return rise.slowAggression.enabled ? 1.0 : 0.0;
-		case 155: return rise.slowAggression.seconds;
-		case 156: return rise.slowAggression.units;
+		case 155: return rise.slowAggression.secondsMin;
+		case 156: return rise.slowAggression.secondsMax;
+		case 157: return rise.slowAggression.units;
 		default: return 0.0;
 	}
 }
@@ -592,8 +597,9 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 152: rise.camps.campCount = whole; break;
 		case 153: rise.grab.shockSound = whole; break;
 		case 154: rise.slowAggression.enabled = on; break;
-		case 155: rise.slowAggression.seconds = static_cast<float>(whole); break;
-		case 156: rise.slowAggression.units = static_cast<float>(whole); break;
+		case 155: rise.slowAggression.secondsMin = static_cast<float>(whole); break;
+		case 156: rise.slowAggression.secondsMax = static_cast<float>(whole); break;
+		case 157: rise.slowAggression.units = static_cast<float>(whole); break;
 		default: return false;
 	}
 	return true;

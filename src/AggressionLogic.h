@@ -2,7 +2,9 @@
 
 // 4.21 Slow aggression (docs/walkers-spec.md; Nadi, 2026-11-08: walkers turn
 // on the player and anyone else only once that one has been near them for a
-// while; default on, 5 s, near meaning some 14 m, no line of sight needed).
+// while; default on, near meaning some 14 m, no line of sight needed; the
+// while drawn at random for each one, 2 to 5 s by default - Nadi, 2026-11-08:
+// "statt 5s machen wir ein random aus x,y default 2,5 s").
 //
 // How: the walker records' aggression goes to 0, so no walker starts a fight
 // on its own (the engine's own rule: a creature attacks when its aggression
@@ -20,8 +22,11 @@ namespace walkers {
 struct SlowAggressionSettings {
 	// [Zombies] SlowAggression: on by default.
 	bool enabled = true;
-	// [Zombies] SlowAggressionSeconds: how long one must stay near.
-	float seconds = 5.0f;
+	// [Zombies] SlowAggressionSecondsMin / SlowAggressionSecondsMax: how long
+	// one must stay near, drawn between the two for each walker and each one
+	// near it.
+	float secondsMin = 2.0f;
+	float secondsMax = 5.0f;
 	// [Zombies] SlowAggressionUnits: how near, in game units (1000 is some
 	// 14 m: 1 unit 1.43 cm, 70 units a yard).
 	float units = 1000.0f;
@@ -33,6 +38,16 @@ inline UInt8 RecordAggression(bool enabled, UInt8 original) { return enabled ? 0
 // Near: within `units` in all three axes together.
 inline bool InReach(float dx, float dy, float dz, float units) {
 	return dx * dx + dy * dy + dz * dz <= units * units;
+}
+
+// The time a new pair must stay near: `roll` (0..1, held inside) of the way
+// from the fewest to the most seconds; the two taken in order, whichever is
+// set higher.
+inline float NeededSeconds(const SlowAggressionSettings& settings, float roll) {
+	const float low = settings.secondsMin < settings.secondsMax ? settings.secondsMin : settings.secondsMax;
+	const float high = settings.secondsMin < settings.secondsMax ? settings.secondsMax : settings.secondsMin;
+	const float r = roll < 0.0f ? 0.0f : (roll > 1.0f ? 1.0f : roll);
+	return low + (high - low) * r;
 }
 
 inline constexpr UInt32 kNearPairsMost = 512;
@@ -52,6 +67,7 @@ struct NearPair {
 	UInt32 walker = 0;
 	UInt32 target = 0;
 	float seconds = 0.0f;
+	float needed = 0.0f;  // drawn once, when the pair is new
 	float sinceSent = 0.0f;
 	bool fired = false;
 	bool seen = false;
@@ -70,10 +86,11 @@ inline void BeginNearTick(NearTracker& tracker) {
 }
 
 // `target` is near `walker` this tick, `dt` seconds after the last one:
-// Start once it has stayed near for the setting's seconds in one go, then
-// Keep every kNearKeepSeconds while it stays near.
+// Start once it has stayed near for its drawn time in one go (`roll` draws it
+// when the pair is new, NeededSeconds), then Keep every kNearKeepSeconds
+// while it stays near.
 inline NearVerdict NoteNear(NearTracker& tracker, const SlowAggressionSettings& settings, UInt32 walker, UInt32 target,
-                     float dt) {
+                            float dt, float roll) {
 	if (!settings.enabled) {
 		return NearVerdict::None;
 	}
@@ -91,6 +108,7 @@ inline NearVerdict NoteNear(NearTracker& tracker, const SlowAggressionSettings& 
 		*pair = NearPair{};
 		pair->walker = walker;
 		pair->target = target;
+		pair->needed = NeededSeconds(settings, roll);
 	}
 	pair->seen = true;
 	pair->seconds += dt;
@@ -102,12 +120,22 @@ inline NearVerdict NoteNear(NearTracker& tracker, const SlowAggressionSettings& 
 		pair->sinceSent = 0.0f;
 		return NearVerdict::Keep;
 	}
-	if (pair->seconds < settings.seconds) {
+	if (pair->seconds + 1e-4f < pair->needed) {
 		return NearVerdict::None;
 	}
 	pair->fired = true;
 	pair->sinceSent = 0.0f;
 	return NearVerdict::Start;
+}
+
+// The pair of `walker` and `target`, or none.
+inline const NearPair* FindNearPair(const NearTracker& tracker, UInt32 walker, UInt32 target) {
+	for (UInt32 i = 0; i < tracker.count; ++i) {
+		if (tracker.pairs[i].walker == walker && tracker.pairs[i].target == target) {
+			return &tracker.pairs[i];
+		}
+	}
+	return nullptr;
 }
 
 // The tick's end: a pair not seen again is gone - its time starts anew.

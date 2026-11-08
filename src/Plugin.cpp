@@ -102,9 +102,13 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.noLevelingXp = GetPrivateProfileIntA("Zombies", "NoLevelingXP", 1, path) != 0;
 	rise.noSkillGain = GetPrivateProfileIntA("Zombies", "NoSkillGain", 1, path) != 0;
 	rise.slowAggression.enabled = GetPrivateProfileIntA("Zombies", "SlowAggression", 1, path) != 0;
-	rise.slowAggression.seconds = IniFloat("Zombies", "SlowAggressionSeconds", 5.0f, path);
-	if (rise.slowAggression.seconds < 0.0f) {
-		rise.slowAggression.seconds = 0.0f;
+	rise.slowAggression.secondsMin = IniFloat("Zombies", "SlowAggressionSecondsMin", 2.0f, path);
+	if (rise.slowAggression.secondsMin < 0.0f) {
+		rise.slowAggression.secondsMin = 0.0f;
+	}
+	rise.slowAggression.secondsMax = IniFloat("Zombies", "SlowAggressionSecondsMax", 5.0f, path);
+	if (rise.slowAggression.secondsMax < 0.0f) {
+		rise.slowAggression.secondsMax = 0.0f;
 	}
 	rise.slowAggression.units = IniFloat("Zombies", "SlowAggressionUnits", 1000.0f, path);
 	if (rise.slowAggression.units < 100.0f) {

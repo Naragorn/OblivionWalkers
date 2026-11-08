@@ -2474,15 +2474,21 @@ How (AggressionLogic.h, Rise.cpp StepSlowAggression):
   the way back of NoLevelingXP, 7a).
 - Every 0.5 s the plugin times every pair of a walker in high process and a
   living one within the range: the player, and every person or creature on
-  the high process list that is no walker. A pair that stays near for the
-  setting's seconds in one go gets `StartCombat <that one>` on the walker,
+  the high process list that is no walker. Each new pair draws its time at
+  random between the fewest and the most seconds (2 to 5 by default; Nadi,
+  2026-11-08: "statt 5s machen wir ein random aus x,y default 2,5 s"; if the
+  fewest is set above the most, the two are taken in order). A pair that
+  stays near for its time in one go gets `StartCombat <that one>` on the walker,
   then again every second while it stays near (kNearKeepSeconds). Out of
   range, its clock starts anew.
 - A walker that is hit fights back: that is the engine's own rule.
 
-Settings: `[Zombies] SlowAggression=1`, `SlowAggressionSeconds=5`,
-`SlowAggressionUnits=1000`; in LINK as the last three (version 23, header
-"Walkers - slow aggression"). Unit flows in AggressionLogicTest.
+Settings: `[Zombies] SlowAggression=1`, `SlowAggressionSecondsMin=2`,
+`SlowAggressionSecondsMax=5`, `SlowAggressionUnits=1000`; in LINK as the
+last four (version 24, header "Walkers - slow aggression"). An INI with only
+the old `SlowAggressionSeconds` is not read for it any more: then 2 to 5 s.
+Unit flows in AggressionLogicTest (the draw: NeededSeconds, the roll kept per
+pair). The log line "turns on" names the drawn time.
 
 Harness `harness/slow-aggression.txt`, 2026-11-08 (Linux, headless):
 - 10:29 - one StartCombat only: the walker swung once ("hit on the player -

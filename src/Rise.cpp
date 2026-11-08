@@ -1667,11 +1667,11 @@ void KeepWalkerRecords() {
 	if (g_slowApplied != (slow ? 1 : 0)) {
 		g_slowApplied = slow ? 1 : 0;
 		g_log("Slow aggression: %s - the %u walker records' aggression %u (the first's own %u); a walker attacks one "
-		      "near it for %.1f s within %.0f units",
+		      "near it for %.1f to %.1f s (drawn per pair) within %.0f units",
 		      slow ? "on" : "off", g_walkerCount,
 		      g_walkerCount > 0 ? RecordAggression(slow, static_cast<UInt8>(g_records[0].atStart[0])) : 0u,
-		      g_walkerCount > 0 ? g_records[0].atStart[0] : 0u, g_settings.slowAggression.seconds,
-		      g_settings.slowAggression.units);
+		      g_walkerCount > 0 ? g_records[0].atStart[0] : 0u, g_settings.slowAggression.secondsMin,
+		      g_settings.slowAggression.secondsMax, g_settings.slowAggression.units);
 	}
 }
 
@@ -1739,7 +1739,9 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, g_settings.slowAggression.units)) {
 				continue;
 			}
-			const NearVerdict verdict = NoteNear(g_near, g_settings.slowAggression, walkerRefs[i], ones[k].refId, step);
+			const float roll = static_cast<float>(NextRandom() % 10001) / 10000.0f;
+			const NearVerdict verdict =
+			    NoteNear(g_near, g_settings.slowAggression, walkerRefs[i], ones[k].refId, step, roll);
 			if (verdict == NearVerdict::None) {
 				continue;
 			}
@@ -1752,8 +1754,12 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 			const bool handed = ConsoleOn(walker, line);
 			if (verdict == NearVerdict::Start && g_nearLogsLeft > 0) {
 				--g_nearLogsLeft;
-				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (StartCombat answered %d)",
-				      walkerRefs[i], ones[k].refId, g_settings.slowAggression.seconds, handed ? 1 : 0);
+				const NearPair* pair = FindNearPair(g_near, walkerRefs[i], ones[k].refId);
+				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (drawn %.1f of %.1f..%.1f; StartCombat "
+				      "answered %d)",
+				      walkerRefs[i], ones[k].refId, pair != nullptr ? pair->seconds : 0.0f,
+				      pair != nullptr ? pair->needed : 0.0f, g_settings.slowAggression.secondsMin,
+				      g_settings.slowAggression.secondsMax, handed ? 1 : 0);
 			}
 		}
 	}

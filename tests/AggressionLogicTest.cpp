@@ -24,23 +24,26 @@ using walkers::SlowAggressionSettings;
 // walker is to start the fight.
 using walkers::NearVerdict;
 
-NearVerdict Verdict(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt) {
+// `roll` (0..1) picks the pair's time between the setting's fewest and most
+// seconds when the pair is new; 1 by default, the most.
+NearVerdict Verdict(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt,
+                    float roll = 1.0f) {
 	walkers::BeginNearTick(tracker);
-	const NearVerdict v = near ? walkers::NoteNear(tracker, settings, 1, 2, dt) : NearVerdict::None;
+	const NearVerdict v = near ? walkers::NoteNear(tracker, settings, 1, 2, dt, roll) : NearVerdict::None;
 	walkers::EndNearTick(tracker);
 	return v;
 }
 
 // True when the walker is to start the fight (the first StartCombat).
-bool Tick(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt) {
-	return Verdict(tracker, settings, near, dt) == NearVerdict::Start;
+bool Tick(NearTracker& tracker, const SlowAggressionSettings& settings, bool near, float dt, float roll = 1.0f) {
+	return Verdict(tracker, settings, near, dt, roll) == NearVerdict::Start;
 }
 
 void TestDefaults() {
 	std::printf("The defaults\n");
 	const SlowAggressionSettings s;
-	Check(s.enabled && s.seconds == 5.0f && s.units == 1000.0f,
-	      "on, 5 s, 1000 units (some 14 m, Nadi: \"ja ok 14m\")");
+	Check(s.enabled && s.secondsMin == 2.0f && s.secondsMax == 5.0f && s.units == 1000.0f,
+	      "on, 2 to 5 s at random, 1000 units (some 14 m, Nadi: \"ja ok 14m\")");
 	Check(walkers::RecordAggression(true, 100) == 0, "on: the walker records' aggression 0 - no fight of their own");
 	Check(walkers::RecordAggression(false, 100) == 100, "off: the record's own aggression back");
 }
@@ -90,6 +93,69 @@ void TestTime() {
 	Check(!out, "4 s, a step away, 4 s: no 5 s in one go - calm");
 }
 
+// How long at random (Nadi, 2026-11-08: "statt 5s machen wir ein random aus
+// x,y default 2,5 s"): each pair draws its time once, when it is new.
+bool StartsAfter(const SlowAggressionSettings& s, float roll, float seconds) {
+	NearTracker t;
+	bool early = false;
+	float spent = 0.0f;
+	while (spent + 0.25f < seconds - 1e-3f) {
+		early = early || Tick(t, s, true, 0.25f, roll);
+		spent += 0.25f;
+	}
+	return !early && Tick(t, s, true, 0.25f, roll);
+}
+
+void TestRandom() {
+	std::printf("How long, at random\n");
+	const SlowAggressionSettings s;
+	Check(walkers::NeededSeconds(s, 0.0f) == 2.0f, "the lowest roll: the fewest, 2 s");
+	Check(walkers::NeededSeconds(s, 1.0f) == 5.0f, "the highest roll: the most, 5 s");
+	Check(walkers::NeededSeconds(s, 0.5f) == 3.5f, "half way: 3.5 s");
+	Check(walkers::NeededSeconds(s, -1.0f) == 2.0f && walkers::NeededSeconds(s, 2.0f) == 5.0f,
+	      "a roll out of 0..1 held inside: 2 and 5 s");
+	SlowAggressionSettings swapped;
+	swapped.secondsMin = 6.0f;
+	swapped.secondsMax = 3.0f;
+	Check(walkers::NeededSeconds(swapped, 0.0f) == 3.0f && walkers::NeededSeconds(swapped, 1.0f) == 6.0f,
+	      "fewest above most (set so in LINK): the two taken as 3 to 6 s");
+	SlowAggressionSettings fixed;
+	fixed.secondsMin = 4.0f;
+	fixed.secondsMax = 4.0f;
+	Check(walkers::NeededSeconds(fixed, 0.0f) == 4.0f && walkers::NeededSeconds(fixed, 0.9f) == 4.0f,
+	      "fewest and most the same: always that, no chance");
+
+	Check(StartsAfter(s, 0.0f, 2.0f), "rolled low: calm until 2 s, then the fight");
+	Check(StartsAfter(s, 0.5f, 3.5f), "rolled half: calm until 3.5 s, then the fight");
+	Check(StartsAfter(s, 1.0f, 5.0f), "rolled high: calm until 5 s, then the fight");
+
+	NearTracker kept;
+	bool fired = false;
+	for (int i = 0; i < 8; ++i) {
+		fired = fired || Tick(kept, s, true, 0.5f, i == 0 ? 1.0f : 0.0f);
+	}
+	Check(!fired, "the roll taken when the pair is new: later low rolls do not shorten its 5 s");
+
+	NearTracker t;
+	walkers::BeginNearTick(t);
+	walkers::NoteNear(t, s, 1, 2, 1.5f, 0.0f);
+	walkers::NoteNear(t, s, 1, 3, 1.5f, 1.0f);
+	walkers::EndNearTick(t);
+	walkers::BeginNearTick(t);
+	const bool quick = walkers::NoteNear(t, s, 1, 2, 0.5f, 0.5f) == NearVerdict::Start;
+	const bool slow = walkers::NoteNear(t, s, 1, 3, 0.5f, 0.5f) == NearVerdict::None;
+	walkers::EndNearTick(t);
+	const walkers::NearPair* found = walkers::FindNearPair(t, 1, 3);
+	Check(found != nullptr && found->needed == 5.0f && walkers::FindNearPair(t, 1, 4) == nullptr,
+	      "a pair found with its drawn time (for the log); one never near: none");
+	Check(quick && slow, "two near one walker: each its own roll - one turned on at 2 s, the other still calm");
+
+	NearTracker again;
+	Check(!Tick(again, s, true, 1.0f, 1.0f), "first time near, rolled high: calm at 1 s");
+	Check(!Tick(again, s, false, 0.5f), "gone: the pair forgotten");
+	Check(Tick(again, s, true, 2.0f, 0.0f), "back, a new roll (low): the fight at 2 s");
+}
+
 void TestOff() {
 	std::printf("Switched off or zero\n");
 	SlowAggressionSettings off;
@@ -101,7 +167,8 @@ void TestOff() {
 	}
 	Check(!fired && t.count == 0, "off: the plugin starts no fight and keeps no pairs - the record's own aggression decides");
 	SlowAggressionSettings now;
-	now.seconds = 0.0f;
+	now.secondsMin = 0.0f;
+	now.secondsMax = 0.0f;
 	NearTracker n;
 	Check(Tick(n, now, true, 0.5f), "0 s: the first tick near starts the fight");
 }
@@ -112,22 +179,23 @@ void TestMany() {
 	NearTracker t;
 	walkers::BeginNearTick(t);
 	for (UInt32 w = 0; w < walkers::kNearPairsMost; ++w) {
-		walkers::NoteNear(t, s, 100 + w, 2, 1.0f);
+		walkers::NoteNear(t, s, 100 + w, 2, 1.0f, 1.0f);
 	}
 	Check(t.count == walkers::kNearPairsMost, "the table full");
-	Check(walkers::NoteNear(t, s, 9999, 2, 10.0f) == NearVerdict::None, "one more: no room, no fight, no crash");
+	Check(walkers::NoteNear(t, s, 9999, 2, 10.0f, 1.0f) == NearVerdict::None, "one more: no room, no fight, no crash");
 	walkers::EndNearTick(t);
 	walkers::BeginNearTick(t);
 	walkers::EndNearTick(t);
 	Check(t.count == 0, "a tick with none near: the table empty again");
 	walkers::BeginNearTick(t);
-	Check(walkers::NoteNear(t, s, 1, 2, 2.0f) == NearVerdict::None && walkers::NoteNear(t, s, 1, 3, 2.0f) == NearVerdict::None,
+	Check(walkers::NoteNear(t, s, 1, 2, 2.0f, 1.0f) == NearVerdict::None &&
+	          walkers::NoteNear(t, s, 1, 3, 2.0f, 1.0f) == NearVerdict::None,
 	      "one walker, two near: each its own clock");
 	walkers::EndNearTick(t);
 	Check(t.count == 2, "the two kept");
 	walkers::BeginNearTick(t);
-	const bool first = walkers::NoteNear(t, s, 1, 2, 3.0f) == NearVerdict::Start;
-	const bool second = walkers::NoteNear(t, s, 1, 3, 3.0f) == NearVerdict::Start;
+	const bool first = walkers::NoteNear(t, s, 1, 2, 3.0f, 0.0f) == NearVerdict::Start;
+	const bool second = walkers::NoteNear(t, s, 1, 3, 3.0f, 0.0f) == NearVerdict::Start;
 	walkers::EndNearTick(t);
 	Check(first && second, "5 s each: the walker turns on both, one after the other");
 }
@@ -138,6 +206,7 @@ int main() {
 	TestDefaults();
 	TestReach();
 	TestTime();
+	TestRandom();
 	TestOff();
 	TestMany();
 	if (g_failures != 0) {
