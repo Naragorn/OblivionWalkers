@@ -2578,6 +2578,27 @@ roster line's counts.
   given to a reference stays in the save after the mod is gone, so walkers made peaceful
   in an old save may stay so. Next: Nadi's word on whether it still happens without the
   mod; if it does, the console check above.
+  **Cause found, 2026-11-08** (Nadi, Windows run of 2026-11-07: "teilweise passiv", and
+  they attacked no townsfolk). Measured:
+  - The walkers' faction is right. CreatureZombie1..4, which every walker copies, are in
+    UndeadFaction (0009DB1F) and NecromancerDungeon (0004B90C), aggression 100 and
+    confidence 100 (read off Oblivion.esm, AIDT and SNAM).
+  - NoLevelingXP sets a dead walker's Confidence and Aggression to 0 in OnDeath
+    (src/Rise.cpp, kLevelingHoldLines), because Ultimate Leveling is loaded on Windows
+    (log line 28).
+  - With DieOnlyBeheaded=1 the same walker gets up again. Nothing sets the two values
+    back. In the log of 2026-11-07 23:45, 103 walkers killed by the player rose again,
+    for example FF00D860 and FF00D86B ("Confidence and Aggression to 0", then "down - it
+    gets up again").
+  Derived, not measured: a risen walker with Aggression 0 starts no fight, with the
+  player or with townsfolk. Not measured: that the values survive the engine's
+  Resurrect (`getav aggression` on one such walker settles it).
+  Same flaw for Oblivion XP (kObXpHoldLines: its eight attributes, Health among them, set
+  to 0). Not loaded on Windows.
+  OblivionCombatExtender.esp is still in Windows' Data folder and Plugins.txt (line 55,
+  2026-11-08), so the first suspect stays open beside this one.
+  Fix to build: restore the held values when a walker gets up again, at every Resurrect
+  path (the rise again, the safeguard, the swap), from the walker's base record.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
