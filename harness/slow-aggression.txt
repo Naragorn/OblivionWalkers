@@ -1,0 +1,38 @@
+# Slow aggression (docs/walkers-spec.md 4.21; Nadi, 2026-11-08): a walker
+# turns on the player only once the player has stayed within 1000 units of it
+# for 5 s. A walker (0x801) is placed 1500 units before the player (out of
+# reach) for 10 s, then moved to 600 units. OblivionWalkers.log (read by
+# hand - the runner checks OBVR.log only): "Slow aggression: on - the 64
+# walker records' aggression 0 (the first's own 100)", no "turns on" while
+# it stands far, then "Slow aggression: walker ... turns on 00000014, near
+# it 5.0 s (StartCombat handed to xOBSE: 1)" some 5 s after the move. The
+# log's "Spawns: ... carries a quest item - kept" lines show the quest item
+# rule (SQ03's goblins among them).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/slow-aggression.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 1500 0
+console-at near {actor}.moveto player 0 600 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 10
+mark near
+wait 12
+mark end
+wait 1
