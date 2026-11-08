@@ -2740,6 +2740,19 @@ roster line's counts.
     20), MG01's seven zombies the only leveled-list bases kept by name; 52 entries kept
     at the main menu, 22 at the pass after the load (not explained). Not played
     through: a quest with its foes; the Windows run; the headset.
+  - The nested lists checked 2026-11-08 (Nadi: "schau mal die quest lücken nach"; the
+    audit plus the quests' script sources, SCTX in Oblivion.esm). Lists nested in a
+    quest's list, walkers possible there: FGC03Thieves' LL1MythicEnemy100 (imps,
+    minotaurs), TG09Arrow's LL1ConjurerDaeda75 (scamps), SE14's two attack lists (all
+    their creatures and the bandits are nested). Dark07Medicine and MG14Plot have none
+    that turn (an earlier guess named Dark07 - wrong). Read in the scripts: FGC03 enables
+    FGC03EnemyRespawn at stage 100, after the quest is done; TG09 names its list's spot
+    only as a target; SE14's attacks are the post-quest settlement raids (SE14Script:
+    "this script will handle the post-quest activities"), counted by
+    SE14AttackCountScript off the lists' template 0004682E, reset after 3 game days
+    when not quelled. So none blocks a quest - derived from the scripts, not played.
+    Open: whether a walker spawned from SE14's list gets the template's script (then
+    its death counts). Not built further.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
