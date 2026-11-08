@@ -2722,6 +2722,20 @@ roster line's counts.
     lists used across the world: LL1MythicEnemy100 (FGC03's respawn), LL1ConjurerDaeda75
     (TG09's target) directly; LL1BanditMelee100, LL1Minotaur100, LL0WraithFaded100 and
     Shivering Isles creature lists only nested.
+  - **BUILT 2026-11-08 - option 1** (Nadi: "1) default an"): `[Replace] KeepQuestLists=1`
+    (LINK version 26, last setting, header "Spawns - quests", redoes the spawns when
+    switched). At the first pass (the main menu) Replace.cpp CollectQuestNames reads every
+    quest's script, stage result scripts and targets: a leveled list named - itself or
+    through a placed reference - is a quest's, and every entry in it stays its own
+    (ReplaceInList, even against an exception of 1); a creature or person named is
+    CreatureKind::QuestNamed, kept like a quest item carrier (an exception of 1 still makes
+    it a walker). Lists nested in a quest's list are not kept (option 2 would). No extra
+    walker entries (ExtraPercent) in a quest's list. Log: "Quests: ... leveled lists a quest
+    needs", "Spawns: KeepQuestLists=1 - N of the lists are a quest's; E entries ... stay
+    their own". Unit flows in CategoryLogicTest TestQuestNames, ReplaceLogicTest, LinkLogicTest.
+    Harness `harness/quest-keep.txt`. Not covered: dialogue result scripts (NPCAdventurer),
+    lists nested in a quest's list (Dark07's bandits, SE14's, the minotaur ones), spawns
+    already made walkers in a save until their cell resets.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem

@@ -76,6 +76,9 @@ std::unordered_map<UInt32, Known> g_known;
 // The creature or person each list entry (its ListData) named before it
 // pointed at the walkers - so a pass can point it back.
 std::unordered_map<UInt32, UInt32> g_original;
+// The leveled lists and the bases the quests name (CollectQuestNames).
+std::unordered_set<UInt32> g_questLists;
+std::unordered_set<UInt32> g_questBases;
 // The lists that got their extra walker entries this session (4.13).
 std::unordered_set<UInt32> g_extraDone;
 // The engine's own heap, as xOBSE's TESLeveledList::CreateData and
@@ -204,6 +207,7 @@ CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
 	facts.flags = Read(creature + kActorBaseFlagsOffset);
 	facts.scripted = Read(creature + kScriptOffset) != 0;
 	facts.questItem = CarriesQuestItem(creature);
+	facts.questNamed = g_questBases.count(creature) != 0;
 	facts.ours = IsEspForm(espBase, FormIdOf(creature));
 	facts.person = Read8(creature + kFormTypeOffset) == kFormTypeNpc;
 	return facts;
@@ -374,115 +378,125 @@ UInt32 AddExtraEntries(UInt32 list, UInt32 variant, UInt32 percent) {
 	return added;
 }
 
-// MEASUREMENT ONLY (docs/walkers-spec.md 7a, the quest audit's B1/B2): what
-// a quest names in memory. [Debug] QuestProbe=1 logs, for the quests the
-// audit found, the quest script's names, each stage item's embedded result
-// script (found by the Script vtable) and its names, and the targets - with
-// each named form's type and, for a reference, its base. Layouts from xOBSE
-// GameForms.h (TESQuest: script +0x1C, stageList +0x40, targetList +0x48,
-// editorName +0x60; TargetEntry target +0x0C) and Script.h (refList +0x40,
-// RefVariable form +0x08); the stage item's layout is what this measures.
-constexpr UInt8 kFormTypeScript = 0x0D;
+// What the quests name (docs/walkers-spec.md 7a, the quest audit's option 1;
+// Nadi, 2026-11-08). Measured 2026-11-08 at the main menu
+// (harness/quest-probe.txt): every quest's script, its stages' result
+// scripts and its targets are in memory then, each name resolved - placed
+// references with their base. Layouts: xOBSE GameForms.h TESQuest (script
+// +0x1C, stageList +0x40 {StageEntry*, next}, targetList +0x48
+// {TargetEntry*, next}); StageEntry's item list inline at +4 {item, next};
+// a stage item's result script inline at +0x0C (measured: the Script vtable
+// 00A49DA4 there in every item of seven quests); TargetEntry's target +0x0C;
+// xOBSE Script.h: a Script's names at +0x40 {RefVariable*, next}, the name's
+// form at +0x08. Dialogue result scripts are read from the file on demand
+// (TESTopicInfo unk34) - not seen here.
 constexpr UInt8 kFormTypeQuest = 0x3B;
+constexpr UInt32 kQuestScriptOffset = 0x1C;
+constexpr UInt32 kQuestStagesOffset = 0x40;
+constexpr UInt32 kQuestTargetsOffset = 0x48;
+constexpr UInt32 kStageItemsOffset = 0x04;
+constexpr UInt32 kStageItemScriptOffset = 0x0C;
+constexpr UInt32 kTargetRefOffset = 0x0C;
+constexpr UInt32 kScriptNamesOffset = 0x40;
+constexpr UInt32 kNameFormOffset = 0x08;
+constexpr UInt32 kRefBaseOffset = 0x1C;
 
-void ProbeNames(UInt32 script, const char* what, LogFn log) {
-	UInt32 visited = 0;
-	for (UInt32 node = script + 0x40; LooksLikeObject(node) && visited < 128; node = Read(node + 4), ++visited) {
-		const UInt32 var = Read(node);
-		if (!LooksLikeObject(var)) {
-			continue;
-		}
-		const UInt32 form = Read(var + 8);
-		if (!LooksLikeObject(form)) {
-			log("QuestProbe:   %s name %u: no form (%08X)", what, visited, form);
-			continue;
-		}
-		const UInt8 type = Read8(form + kFormTypeOffset);
-		const UInt32 base = type >= 0x31 && type <= 0x33 ? Read(form + 0x1C) : 0;
-		log("QuestProbe:   %s name %u: %08X type %02X, base %08X type %02X", what, visited, FormIdOf(form), type,
-		    LooksLikeObject(base) ? FormIdOf(base) : 0, LooksLikeObject(base) ? Read8(base + kFormTypeOffset) : 0);
+struct QuestNames {
+	UInt32 quests = 0;
+	UInt32 names = 0;
+	UInt32 placed = 0;  // lists kept through a placed reference
+	UInt32 direct = 0;  // lists named themselves
+};
+
+void NoteQuestName(UInt32 form, QuestNames& seen) {
+	if (!LooksLikeObject(form)) {
+		return;
+	}
+	++seen.names;
+	const UInt8 type = Read8(form + kFormTypeOffset);
+	const bool reference = type >= 0x31 && type <= 0x33;
+	const UInt32 base = reference ? Read(form + kRefBaseOffset) : 0;
+	const UInt8 baseType = LooksLikeObject(base) ? Read8(base + kFormTypeOffset) : 0;
+	switch (QuestNameOf(type, baseType)) {
+		case QuestName::List:
+			seen.direct += g_questLists.insert(form).second ? 1 : 0;
+			break;
+		case QuestName::PlacedList:
+			seen.placed += g_questLists.insert(base).second ? 1 : 0;
+			break;
+		case QuestName::Base:
+			g_questBases.insert(form);
+			break;
+		default:
+			break;
 	}
 }
 
-void ProbeQuests(const char* iniPath, LogFn log) {
-	static int s_runs = 0;
-	if (iniPath == nullptr || GetPrivateProfileIntA("Debug", "QuestProbe", 0, iniPath) == 0 || s_runs >= 2) {
+void NoteScriptNames(UInt32 script, QuestNames& seen) {
+	UInt32 visited = 0;
+	for (UInt32 node = script + kScriptNamesOffset; LooksLikeObject(node) && visited < 512;
+	     node = Read(node + 4), ++visited) {
+		const UInt32 var = Read(node);
+		if (LooksLikeObject(var)) {
+			NoteQuestName(Read(var + kNameFormOffset), seen);
+		}
+	}
+}
+
+// Once, at the first pass (the main menu): every quest's names.
+void CollectQuestNames(LogFn log) {
+	static bool s_done = false;
+	if (s_done) {
 		return;
 	}
-	++s_runs;
-	const char* const wanted[] = {"SQ06", "MS18", "MG01Destruct", "Dark07Medicine", "TG09Arrow", "SE03A", "SE14"};
-	UInt32 scriptVtbl = 0;
+	s_done = true;
+	QuestNames seen;
 	const UInt32 buckets = Read(kFormTable + kMapBucketsOffset);
 	const UInt32 bucketCount = Read(kFormTable + kMapBucketCountOffset);
-	for (UInt32 pass = 0; pass < 2; ++pass) {
-		for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
-			for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
-				const UInt32 form = Read(entry + kMapEntryFormOffset);
-				if (!LooksLikeObject(form)) {
+	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
+		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
+			const UInt32 quest = Read(entry + kMapEntryFormOffset);
+			if (!LooksLikeObject(quest) || Read8(quest + kFormTypeOffset) != kFormTypeQuest) {
+				continue;
+			}
+			++seen.quests;
+			if (LooksLikeObject(Read(quest + kQuestScriptOffset))) {
+				NoteScriptNames(Read(quest + kQuestScriptOffset), seen);
+			}
+			UInt32 stages = 0;
+			for (UInt32 node = quest + kQuestStagesOffset; LooksLikeObject(node) && stages < 256;
+			     node = Read(node + 4), ++stages) {
+				const UInt32 stage = Read(node);
+				if (!LooksLikeObject(stage)) {
 					continue;
 				}
-				const UInt8 type = Read8(form + kFormTypeOffset);
-				if (pass == 0 && type == kFormTypeScript && scriptVtbl == 0) {
-					scriptVtbl = Read(form);
-					log("QuestProbe: run %d, the Script vtable %08X (from %08X)", s_runs, scriptVtbl, FormIdOf(form));
-				}
-				if (pass != 1 || type != kFormTypeQuest) {
-					continue;
-				}
-				const UInt32 nameAt = Read(form + 0x60);
-				if (!LooksLikeObject(nameAt)) {
-					continue;
-				}
-				const char* name = reinterpret_cast<const char*>(nameAt);
-				bool want = false;
-				for (const char* w : wanted) {
-					want = want || std::strcmp(name, w) == 0;
-				}
-				if (!want) {
-					continue;
-				}
-				log("QuestProbe: quest %s %08X, script %08X", name, FormIdOf(form), FormIdOf(Read(form + 0x1C)));
-				if (LooksLikeObject(Read(form + 0x1C))) {
-					ProbeNames(Read(form + 0x1C), "quest script", log);
-				}
-				UInt32 stages = 0;
-				for (UInt32 node = form + 0x40; LooksLikeObject(node) && stages < 64; node = Read(node + 4), ++stages) {
-					const UInt32 stage = Read(node);
-					if (!LooksLikeObject(stage)) {
-						continue;
+				UInt32 items = 0;
+				for (UInt32 inode = stage + kStageItemsOffset; LooksLikeObject(inode) && items < 64;
+				     inode = Read(inode + 4), ++items) {
+					const UInt32 item = Read(inode);
+					if (LooksLikeObject(item)) {
+						NoteScriptNames(item + kStageItemScriptOffset, seen);
 					}
-					UInt32 items = 0;
-					for (UInt32 inode = stage + 4; LooksLikeObject(inode) && items < 32; inode = Read(inode + 4), ++items) {
-						const UInt32 item = Read(inode);
-						if (!LooksLikeObject(item)) {
-							continue;
-						}
-						int at = -1;
-						for (UInt32 off = 0; off < 0x100 && at < 0; off += 4) {
-							if (Read(item + off) == scriptVtbl) {
-								at = static_cast<int>(off);
-							}
-						}
-						log("QuestProbe:  stage %u item %u at %08X: Script vtable at +%X", Read8(stage), items, item,
-						    at < 0 ? 0xFFFu : static_cast<UInt32>(at));
-						if (at >= 0) {
-							char what[32];
-							std::snprintf(what, sizeof what, "stage %u result", Read8(stage));
-							ProbeNames(item + static_cast<UInt32>(at), what, log);
-						}
-					}
-				}
-				UInt32 targets = 0;
-				for (UInt32 node = form + 0x48; LooksLikeObject(node) && targets < 16; node = Read(node + 4), ++targets) {
-					const UInt32 target = Read(node);
-					if (!LooksLikeObject(target)) {
-						continue;
-					}
-					const UInt32 ref = Read(target + 0x0C);
-					log("QuestProbe:  target %u: %08X, base %08X", targets, FormIdOf(ref),
-					    LooksLikeObject(ref) ? FormIdOf(Read(ref + 0x1C)) : 0);
 				}
 			}
+			UInt32 targets = 0;
+			for (UInt32 node = quest + kQuestTargetsOffset; LooksLikeObject(node) && targets < 64;
+			     node = Read(node + 4), ++targets) {
+				const UInt32 target = Read(node);
+				if (LooksLikeObject(target)) {
+					NoteQuestName(Read(target + kTargetRefOffset), seen);
+				}
+			}
+		}
+	}
+	log("Quests: %u quests read, %u names - %u leveled lists a quest needs (%u through a placed reference, %u named "
+	    "themselves), %u creatures and people named",
+	    seen.quests, seen.names, static_cast<UInt32>(g_questLists.size()), seen.placed, seen.direct,
+	    static_cast<UInt32>(g_questBases.size()));
+	UInt32 shown = 0;
+	for (const UInt32 list : g_questLists) {
+		if (shown++ < 64) {
+			log("Quests: leveled list %08X is a quest's", FormIdOf(list));
 		}
 	}
 }
@@ -503,7 +517,7 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log) {
-	ProbeQuests(iniPath, log);
+	CollectQuestNames(log);
 	if (espBase == kNoEsp) {
 		log("Spawns: no ESP, the lists as they are");
 		return 0;
@@ -548,6 +562,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 	UInt32 walkerEntries = 0;
 	UInt32 extraAdded = 0;
 	UInt32 extraLists = 0;
+	UInt32 questListsSeen = 0;
+	UInt32 questEntriesKept = 0;
 	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
 		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
 			const UInt32 form = Read(entry + kMapEntryFormOffset);
@@ -556,6 +572,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 				continue;
 			}
 			++lists;
+			const bool questList = g_questLists.count(form) != 0;
+			questListsSeen += questList ? 1 : 0;
 			bool touched = false;
 			UInt32 kept = 0;
 			UInt32 visited = 0;
@@ -589,7 +607,12 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 				}
 				const Known& known = Learn(own, espBase, settings, section.data(), exceptions.data(), added,
 				                           addedUsed, newLines, log);
-				const bool on = ReplaceOn(settings, known.facts, known.category, known.line, known.exception);
+				const bool on =
+				    ReplaceInList(settings, questList, known.facts, known.category, known.line, known.exception);
+				if (questList && settings.keepQuestLists && ReplaceOn(settings, known.facts, known.category, known.line,
+				                                                      known.exception)) {
+					++questEntriesKept;
+				}
 				const UInt32 wanted = on ? variant : own;
 				if (wanted != target) {
 					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = wanted;
@@ -606,7 +629,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 			// Extra walkers only where something of the list's own stays: a
 			// list all walkers has nothing to add to, one of lists only feeds
 			// its nested lists, which get theirs.
-			if (settings.extraPercent > 0 && kept > 0) {
+			if (settings.extraPercent > 0 && kept > 0 && !(questList && settings.keepQuestLists)) {
 				const UInt32 more = AddExtraEntries(form, variant, settings.extraPercent);
 				extraAdded += more;
 				extraLists += more > 0 ? 1 : 0;
@@ -622,6 +645,9 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 	    "them new, %u entries back to their own; %u creatures and people known, %u of them walkers",
 	    forms, lists, settings.enabled ? 1 : 0, walkerEntries, listsTouched, replaced, restored,
 	    static_cast<UInt32>(g_known.size()), on);
+	log("Spawns: KeepQuestLists=%d - %u of the lists are a quest's; %u entries in them that would be walkers stay "
+	    "their own",
+	    settings.keepQuestLists ? 1 : 0, questListsSeen, questEntriesKept);
 	if (settings.extraPercent > 0) {
 		log("Spawns: ExtraPercent=%u - %u walker entries added beside the lists' own, in %u lists (%u lists had theirs "
 		    "this session)",

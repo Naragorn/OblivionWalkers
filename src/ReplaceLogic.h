@@ -29,6 +29,11 @@ struct ReplaceSettings {
 	bool headlessWalkers = true;
 	// [ReplaceCategories] (4.6a): one switch per kReplaceCategories entry.
 	bool categories[kReplaceCategoryCount];
+	// [Replace] KeepQuestLists (docs/walkers-spec.md 7a, the quest audit's
+	// option 1; Nadi, 2026-11-08, "default an"): a leveled list a quest
+	// names - itself or through a placed reference of it - and a creature or
+	// person a quest names stay their own.
+	bool keepQuestLists = true;
 
 	ReplaceSettings() {
 		for (UInt32 k = 0; k < kReplaceCategoryCount; ++k) {
@@ -57,6 +62,9 @@ struct CreatureFacts {
 	// and SQ03JadeNecklace (Nadi, 2026-11-08); in Oblivion.esm 25 creatures
 	// without a script of their own carry one.
 	bool questItem = false;
+	// A quest names it in its script, a stage's result script or a target
+	// (MG01Destruct's zombies; Replace.cpp CollectQuestNames).
+	bool questNamed = false;
 	bool ours = false;    // a record of OblivionWalkers.esp
 	bool person = false;  // an NPC_ record, no creature
 };
@@ -65,7 +73,7 @@ struct CreatureFacts {
 // its line; harmless animals and all people start at 0. A creature with a
 // script stays too: a quest or the arena may count on it; one that only
 // swims would stand at the bottom of a lake.
-enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker, QuestItem };
+enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker, QuestItem, QuestNamed };
 
 inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	if (facts.ours) {
@@ -76,6 +84,9 @@ inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	}
 	if (facts.questItem) {
 		return CreatureKind::QuestItem;
+	}
+	if (facts.questNamed) {
+		return CreatureKind::QuestNamed;
 	}
 	if (facts.scripted) {
 		return CreatureKind::Scripted;
@@ -99,8 +110,10 @@ inline bool DefaultOn(CreatureKind kind) { return kind == CreatureKind::Replace;
 // decides for its own, but never turns a creature with a script or a quest item (a quest or
 // the arena may count on it) or one that only swims; the line decides for
 // one without a category, and without a line its kind.
-inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& facts, UInt8 category, int line,
+inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& given, UInt8 category, int line,
                       int exception) {
+	CreatureFacts facts = given;
+	facts.questNamed = given.questNamed && settings.keepQuestLists;
 	if (!settings.enabled || facts.ours) {
 		return false;
 	}
@@ -110,12 +123,42 @@ inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& fact
 	if (category < kReplaceCategoryCount) {
 		const bool swimsOnly =
 			(facts.flags & kCreatureSwims) != 0 && (facts.flags & (kCreatureWalks | kCreatureFlies)) == 0;
-		return settings.categories[category] && !facts.scripted && !facts.questItem && !swimsOnly;
+		return settings.categories[category] && !facts.scripted && !facts.questItem && !facts.questNamed && !swimsOnly;
 	}
 	if (line >= 0) {
 		return line != 0;
 	}
 	return DefaultOn(ClassifyCreature(facts));
+}
+
+// An entry of a leveled list: in a list a quest names (KeepQuestLists on)
+// it stays its own whatever else says - the quest's spawn is the quest's;
+// in any other as ReplaceOn says.
+inline bool ReplaceInList(const ReplaceSettings& settings, bool questList, const CreatureFacts& facts,
+                          UInt8 category, int line, int exception) {
+	if (questList && settings.keepQuestLists) {
+		return false;
+	}
+	return ReplaceOn(settings, facts, category, line, exception);
+}
+
+// What a form a quest names means to the replacement, by its form type and,
+// for a placed reference, its base's (xOBSE GameForms.h: NPC_ 0x23, CREA
+// 0x24, LVLC 0x25, REFR/ACHR/ACRE 0x31..0x33). Measured 2026-11-08
+// (harness/quest-probe.txt): Oblivion places a leveled list as a REFR.
+enum class QuestName : UInt8 { Other, List, PlacedList, Base };
+
+inline QuestName QuestNameOf(UInt8 type, UInt8 baseType) {
+	if (type == 0x25) {
+		return QuestName::List;
+	}
+	if (type >= 0x31 && type <= 0x33) {
+		return baseType == 0x25 ? QuestName::PlacedList : QuestName::Other;
+	}
+	if (type == 0x23 || type == 0x24) {
+		return QuestName::Base;
+	}
+	return QuestName::Other;
 }
 
 // A new [ReplaceCreatures] line only for one without a category: the
@@ -135,6 +178,8 @@ inline const char* KindNote(CreatureKind kind) {
 			return " person";
 		case CreatureKind::QuestItem:
 			return " carries a quest item";
+		case CreatureKind::QuestNamed:
+			return " named by a quest";
 		default:
 			return "";
 	}

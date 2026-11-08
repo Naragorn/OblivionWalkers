@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 159,
-	      "159 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 160,
+	      "160 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -280,6 +280,12 @@ void TestValues() {
 	          walkers::SetLinkValue(rise, replace, slowMax, 12.0) && rise.slowAggression.secondsMax == 12.0f &&
 	          walkers::SetLinkValue(rise, replace, slowUnits, 2000.0) && rise.slowAggression.units == 2000.0f,
 	      "off, 3 to 12 s and 2000 units set from the menu");
+	const int questLists = IndexOf("ini_keep_quest_lists");
+	Check(questLists == 159 && walkers::LinkValue(rise, replace, questLists) == 1.0 &&
+	          kLinkSettings[questLists].kind == walkers::LinkKind::Toggle &&
+	          kLinkSettings[questLists].effect == walkers::LinkEffect::Spawns &&
+	          walkers::SetLinkValue(rise, replace, questLists, 0.0) && !replace.keepQuestLists,
+	      "KeepQuestLists last, 159: on by default, the spawns redone when switched; off from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -368,7 +374,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 25\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 26\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

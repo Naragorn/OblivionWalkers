@@ -1,0 +1,23 @@
+# Quests keep their foes (docs/walkers-spec.md 7a, [Replace] KeepQuestLists;
+# Nadi, 2026-11-08: option 1, on by default). OblivionWalkers.log (read by
+# hand): "Quests: N quests read, ... K leveled lists a quest needs" at the
+# main menu with SQ06WestWealdBearLeveled 0018AE3C, MS18GoblinWave1 00068B20,
+# SE03LL1KnightOfOrder100 00079294 and MG01Zombie 00047504 among "leveled
+# list ... is a quest's", MG01's zombies "named by a quest" in [ReplaceCreatures]
+# notes if new, and "Spawns: KeepQuestLists=1 - K of the lists are a quest's;
+# E entries ... stay their own" with E > 0.
+#
+# The measurement before it (quest-probe, 2026-11-08, ProbeQuests since
+# removed): at the main menu the quests' scripts, stage result scripts (inline
+# at +0x0C of a stage item) and targets are in memory, names resolved.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/quest-keep.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+expect HandScript: finished
+reject HandScript: WARNING
+wait 12
+mark ready
+wait 3
+mark end
+wait 1

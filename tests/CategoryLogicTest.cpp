@@ -235,6 +235,51 @@ void TestDecision() {
 	      "a new [ReplaceCreatures] line only for one without a category - the category is its switch");
 }
 
+// Quests keep their own (Nadi, 2026-11-08: option 1 of the quest audit,
+// "default an"): a leveled list a quest names - itself or through a placed
+// reference of it - and a base a quest names are not replaced.
+void TestQuestNames() {
+	std::printf("What a quest names\n");
+	using walkers::QuestName;
+	using walkers::QuestNameOf;
+	Check(QuestNameOf(0x25, 0) == QuestName::List, "a leveled creature list named (SE14's attack lists): its list");
+	Check(QuestNameOf(0x31, 0x25) == QuestName::PlacedList && QuestNameOf(0x33, 0x25) == QuestName::PlacedList,
+	      "a placed reference of a leveled list (SQ06's bears, MS18's waves): the list it places");
+	Check(QuestNameOf(0x24, 0) == QuestName::Base && QuestNameOf(0x23, 0) == QuestName::Base,
+	      "a creature or a person named (MG01's zombies): that base");
+	Check(QuestNameOf(0x32, 0x23) == QuestName::Other && QuestNameOf(0x33, 0x24) == QuestName::Other,
+	      "a placed person or creature itself: not a list's - nothing to keep (the replacement touches lists only)");
+	Check(QuestNameOf(0x31, 0x17) == QuestName::Other && QuestNameOf(0x3B, 0) == QuestName::Other &&
+	          QuestNameOf(0x1B, 0) == QuestName::Other,
+	      "a door, a quest, an item: nothing");
+
+	walkers::ReplaceSettings on;
+	walkers::ReplaceSettings off;
+	off.keepQuestLists = false;
+	const UInt8 goblins = IndexOf("Goblins");
+	Check(on.keepQuestLists, "[Replace] KeepQuestLists on by default");
+	Check(!walkers::ReplaceInList(on, true, Facts(), goblins, -1, -1),
+	      "a goblin in a list a quest names (MS18's wave): kept though Goblins is on");
+	Check(!walkers::ReplaceInList(on, true, Facts(), goblins, -1, 1),
+	      "even with an exception of 1: the quest's list stays its own");
+	Check(walkers::ReplaceInList(on, false, Facts(), goblins, -1, -1), "the same goblin in any other list: a walker");
+	Check(walkers::ReplaceInList(off, true, Facts(), goblins, -1, -1),
+	      "KeepQuestLists=0: the quest's list as any other - a walker");
+	walkers::ReplaceSettings disabled;
+	disabled.enabled = false;
+	Check(!walkers::ReplaceInList(disabled, false, Facts(), goblins, -1, 1), "[Replace] Enabled=0: kept, as before");
+
+	CreatureFacts named = Facts();
+	named.questNamed = true;
+	Check(!walkers::ReplaceOn(on, named, IndexOf("Zombies"), -1, -1),
+	      "a base a quest names (MG01's zombies): kept though its category is on");
+	Check(!walkers::ReplaceOn(on, named, kNoCategory, -1, -1), "no category, no line: kept too");
+	Check(walkers::ReplaceOn(on, named, IndexOf("Zombies"), -1, 1), "an exception of 1: a walker");
+	Check(walkers::ReplaceOn(off, named, IndexOf("Zombies"), -1, -1) &&
+	          walkers::ReplaceOn(off, named, kNoCategory, -1, -1),
+	      "KeepQuestLists=0: a base a quest names as any other - a walker");
+}
+
 }  // namespace
 
 int main() {
@@ -244,6 +289,7 @@ int main() {
 	TestPersonCategory();
 	TestTable();
 	TestDecision();
+	TestQuestNames();
 	if (g_failures != 0) {
 		std::printf("%d FAILED\n", g_failures);
 		return 1;

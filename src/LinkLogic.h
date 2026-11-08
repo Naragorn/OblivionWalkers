@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 25.0;  // 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 26.0;  // 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -86,6 +86,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 24, "Survivors' camps"},
 	{68 + kReplaceCategoryCount + 40, "Grabbed - the shock sound"},
 	{68 + kReplaceCategoryCount + 41, "Walkers - slow aggression"},
+	{68 + kReplaceCategoryCount + 46, "Spawns - quests"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -336,6 +337,9 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 0, 30, 1, 0, false, LinkEffect::Live},
 	{"ini_slow_aggression_units", "Slow aggression: how near", "How near, in game units (1000 is some 14 m).",
 	 LinkKind::Slider, 200, 4000, 100, 0, false, LinkEffect::Live},
+	{"ini_keep_quest_lists", "Quests keep their foes",
+	 "A spawn a quest needs - its boss, its wave, its bears - stays as the game made it, no walker.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -460,6 +464,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 156: return rise.slowAggression.secondsMin;
 		case 157: return rise.slowAggression.secondsMax;
 		case 158: return rise.slowAggression.units;
+		case 159: return replace.keepQuestLists ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -605,6 +610,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 156: rise.slowAggression.secondsMin = static_cast<float>(whole); break;
 		case 157: rise.slowAggression.secondsMax = static_cast<float>(whole); break;
 		case 158: rise.slowAggression.units = static_cast<float>(whole); break;
+		case 159: replace.keepQuestLists = on; break;
 		default: return false;
 	}
 	return true;
