@@ -7,6 +7,17 @@
 # notes if new, and "Spawns: KeepQuestLists=1 - K of the lists are a quest's;
 # E entries ... stay their own" with E > 0.
 #
+# Result 2026-11-08 PASS (Linux, headless, 51f57e3): "Quests: 605 quests read,
+# 12648 names - 20 leveled lists a quest needs (18 through a placed reference,
+# 2 named themselves), 358 creatures and people named"; among the 20 SQ06's
+# 0018AE3C, MS18's 00068B20/00068BC7, SE03A's 00079294, MG01's 00047504,
+# FGC03's 000340B1, TG09's 0003EE6B, SQ03's 00181C6F; MG01's seven Deranged
+# Zombies "named by a quest - ... - kept" (the only leveled-list bases the
+# names keep); "Spawns: KeepQuestLists=1 - 20 of the lists are a quest's; 52
+# entries ... stay their own" at the main menu, 22 at the pass after the load
+# (not explained - presumably MOO's lists changed at the load; not measured).
+# Not shown: a quest played through.
+#
 # The measurement before it (quest-probe, 2026-11-08, ProbeQuests since
 # removed): at the main menu the quests' scripts, stage result scripts (inline
 # at +0x0C of a stage item) and targets are in memory, names resolved.

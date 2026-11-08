@@ -2736,6 +2736,10 @@ roster line's counts.
     Harness `harness/quest-keep.txt`. Not covered: dialogue result scripts (NPCAdventurer),
     lists nested in a quest's list (Dark07's bandits, SE14's, the minotaur ones), spawns
     already made walkers in a save until their cell resets.
+    Harness PASS 2026-11-08 (Linux): 605 quests, 20 lists a quest needs (the audit's
+    20), MG01's seven zombies the only leveled-list bases kept by name; 52 entries kept
+    at the main menu, 22 at the pass after the load (not explained). Not played
+    through: a quest with its foes; the Windows run; the headset.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
