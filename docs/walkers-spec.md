@@ -2460,6 +2460,34 @@ proposes them off Oblivion.esm's roads, Nadi picks); the reward's amounts
 dead, or left behind farther than some distance); the chance a day a camp
 comes back (proposed 10 percent).
 
+### 4.21 Slow aggression - BUILT 2026-11-08, harness not run yet
+
+What (Nadi, 2026-11-08): walkers are slow to anger. A walker turns on the
+player or anyone else only once that one has stayed near it for 5 s. Default
+on, 5 s; near is some 14 m (Nadi: "ja ok 14m"), no line of sight ("nein").
+
+How (AggressionLogic.h, Rise.cpp StepSlowAggression):
+- The walker records' aggression goes to 0 while the rule is on and back to
+  each record's own (100, read at the start) when it is off. No walker starts
+  a fight of its own.
+- A live walker whose own base Aggression is above 0 (an older save's SetAV,
+  or the way back of NoLevelingXP, 7a) is set to 0 too.
+- Every 0.5 s the plugin times every pair of a walker in high process and a
+  living one within the range: the player, and every person or creature on
+  the high process list that is no walker. A pair that stays near for the
+  setting's seconds in one go gets `StartCombat <that one>` on the walker,
+  once. Out of range, its clock starts anew.
+- A walker that is hit fights back: that is the engine's own rule.
+
+Settings: `[Zombies] SlowAggression=1`, `SlowAggressionSeconds=5`,
+`SlowAggressionUnits=1000`; in LINK as the last three (version 23, header
+"Walkers - slow aggression"). Unit flows in AggressionLogicTest.
+
+Not measured yet: that the record's aggression byte is what a live walker's
+base Aggression reads; that a walker with Aggression 0 keeps the fight a
+StartCombat gave it; how guards, sieges and camps feel with calm walkers
+(the guards are sent by StartCombat already, 4.11b).
+
 ## 5. Scenarios - `[Scenario] Preset=`
 
 All of 28 Days' plus one. A preset sets the switches above and the
@@ -2608,6 +2636,25 @@ roster line's counts.
   2026-11-08). It also settles whether SetAV writes the reference or the shared creature
   record: if the record reads 0 after a kill, no line appears and the fix needs a value
   captured before the hold.
+
+- **Fix BUILT 2026-11-08 - a quest's creature became a walker** (Nadi, Windows: Revenge
+  Served Cold, "alle goblins durch walker ersetzt"). Measured in Oblivion.esm: SQ03 needs
+  only SQ03JadeNecklace in the player's inventory (SQ03JadeNecklaceScript, OnAdd player
+  sets stage 10 or 30). The necklace (CLOT, quest item flag 0x400) is carried by
+  SQ03CreatureGoblin2..4, the entries of SQ03LL1GoblinBossLvl100, which SQ3BossRef places
+  in Exhausted Mine. Those goblins have no script, so the Goblins category turned them
+  into walkers and the necklace was gone. In Oblivion.esm 25 creatures without a script of
+  their own carry an item with the quest item flag (SQ01's ogre, SQ03's goblins, SQ09's
+  slaughterfish, MG07's skeleton, MS06's captain, MS16's ogre, SE03's grummite shamans, the
+  unicorn). Rule now (ReplaceLogic.h CreatureFacts.questItem, Replace.cpp
+  CarriesQuestItem): a creature whose inventory holds an item with the quest item flag
+  stays itself, whatever its category; only a [ReplaceExceptions] line of 1 makes it a
+  walker. Its INI note reads "carries a quest item". Unit flows in ReplaceLogicTest and
+  CategoryLogicTest.
+  Not covered: SQ06's bears carry SQ06BearFang, a scripted MISC without the quest item
+  flag, so they still become walkers; a quest that counts kills of a base. A creature
+  already spawned as a walker in a cell stays one until the cell resets. Not run in the
+  game yet.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem

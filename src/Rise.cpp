@@ -1620,6 +1620,136 @@ void RestoreHeld(UInt32 actor, UInt32 refId) {
 			      refId, value.name, before, record, handed ? 1 : 0, baseValue(value.actorValue));
 		}
 	}
+	// 4.21: with the slow aggression on, a walker's own aggression is 0 too
+	// (an older save's SetAV, or the way back above from a record of before).
+	const float aggression = baseValue(kHeldValues[0].actorValue);
+	if (AboveSlow(g_settings.slowAggression.enabled, aggression)) {
+		const bool handed = ConsoleOn(actor, "SetAV Aggression 0");
+		if (g_heldLogsLeft > 0) {
+			--g_heldLogsLeft;
+			g_log("Slow aggression: walker %08X had Aggression %.0f of its own - set to 0 (handed to xOBSE: %d, base now %.0f)",
+			      refId, aggression, handed ? 1 : 0, baseValue(kHeldValues[0].actorValue));
+		}
+	}
+}
+
+UInt32 HighProcessOf(UInt32 actor);
+
+// 4.21 Slow aggression (AggressionLogic.h): the walker records' aggression,
+// as each record had it at the start, and whether the rule is on in them.
+UInt8 g_recordAggression[kWalkerCount] = {};
+bool g_recordAggressionRead = false;
+int g_slowApplied = -1;  // -1 not yet, else the setting last written
+NearTracker g_near;
+float g_nearClock = 0.0f;
+UInt32 g_nearLogsLeft = 64;
+
+void ApplySlowAggression() {
+	const bool on = g_settings.slowAggression.enabled;
+	if (g_slowApplied == (on ? 1 : 0)) {
+		return;
+	}
+	for (UInt32 w = 0; w < g_walkerCount; ++w) {
+		const UInt32 base = LookupForm(g_walkers[w]);
+		if (!LooksLikeObject(base)) {
+			continue;
+		}
+		UInt8* const aggression = reinterpret_cast<UInt8*>(base + kHeldValues[0].recordOffset);
+		if (!g_recordAggressionRead) {
+			g_recordAggression[w] = *aggression;
+		}
+		*aggression = RecordAggression(on, g_recordAggression[w]);
+	}
+	g_recordAggressionRead = true;
+	g_slowApplied = on ? 1 : 0;
+	g_log("Slow aggression: %s - the %u walker records' aggression %u (the first's own %u); a walker attacks one near "
+	      "it for %.1f s within %.0f units",
+	      on ? "on" : "off", g_walkerCount, g_walkerCount > 0 ? RecordAggression(on, g_recordAggression[0]) : 0u,
+	      g_walkerCount > 0 ? g_recordAggression[0] : 0u, g_settings.slowAggression.seconds,
+	      g_settings.slowAggression.units);
+}
+
+// The living ones a walker may turn on: the player and every actor on the
+// high process list that is no walker.
+struct NearOne {
+	UInt32 refId;
+	float x, y, z;
+};
+
+UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
+	UInt32 n = 0;
+	const UInt32 player = LookupForm(kPlayerRefId);
+	if (LooksLikeObject(player) && !IsDead(player) && n < most) {
+		out[n++] = NearOne{kPlayerRefId, FloatAt(player + kRefPositionOffset), FloatAt(player + kRefPositionOffset + 4),
+		                   FloatAt(player + kRefPositionOffset + 8)};
+	}
+	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
+	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
+	struct Node {
+		void* data;
+		Node* next;
+	};
+	auto* node = static_cast<Node*>(reinterpret_cast<ListFn>(kActorListByLevel)(manager, nullptr, 0));
+	for (UInt32 visited = 0; node != nullptr && visited < 1024 && n < most; ++visited) {
+		if (!LooksLikeObject(reinterpret_cast<UInt32>(node))) {
+			break;
+		}
+		const UInt32 actor = reinterpret_cast<UInt32>(node->data);
+		node = node->next;
+		if (!LooksLikeObject(actor) || (Read(actor) != kVtblCreature && Read(actor) != kVtblCharacter) ||
+		    IsDead(actor) || IsWalkerRef(actor)) {
+			continue;
+		}
+		out[n++] = NearOne{Read(actor + kFormIdOffset), FloatAt(actor + kRefPositionOffset),
+		                   FloatAt(actor + kRefPositionOffset + 4), FloatAt(actor + kRefPositionOffset + 8)};
+	}
+	return n;
+}
+
+// Every half second: who stayed near which walker long enough is attacked.
+void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
+	ApplySlowAggression();
+	g_nearClock += dt;
+	if (g_nearClock < 0.5f) {
+		return;
+	}
+	const float step = g_nearClock;
+	g_nearClock = 0.0f;
+	if (!g_settings.slowAggression.enabled) {
+		g_near.count = 0;
+		return;
+	}
+	static NearOne ones[256];
+	const UInt32 found = CollectNearOnes(ones, 256);
+	BeginNearTick(g_near);
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 walker = LookupForm(walkerRefs[i]);
+		if (!LooksLikeObject(walker) || !IsActor(walker) || IsDead(walker) || HighProcessOf(walker) == 0) {
+			continue;
+		}
+		const float wx = FloatAt(walker + kRefPositionOffset);
+		const float wy = FloatAt(walker + kRefPositionOffset + 4);
+		const float wz = FloatAt(walker + kRefPositionOffset + 8);
+		for (UInt32 k = 0; k < found; ++k) {
+			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, g_settings.slowAggression.units) ||
+			    !NoteNear(g_near, g_settings.slowAggression, walkerRefs[i], ones[k].refId, step)) {
+				continue;
+			}
+			char line[40];
+			if (ones[k].refId == kPlayerRefId) {
+				std::snprintf(line, sizeof line, "StartCombat player");
+			} else {
+				std::snprintf(line, sizeof line, "StartCombat %08X", ones[k].refId);
+			}
+			const bool handed = ConsoleOn(walker, line);
+			if (g_nearLogsLeft > 0) {
+				--g_nearLogsLeft;
+				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (StartCombat handed to xOBSE: %d)",
+				      walkerRefs[i], ones[k].refId, g_settings.slowAggression.seconds, handed ? 1 : 0);
+			}
+		}
+	}
+	EndNearTick(g_near);
 }
 
 UInt32 HighProcessOf(UInt32 actor) {
@@ -1651,6 +1781,7 @@ void StepWalkers(float dt) {
 	}
 	static UInt32 refs[kHordeCandidatesMost];
 	const UInt32 count = CollectAllWalkers(refs, kHordeCandidatesMost);
+	StepSlowAggression(refs, count, dt);
 	UInt32 high = 0;
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 actor = LookupForm(refs[i]);

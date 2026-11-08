@@ -52,6 +52,11 @@ struct CreatureFacts {
 	UInt8 confidence = 0;
 	UInt32 flags = 0;
 	bool scripted = false;
+	// Its inventory holds an item with the quest item flag (TESForm 0x400):
+	// a quest needs that item from it - Revenge Served Cold's goblin boss
+	// and SQ03JadeNecklace (Nadi, 2026-11-08); in Oblivion.esm 25 creatures
+	// without a script of their own carry one.
+	bool questItem = false;
 	bool ours = false;    // a record of OblivionWalkers.esp
 	bool person = false;  // an NPC_ record, no creature
 };
@@ -60,7 +65,7 @@ struct CreatureFacts {
 // its line; harmless animals and all people start at 0. A creature with a
 // script stays too: a quest or the arena may count on it; one that only
 // swims would stand at the bottom of a lake.
-enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker };
+enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker, QuestItem };
 
 inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	if (facts.ours) {
@@ -68,6 +73,9 @@ inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	}
 	if (facts.person) {
 		return CreatureKind::Person;
+	}
+	if (facts.questItem) {
+		return CreatureKind::QuestItem;
 	}
 	if (facts.scripted) {
 		return CreatureKind::Scripted;
@@ -88,7 +96,7 @@ inline bool DefaultOn(CreatureKind kind) { return kind == CreatureKind::Replace;
 // PersonCategory; `line` its [ReplaceCreatures] switch and `exception` its
 // [ReplaceExceptions] one (FindReplaceSwitch: 1, 0, -1 none). [Replace]
 // Enabled=0 keeps every one; an exception decides over all else; a category
-// decides for its own, but never turns a creature with a script (a quest or
+// decides for its own, but never turns a creature with a script or a quest item (a quest or
 // the arena may count on it) or one that only swims; the line decides for
 // one without a category, and without a line its kind.
 inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& facts, UInt8 category, int line,
@@ -102,7 +110,7 @@ inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& fact
 	if (category < kReplaceCategoryCount) {
 		const bool swimsOnly =
 			(facts.flags & kCreatureSwims) != 0 && (facts.flags & (kCreatureWalks | kCreatureFlies)) == 0;
-		return settings.categories[category] && !facts.scripted && !swimsOnly;
+		return settings.categories[category] && !facts.scripted && !facts.questItem && !swimsOnly;
 	}
 	if (line >= 0) {
 		return line != 0;
@@ -125,6 +133,8 @@ inline const char* KindNote(CreatureKind kind) {
 			return " has a script";
 		case CreatureKind::Person:
 			return " person";
+		case CreatureKind::QuestItem:
+			return " carries a quest item";
 		default:
 			return "";
 	}

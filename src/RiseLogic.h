@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "AggressionLogic.h"
 #include "Bytes.h"
 #include "CampLogic.h"
 #include "EndLogic.h"
@@ -175,6 +176,9 @@ struct RiseSettings {
 	NightSettings night;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
 	CampSettings camps;
+	// [Zombies] SlowAggression, SlowAggressionSeconds, SlowAggressionUnits
+	// (4.21, AggressionLogic.h).
+	SlowAggressionSettings slowAggression;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk

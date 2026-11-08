@@ -172,12 +172,37 @@ void WriteVariantCounts(UInt32 variant, UInt32 anyWalker, const ReplaceSettings&
 	    flags, (flags & kListCalcEach) != 0 ? "drawn anew for each walker" : "one draw copied - an older ESP");
 }
 
+// TESActorBase's TESContainer at +0x44, its first Entry {data, next} inline
+// at +8 of it, Data {count, form}; TESForm's flags at +8, kFormFlags_QuestItem
+// 0x400 (xOBSE GameForms.h, via deepwiki 2026-11-08).
+constexpr UInt32 kContainerListOffset = 0x44 + 0x08;
+constexpr UInt32 kContainerDataFormOffset = 0x04;
+constexpr UInt32 kFormFlagsOffset = 0x08;
+constexpr UInt32 kFormFlagQuestItem = 0x400;
+
+bool CarriesQuestItem(UInt32 actorBase) {
+	UInt32 visited = 0;
+	for (UInt32 node = actorBase + kContainerListOffset; LooksLikeObject(node) && visited < 256;
+	     node = Read(node + 4), ++visited) {
+		const UInt32 data = Read(node);
+		if (!LooksLikeObject(data)) {
+			continue;
+		}
+		const UInt32 item = Read(data + kContainerDataFormOffset);
+		if (LooksLikeObject(item) && (Read(item + kFormFlagsOffset) & kFormFlagQuestItem) != 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
 	CreatureFacts facts;
 	facts.type = Read8(creature + kCreatureTypeOffset);
 	facts.confidence = Read8(creature + kCreatureConfidenceOffset);
 	facts.flags = Read(creature + kActorBaseFlagsOffset);
 	facts.scripted = Read(creature + kScriptOffset) != 0;
+	facts.questItem = CarriesQuestItem(creature);
 	facts.ours = IsEspForm(espBase, FormIdOf(creature));
 	facts.person = Read8(creature + kFormTypeOffset) == kFormTypeNpc;
 	return facts;

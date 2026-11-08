@@ -201,6 +201,14 @@ void TestDecision() {
 	Check(!walkers::ReplaceOn(on, Facts(true), skeletons, -1, -1),
 	      "a skeleton with a script (a quest may count on it): kept though Skeletons is on");
 	Check(walkers::ReplaceOn(on, Facts(true), skeletons, -1, 1), "a scripted one with an exception of 1: a walker");
+	// Nadi, 2026-11-08: Revenge Served Cold (SQ03) - the goblin boss carries
+	// SQ03JadeNecklace (quest item flag 0x400) and became a walker.
+	CreatureFacts carrier = Facts();
+	carrier.questItem = true;
+	Check(!walkers::ReplaceOn(on, carrier, IndexOf("Goblins"), -1, -1),
+	      "a goblin carrying a quest item: kept though Goblins is on");
+	Check(walkers::ReplaceOn(on, carrier, IndexOf("Goblins"), -1, 1), "a quest item carrier with an exception of 1: a walker");
+	Check(!walkers::ReplaceOn(on, carrier, kNoCategory, -1, -1), "no category, no line: a quest item carrier is kept");
 	Check(!walkers::ReplaceOn(on, Facts(false, walkers::kCreatureSwims), IndexOf("Rats"), -1, -1),
 	      "one that only swims: kept though its category is on - it would stand at a lake's bottom");
 

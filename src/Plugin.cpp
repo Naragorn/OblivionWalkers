@@ -101,6 +101,15 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.blockMooResurrect = GetPrivateProfileIntA("Zombies", "BlockMooResurrect", 1, path) != 0;
 	rise.noLevelingXp = GetPrivateProfileIntA("Zombies", "NoLevelingXP", 1, path) != 0;
 	rise.noSkillGain = GetPrivateProfileIntA("Zombies", "NoSkillGain", 1, path) != 0;
+	rise.slowAggression.enabled = GetPrivateProfileIntA("Zombies", "SlowAggression", 1, path) != 0;
+	rise.slowAggression.seconds = IniFloat("Zombies", "SlowAggressionSeconds", 5.0f, path);
+	if (rise.slowAggression.seconds < 0.0f) {
+		rise.slowAggression.seconds = 0.0f;
+	}
+	rise.slowAggression.units = IniFloat("Zombies", "SlowAggressionUnits", 1000.0f, path);
+	if (rise.slowAggression.units < 100.0f) {
+		rise.slowAggression.units = 100.0f;
+	}
 	rise.speedMultiplier = IniFloat("Zombies", "SpeedMultiplier", 1.0f, path);
 	const int spread = GetPrivateProfileIntA("Zombies", "SpeedRandomPercent", 30, path);
 	rise.speedRandomPercent = spread < 0 ? 0u : (spread > 100 ? 100u : static_cast<UInt32>(spread));

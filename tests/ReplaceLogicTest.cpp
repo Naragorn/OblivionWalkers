@@ -69,6 +69,14 @@ void TestClassify() {
 	scriptedDeer.scripted = true;
 	Check(walkers::ClassifyCreature(scriptedDeer) == CreatureKind::Scripted, "the script decides before the animal");
 
+	CreatureFacts carrier = Wolf();
+	carrier.questItem = true;
+	Check(walkers::ClassifyCreature(carrier) == CreatureKind::QuestItem,
+	      "a creature carrying a quest item (SQ03's goblin boss): kept, the quest needs the item");
+	CreatureFacts scriptedCarrier = carrier;
+	scriptedCarrier.scripted = true;
+	Check(walkers::ClassifyCreature(scriptedCarrier) == CreatureKind::QuestItem, "the quest item decides before the script");
+
 	CreatureFacts ours = Wolf();
 	ours.ours = true;
 	Check(walkers::ClassifyCreature(ours) == CreatureKind::Walker, "a walker of the ESP: never replaced by itself");
@@ -85,13 +93,15 @@ void TestClassify() {
 
 	Check(walkers::DefaultOn(CreatureKind::Replace) && !walkers::DefaultOn(CreatureKind::HarmlessAnimal) &&
 	          !walkers::DefaultOn(CreatureKind::SwimsOnly) && !walkers::DefaultOn(CreatureKind::Scripted) &&
-	          !walkers::DefaultOn(CreatureKind::Person) && !walkers::DefaultOn(CreatureKind::Walker),
+	          !walkers::DefaultOn(CreatureKind::Person) && !walkers::DefaultOn(CreatureKind::Walker) &&
+	          !walkers::DefaultOn(CreatureKind::QuestItem),
 	      "only the replaced kind is on by default - never a person");
 	Check(std::strcmp(walkers::KindNote(CreatureKind::Replace), "") == 0 &&
 	          std::strcmp(walkers::KindNote(CreatureKind::HarmlessAnimal), " harmless animal") == 0 &&
 	          std::strcmp(walkers::KindNote(CreatureKind::SwimsOnly), " swims only") == 0 &&
 	          std::strcmp(walkers::KindNote(CreatureKind::Scripted), " has a script") == 0 &&
-	          std::strcmp(walkers::KindNote(CreatureKind::Person), " person") == 0,
+	          std::strcmp(walkers::KindNote(CreatureKind::Person), " person") == 0 &&
+	          std::strcmp(walkers::KindNote(CreatureKind::QuestItem), " carries a quest item") == 0,
 	      "the notes the INI line carries");
 }
 
