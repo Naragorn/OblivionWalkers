@@ -60,12 +60,51 @@ void TestObXp() {
 	      "the same switch, NoLevelingXP, for both mods");
 }
 
+bool Covered(const char* line) {
+	for (UInt32 v = 0; v < walkers::kHeldValueCount; ++v) {
+		char want[48];
+		std::snprintf(want, sizeof want, "SetAV %s 0", walkers::kHeldValues[v].name);
+		if (std::strcmp(line, want) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void TestRestore() {
+	std::printf("Up again: the held values back\n");
+	// Nadi, 2026-11-08 (Windows run of 2026-11-07): walkers killed by the
+	// player got up again with Aggression 0 and stayed passive.
+	bool all = true;
+	for (const char* line : walkers::kLevelingHoldLines) {
+		all = all && Covered(line);
+	}
+	for (const char* line : walkers::kObXpHoldLines) {
+		all = all && Covered(line);
+	}
+	Check(all, "every value either hold sets to 0 has a way back");
+	Check(walkers::StillHeld(0.0f, 100), "base 0, the record 100: still held, set back");
+	Check(!walkers::StillHeld(100.0f, 100), "base as the record: nothing to do");
+	Check(!walkers::StillHeld(50.0f, 100), "base lowered by someone else, not to 0: not ours, left");
+	Check(!walkers::StillHeld(0.0f, 0), "the record itself 0: nothing held");
+	char line[32];
+	Check(walkers::RestoreLine(walkers::kHeldValues[0], 100, line, sizeof line) &&
+	          std::strcmp(line, "SetAV Aggression 100") == 0,
+	      "the line: SetAV Aggression 100");
+	char tiny[8];
+	Check(!walkers::RestoreLine(walkers::kHeldValues[0], 100, tiny, sizeof tiny), "no room: no line");
+	Check(walkers::kHeldValues[0].actorValue == 33 && walkers::kHeldValues[1].actorValue == 34 &&
+	          walkers::kHeldValues[0].recordOffset == 0x6C && walkers::kHeldValues[1].recordOffset == 0x6D,
+	      "Aggression 33 and Confidence 34, the record's AI bytes +0x6C and +0x6D");
+}
+
 }  // namespace
 
 int main() {
 	TestWho();
 	TestLines();
 	TestObXp();
+	TestRestore();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

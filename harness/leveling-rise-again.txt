@@ -1,0 +1,38 @@
+# A walker killed by the player gets up again with its fight back (Nadi,
+# 2026-11-08: walkers stayed passive after the Windows run of 2026-11-07;
+# docs/walkers-spec.md 7a). With Ultimate Leveling loaded, NoLevelingXP sets
+# the dead walker's Confidence and Aggression to 0; with DieOnlyBeheaded=1
+# (and OBVR's head cutter on) the same walker gets up again some 20 to 30 s
+# later. OblivionWalkers.log (read by hand - the runner checks OBVR.log
+# only) reads "Leveling: walker ... dead - Confidence and Aggression to 0",
+# "End: walker ... down - it gets up again", then "Leveling: walker ... up
+# with Aggression 0 - set back to its record's 100 (handed to xOBSE: 1,
+# base now 100)" and the same for Confidence.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/leveling-rise-again.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 600 0
+console-at moved {actor}.kill player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark placed
+wait 2
+mark moved
+wait 50
+mark end
+wait 1

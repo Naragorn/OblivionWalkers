@@ -1588,6 +1588,40 @@ bool StepChapel(UInt32 actor, UInt32 refId) {
 	return true;
 }
 
+// A live walker whose values NoLevelingXP set to 0 at its death gets them
+// back from its record (LevelingLogic.h kHeldValues). GetBaseActorValue
+// 0x005F1910 (thiscall, as Grab.cpp and OBVR read it): the base value, which
+// SetAV changes and a Calm spell does not. Checked once a second.
+constexpr UInt32 kGetBaseActorValue = 0x005F1910;
+float g_heldClock = 0.0f;
+UInt32 g_heldLogsLeft = 32;
+
+void RestoreHeld(UInt32 actor, UInt32 refId) {
+	const UInt32 base = Read(actor + kRefBaseFormOffset);
+	if (!LooksLikeObject(base) || Read8(base + kFormTypeOffset) != kFormTypeCreature) {
+		return;
+	}
+	using GetBaseFn = SInt32(__fastcall*)(void* self, void* edx, UInt32 av);
+	const auto baseValue = [actor](UInt32 av) {
+		return static_cast<float>(
+			reinterpret_cast<GetBaseFn>(kGetBaseActorValue)(reinterpret_cast<void*>(actor), nullptr, av));
+	};
+	for (const HeldValue& value : kHeldValues) {
+		const UInt32 record = value.recordSize == 4 ? Read(base + value.recordOffset) : Read8(base + value.recordOffset);
+		const float before = baseValue(value.actorValue);
+		if (!StillHeld(before, record)) {
+			continue;
+		}
+		char line[48];
+		const bool handed = RestoreLine(value, record, line, sizeof line) && ConsoleOn(actor, line);
+		if (g_heldLogsLeft > 0) {
+			--g_heldLogsLeft;
+			g_log("Leveling: walker %08X up with %s %.0f - set back to its record's %u (handed to xOBSE: %d, base now %.0f)",
+			      refId, value.name, before, record, handed ? 1 : 0, baseValue(value.actorValue));
+		}
+	}
+}
+
 UInt32 HighProcessOf(UInt32 actor) {
 	const UInt32 process = Read(actor + kMobileProcessOffset);
 	if (!LooksLikeObject(process) || !LooksLikeObject(Read(process))) {
@@ -1610,6 +1644,11 @@ void StepWalkers(float dt) {
 	if (logNow) {
 		g_walkLogSeconds = 0.0f;
 	}
+	g_heldClock += dt;
+	const bool heldNow = g_heldClock >= 1.0f;
+	if (heldNow) {
+		g_heldClock = 0.0f;
+	}
 	static UInt32 refs[kHordeCandidatesMost];
 	const UInt32 count = CollectAllWalkers(refs, kHordeCandidatesMost);
 	UInt32 high = 0;
@@ -1617,6 +1656,9 @@ void StepWalkers(float dt) {
 		const UInt32 actor = LookupForm(refs[i]);
 		if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
 			continue;
+		}
+		if (heldNow) {
+			RestoreHeld(actor, refs[i]);
 		}
 		if (StepChapel(actor, refs[i])) {
 			continue;

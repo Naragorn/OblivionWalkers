@@ -2597,8 +2597,17 @@ roster line's counts.
   to 0). Not loaded on Windows.
   OblivionCombatExtender.esp is still in Windows' Data folder and Plugins.txt (line 55,
   2026-11-08), so the first suspect stays open beside this one.
-  Fix to build: restore the held values when a walker gets up again, at every Resurrect
-  path (the rise again, the safeguard, the swap), from the walker's base record.
+  **Fix BUILT 2026-11-08:** once a second StepWalkers checks every live walker. A value
+  the holds set to 0 (its base actor value 0, its record's above 0) gets the record's value
+  back by SetAV (LevelingLogic.h kHeldValues, StillHeld, RestoreLine; Rise.cpp
+  RestoreHeld). One place covers every path back up, also walkers already zeroed in a save.
+  Unit flows in LevelingLogicTest. A base another mod lowered but not to 0 is left, and a
+  Calm spell changes no base value. Log: "Leveling: walker ... up with Aggression 0 - set
+  back to its record's 100 (handed to xOBSE: 1, base now 100)".
+  Harness `harness/leveling-rise-again.txt` written, NOT run yet (SteamVR was off on
+  2026-11-08). It also settles whether SetAV writes the reference or the shared creature
+  record: if the record reads 0 after a kill, no line appears and the fix needs a value
+  captured before the hold.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem

@@ -23,6 +23,8 @@
 
 #include "Types.h"
 
+#include <cstdio>
+
 namespace walkers {
 
 inline constexpr const char* kLevelingEsp = "Ultimate Leveling.esp";
@@ -55,6 +57,40 @@ inline constexpr const char* kObXpXpVariable = "currentXP";
 // Oblivion XP nothing - one switch for both.
 inline bool HoldsLevelingXp(bool setting, bool levelingLoaded, bool isWalker) {
 	return setting && levelingLoaded && isWalker;
+}
+
+// The way back (Nadi, 2026-11-08: walkers killed by the player got up again
+// with Aggression 0 and stayed passive; the Windows log of 2026-11-07 shows
+// 103 of them). A walker that gets up again - by the rise again, the
+// safeguard, the swap or in an older save - gets the values the holds set
+// to 0 back from its record. Each value: its actor value code (xOBSE's
+// actor value list: Strength 0 .. Luck 7, Health 8, Aggression 33,
+// Confidence 34) and where TESCreature keeps it (xOBSE GameForms.h:
+// AISettings at +0x6C, aggression then confidence; TESHealthForm's health
+// +0x84, 4 bytes; TESAttributes' attr[8] at +0x8C, in the code order).
+struct HeldValue {
+	const char* name;
+	UInt32 actorValue;
+	UInt32 recordOffset;
+	UInt32 recordSize;
+};
+inline constexpr HeldValue kHeldValues[] = {
+	{"Aggression", 33, 0x6C, 1},  {"Confidence", 34, 0x6D, 1}, {"Health", 8, 0x84, 4},
+	{"Strength", 0, 0x8C, 1},     {"Intelligence", 1, 0x8D, 1}, {"Willpower", 2, 0x8E, 1},
+	{"Agility", 3, 0x8F, 1},      {"Speed", 4, 0x90, 1},        {"Endurance", 5, 0x91, 1},
+	{"Personality", 6, 0x92, 1},
+};
+inline constexpr UInt32 kHeldValueCount = sizeof(kHeldValues) / sizeof(kHeldValues[0]);
+
+// Still held: the live walker's base value is the hold's 0 while its record
+// has more. A base another mod lowered but not to 0 is not ours to touch,
+// and a magic effect (Calm, Demoralize) changes no base value.
+inline bool StillHeld(float baseNow, UInt32 record) { return baseNow < 0.5f && record > 0; }
+
+// The console line that sets the value back, false when `out` is too small.
+inline bool RestoreLine(const HeldValue& value, UInt32 record, char* out, UInt32 capacity) {
+	const int n = std::snprintf(out, capacity, "SetAV %s %u", value.name, record);
+	return n > 0 && static_cast<UInt32>(n) < capacity;
 }
 
 }  // namespace walkers
