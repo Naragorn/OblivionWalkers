@@ -2684,6 +2684,29 @@ roster line's counts.
   flag, so they still become walkers; a quest that counts kills of a base. A creature
   already spawned as a walker in a cell stays one until the cell resets. Not run in the
   game yet.
+- **OPEN - Quest audit, measured 2026-11-08** (Nadi: "ja mach mal A erstmal alles
+  messen"). `tools/quest-audit.py <Data> <Plugins.txt>` reads the load order (39
+  plugins, Linux) and writes `artifacts/quest-audit/summary.md`. "Named by a quest" =
+  in the quest's script, stage results, targets, conditions, or its dialogue. "Replaced" =
+  every leveled-list base the two keep rules (scripted, quest item) leave - an upper
+  bound: the categories are not applied. Of 4197 leveled-list bases 299 are kept.
+  - Gap 1, a needed item without the flag: only SQ06 (SQ06BearFang on its six bear
+    bases) has an item of its own. 35 more quests name ordinary items (torches,
+    clothes, ingredients such as MinotaurHorn, DaedraHeart) that replaced bases carry;
+    those come from elsewhere too - not a block, but fewer of them in the world.
+  - Gap 2, a placed leveled list named by a quest: 14 quests; 10 with replaced bases
+    in the list - Dark07Medicine, FGC03Thieves, MG01Destruct, MG14Plot, MS16A, MS18,
+    MS49, SE03A, SQ06, TG09Arrow. Safe already (all kept): SQ03, SQ09, ND10. Plus 18
+    object scripts (FanacasBossREF, MG08, MG10 summons, MOO's placers) and 79
+    persistent placed lists named by nothing.
+  - Gap 3, a replaced base or list named by a quest (GetDeadCount and the like): 3
+    quests - MG01Destruct (its zombie bases), NPCAdventurer (conditions), SE14 (its
+    attack lists). 110 more names are mod scripts (MOO, Basic Primary Needs) that read
+    the lists - not quests.
+  - Not measured: whether a quest really breaks when its named one is a walker. A kill
+    by reference (GetDead) likely still counts - but a walker that rises again, an
+    item the quest needs, or a line to speak are lost. Not seen: names built at run
+    time, leveled item lists in inventories.
 
 - **FIXED 2026-10-27 - Ten walkers at once are one look** (Nadi, Windows, 2026-10-27: "wenn 10
   walker auf einmal spawnen dann ist es immer der selbe typ aus unserem
