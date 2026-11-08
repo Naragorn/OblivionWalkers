@@ -3,8 +3,9 @@
 // 4.21 Slow aggression (docs/walkers-spec.md; Nadi, 2026-11-08: walkers turn
 // on the player and anyone else only once that one has been near them for a
 // while; default on, near meaning some 14 m, no line of sight needed; the
-// while drawn at random for each one, 2 to 5 s by default - Nadi, 2026-11-08:
-// "statt 5s machen wir ein random aus x,y default 2,5 s").
+// while drawn at random for each one - Nadi, 2026-11-08: "statt 5s machen wir
+// ein random aus x,y"; the range set by how aggressive they are: "bei weniger
+// ist der rand 10,15s bei medium 5,10, bei hoch 1,5s default medium").
 //
 // How: the walker records' aggression goes to 0, so no walker starts a fight
 // on its own (the engine's own rule: a creature attacks when its aggression
@@ -19,14 +20,25 @@
 
 namespace walkers {
 
+// How aggressive the walkers are: the range of the time one must stay near.
+// The numbers are LINK's slider values.
+enum class SlowAggressionLevel : UInt8 {
+	Low = 0,     // 10 to 15 s
+	Medium = 1,  // 5 to 10 s
+	High = 2,    // 1 to 5 s
+	Custom = 3,  // SlowAggressionSecondsMin to SlowAggressionSecondsMax
+};
+
 struct SlowAggressionSettings {
 	// [Zombies] SlowAggression: on by default.
 	bool enabled = true;
-	// [Zombies] SlowAggressionSecondsMin / SlowAggressionSecondsMax: how long
-	// one must stay near, drawn between the two for each walker and each one
-	// near it.
-	float secondsMin = 2.0f;
-	float secondsMax = 5.0f;
+	// [Zombies] SlowAggressionLevel: Low, Medium (the default), High or
+	// Custom.
+	SlowAggressionLevel level = SlowAggressionLevel::Medium;
+	// [Zombies] SlowAggressionSecondsMin / SlowAggressionSecondsMax: the own
+	// range, used only with the level Custom.
+	float secondsMin = 5.0f;
+	float secondsMax = 10.0f;
 	// [Zombies] SlowAggressionUnits: how near, in game units (1000 is some
 	// 14 m: 1 unit 1.43 cm, 70 units a yard).
 	float units = 1000.0f;
@@ -40,12 +52,45 @@ inline bool InReach(float dx, float dy, float dz, float units) {
 	return dx * dx + dy * dy + dz * dz <= units * units;
 }
 
+// The INI's SlowAggressionLevel: the word in any case or LINK's number;
+// anything else Medium.
+inline SlowAggressionLevel ParseSlowAggressionLevel(const char* text) {
+	if (text == nullptr) {
+		return SlowAggressionLevel::Medium;
+	}
+	const char* const words[] = {"low", "medium", "high", "custom"};
+	for (UInt32 i = 0; i < 4; ++i) {
+		const char* a = text;
+		const char* b = words[i];
+		while (*a != '\0' && *b != '\0' && (*a == *b || *a + 32 == *b)) {
+			++a;
+			++b;
+		}
+		if (*a == '\0' && *b == '\0') {
+			return static_cast<SlowAggressionLevel>(i);
+		}
+	}
+	if (text[0] >= '0' && text[0] <= '3' && text[1] == '\0') {
+		return static_cast<SlowAggressionLevel>(text[0] - '0');
+	}
+	return SlowAggressionLevel::Medium;
+}
+
 // The time a new pair must stay near: `roll` (0..1, held inside) of the way
-// from the fewest to the most seconds; the two taken in order, whichever is
-// set higher.
+// through the level's range - with Custom the own seconds, taken in order,
+// whichever is set higher; an unknown level Medium.
 inline float NeededSeconds(const SlowAggressionSettings& settings, float roll) {
-	const float low = settings.secondsMin < settings.secondsMax ? settings.secondsMin : settings.secondsMax;
-	const float high = settings.secondsMin < settings.secondsMax ? settings.secondsMax : settings.secondsMin;
+	float low = 5.0f;
+	float high = 10.0f;
+	switch (settings.level) {
+		case SlowAggressionLevel::Low: low = 10.0f; high = 15.0f; break;
+		case SlowAggressionLevel::High: low = 1.0f; high = 5.0f; break;
+		case SlowAggressionLevel::Custom:
+			low = settings.secondsMin < settings.secondsMax ? settings.secondsMin : settings.secondsMax;
+			high = settings.secondsMin < settings.secondsMax ? settings.secondsMax : settings.secondsMin;
+			break;
+		default: break;
+	}
 	const float r = roll < 0.0f ? 0.0f : (roll > 1.0f ? 1.0f : roll);
 	return low + (high - low) * r;
 }

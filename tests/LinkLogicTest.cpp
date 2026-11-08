@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 158,
-	      "158 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's four - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 159,
+	      "159 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -255,18 +255,26 @@ void TestValues() {
 	          walkers::SetLinkValue(rise, replace, shock, 3.0) && rise.grab.shockSound == 3,
 	      "the grab's shock sound, 153: the first by default, 0..3, live; the third set from the menu");
 	const int slow = IndexOf("ini_slow_aggression");
+	const int slowLevel = IndexOf("ini_slow_aggression_level");
 	const int slowMin = IndexOf("ini_slow_aggression_seconds_min");
 	const int slowMax = IndexOf("ini_slow_aggression_seconds_max");
 	const int slowUnits = IndexOf("ini_slow_aggression_units");
-	Check(slow == 154 && slowMin == 155 && slowMax == 156 && slowUnits == 157 &&
+	Check(slow == 154 && slowLevel == 155 && slowMin == 156 && slowMax == 157 && slowUnits == 158 &&
+	          walkers::LinkValue(rise, replace, slowLevel) == 1.0 && kLinkSettings[slowLevel].min == 0 &&
+	          kLinkSettings[slowLevel].max == 3 && kLinkSettings[slowLevel].effect == walkers::LinkEffect::Live &&
 	          IndexOf("ini_slow_aggression_seconds") < 0 && walkers::LinkValue(rise, replace, slow) == 1.0 &&
-	          walkers::LinkValue(rise, replace, slowMin) == 2.0 && walkers::LinkValue(rise, replace, slowMax) == 5.0 &&
+	          walkers::LinkValue(rise, replace, slowMin) == 5.0 && walkers::LinkValue(rise, replace, slowMax) == 10.0 &&
 	          walkers::LinkValue(rise, replace, slowUnits) == 1000.0 &&
 	          kLinkSettings[slow].effect == walkers::LinkEffect::Live &&
 	          kLinkSettings[slowMin].effect == walkers::LinkEffect::Live &&
 	          kLinkSettings[slowMax].effect == walkers::LinkEffect::Live &&
 	          kLinkSettings[slow].kind == walkers::LinkKind::Toggle,
-	      "the slow aggression last, 154..157: on, 2 to 5 s, 1000 units by default, live");
+	      "the slow aggression last, 154..158: on, medium, own seconds 5 to 10, 1000 units by default, live");
+	Check(walkers::SetLinkValue(rise, replace, slowLevel, 2.0) &&
+	          rise.slowAggression.level == walkers::SlowAggressionLevel::High &&
+	          walkers::SetLinkValue(rise, replace, slowLevel, 0.0) &&
+	          rise.slowAggression.level == walkers::SlowAggressionLevel::Low,
+	      "the level set from the menu: high, then low");
 	Check(walkers::SetLinkValue(rise, replace, slow, 0.0) && !rise.slowAggression.enabled &&
 	          walkers::SetLinkValue(rise, replace, slowMin, 3.0) && rise.slowAggression.secondsMin == 3.0f &&
 	          walkers::SetLinkValue(rise, replace, slowMax, 12.0) && rise.slowAggression.secondsMax == 12.0f &&
@@ -360,7 +368,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 24\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 25\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

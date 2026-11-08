@@ -176,7 +176,7 @@ struct RiseSettings {
 	NightSettings night;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
 	CampSettings camps;
-	// [Zombies] SlowAggression, SlowAggressionSecondsMin, SlowAggressionSecondsMax, SlowAggressionUnits
+	// [Zombies] SlowAggression, SlowAggressionLevel, SlowAggressionSecondsMin, SlowAggressionSecondsMax, SlowAggressionUnits
 	// (4.21, AggressionLogic.h).
 	SlowAggressionSettings slowAggression;
 };

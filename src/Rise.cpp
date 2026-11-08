@@ -1667,11 +1667,12 @@ void KeepWalkerRecords() {
 	if (g_slowApplied != (slow ? 1 : 0)) {
 		g_slowApplied = slow ? 1 : 0;
 		g_log("Slow aggression: %s - the %u walker records' aggression %u (the first's own %u); a walker attacks one "
-		      "near it for %.1f to %.1f s (drawn per pair) within %.0f units",
+		      "near it for %.1f to %.1f s (level %u, drawn per pair) within %.0f units",
 		      slow ? "on" : "off", g_walkerCount,
 		      g_walkerCount > 0 ? RecordAggression(slow, static_cast<UInt8>(g_records[0].atStart[0])) : 0u,
-		      g_walkerCount > 0 ? g_records[0].atStart[0] : 0u, g_settings.slowAggression.secondsMin,
-		      g_settings.slowAggression.secondsMax, g_settings.slowAggression.units);
+		      g_walkerCount > 0 ? g_records[0].atStart[0] : 0u, NeededSeconds(g_settings.slowAggression, 0.0f),
+		      NeededSeconds(g_settings.slowAggression, 1.0f), static_cast<UInt32>(g_settings.slowAggression.level),
+		      g_settings.slowAggression.units);
 	}
 }
 
@@ -1758,8 +1759,8 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (drawn %.1f of %.1f..%.1f; StartCombat "
 				      "answered %d)",
 				      walkerRefs[i], ones[k].refId, pair != nullptr ? pair->seconds : 0.0f,
-				      pair != nullptr ? pair->needed : 0.0f, g_settings.slowAggression.secondsMin,
-				      g_settings.slowAggression.secondsMax, handed ? 1 : 0);
+				      pair != nullptr ? pair->needed : 0.0f, NeededSeconds(g_settings.slowAggression, 0.0f),
+				      NeededSeconds(g_settings.slowAggression, 1.0f), handed ? 1 : 0);
 			}
 		}
 	}
