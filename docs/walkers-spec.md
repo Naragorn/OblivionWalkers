@@ -2322,7 +2322,21 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
   holds across a load, whether the followers keep up through doors.
 - Harness `camp-escort` (tools/camp-harness.sh CAMP_SCENARIO=escort, with
   ESCORT_BEHIND=1 the failure): the ask set as the yes would, the distance
-  after 20 s, then arrival at the gate (or the failure). Not run yet.
+  after 20 s, then arrival at the gate (or the failure).
+- Harness `camp-escort` 2026-11-08 20:4x, Linux headless, **PASS**: camp 07
+  near Wellspring Cave asked (offer 1), the escort begun to Imperial City
+  Prison Gate, AddScriptPackage to 7; one refugee killed on the way by a
+  walker near (slot 1, rising); 20 s after the ask the six living stood 197
+  to 699 units from the player (set out some 1500 off) - **they follow**;
+  taken to the gate: "You brought 6 of 7 refugees safe to Imperial City
+  Prison Gate (+2 fame, 257 gold, some of their things)" - 2 x 6/7 = 1.7 to 2,
+  300 x 6/7 = 257; the things FurGreaves and IronBoots off LL1LootArmor100 at
+  the player's level 1 (read: plausible for the harness save, not checked
+  against the game's own). The third drew nothing off
+  LL1LootPotions2Average (its entries start at level 2) - since then the
+  next list is tried. Not run: the failure (ESCORT_BEHIND=1 - Nadi stopped
+  the session for Windows), the greeting and topic in dialogue, camp life
+  (sleep, wander), the news books, the headset.
 
 Dynamic camps (Nadi, 2026-11-05/06: "Go dynamic") - **BUILT 2026-11-06**,
 props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,

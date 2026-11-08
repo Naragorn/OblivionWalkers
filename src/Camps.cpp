@@ -261,9 +261,17 @@ UInt32 GiveThings(UInt32 things) {
 	const UInt32 level = PlayerLevel();
 	UInt32 given = 0;
 	for (UInt32 k = 0; k < things; ++k) {
-		const UInt32 list = LookupForm(kThingLists[g_roll() % (sizeof(kThingLists) / sizeof(kThingLists[0]))]);
+		// A list with nothing low enough (the potions start at level 2,
+		// harness camp-escort 2026-11-08): the next list tried.
+		constexpr UInt32 lists = sizeof(kThingLists) / sizeof(kThingLists[0]);
+		const UInt32 first = g_roll() % lists;
+		UInt32 list = 0;
 		UInt32 count = 1;
-		const UInt32 item = DrawThing(list, level, count);
+		UInt32 item = 0;
+		for (UInt32 tried = 0; tried < lists && item == 0; ++tried) {
+			list = LookupForm(kThingLists[(first + tried) % lists]);
+			item = DrawThing(list, level, count);
+		}
 		if (item == 0) {
 			g_log("Camps: a thing - none drawn off %08X at level %u", LooksLikeObject(list) ? FormIdOf(list) : 0, level);
 			continue;
