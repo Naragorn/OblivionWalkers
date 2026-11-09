@@ -2107,7 +2107,7 @@ Enabled=1`, `Seconds=180`, `Test=0` (a test switch); LINK 167..168 (version
   vignette black and red, the picture darker and blood on the hands, OBVR's
   on 'WGDS' (Nadi's go there, 2026-11-09). Flat, no vignette and no darker
   picture: Oblivion has no screen effect for it - a full-screen HUD tile of
-  our own would be medium, offered, not built. Harness disguise again, PASS:
+  our own would be medium, offered - WON'T DO (Nadi, 2026-11-09). Harness disguise again, PASS:
   "PlayMagicShaderVisuals 000C7941 40", then "StopMagicShaderVisuals" at
   the end (the console answers 0 either way, as for AddScriptPackage) - how
   it looks is not seen (headless).
@@ -2181,7 +2181,7 @@ Back on the list as an idea of that day (Nadi, 2026-10-26: at the very end).
 A bite infects; the player who dies infected rises as a walker (a game over,
 or a curse to cure); a chapel or a potion cures. Cost **medium**.
 
-#### 4.20.4 Walker kinds - `[Kinds] RunnerPercent=2`, `BloatedPercent=5`, `ArmoredPercent=5`
+#### 4.20.4 Walker kinds - `[Kinds] RunnerPercent=2`, `BloatedPercent=5`, `ArmoredPercent=5` - WON'T DO (Nadi, 2026-11-09: the design does not please him; kept here)
 
 Rare kinds among the spawns and the risen: a runner (runs - the exception
 to 4.4), a bloated one (a poison cloud where it falls), an armored one (a
