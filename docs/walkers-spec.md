@@ -2116,7 +2116,8 @@ Enabled=1`, `Seconds=180`, `Test=0` (a test switch); LINK 167..168 (version
   'WGBL' FF000F89, taken here - "on (OBVR's gesture) - 40 real seconds" -
   'WGDS' 1 and 0 received there, the vignette in and out. Blood on the
   hands: OBVR laid a decal on the first-person hand, not seen in its
-  pictures (open, OBVR's).
+  pictures at first; seen since OBVR e39911b (OBVR.dll a68625b3, its run
+  through our Test=1 dialog, by OBVR's report).
 - Not seen: the dialog in the real flow (a dead walker activated while
   sneaking - the run offers it as that would), the rain and the swim ends
   (the run stood indoors, precipitation 1), the ability's icon, the
