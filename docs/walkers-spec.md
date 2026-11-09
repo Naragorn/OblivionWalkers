@@ -1667,7 +1667,10 @@ asked to cut the head), B the same by a chance, C only guards. Nadi: "B".
   logged, 17 "head cut", 7 "NOT cut: sixteen parts cut already - no room"
   (its log stops at 24 lines; the rest likely the same). Fix on OBVR's side
   (more places, or the oldest corpse's recycled), waiting for Nadi's go -
-  the guess of a roster cap was wrong. The log's
+  the guess of a roster cap was wrong.
+  Nadi's go 2026-11-09: OBVR raised them to 128 (OBVR e9ecad0, OBVR.dll
+  33557bf8). gate-guards again (OBVR's run 115135, Linux headless):
+  **91 felled by others, 91 heads cut off**, none refused. The log's
   dispatch line said "felled by a refugee" for these too - fixed to "a
   refugee or someone else".
 
