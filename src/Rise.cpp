@@ -455,7 +455,7 @@ void SendCuts() {
 		const UInt32 bytes = CutHeadMessage(g_cuts[i], words);
 		const bool sent = g_messaging != nullptr &&
 		                  g_messaging->Dispatch(g_pluginHandle, kCutHeadMessage, words, bytes, "OBVR");
-		g_log("End: walker %08X felled by a refugee - OBVR asked to cut its head ('WGCT' dispatched: %d)", g_cuts[i],
+		g_log("End: walker %08X felled by a refugee or someone else - OBVR asked to cut its head ('WGCT' dispatched: %d)", g_cuts[i],
 		      sent ? 1 : 0);
 	}
 	g_cutCount = 0;

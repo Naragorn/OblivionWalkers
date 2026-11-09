@@ -1656,10 +1656,16 @@ asked to cut the head), B the same by a chance, C only guards. Nadi: "B".
   (a fall, a trap without owner): it gets up again.
 - INI and LINK (setting 166, LINK version 28, 167 settings). EndLogicTest
   covers the verdict and the roll.
-- Not run in the game yet: SteamVR was off (2026-11-09). The harness for it:
-  gate-guards.txt with [Guards] HealthFactor high enough for the guards to
-  kill the walkers - "ended (felled by someone else - OBVR asked to cut its
-  head)" and OBVR's 'WGHD' per walker.
+- Harness gate-guards.txt 2026-11-09, Linux headless, default INI, **PASS**:
+  Anvil's gate guards out (seven, for 7 then 31 walkers), 90 walkers "ended
+  (felled by someone else - OBVR asked to cut its head)" - killers the pool
+  guards, Anvil's own guards and others (0004F001, 00185FE7, 0004E9A8) -
+  none "gets up again". OBVR answered "head is cut off" for 21 of the 90:
+  the rest not confirmed - likely OBVR's roster cap of 64 actors (its note of
+  2026-11-05, 4.20.6) or walkers out of its reach; the walkers end either
+  way. Open: OBVR's side for the missing 69 (OBVR's to measure). The log's
+  dispatch line said "felled by a refugee" for these too - fixed to "a
+  refugee or someone else".
 
 ### 4.18 LINK - the settings in the game's menu
 
