@@ -2368,6 +2368,21 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
   next list is tried. Not run: the failure (ESCORT_BEHIND=1 - Nadi stopped
   the session for Windows), the greeting and topic in dialogue, camp life
   (sleep, wander), the news books, the headset.
+- Harness camp-escort with ESCORT_BEHIND=1, 2026-11-09, four runs: the
+  failure PASSes each time ("left behind; 7 go back to the camp" once the
+  player is 7000 off).
+- **Open bug - the follow is unreliable** (the same four runs): 20 s after
+  the ask most had not come - 6 of 7 at 1170-1550 (run 1), 6 of 7 at
+  1330-1835 with the resend off (EscortFollowSeconds=0, run 2: the resend is
+  not the cause), 6 of 7 at 1810-2150 (run 3), 4 of 7 at 1400-1560 (run 4).
+  The probe (Horde.cpp ActorPackageNow) read what they run: those near the
+  player the follow package (26000A42); the others their own wander
+  (26000A43) - the script package gone - or a package the engine made at
+  run time (FF00xxxx); none in combat. The run of 2026-11-08 (all six near)
+  had a fight at the camp. Not known yet: why the script package drops
+  (AddScriptPackage keeps it "until it is done" - CS wiki; FollowPlayer's
+  PKDT flags 0x00400004, must complete) and what the FF packages are. Many
+  walkers were near (99 loaded, 12 hordes).
 
 Dynamic camps (Nadi, 2026-11-05/06: "Go dynamic") - **BUILT 2026-11-06**,
 props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,
