@@ -59,8 +59,10 @@ is `docs/nexus.md`.
   section 2). `0x2B00` was free in xOBSE's list
   (github.com/llde/xOBSE/wiki/Registered-Opcodes-for-OBSE-Plugins) on
   2026-10-24 and still on 2026-11-03. Requested on 2026-11-03 as
-  0x2B00-0x2B0F (https://github.com/llde/xOBSE/issues/263); open until
-  it is in the list. Should another range be given, change `kOpcodeBase`.
+  0x2B00-0x2B0F (https://github.com/llde/xOBSE/issues/263) and
+  registered by xOBSE's maintainer on 2026-11-07 ("consider it
+  registered"); he adds it to the wiki list at the next release - tell him
+  in the issue when one is out.
 
 ## Not planned for now
 
