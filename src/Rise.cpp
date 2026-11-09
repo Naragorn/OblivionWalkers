@@ -575,6 +575,18 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		facts.headNoted = HeadNoted(g_heads, fallen.refId);
 		facts.cutterOn = g_headCutter;
 		facts.killedByRefugee = IsCampPerson(FormIdOf(reinterpret_cast<UInt32>(arg1)));
+		// Someone else than the player, a refugee or a walker felled it: they
+		// cannot cut a head (OthersEndPercent; Nadi, 2026-11-09: "B").
+		const UInt32 killer = reinterpret_cast<UInt32>(arg1);
+		if (!facts.killedByRefugee && LooksLikeObject(killer) && FormIdOf(killer) != kPlayerRefId) {
+			const UInt32 killerBase = Read(killer + kRefBaseFormOffset);
+			bool killerWalker = false;
+			for (UInt32 w = 0; LooksLikeObject(killerBase) && w < g_walkerCount; ++w) {
+				killerWalker = killerWalker || g_walkers[w] == FormIdOf(killerBase);
+			}
+			facts.killedByOther = LooksLikeObject(killerBase) && !killerWalker;
+			facts.otherEnds = facts.killedByOther && OthersEnd(g_settings.end.othersEndPercent, NextRandom());
+		}
 		fall = WalkerFallVerdict(g_settings.end.dieOnlyBeheaded, facts);
 		if (AsksForCut(fall) && g_cutCount < 16) {
 			g_cuts[g_cutCount++] = fallen.refId;

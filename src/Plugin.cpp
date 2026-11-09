@@ -133,6 +133,10 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.end.dieOnlyBeheaded = GetPrivateProfileIntA("Zombies", "DieOnlyBeheaded", 1, path) != 0;
 	rise.end.riseAgainSeconds = IniFloat("Zombies", "RiseAgainSeconds", 20.0f, path);
 	rise.end.riseAgainJitterSeconds = IniFloat("Zombies", "RiseAgainJitterSeconds", 10.0f, path);
+	{
+		const int others = GetPrivateProfileIntA("Zombies", "OthersEndPercent", 100, path);
+		rise.end.othersEndPercent = static_cast<UInt32>(others < 0 ? 0 : (others > 100 ? 100 : others));
+	}
 	if (rise.end.riseAgainSeconds < 0.0f) {
 		rise.end.riseAgainSeconds = 0.0f;
 	}

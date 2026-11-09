@@ -59,6 +59,23 @@ void TestFall() {
 	          !walkers::AsksForCut(WalkerFall::EndedNoCutter),
 	      "nobody cuts heads: ended as every kill, no cut asked");
 	Check(walkers::WalkerFallVerdict(false, refugee) == WalkerFall::EndedRuleOff, "the rule off: as ever");
+	FallFacts other = f;
+	other.killedByOther = true;
+	other.otherEnds = true;
+	Check(walkers::WalkerFallVerdict(true, other) == WalkerFall::EndedByOther &&
+	          walkers::AsksForCut(WalkerFall::EndedByOther) && walkers::Ends(WalkerFall::EndedByOther),
+	      "felled by someone else - a guard, a bandit, a companion - its roll hit: the end, OBVR asked to cut the head "
+	      "(Nadi, 2026-11-09: \"B\")");
+	other.otherEnds = false;
+	Check(walkers::WalkerFallVerdict(true, other) == WalkerFall::RisesAgain, "its roll missed: it gets up again");
+	FallFacts otherFlat;
+	otherFlat.killedByOther = true;
+	otherFlat.otherEnds = false;
+	Check(walkers::WalkerFallVerdict(true, otherFlat) == WalkerFall::EndedNoCutter,
+	      "nobody cuts heads: every kill ends it, whatever the roll");
+	Check(walkers::OthersEnd(100, 9999) && walkers::OthersEnd(100, 0) && !walkers::OthersEnd(0, 0) &&
+	          walkers::OthersEnd(30, 29) && !walkers::OthersEnd(30, 30) && walkers::OthersEnd(150, 99),
+	      "OthersEndPercent: 100 always, 0 never, 30 a roll (0..99) under 30; above 100 held to always");
 	UInt32 words[2] = {};
 	Check(walkers::CutHeadMessage(0x26000ABC, words) == 4 && words[0] == 0x26000ABC &&
 	          walkers::kCutHeadMessage == 0x54434757,

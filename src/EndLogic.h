@@ -24,7 +24,16 @@ struct EndSettings {
 	bool dieOnlyBeheaded = true;
 	float riseAgainSeconds = 20.0f;
 	float riseAgainJitterSeconds = 10.0f;
+	// OthersEndPercent: the chance a walker felled by someone else than the
+	// player - a guard, a bandit, a companion, a creature - ends, OBVR asked
+	// to cut its head (Nadi, 2026-11-09: "B" - they cannot cut a head, so
+	// their walkers got up again and again).
+	UInt32 othersEndPercent = 100;
 };
+
+// Whether a walker someone else felled ends: `roll` any number, its last two
+// digits against the percent (100 and more always, 0 never).
+inline bool OthersEnd(UInt32 percent, UInt32 roll) { return percent >= 100 || roll % 100 < percent; }
 
 // A walker's death as the death watch reads it.
 struct FallFacts {
@@ -36,6 +45,10 @@ struct FallFacts {
 	// nicht beim kill"): they cannot cut a head, so their kill ends it and
 	// OBVR is asked to cut the head off.
 	bool killedByRefugee = false;
+	// Felled by someone else than the player, a refugee or a walker, and
+	// OthersEnd's roll for it hit.
+	bool killedByOther = false;
+	bool otherEnds = false;
 };
 
 enum class WalkerFall : UInt8 {
@@ -45,6 +58,7 @@ enum class WalkerFall : UInt8 {
 	EndedHead,         // its head is off or crushed
 	EndedNoCutter,     // nobody cuts heads: every kill ends it
 	EndedByRefugee,    // felled by a camp's refugee: ended, OBVR cuts the head
+	EndedByOther,      // felled by someone else, its roll hit: ended, OBVR cuts the head
 };
 
 inline WalkerFall WalkerFallVerdict(bool dieOnlyBeheaded, const FallFacts& f) {
@@ -63,6 +77,9 @@ inline WalkerFall WalkerFallVerdict(bool dieOnlyBeheaded, const FallFacts& f) {
 	if (f.killedByRefugee) {
 		return WalkerFall::EndedByRefugee;
 	}
+	if (f.killedByOther && f.otherEnds) {
+		return WalkerFall::EndedByOther;
+	}
 	return WalkerFall::RisesAgain;
 }
 
@@ -76,6 +93,7 @@ inline const char* WalkerFallText(WalkerFall fall) {
 		case WalkerFall::EndedHead: return "ended (its head is off)";
 		case WalkerFall::EndedNoCutter: return "ended (nobody cuts heads - OBVR's Dismemberment=0, or flat)";
 		case WalkerFall::EndedByRefugee: return "ended (felled by a camp's refugee - OBVR asked to cut its head)";
+		case WalkerFall::EndedByOther: return "ended (felled by someone else - OBVR asked to cut its head)";
 	}
 	return "?";
 }
@@ -100,7 +118,7 @@ enum class HeadKind : UInt8 { Cut = 1, Crushed = 2 };
 // OBVR answers with its 'WGHD' as for a cut of its own.
 inline constexpr UInt32 kCutHeadMessage = 0x54434757;
 
-inline bool AsksForCut(WalkerFall fall) { return fall == WalkerFall::EndedByRefugee; }
+inline bool AsksForCut(WalkerFall fall) { return fall == WalkerFall::EndedByRefugee || fall == WalkerFall::EndedByOther; }
 
 inline UInt32 CutHeadMessage(UInt32 refId, UInt32* words) {
 	words[0] = refId;

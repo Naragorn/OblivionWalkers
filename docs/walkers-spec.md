@@ -1640,6 +1640,27 @@ stand-in: the player kills a walker with a normal attack (it rises) and
 with a power attack (it stays down) - flat, and with OBVR's fast swing.
 Then with OBVR's cut: the corpse cut of OBVR's spec.
 
+#### 4.17a Others' kills - `[Zombies] OthersEndPercent=100` - BUILT 2026-11-09
+
+Found by Nadi (Windows, 2026-11-08): a walker that a guard, a bandit or a
+companion kills gets up again and again - only OBVR cuts heads, and only the
+player's blows reach it; the refugees' kills had their own rule (4.20.6,
+'WGCT'). Options given 2026-11-09: A every kill by someone else ends it (OBVR
+asked to cut the head), B the same by a chance, C only guards. Nadi: "B".
+- A walker felled by a killer that is not the player, not a camp's refugee
+  and not a walker (its base one of the 64 walker records) ends by
+  OthersEndPercent (0-100, default 100; `OthersEnd`: the roll's last two
+  digits under it), OBVR asked to cut its head ('WGCT', as a refugee's kill:
+  `WalkerFall::EndedByOther`). A roll missed: it gets up again as ever.
+  Without a cutter every kill ends it already (EndedNoCutter). No killer
+  (a fall, a trap without owner): it gets up again.
+- INI and LINK (setting 166, LINK version 28, 167 settings). EndLogicTest
+  covers the verdict and the roll.
+- Not run in the game yet: SteamVR was off (2026-11-09). The harness for it:
+  gate-guards.txt with [Guards] HealthFactor high enough for the guards to
+  kill the walkers - "ended (felled by someone else - OBVR asked to cut its
+  head)" and OBVR's 'WGHD' per walker.
+
 ### 4.18 LINK - the settings in the game's menu
 
 What (Nadi, 2026-10-27: "Link support ... dann muss ich keine inis anpassen
