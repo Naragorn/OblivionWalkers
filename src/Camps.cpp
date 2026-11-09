@@ -78,6 +78,7 @@ bool g_applied = false;  // the rosters and markers set since the load
 float g_followClock = 0.0f;
 bool g_escortShown = false;  // the escorted kit still out, by the city
 int g_testEscortStage = 0;
+UInt32 g_probeSeconds = 0;
 UInt32 g_markersActive = 0;  // CampActive when the markers were last set
 // The kits: the camp each is at (-1 none), the slots it has enabled.
 int g_kitCamp[kCampKits] = {-1, -1, -1, -1};
@@ -839,6 +840,25 @@ UInt32 StepEscortInGame(const float* distance, float now, CampEvent* events, UIn
 			toGate = toGate < 0.0f || dg < toGate ? dg : toGate;
 		}
 	}
+	// TestEscort: what each of them runs, each second for the first 20 (the
+	// follow found dropped, 2026-11-09).
+	if (c.status == CampStatus::Escort && g_settings->testEscort >= 0 && g_probeSeconds < 20) {
+		++g_probeSeconds;
+		for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+			if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+				continue;
+			}
+			const UInt32 ref = Person(i, slot);
+			float x = 0.0f;
+			float y = 0.0f;
+			const bool out = OutdoorsAt(ref, x, y);
+			bool high = false;
+			const UInt32 package = ActorPackageNow(FormIdOf(ref), high);
+			g_log("Camps: probe %2u s - slot %2u %.0f units off, package %08X type %u, high %d, combat %d", g_probeSeconds,
+			      slot, out && playerOut ? std::sqrt((x - px) * (x - px) + (y - py) * (y - py)) : -1.0f, package,
+			      PackageType(package), high ? 1 : 0, ActorInCombat(FormIdOf(ref)) ? 1 : 0);
+		}
+	}
 	if (c.status == CampStatus::Escort) {
 		g_followClock += kStepSeconds;
 		const bool resend = g_settings->escortFollowSeconds > 0.0f && g_followClock >= g_settings->escortFollowSeconds;
@@ -1301,6 +1321,7 @@ void ResetCampsInGame() {
 	g_followClock = 0.0f;
 	g_escortShown = false;
 	g_testEscortStage = 0;
+	g_probeSeconds = 0;
 }
 
 }  // namespace walkers

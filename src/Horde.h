@@ -56,6 +56,7 @@ bool IsGateGuard(UInt32 refId);
 // The package an actor runs now, 0 none; `high` its process runs packages.
 UInt32 ActorPackageNow(UInt32 actorId, bool& high);
 bool ActorInCombat(UInt32 actorId);
+UInt8 PackageType(UInt32 packageId);
 
 // The city the biggest group of walkers near the player heads for, -1 none
 // (the news, 4.9).

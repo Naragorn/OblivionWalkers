@@ -2386,6 +2386,16 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
   (AddScriptPackage keeps it "until it is done" - CS wiki; FollowPlayer's
   PKDT flags 0x00400004, must complete) and what the FF packages are. Many
   walkers were near (99 loaded, 12 hordes).
+  Measured 2026-11-09 (probe each second for 20 s, TestEscort): the three
+  that came ran WalkersRefugeeWander (type 5) at the ask, then the follow
+  package (type 1) from the next second and closed in (1544 to 190 units in
+  7 s). The four that stayed ran a package the engine made (FF00xxxx) of
+  type 18 - past xOBSE's enum (Find 0 .. CombatController 12, 0x0D) - from
+  before the ask to the end, two of them sharing one (slots 0 and 12, slots
+  1 and 6), none in combat, not moving. Derived: two refugees talking to
+  each other (an engine-made package shared by a pair, an interrupt;
+  AddScriptPackage does not take during one - CS wiki). Not read off the
+  engine: what type 18 is.
 
 Dynamic camps (Nadi, 2026-11-05/06: "Go dynamic") - **BUILT 2026-11-06**,
 props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,

@@ -808,6 +808,14 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 
 // The package `actorId` runs now (0 none or unknown) and whether its process
 // is the high one that runs packages - a probe for the camps' escort.
+// The package's type (TESPackage +0x20, xOBSE GameForms.h: 0 Find, 1
+// Follow, 5 Wander, 10 FleeNotCombat, 12 CombatController ...), 0xFF none.
+UInt8 PackageType(UInt32 packageId) {
+	const UInt32 package = LookupForm(packageId);
+	return LooksLikeObject(package) && Read8(package + kFormTypeOffset) == kFormTypePackage ? Read8(package + 0x20)
+	                                                                                        : 0xFF;
+}
+
 UInt32 ActorPackageNow(UInt32 actorId, bool& high) {
 	const UInt32 actor = LookupForm(actorId);
 	const UInt32 process = LooksLikeObject(actor) ? ProcessOf(actor) : 0;
