@@ -162,32 +162,64 @@ void Distances(float* distance) {
 		const float dy = py - Place(i).y;
 		distance[i] = std::sqrt(dx * dx + dy * dy);
 	}
-	// The escorted camp's kit goes with them: kept on the way; by the city
-	// while the player stays within the kits' keep, then freed for good
-	// (they are in the city, unseen) - an empty camp's place takes no kit.
-	const int e = g_state.escort.camp;
+	// An empty camp's place, and one whose people are in a city, take no kit
+	// there (EscortDistances decides the escorted one's).
 	for (UInt32 i = 0; i < kCampMost; ++i) {
 		const CampStatus st = g_state.camps[i].status;
-		if (st == CampStatus::Left || (st == CampStatus::Gone && static_cast<int>(i) != e)) {
+		if (st == CampStatus::Left || st == CampStatus::Gone) {
 			distance[i] = -1.0f;
 		}
 	}
-	if (e >= 0 && e < static_cast<int>(kCampMost)) {
-		const Camp& c = g_state.camps[e];
-		if (c.status == CampStatus::Escort) {
-			distance[e] = 0.0f;
-		} else if (c.status == CampStatus::Gone) {
-			const int g = g_state.escort.gate;
-			float d = -1.0f;
-			if (g >= 0 && g < static_cast<int>(kCityGateCount)) {
-				const float gx = px - kCityGates[g].outX;
-				const float gy = py - kCityGates[g].outY;
-				d = std::sqrt(gx * gx + gy * gy);
-			}
-			g_escortShown = g_escortShown && d >= 0.0f && d <= kCampKitKeepUnits;
-			distance[e] = g_escortShown ? 0.0f : -1.0f;
-		}
+}
+
+// The worldspace a reference stands in, 0 indoors or unknown.
+UInt32 WorldOf(UInt32 ref) {
+	const UInt32 cell = LooksLikeObject(ref) ? Read(ref + kRefParentCellOffset) : 0;
+	if (!LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0) {
+		return 0;
 	}
+	const UInt32 world = Read(cell + kCellWorldspaceOffset);
+	return LooksLikeObject(world) ? world : 0;
+}
+
+bool OutdoorsAt(UInt32 ref, float& x, float& y);
+
+// The escorted camp's kit (4.20.6): kept on the way wherever the player goes
+// (a door into a house must not free it); by the city as EscortKitWanted
+// says - in its streets or near its gate.
+void EscortDistances(float* distance) {
+	const int e = g_state.escort.camp;
+	if (e < 0 || e >= static_cast<int>(kCampMost)) {
+		return;
+	}
+	const Camp& c = g_state.camps[e];
+	if (c.status == CampStatus::Escort) {
+		distance[e] = 0.0f;
+		return;
+	}
+	if (c.status != CampStatus::Gone) {
+		return;
+	}
+	const int g = g_state.escort.gate;
+	const UInt32 player = LookupForm(kPlayerRefId);
+	float toGate = -1.0f;
+	bool inCity = false;
+	float px = 0.0f;
+	float py = 0.0f;
+	if (g >= 0 && g < static_cast<int>(kCityGateCount)) {
+		if (OutdoorsAt(player, px, py)) {
+			const float gx = px - kCityGates[g].outX;
+			const float gy = py - kCityGates[g].outY;
+			toGate = std::sqrt(gx * gx + gy * gy);
+		}
+		const UInt32 cityWorld = WorldOf(LookupForm(kCityGates[g].back));
+		inCity = cityWorld != 0 && WorldOf(player) == cityWorld;
+	}
+	const bool wanted = EscortKitWanted(g_settings->escortIntoCity, g_escortShown, inCity, toGate);
+	if (!g_settings->escortIntoCity) {
+		g_escortShown = wanted;
+	}
+	distance[e] = wanted ? 0.0f : -1.0f;
 }
 
 // A reference outdoors in Tamriel: its x and y.
@@ -380,7 +412,42 @@ UInt32 MarkerId(UInt32 i) { return EspFormId(g_espBase, CandidateMarkerLocalId(g
 
 // Kit `kit` put at camp `i`: its people (the dead raised) onto their spots by
 // the camp's map marker, then enabled as the roster says.
+// Where person `slot` stands in the city its camp was brought to: the gate's
+// spot inside, a step to either side by slot.
+void CitySpotLine(UInt32 slot, char* line, UInt32 size) {
+	const CityGate& gate = kCityGates[g_state.escort.gate];
+	const float side = static_cast<float>(static_cast<int>(slot % 7) - 3) * 60.0f;
+	const float ahead = static_cast<float>(slot / 7) * 80.0f;
+	std::snprintf(line, size, "MoveTo %08X %.0f %.0f %.0f", gate.back, gate.inDx + side, gate.inDy + ahead, gate.inDz + 20.0f);
+}
+
+bool InCity(UInt32 i) {
+	const int g = g_state.escort.gate;
+	return g_settings->escortIntoCity && g_state.camps[i].status == CampStatus::Gone && static_cast<int>(i) == g_state.escort.camp &&
+	       g >= 0 && g < static_cast<int>(kCityGateCount);
+}
+
 void SetUpKit(UInt32 kit, UInt32 i) {
+	if (InCity(i)) {
+		// Its people live in the city now: put back in its streets.
+		UInt32 raised = 0;
+		for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+			const UInt32 ref = Esp(KitPersonLocalId(kit, slot));
+			if (!LooksLikeObject(ref)) {
+				continue;
+			}
+			raised += Raise(ref, kit, slot) ? 1u : 0u;
+			Say(ref, "Disable");
+			char line[96];
+			CitySpotLine(slot, line, sizeof(line));
+			Say(ref, line);
+		}
+		g_kitPeople[kit] = 0;
+		g_log("Camps: kit %u to camp %02u %s's people in the city by %s (%u raised)", kit, i, Name(i),
+		      kCityGates[g_state.escort.gate].name, raised);
+		ApplyPeople(i, true);
+		return;
+	}
 	const CampCandidate& place = Place(i);
 	const UInt32 marker = MarkerId(i);
 	UInt32 raised = 0;
@@ -689,8 +756,24 @@ void Carry(const CampEvent& ev, const float* distance, float now) {
 			           CampThings(g_settings->rewardThings, alive, started, true), what, sizeof(what));
 			StopFollowing(i);
 			g_escortShown = true;
-			std::snprintf(text, sizeof(text), "You brought %u of %u refugees safe to %s%s.", alive, started,
-			              GateName(g_state.escort.gate), what);
+			if (InCity(i)) {
+				// Into the city through its gate (EscortIntoCity).
+				UInt32 moved = 0;
+				for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+					if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+						continue;
+					}
+					const UInt32 ref = Person(i, slot);
+					char line[96];
+					CitySpotLine(slot, line, sizeof(line));
+					moved += Say(ref, line) ? 1u : 0u;
+					Say(ref, "EvaluatePackage");
+				}
+				g_log("Camps: camp %02u %s - %u taken into the city by %s (MoveTo its city-side door %08X)", i, Name(i),
+				      moved, GateName(g_state.escort.gate), kCityGates[g_state.escort.gate].back);
+			}
+			std::snprintf(text, sizeof(text), "You brought %u of %u refugees safe to %s%s%s.", alive, started,
+			              GateName(g_state.escort.gate), what, InCity(i) ? " - they go into the city" : "");
 			Line(text);
 			const bool sound = QuestSound();
 			NoteCampInNews(true);
@@ -935,7 +1018,49 @@ UInt32 StepEscortInGame(const float* distance, float now, CampEvent* events, UIn
 // and they taken to the gate (or, TestEscortBehind, the player 7000 off).
 void StepTestEscort(float now, CampEvent* events, UInt32& n) {
 	const int t = g_settings->testEscort;
-	if (t < 0 || !CampInPlay(g_state, *g_settings, static_cast<UInt32>(t)) || g_testEscortStage >= 4) {
+	if (t < 0 || !CampInPlay(g_state, *g_settings, static_cast<UInt32>(t)) || g_testEscortStage >= 6) {
+		return;
+	}
+	// After the arrival (EscortIntoCity): where they stand, then the player
+	// taken into the city by the same gate and where they stand from him.
+	if (g_testEscortStage >= 4) {
+		const UInt32 i = static_cast<UInt32>(t);
+		const int g = g_state.escort.gate;
+		if (g < 0 || g >= static_cast<int>(kCityGateCount) || g_settings->testEscortBehind) {
+			return;
+		}
+		const bool look = (g_testEscortStage == 4 && g_testClock >= kTestCampAfterSeconds + 45.0f) ||
+		                  (g_testEscortStage == 5 && g_testClock >= kTestCampAfterSeconds + 60.0f);
+		if (!look) {
+			return;
+		}
+		const UInt32 player = LookupForm(kPlayerRefId);
+		const UInt32 cityWorld = WorldOf(LookupForm(kCityGates[g].back));
+		const Camp& c = g_state.camps[i];
+		for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+			if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+				continue;
+			}
+			const UInt32 ref = Person(i, slot);
+			const UInt32 world = WorldOf(ref);
+			float d = -1.0f;
+			if (LooksLikeObject(ref) && world != 0 && world == WorldOf(player)) {
+				const float dx = FloatAt(ref + kRefPositionOffset) - FloatAt(player + kRefPositionOffset);
+				const float dy = FloatAt(ref + kRefPositionOffset + 4) - FloatAt(player + kRefPositionOffset + 4);
+				d = std::sqrt(dx * dx + dy * dy);
+			}
+			g_log("Camps: test - after the arrival, slot %u (%08X) in worldspace %08X (the city's %08X), %.0f units from "
+			      "the player (-1 another world), status %u",
+			      slot, LooksLikeObject(ref) ? FormIdOf(ref) : 0, world != 0 ? FormIdOf(world) : 0,
+			      cityWorld != 0 ? FormIdOf(cityWorld) : 0, d, static_cast<UInt32>(c.status));
+		}
+		if (g_testEscortStage == 4) {
+			char line[96];
+			std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", kCityGates[g].back, kCityGates[g].inDx,
+			              kCityGates[g].inDy - 300.0f, kCityGates[g].inDz + 20.0f);
+			g_log("Camps: test - the player taken into the city (%s answered %d)", line, Say(player, line) ? 1 : 0);
+		}
+		++g_testEscortStage;
 		return;
 	}
 	const UInt32 i = static_cast<UInt32>(t);
@@ -1180,6 +1305,7 @@ void StepCampsInGame(float dt) {
 	RollPlaces();
 	float distance[kCampMost];
 	Distances(distance);
+	EscortDistances(distance);
 	StepKits(distance);
 	CampEvent events[kEventsMost];
 	UInt32 n = 0;

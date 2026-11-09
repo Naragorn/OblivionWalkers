@@ -173,7 +173,7 @@ void TestLocks() {
 
 void TestSpot() {
 	std::printf("Where the siege's walkers stand\n");
-	walkers::CityGate gate{walkers::City::Anvil, 1, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f, 0.0f, 2, "test"};
+	walkers::CityGate gate{walkers::City::Anvil, 1, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f, 0.0f, 2, 0.0f, 0.0f, 0.0f, "test"};
 	float x = 0.0f;
 	float y = 0.0f;
 	walkers::SiegeSpot(gate, 0, x, y);
@@ -184,7 +184,7 @@ void TestSpot() {
 	      "the eighth: the row's right end");
 	walkers::SiegeSpot(gate, 8, x, y);
 	Check(std::fabs(y - walkers::kSiegeStandOff - walkers::kSiegeRowSpacing) < 0.5f, "the ninth: the next row, farther out");
-	walkers::CityGate flat{walkers::City::Anvil, 1, 50.0f, 50.0f, 0.0f, 50.0f, 50.0f, 0.0f, 2, "same spot"};
+	walkers::CityGate flat{walkers::City::Anvil, 1, 50.0f, 50.0f, 0.0f, 50.0f, 50.0f, 0.0f, 2, 0.0f, 0.0f, 0.0f, "same spot"};
 	walkers::SiegeSpot(flat, 0, x, y);
 	Check(x == x && y == y, "a gate whose way out is its door's spot: still a number, no division by zero");
 }

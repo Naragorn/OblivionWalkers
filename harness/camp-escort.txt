@@ -11,7 +11,10 @@
 # to the gate: "the escort arrived: You brought N of N refugees safe to
 # <gate> (+2 fame, 300 gold, ...)" and "a thing - <item> ... at the player's
 # level N". With ESCORT_BEHIND=1 the player is taken 7000 units off instead:
-# "the escort failed: left behind".
+# "the escort failed: left behind". With EscortIntoCity (on by default): "N
+# taken into the city by <gate>", 45 s after the load the escorted "in
+# worldspace <the city's>", the player taken in, at 60 s they stand some
+# hundred units from him there.
 #
 # Runs on OBVR's harness through tools/camp-harness.sh.
 
@@ -40,6 +43,8 @@ wait 20
 mark t70
 wait 20
 mark t90
+wait 20
+mark t110
 wait 1
 mark end
 wait 1

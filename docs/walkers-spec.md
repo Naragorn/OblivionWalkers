@@ -2416,6 +2416,24 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
   gate outside while the player is near, then unseen; they are not moved
   into the city's worldspace (where inside is not chosen, and a MoveTo into
   another worldspace for 4 kits is unmeasured). Cheap to change if wanted.
+  **Changed 2026-11-09** (Nadi: "Eskorte endet in stadt als toggle default
+  an"): `EscortIntoCity=1` (INI and LINK 169, LINK version 30, 170
+  settings). Arrived, they are moved into the city through the gate - MoveTo
+  its city-side door with the offset of the spot the Tamriel-side door's own
+  teleport puts one on (tools/city-gates.py, CityGates.h inDx/inDy/inDz),
+  side by side - and wander its streets. Their kit is out while the player
+  walks the city's worldspace (the city-side door's) or stands within 18000
+  units of the gate outside (`EscortKitWanted`); freed otherwise and put back
+  in the city's streets when he comes again (SetUpKit); EscortStayDays on
+  they leave. Off: as before, by the gate. On the way the escorted kit is now
+  kept wherever the player goes - before, a door into a house freed it (the
+  distances read -1 indoors).
+  Harness camp-escort 2026-11-09, PASS: "7 taken into the city by Skingrad
+  West Gate (MoveTo its city-side door 00007DE0)", the line "... - they go
+  into the city"; 45 s after the load all 7 in worldspace 0001C31D
+  (Skingrad's) with the player outside; the player taken in, all 7 there,
+  325-573 units from him. Not seen: how they look and walk there, the kit
+  put back on a second visit, the 7 days' end in the city.
 - Unknowns, for the harness and the headset: whether the greeting wins over
   the vanilla greetings for a refugee (PNAM none - first in the topic - as
   the siege's rumors come first; not measured), whether the follow package

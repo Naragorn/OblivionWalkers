@@ -572,6 +572,19 @@ void TestEscortImage() {
 	Check(back.escort.camp == -1, "an escort's camp out of range: none");
 }
 
+void TestEscortKit() {
+	std::printf("The escorted kit by the city\n");
+	Check(walkers::EscortKitWanted(true, false, true, -1.0f), "into the city, the player in its streets: kept (or put there)");
+	Check(walkers::EscortKitWanted(true, false, false, 9000.0f), "into the city, the player outside near the gate: kept");
+	Check(!walkers::EscortKitWanted(true, true, false, 19000.0f) && !walkers::EscortKitWanted(true, true, false, -1.0f),
+	      "into the city, the player far or elsewhere: freed (they live on in the city, unseen)");
+	Check(walkers::EscortKitWanted(false, true, false, 9000.0f) && !walkers::EscortKitWanted(false, false, false, 9000.0f),
+	      "by the gate (EscortIntoCity=0): kept while shown and near; once freed, not put back");
+	Check(!walkers::EscortKitWanted(false, true, true, -1.0f), "by the gate, the player in the city: no distance to the gate - freed");
+	CampSettings s;
+	Check(s.escortIntoCity, "EscortIntoCity on by default (Nadi, 2026-11-09)");
+}
+
 void TestEscortReset() {
 	std::printf("An escorted one held by an engine package is reset\n");
 	const UInt32 follow = 0x26000A42;
@@ -586,8 +599,8 @@ void TestEscortReset() {
 void TestNearestGate() {
 	std::printf("The nearest city gate\n");
 	const walkers::CityGate gates[] = {
-		{walkers::City::Anvil, 1, 0, 0, 0, 100.0f, 0.0f, 0.0f, 0, "a"},
-		{walkers::City::Bruma, 2, 0, 0, 0, 5000.0f, 5000.0f, 0.0f, 0, "b"},
+		{walkers::City::Anvil, 1, 0, 0, 0, 100.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, "a"},
+		{walkers::City::Bruma, 2, 0, 0, 0, 5000.0f, 5000.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, "b"},
 	};
 	Check(walkers::NearestGate(gates, 2, 4000.0f, 4500.0f) == 1 && walkers::NearestGate(gates, 2, 0.0f, 0.0f) == 0,
 	      "the gate whose outside spot is nearest");
@@ -613,6 +626,7 @@ int main() {
 	TestEscortImage();
 	TestNearestGate();
 	TestEscortReset();
+	TestEscortKit();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

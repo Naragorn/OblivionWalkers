@@ -228,6 +228,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.escortGold = whole("EscortGold", 300, 0, 100000);
 	camps.escortBehindUnits = static_cast<float>(whole("EscortBehindUnits", 5000, 500, 100000));
 	camps.escortStayDays = static_cast<float>(whole("EscortStayDays", 7, 1, 365));
+	camps.escortIntoCity = GetPrivateProfileIntA("Survivors", "EscortIntoCity", 1, path) != 0;
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
 	rise.disguise.enabled = GetPrivateProfileIntA("Disguise", "Enabled", 1, path) != 0;
 	rise.disguise.seconds = std::max(1.0f, IniFloat("Disguise", "Seconds", 180.0f, path));

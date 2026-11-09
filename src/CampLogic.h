@@ -193,6 +193,7 @@ struct CampSettings {
 	UInt32 escortGold = 300;            // EscortGold: the same
 	float escortBehindUnits = 5000.0f;  // EscortBehindUnits: the nearest farther from the player: failed
 	float escortStayDays = 7.0f;        // EscortStayDays: in the city, then they leave the game
+	bool escortIntoCity = true;         // EscortIntoCity: brought in through the gate, not left before it
 	// Test switch (harness/camp-defend.txt): camp N attacked 30 s after the
 	// load and the player taken to it (-1: never).
 	int testCamp = -1;
@@ -888,6 +889,18 @@ inline UInt32 StepEscort(CampsState& st, const CampSettings& s, float now, float
 		return camp_detail::Put(out, 0, most, CampEvent::EscortBehind, i);
 	}
 	return 0;
+}
+
+// Whether the kit of a camp whose people were brought to a city is out
+// (Nadi, 2026-11-09: "Eskorte endet in stadt als toggle default an"): into
+// the city - while the player walks its streets (`playerInCity`, the gate's
+// city-side door's worldspace) or stands within kCampKitKeepUnits of the gate
+// outside (`toGate`, -1 not known), freed otherwise and put back in the city
+// when he comes again; by the gate (EscortIntoCity=0) - while still `shown`
+// and near, never put back once freed.
+inline bool EscortKitWanted(bool intoCity, bool shown, bool playerInCity, float toGate) {
+	const bool nearGate = toGate >= 0.0f && toGate <= kCampKitKeepUnits;
+	return intoCity ? playerInCity || nearGate : shown && nearGate;
 }
 
 // Whether an escorted one is reset (disabled, enabled a second later, then

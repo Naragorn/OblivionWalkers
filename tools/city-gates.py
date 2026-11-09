@@ -5,7 +5,10 @@ For every Tamriel-side door in the table, the city-side door whose
 teleport (XTEL) leads back to it, and the spot that teleport puts the
 player on: in front of the gate, on the ground, facing away from it - where
 the gate guards come out (docs/walkers-spec.md 4.11b). The door's own
-position (DATA) is printed beside it as a check against the table.
+position (DATA) is printed beside it as a check against the table. And the
+spot inside: where the Tamriel-side door's own teleport puts one, as an
+offset from the city-side door - an escort brought into the city is moved
+there (4.20.6, MoveTo the city-side door with that offset).
 
     python3 tools/city-gates.py ~/.local/share/Steam/steamapps/common/Oblivion/Data/Oblivion.esm
 
@@ -49,6 +52,8 @@ def main() -> int:
     wanted = {door for door, _, _ in doors}
     arrivals: dict[int, tuple[int, tuple[float, ...]]] = {}
     positions: dict[int, tuple[float, ...]] = {}
+    insides: dict[int, tuple[float, ...]] = {}
+    backs: set[int] = set()
 
     def on_record(typ, flags, form_id, offset, size, cell):
         if typ != b"REFR":
@@ -59,7 +64,9 @@ def main() -> int:
                 target = struct.unpack_from("<I", sub, 0)[0]
                 if target in wanted:
                     arrivals[target] = (form_id, struct.unpack_from("<6f", sub, 4))
-            elif kind == b"DATA" and form_id in wanted and len(sub) >= 24:
+                if form_id in wanted:
+                    insides[form_id] = struct.unpack_from("<6f", sub, 4)
+            elif kind == b"DATA" and len(sub) >= 24:
                 positions[form_id] = struct.unpack_from("<6f", sub, 0)
 
     esm.walk(buf, 0, len(buf), [], on_record)
@@ -70,10 +77,15 @@ def main() -> int:
             continue
         back, (x, y, z, _rx, _ry, rz) = arrivals[door]
         dx, dy, dz = positions[door][:3]
+        if door not in insides or back not in positions:
+            print(f"{door:08X} {name}: no spot inside found")
+            continue
+        ix, iy, iz = insides[door][:3]
+        bx, by, bz = positions[back][:3]
         print(f"{door:08X} {name:40s} out {x:9.0f} {y:9.0f} {z:7.0f} facing {math.degrees(rz):5.0f} "
               f"(door at {dx:.0f} {dy:.0f} {dz:.0f}, {math.hypot(x - dx, y - dy):.0f} units off; back door {back:08X})")
         rows.append(f"\t{{City::{city}, 0x{door:08X}, {dx:.1f}f, {dy:.1f}f, {dz:.1f}f, {x:.1f}f, {y:.1f}f, {z:.1f}f, "
-                    f"0x{back:08X}, \"{name}\"}},")
+                    f"0x{back:08X}, {ix - bx:.1f}f, {iy - by:.1f}f, {iz - bz:.1f}f, \"{name}\"}},")
     print("\nThe rows of src/CityGates.h's kCityGates:")
     print("\n".join(rows))
     return 0
