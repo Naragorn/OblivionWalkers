@@ -2099,6 +2099,18 @@ Enabled=1`, `Seconds=180`, `Test=0` (a test switch); LINK 167..168 (version
   fighting told StopCombat"; no "turns on" for 40 s with the walker moved to
   600 units; "off - The walker blood has dried"; moved back to 600, "turns
   on 00000014, near it 7.1 s".
+- The blood shown (Nadi, 2026-11-09: "A + C machen wir doch eine schwarz
+  rote vignette 3 min und bild dunkler auch"): A, flat and in VR - Oblivion.esm's
+  effectDamage (000C7941, a dark red membrane: fill b9 00 00, edge 71 00 00,
+  no particles) played on the player by PlayMagicShaderVisuals for Seconds,
+  stopped at the end, played anew when smeared again; C, in VR - the
+  vignette black and red, the picture darker and blood on the hands, OBVR's
+  on 'WGDS' (Nadi's go there, 2026-11-09). Flat, no vignette and no darker
+  picture: Oblivion has no screen effect for it - a full-screen HUD tile of
+  our own would be medium, offered, not built. Harness disguise again, PASS:
+  "PlayMagicShaderVisuals 000C7941 40", then "StopMagicShaderVisuals" at
+  the end (the console answers 0 either way, as for AddScriptPackage) - how
+  it looks is not seen (headless).
 - Not seen: the dialog in the real flow (a dead walker activated while
   sneaking - the run offers it as that would), the rain and the swim ends
   (the run stood indoors, precipitation 1), the ability's icon, the

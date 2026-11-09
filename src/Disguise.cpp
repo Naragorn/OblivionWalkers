@@ -38,6 +38,11 @@ constexpr UInt32 kMessageBoxScriptRef = 0x00B361C8;
 constexpr UInt32 kMessageBoxButton = 0x00B09E24;
 constexpr UInt8 kNoButton = 0xFF;
 constexpr float kTestAfterSeconds = 25.0f;
+// The blood on the player while it lasts (Nadi, 2026-11-09: "A + C"):
+// Oblivion.esm's effectDamage (000C7941), a dark red membrane - fill
+// b9 00 00, edge 71 00 00, no particles (read 2026-11-09) - played on him
+// by PlayMagicShaderVisuals for the time, stopped at the end.
+constexpr UInt32 kBloodShader = 0x000C7941;
 
 const DisguiseSettings* g_settings = nullptr;
 bool g_test = false;
@@ -51,6 +56,7 @@ DisguiseState g_state;
 bool g_offerDue = false;  // OnActivate asked: the dialog shown at the next frame
 bool g_begun = false;
 bool g_abilityOn = false;
+bool g_shaderOn = false;
 bool g_toldObvr = false;
 float g_testClock = 0.0f;
 bool g_testDone = false;
@@ -87,6 +93,19 @@ UInt32 Ability() { return g_espBase != 0 ? EspFormId(g_espBase, kDisguiseAbility
 
 void Show(bool on) {
 	char line[48];
+	if (on != g_shaderOn) {
+		if (on) {
+			std::snprintf(line, sizeof(line), "PlayMagicShaderVisuals %08X %.0f", kBloodShader,
+			              g_settings != nullptr ? g_settings->seconds : 180.0f);
+		} else {
+			std::snprintf(line, sizeof(line), "StopMagicShaderVisuals %08X", kBloodShader);
+		}
+		const bool said = Say(LookupForm(kPlayerRefId), line);
+		g_shaderOn = on;
+		if (g_log != nullptr) {
+			g_log("Disguise: %s (answered %d)", line, said ? 1 : 0);
+		}
+	}
 	if (on != g_abilityOn && Ability() != 0) {
 		std::snprintf(line, sizeof(line), "%s %08X", on ? "AddSpell" : "RemoveSpell", Ability());
 		Say(LookupForm(kPlayerRefId), line);
@@ -101,6 +120,13 @@ void Show(bool on) {
 }
 
 void Begin(const char* how) {
+	if (g_state.on && g_shaderOn) {
+		// Smeared again: the blood played anew for the full time.
+		char line[48];
+		std::snprintf(line, sizeof(line), "StopMagicShaderVisuals %08X", kBloodShader);
+		Say(LookupForm(kPlayerRefId), line);
+		g_shaderOn = false;
+	}
 	BeginDisguise(g_state, *g_settings);
 	g_begun = true;
 	Show(true);
@@ -247,6 +273,7 @@ void ResetDisguise() {
 	// told off.
 	g_abilityOn = true;
 	g_toldObvr = true;
+	g_shaderOn = true;
 	if (g_settings != nullptr) {
 		Show(false);
 	}
