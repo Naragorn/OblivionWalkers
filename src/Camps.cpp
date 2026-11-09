@@ -3,6 +3,7 @@
 #include "CampCandidates.h"
 #include "CityGates.h"
 #include "Engine.h"
+#include "Horde.h"
 #include "News.h"
 #include "RiseLogic.h"
 
@@ -40,10 +41,6 @@ constexpr UInt32 kLevListOffset = 0x28;
 // The things reward's lists (Oblivion.esm, read 2026-11-08): LL1LootWeapon100,
 // LL1LootArmor100, LL1LootPotions2Average - one drawn, then an entry of it.
 constexpr UInt32 kThingLists[] = {0x00032D6E, 0x00032D79, 0x00058F36};
-// The escort: the follow package sent again this often (AddScriptPackage
-// does not take while the actor is in dialogue - UESP CS wiki - and the yes
-// is said in one).
-constexpr float kEscortFollowEverySeconds = 5.0f;
 // A camp asks while the player is this near it.
 constexpr float kEscortAskUnits = 3000.0f;
 constexpr UInt32 kLogLines = 64;
@@ -844,7 +841,15 @@ UInt32 StepEscortInGame(const float* distance, float now, CampEvent* events, UIn
 	}
 	if (c.status == CampStatus::Escort) {
 		g_followClock += kStepSeconds;
-		if (g_followClock >= kEscortFollowEverySeconds) {
+		const bool resend = g_settings->escortFollowSeconds > 0.0f && g_followClock >= g_settings->escortFollowSeconds;
+		if (resend || (g_settings->escortFollowSeconds <= 0.0f && g_followClock >= 5.0f && Logged())) {
+			if (!resend) {
+				g_followClock = 0.0f;
+				g_log("Camps: escort of camp %02u - the nearest %.0f units from the player, %.0f from %s (no resend)", i,
+				      behind, toGate, GateName(g));
+			}
+		}
+		if (resend) {
 			g_followClock = 0.0f;
 			char line[48];
 			FollowLine(line, sizeof(line));
@@ -896,9 +901,12 @@ void StepTestEscort(float now, CampEvent* events, UInt32& n) {
 			float py = 0.0f;
 			const UInt32 ref = Person(i, slot);
 			if (OutdoorsAt(ref, x, y) && OutdoorsAt(player, px, py)) {
+				bool high = false;
+				const UInt32 package = ActorPackageNow(FormIdOf(ref), high);
 				g_log("Camps: test - escorted slot %u (%08X) %.0f units from the player (20 s after the ask; set out "
-				      "some 1500 off)",
-				      slot, FormIdOf(ref), std::sqrt((x - px) * (x - px) + (y - py) * (y - py)));
+				      "some 1500 off); running package %08X, high process %d, in combat %d",
+				      slot, FormIdOf(ref), std::sqrt((x - px) * (x - px) + (y - py) * (y - py)), package, high ? 1 : 0,
+				      ActorInCombat(FormIdOf(ref)) ? 1 : 0);
 			}
 		}
 	} else if (g_testEscortStage == 3 && g_testClock >= kTestCampAfterSeconds + 32.0f) {

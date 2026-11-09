@@ -231,6 +231,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
 	camps.testEscort = GetPrivateProfileIntA("Survivors", "TestEscort", -1, path);
 	camps.testEscortBehind = GetPrivateProfileIntA("Survivors", "TestEscortBehind", 0, path) != 0;
+	camps.escortFollowSeconds = std::max(0.0f, IniFloat("Survivors", "EscortFollowSeconds", 5.0f, path));
 	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;

@@ -806,4 +806,18 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 	}
 }
 
+// The package `actorId` runs now (0 none or unknown) and whether its process
+// is the high one that runs packages - a probe for the camps' escort.
+UInt32 ActorPackageNow(UInt32 actorId, bool& high) {
+	const UInt32 actor = LookupForm(actorId);
+	const UInt32 process = LooksLikeObject(actor) ? ProcessOf(actor) : 0;
+	high = process != 0 && HighProcess(process);
+	return process != 0 ? CurrentPackageId(process) : 0;
+}
+
+bool ActorInCombat(UInt32 actorId) {
+	const UInt32 actor = LookupForm(actorId);
+	return LooksLikeObject(actor) && InCombat(actor);
+}
+
 }  // namespace walkers

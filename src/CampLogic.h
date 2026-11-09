@@ -202,6 +202,9 @@ struct CampSettings {
 	// TestEscortBehind, the player 7000 units off (-1: never).
 	int testEscort = -1;
 	bool testEscortBehind = false;
+	// EscortFollowSeconds (INI only): the follow package sent again this
+	// often while on the way; 0 only at the start and after a load.
+	float escortFollowSeconds = 5.0f;
 };
 
 // Escort: its refugees on the way to a city; Gone: there, for

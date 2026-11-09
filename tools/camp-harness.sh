@@ -16,6 +16,8 @@ scenario="${CAMP_SCENARIO:-defend}"
 if [[ "$scenario" == escort ]]; then
 	keys='TestEscort=7\nAttackChancePercent=0'
 	[[ "${ESCORT_BEHIND:-0}" == 1 ]] && keys="$keys\\nTestEscortBehind=1"
+	# CAMP_KEYS: more [Survivors] keys, separated by \n (e.g. EscortFollowSeconds=0).
+	[[ -n "${CAMP_KEYS:-}" ]] && keys="$keys\\n$CAMP_KEYS"
 else
 	keys='TestCamp=7\nAttackWalkersMin=6\nAttackWalkersMax=6'
 fi
