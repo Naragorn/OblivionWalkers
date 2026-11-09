@@ -11,6 +11,7 @@
 #include "AggressionLogic.h"
 #include "Bytes.h"
 #include "CampLogic.h"
+#include "DisguiseLogic.h"
 #include "EndLogic.h"
 #include "GrabLogic.h"
 #include "GuardLogic.h"
@@ -179,6 +180,10 @@ struct RiseSettings {
 	// [Zombies] SlowAggression, SlowAggressionLevel, SlowAggressionSecondsMin, SlowAggressionSecondsMax, SlowAggressionUnits
 	// (4.21, AggressionLogic.h).
 	SlowAggressionSettings slowAggression;
+	// 4.20.1 walker blood as a disguise.
+	DisguiseSettings disguise;
+	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
+	bool disguiseTest = false;
 };
 
 // HighProcess movement flags (+0x1FC; xOBSE GameProcess.h kMovement_Walk

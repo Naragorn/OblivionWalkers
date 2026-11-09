@@ -14,6 +14,7 @@
 #include "Replace.h"
 #include "Siege.h"
 #include "Camps.h"
+#include "Disguise.h"
 
 #include <windows.h>
 #include <intrin.h>
@@ -331,6 +332,8 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	g_lastHit.target = reinterpret_cast<UInt32>(arg0);
 	g_lastHit.attacker = reinterpret_cast<UInt32>(arg1);
 	GrabOnHit(g_lastHit.target, g_lastHit.attacker);
+	// 4.20.1: the player striking a walker ends the disguise.
+	NoteDisguiseHit(g_lastHit.target, g_lastHit.attacker);
 	// 4.20.2: a blow that lands is heard where it lands.
 	HordeNoiseAtRef(g_lastHit.target, "a blow");
 	if (g_hitLinesLeft > 0) {
@@ -338,6 +341,13 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 		g_log("Hit: %08X hit by %08X (frame %u; this %08X)", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker),
 		      g_frame, FormIdOf(reinterpret_cast<UInt32>(thisObj)));
 	}
+}
+
+// 4.20.1: xOBSE's OnActivate - a dead walker the player activates while
+// sneaking asks for the disguise.
+void __cdecl OnActivate(void* arg0, void* arg1, void* thisObj) {
+	(void)thisObj;
+	NoteDisguiseActivate(reinterpret_cast<UInt32>(arg0), reinterpret_cast<UInt32>(arg1));
 }
 
 // 4.20.2: xOBSE's OnSpellCast and OnScrollCast - the caster, the spell; a
@@ -441,6 +451,12 @@ __declspec(naked) void HitCountStub() {
 // again when LINK changes NoSkillGain.
 obse::MessagingInterface* g_messaging = nullptr;
 UInt32 g_pluginHandle = 0;
+
+// 4.20.1: OBVR told the disguise's state ('WGDS').
+bool SendToObvr(UInt32 type, void* data, UInt32 length) {
+	return g_messaging != nullptr && g_messaging->Dispatch(g_pluginHandle, type, data, length, "OBVR");
+}
+
 bool g_exceptionsSent = false;
 bool g_exceptionsSetting = false;
 
@@ -698,6 +714,11 @@ void OnObvrHeads(UInt32 type, const void* data, UInt32 length) {
 			      on ? "only a lost head ends a walker" : "every kill ends a walker");
 		}
 		g_headCutter = on;
+	} else if (type == kSmearMessage) {
+		UInt32 corpse = 0;
+		if (SmearOf(data, length, corpse)) {
+			NoteDisguiseSmear(corpse);
+		}
 	} else if (type == kNoiseMessage) {
 		float x = 0.0f;
 		float y = 0.0f;
@@ -938,6 +959,7 @@ void FindWalkers() {
 	ConfigureNews(g_settings.news, base, g_log);
 	ConfigureSiegeEsp(base);
 	ConfigureCampsEsp(base);
+	ConfigureDisguiseEsp(base);
 	ConfigureGrabIdles(base);
 	ReadWalkerRecords();
 }
@@ -1268,6 +1290,8 @@ bool TryRegisterDeath() {
 	g_log("Death watch on (the OnDeath handler taken at try %u)", g_registerTries);
 	g_hitWatchOn = g_events->RegisterEvent("OnHit", &OnHit, nullptr, nullptr, nullptr);
 	g_log("Hit watch %s (the OnHit handler, for NoSkillGain, the grab and the noise)", g_hitWatchOn ? "on" : "REFUSED");
+	const bool activate = g_events->RegisterEvent("OnActivate", &OnActivate, nullptr, nullptr, nullptr);
+	g_log("Activate watch %s (OnActivate, the disguise 4.20.1)", activate ? "on" : "REFUSED");
 	g_castWatchOn = g_events->RegisterEvent("OnSpellCast", &OnCast, nullptr, nullptr, nullptr);
 	const bool scrolls = g_events->RegisterEvent("OnScrollCast", &OnCast, nullptr, nullptr, nullptr);
 	g_log("Cast watch %s, scrolls %s (OnSpellCast, OnScrollCast - the noise, 4.20.2)", g_castWatchOn ? "on" : "REFUSED",
@@ -1661,7 +1685,7 @@ void KeepWalkerRecords() {
 		WalkerRecord& r = g_records[w];
 		for (UInt32 i = 0; i < kHeldValueCount; ++i) {
 			const UInt32 now = RecordValue(base, kHeldValues[i]);
-			const UInt32 want = i == 0 ? RecordAggression(slow, static_cast<UInt8>(r.atStart[0]))
+			const UInt32 want = i == 0 ? DisguisedAggression(slow, Disguised(), r.atStart[0])
 			                           : RecordValueBack(now, r.lastGood[i], r.atStart[i]);
 			if (now > 0 && i != 0) {
 				r.lastGood[i] = now;
@@ -1749,6 +1773,10 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 		const float wy = FloatAt(walker + kRefPositionOffset + 4);
 		const float wz = FloatAt(walker + kRefPositionOffset + 8);
 		for (UInt32 k = 0; k < found; ++k) {
+			// 4.20.1: none turns on a disguised player (his time near starts anew).
+			if (!WalkerMayTurnOn(Disguised(), ones[k].refId == kPlayerRefId)) {
+				continue;
+			}
 			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, g_settings.slowAggression.units)) {
 				continue;
 			}
@@ -1805,6 +1833,18 @@ void StepWalkers(float dt) {
 	static UInt32 refs[kHordeCandidatesMost];
 	const UInt32 count = CollectAllWalkers(refs, kHordeCandidatesMost);
 	StepSlowAggression(refs, count, dt);
+	// 4.20.1: the disguise begun - the walkers fighting stop (Nadi: "ok").
+	if (TakeDisguiseBegun()) {
+		UInt32 stopped = 0;
+		for (UInt32 i = 0; i < count; ++i) {
+			const UInt32 actor = LookupForm(refs[i]);
+			if (LooksLikeObject(actor) && IsActor(actor) && !IsDead(actor) && ActorInCombat(FormIdOf(actor)) &&
+			    ConsoleOn(actor, "StopCombat")) {
+				++stopped;
+			}
+		}
+		g_log("Disguise: %u walkers fighting told StopCombat (of %u near)", stopped, count);
+	}
 	UInt32 high = 0;
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 actor = LookupForm(refs[i]);
@@ -2438,6 +2478,7 @@ void Tick() {
 		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
 		StepSiegeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepCampsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepDisguiseInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepHeads();
 		SendCuts();
 		StepLootless();
@@ -2534,6 +2575,7 @@ void OnLoad(void*) {
 	ResetSiegeInGame();
 	CurrentCamps() = CampsState{};
 	ResetCampsInGame();
+	ResetDisguise();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -2659,6 +2701,7 @@ void OnNewGame(void*) {
 	ResetSiegeInGame();
 	CurrentCamps() = CampsState{};
 	ResetCampsInGame();
+	ResetDisguise();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -2753,6 +2796,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
+	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }
 

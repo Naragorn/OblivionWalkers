@@ -1,0 +1,62 @@
+# Walker blood as a disguise (docs/walkers-spec.md 4.20.1, built 2026-11-09):
+# tools/disguise-harness.sh sets [Disguise] Test=1 and Seconds=40 in the live
+# INI. A walker (0x801) is placed 1500 units off; the player, forced to
+# sneak (SetForceSneak, and left Ctrl held), activates it while it lives ("Disguise: OnActivate -
+# ... walker 1, dead 0, movement flags ...0400": the order of xOBSE's two
+# references and the sneak flag, no dialog - it lives). 25 s after the load the plugin offers
+# the dialog as a sneaking activation of a dead walker would ("the dialog
+# shown", the probe's movement flags and the weather's precipitation); the
+# console answers it ("SetButtonPressed 0", xOBSE) - "answered - button 0",
+# "Disguise: on". The walker is moved to 600 units: no "turns on 00000014"
+# while the disguise lasts; "Disguise: off - The walker blood has dried"; the
+# walker moved to 600 units again ("back", it may have wandered off) and
+# "Slow aggression: walker ... turns on 00000014" 5 to 10 s later.
+#
+# Runs on OBVR's harness through tools/disguise-harness.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 1500 0
+console-at placed player.setforcesneak 1
+console-at activate {actor}.activate player
+console-at a1 player.setforcesneak 0
+console-at a1 SetButtonPressed 0
+console-at a2 SetButtonPressed 0
+console-at a3 SetButtonPressed 0
+console-at a4 SetButtonPressed 0
+console-at near {actor}.moveto player 0 600 0
+console-at back {actor}.moveto player 0 600 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 1
+mark placed
+key 0xA2 1
+wait 3
+mark activate
+wait 1
+key 0xA2 0
+wait 14
+mark a1
+wait 4
+mark a2
+wait 4
+mark a3
+wait 4
+mark a4
+wait 3
+mark near
+wait 45
+mark back
+wait 20
+mark end
+wait 1

@@ -2043,7 +2043,7 @@ what it does in play and its cost; none is decided or started. The
 recommendation of that day: first Nadi's headset test and a 0.2.0 release,
 then 4.20.1, with 4.20.5 as a cheap side dish.
 
-#### 4.20.1 Walker blood as a disguise - `[Disguise] Enabled=1`, `Minutes=3`
+#### 4.20.1 Walker blood as a disguise - `[Disguise] Enabled=1`, `Seconds=180` - BUILT 2026-11-09
 
 The player smears himself with a fallen walker's blood (activates its
 corpse, a choice in a small menu or a held activate): for a few game
@@ -2057,6 +2057,53 @@ change does it), a screen tint and a line while it lasts; unit flows for
 the clock and what ends it, a harness walking the player through walkers.
 Open: what counts as "strikes one" in VR (OBVR's hits), whether the guards
 mind.
+
+**Built 2026-11-09** (Nadi: "go 4.20.1"; then: the time in real minutes -
+"echte", 3 game minutes being 6 real seconds at the game's TimeScale 30; a
+confirm dialog - "ok mit confirm dialog, also iwas wie do you want to rub
+..."; the walkers fighting stop - "ok"; any rain ends it - "jo").
+`DisguiseLogic.h`, `Disguise.cpp`, `DisguiseLogicTest`; INI `[Disguise]
+Enabled=1`, `Seconds=180`, `Test=0` (a test switch); LINK 167..168 (version
+29, 169 settings).
+- Asked: the player, sneaking, activates a dead walker (xOBSE's OnActivate:
+  arg0 the activated, arg1 the activator - measured, the run below). The
+  dialog is the game's own message box (xOBSE GameAPI.cpp for 1.2.416:
+  ShowMessageBox 0x00579C10 with its callback 0x005003E0, the button pressed
+  at 0x00B09E24, 0xFF none - as xOBSE's MessageBoxEx sets it up), "Rub it on"
+  / "Leave it", the answer read each frame. Normal activation loots as ever
+  (the loot window still opens: OnActivate only tells).
+- On: Seconds real seconds (the frame's time); the slow aggression (4.21)
+  skips the player as a target; with the slow aggression off the walker
+  records' aggression is held at 0 while it lasts; no grab; the walkers in
+  combat near are told StopCombat once (all of them - also those fighting
+  someone else; they turn on that one again by the slow aggression); the
+  ability "Walker Blood" (ESP SPEL 0xA45, a copy of SEAbOrderKnight2 with
+  Resist Disease 1 %) on the player; OBVR told ('WGDS' 1/0).
+- Ends: the time; the player striking a walker (OnHit); swimming (the
+  process's movement flag 0x800); rain outdoors (the sky's weather,
+  precipitation 3 at TESWeather +0x53); switched off. A line for each.
+- VR: OBVR's gesture sends 'WGBL' (the corpse) - the disguise on without the
+  dialog; OBVR's side (the gesture, the dark rim, blood on the hands) is
+  OBVR's to build.
+- The movement flags are read at the process's +0x1FC (16 bits), as OBVR
+  reads its sneak eye. Calling BaseProcess::GetMovementFlags through its
+  vtable slot 0xAF returned garbage and broke the frame (run 14:37: the
+  disguise ended in the frame it began) - not used.
+- Harness `disguise` (tools/disguise-harness.sh: Test=1, Seconds=40),
+  2026-11-09, Linux headless, **PASS** (14:5x): left Ctrl held, the player
+  activates a living walker - "OnActivate - FF000F86 and 00000014 (the player
+  the second; walker 1, dead 0, movement flags 00000400)": the order and the
+  sneak flag; the walker turns on the player (slow aggression, 10.1 s); the
+  dialog shown 25 s after the load, answered by the console's
+  SetButtonPressed 0 - "button 0", "on - 40 real seconds", "1 walkers
+  fighting told StopCombat"; no "turns on" for 40 s with the walker moved to
+  600 units; "off - The walker blood has dried"; moved back to 600, "turns
+  on 00000014, near it 7.1 s".
+- Not seen: the dialog in the real flow (a dead walker activated while
+  sneaking - the run offers it as that would), the rain and the swim ends
+  (the run stood indoors, precipitation 1), the ability's icon, the
+  StopCombat ending a fight in the picture (headless), the headset, OBVR's
+  gesture.
 
 #### 4.20.2 Noise draws them - `[Noise] Enabled=1`, `Radius=1200`, `SearchSeconds=30`, `TravelSeconds=60` - BUILT 2026-11-05
 

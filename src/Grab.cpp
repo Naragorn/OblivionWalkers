@@ -1,3 +1,4 @@
+#include "Disguise.h"
 #include "Grab.h"
 
 #include "Engine.h"
@@ -397,6 +398,10 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 		const Arm side = SideOf(FloatAt(player + kRefRotZOffset), dx, dy);
 		const UInt32 refId = FormIdOf(hit.attacker);
 		Arm arm = Arm::None;
+		// 4.20.1: a disguised player is not grabbed (designed 2026-11-05).
+		if (Disguised()) {
+			return;
+		}
 		const UInt32 roll = g_services.roll() % 100;
 		GrabRefusal r = TryGrab(g_state, *g_settings, refId, side, roll, &arm);
 		float distance = -1.0f;

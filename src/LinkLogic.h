@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 28.0;  // 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 29.0;  // 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -89,6 +89,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 46, "Spawns - quests"},
 	{68 + kReplaceCategoryCount + 47, "Survivors' camps - things and the escort"},
 	{68 + kReplaceCategoryCount + 53, "Only a lost head ends a walker - others' kills"},
+	{68 + kReplaceCategoryCount + 54, "Walker blood as a disguise"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -357,6 +358,11 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_others_end_percent", "Others' kills end walkers",
 	 "The chance a walker felled by a guard, a bandit or a companion stays down - its head comes off (VR).",
 	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Live},
+	{"ini_disguise_enabled", "Walker blood as a disguise",
+	 "Sneak and activate a fallen walker to rub its blood on: the walkers leave you be for a while.", LinkKind::Toggle, 0,
+	 1, 1, 0, false, LinkEffect::Live},
+	{"ini_disguise_seconds", "Disguise: seconds", "How long the walker blood lasts, in real seconds.", LinkKind::Slider, 30,
+	 600, 30, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -489,6 +495,8 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 164: return rise.camps.escortBehindUnits;
 		case 165: return rise.camps.escortStayDays;
 		case 166: return rise.end.othersEndPercent;
+		case 167: return rise.disguise.enabled ? 1.0 : 0.0;
+		case 168: return rise.disguise.seconds;
 		default: return 0.0;
 	}
 }
@@ -642,6 +650,8 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 164: rise.camps.escortBehindUnits = static_cast<float>(whole); break;
 		case 165: rise.camps.escortStayDays = static_cast<float>(whole); break;
 		case 166: rise.end.othersEndPercent = whole; break;
+		case 167: rise.disguise.enabled = on; break;
+		case 168: rise.disguise.seconds = static_cast<float>(whole); break;
 		default: return false;
 	}
 	return true;

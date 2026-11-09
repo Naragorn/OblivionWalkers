@@ -245,6 +245,11 @@ SET_GLOBAL_SCHR = bytes.fromhex("00000000010000000b0000000000000000000000")
 SET_GLOBAL_SCDA = bytes.fromhex("1500070047010002002031")
 WANDER_TEMPLATE = 0x000177D6  # TWander: wander near the current location, 300 units, all day
 SLEEP_TEMPLATE = 0x000A3A5A   # aaaSleepCurrent22x8: sleep near the current location, 1000 units, 22 for 8 hours
+# Walker blood as a disguise (4.20.1, DisguiseLogic.h kDisguiseAbilityLocalId):
+# the ability "Walker Blood" the plugin adds to the player while it lasts, so
+# it stands among his effects - a copy of SEAbOrderKnight2 (00079118, an
+# ability of one effect) with Resist Disease 1 % in place of its Resist Magic.
+DISGUISE_TEMPLATE = 0x00079118
 REFUGEE_WANDER_UNITS = 600
 ESCORT_FOLLOW_UNITS = 200
 
@@ -898,6 +903,28 @@ def build_package(template: list[tuple[bytes, bytes]], edid: str, radius: int = 
     return out
 
 
+def build_disguise(template: list[tuple[bytes, bytes]]) -> bytes:
+    """The ability: EDID, FULL, the template's SPIT, its one effect turned to
+    Resist Disease at 1."""
+    out = b""
+    for kind, data in template:
+        if kind == b"EDID":
+            data = zstring("WalkersDisguiseBlood")
+        elif kind == b"FULL":
+            data = zstring("Walker Blood")
+        elif kind == b"EFID":
+            data = b"RSDI"
+        elif kind == b"EFIT":
+            data = b"RSDI" + struct.pack("<I", 1) + data[8:]
+        out += subrecord(kind, data)
+    return out
+
+
+def disguise_ability_id() -> int:
+    text = (Path(__file__).resolve().parent.parent / "src" / "DisguiseLogic.h").read_text()
+    return int(re.search(r"kDisguiseAbilityLocalId = (0x[0-9A-Fa-f]+);", text).group(1), 16)
+
+
 def topic_group(topic: int, records: bytes) -> bytes:
     """A topic's children (GRUP type 7, labelled with the DIAL's form ID)."""
     return b"GRUP" + struct.pack("<IIiI", 20 + len(records), topic, 7, 0) + records
@@ -1207,7 +1234,13 @@ def main() -> int:
         subrecord(k, zstring(f"WalkersGrabShock{i + 1}") if k == b"EDID"
                   else zstring(f"fx\\OblivionWalkers\\GrabShock{i + 1}.wav") if k == b"FNAM" else d)
         for k, d in quest_sound)) for i, form in enumerate(shock_forms))
+    disguise_local = disguise_ability_id()
+    if disguise_local != ids["kCampExtraEnd"] or disguise_local >= SHOCK_FIRST_LOCAL:
+        raise SystemExit("DisguiseLogic.h's ability is not right after the camps' extras")
+    disguise_form = index | disguise_local
+    spells = record(b"SPEL", disguise_form, build_disguise(find_record(esm, buf, b"SPEL", DISGUISE_TEMPLATE)))
     body = (globals_group + group(b"RACE", races) + group(b"SOUN", sounds) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
+            + group(b"SPEL", spells)
             + group(b"BOOK", books) + group(b"NPC_", guards + camp_bases) + group(b"CREA", creatures)
             + group(b"LVLC", lists)
             + cell_groups(cell_form, cell, markers + pool)
@@ -1215,13 +1248,14 @@ def main() -> int:
             + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
             + group(b"PACK", packages) + group(b"IDLE", idles))
-    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + exterior_groups_count  # + the escort's two topic groups
+    groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + 1 + exterior_groups_count  # + the SPEL group  # + the escort's two topic groups
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
                + len(siege_globals) + 1 + len(CITIES) + 2
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
                + camp_records + 2 + len(shock_forms)
-               + 3 + 1 + 2 + 3 + 3)  # the camps' globals, rumor, two DIALs, three lines, three packages
+               + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
+               + 1)  # the disguise's ability
     next_id = camp_end + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
@@ -1358,6 +1392,9 @@ def main() -> int:
             or len(conditions) != len(camp_base_forms) + 1 or conditions[0][0] != CONDITION_OR
             or conditions[-2][0] != 0):
         raise SystemExit("the escort's yes reads back wrong")
+    back_spell = dict(find_record(esm, plugin, b"SPEL", disguise_form))
+    if back_spell[b"EFID"] != b"RSDI" or back_spell[b"SPIT"][0] != 4 or back_spell[b"FULL"] != zstring("Walker Blood"):
+        raise SystemExit("the disguise's ability reads back wrong")
     back_greet = dict(find_record(esm, plugin, b"INFO", index | ids["kEscortGreetingLocalId"]))
     if struct.unpack("<I", back_greet[b"NAME"])[0] != topic_form:
         raise SystemExit("the escort's greeting does not add its topic")
