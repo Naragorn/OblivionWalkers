@@ -1661,9 +1661,13 @@ asked to cut the head), B the same by a chance, C only guards. Nadi: "B".
   (felled by someone else - OBVR asked to cut its head)" - killers the pool
   guards, Anvil's own guards and others (0004F001, 00185FE7, 0004E9A8) -
   none "gets up again". OBVR answered "head is cut off" for 21 of the 90:
-  the rest not confirmed - likely OBVR's roster cap of 64 actors (its note of
-  2026-11-05, 4.20.6) or walkers out of its reach; the walkers end either
-  way. Open: OBVR's side for the missing 69 (OBVR's to measure). The log's
+  the rest not confirmed; the walkers end either way. OBVR measured it
+  (its OBVR.log of the run, 2026-11-09): not its roster cap - OBVR keeps 16
+  cut parts at once (Dismember.cpp kCutsMost=16); of the 24 'WGCT' it
+  logged, 17 "head cut", 7 "NOT cut: sixteen parts cut already - no room"
+  (its log stops at 24 lines; the rest likely the same). Fix on OBVR's side
+  (more places, or the oldest corpse's recycled), waiting for Nadi's go -
+  the guess of a roster cap was wrong. The log's
   dispatch line said "felled by a refugee" for these too - fixed to "a
   refugee or someone else".
 
