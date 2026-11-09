@@ -890,6 +890,15 @@ inline UInt32 StepEscort(CampsState& st, const CampSettings& s, float now, float
 	return 0;
 }
 
+// Whether an escorted one is reset (disabled, enabled a second later, then
+// given the follow): it runs a package the engine made (its ID's top byte
+// 0xFF) and is not fighting - harness 2026-11-09: the four who stayed ran
+// such a package, shared by pairs (two talking, an interrupt
+// AddScriptPackage does not break; Nadi, 2026-11-09: "a").
+inline bool EscortResets(UInt32 packageId, UInt32 followId, bool inCombat) {
+	return packageId != 0 && packageId != followId && (packageId >> 24) == 0xFF && !inCombat;
+}
+
 // The co-save record: type "CAMP", version 2 (the dynamic camps) - the last
 // day rolled, then per camp of kCampMost: status, set, seen, a pad byte,
 // roster and lost (16 bits each), the walkers left, the coming attack's day,

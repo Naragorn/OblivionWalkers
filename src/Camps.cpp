@@ -76,6 +76,7 @@ struct TestDrop {
 TestDrop g_drop;
 bool g_applied = false;  // the rosters and markers set since the load
 float g_followClock = 0.0f;
+UInt16 g_resetMask = 0;  // escorted slots disabled for a reset, enabled the next step
 bool g_escortShown = false;  // the escorted kit still out, by the city
 int g_testEscortStage = 0;
 UInt32 g_probeSeconds = 0;
@@ -608,6 +609,13 @@ void FollowLine(char* line, UInt32 size) {
 }
 
 void StopFollowing(UInt32 i) {
+	// One reset this second: back before the escort ends.
+	for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+		if ((g_resetMask & (1u << slot)) != 0) {
+			Say(Person(i, slot), "Enable");
+		}
+	}
+	g_resetMask = 0;
 	TellEscorted(i, "RemoveScriptPackage");
 	TellEscorted(i, "EvaluatePackage");
 }
@@ -661,7 +669,10 @@ void Carry(const CampEvent& ev, const float* distance, float now) {
 			FollowLine(line, sizeof(line));
 			g_state.escort.kit = KitOf(g_kitCamp, i);
 			const UInt32 told = TellEscorted(i, line);
-			g_followClock = 0.0f;
+			// The first look for those held a second on, then every
+			// EscortFollowSeconds.
+			g_followClock = g_settings->escortFollowSeconds > 1.0f ? g_settings->escortFollowSeconds - 1.0f : 0.0f;
+			g_resetMask = 0;
 			std::snprintf(text, sizeof(text), "The refugees %s follow you. Lead them to %s - and don't leave them behind.",
 			              Name(i), GateName(g_state.escort.gate));
 			Line(text);
@@ -869,11 +880,45 @@ UInt32 StepEscortInGame(const float* distance, float now, CampEvent* events, UIn
 				      behind, toGate, GateName(g));
 			}
 		}
+		// Those reset a second ago: enabled again and given the follow.
+		if (g_resetMask != 0) {
+			char line[48];
+			FollowLine(line, sizeof(line));
+			for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+				if ((g_resetMask & (1u << slot)) == 0) {
+					continue;
+				}
+				const UInt32 ref = Person(i, slot);
+				Say(ref, "Enable");
+				Say(ref, line);
+				g_log("Camps: escort of camp %02u - slot %u enabled again and given the follow", i, slot);
+			}
+			g_resetMask = 0;
+		}
 		if (resend) {
 			g_followClock = 0.0f;
 			char line[48];
 			FollowLine(line, sizeof(line));
-			TellEscorted(i, line);
+			const UInt32 follow = EspFormId(g_espBase, kEscortFollowLocalId);
+			for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+				if ((c.roster & ~c.lost & (1u << slot)) == 0) {
+					continue;
+				}
+				const UInt32 ref = Person(i, slot);
+				if (!LooksLikeObject(ref) || (g_dead != nullptr && g_dead(ref))) {
+					continue;
+				}
+				bool high = false;
+				const UInt32 package = ActorPackageNow(FormIdOf(ref), high);
+				if (EscortResets(package, follow, ActorInCombat(FormIdOf(ref)))) {
+					Say(ref, "Disable");
+					g_resetMask = static_cast<UInt16>(g_resetMask | (1u << slot));
+					g_log("Camps: escort of camp %02u - slot %u held by package %08X (type %u): reset", i, slot, package,
+					      PackageType(package));
+					continue;
+				}
+				Say(ref, line);
+			}
 			if (Logged()) {
 				g_log("Camps: escort of camp %02u - the nearest %.0f units from the player, %.0f from %s", i, behind,
 				      toGate, GateName(g));
@@ -1322,6 +1367,7 @@ void ResetCampsInGame() {
 	g_escortShown = false;
 	g_testEscortStage = 0;
 	g_probeSeconds = 0;
+	g_resetMask = 0;
 }
 
 }  // namespace walkers

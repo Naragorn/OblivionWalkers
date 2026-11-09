@@ -2374,7 +2374,7 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
 - Harness camp-escort with ESCORT_BEHIND=1, 2026-11-09, four runs: the
   failure PASSes each time ("left behind; 7 go back to the camp" once the
   player is 7000 off).
-- **Open bug - the follow is unreliable** (the same four runs): 20 s after
+- **Bug - the follow was unreliable (fixed below)** (the same four runs): 20 s after
   the ask most had not come - 6 of 7 at 1170-1550 (run 1), 6 of 7 at
   1330-1835 with the resend off (EscortFollowSeconds=0, run 2: the resend is
   not the cause), 6 of 7 at 1810-2150 (run 3), 4 of 7 at 1400-1560 (run 4).
@@ -2396,6 +2396,17 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
   each other (an engine-made package shared by a pair, an interrupt;
   AddScriptPackage does not take during one - CS wiki). Not read off the
   engine: what type 18 is.
+  **Fixed 2026-11-09** (Nadi: "a"): at the first look a second after the
+  ask, then every EscortFollowSeconds, one running a package the engine made
+  (its ID's top byte 0xFF) and not fighting is disabled, enabled the next
+  second and given the follow (`EscortResets`; re-enabled at once when the
+  escort ends in that second). Harness camp-escort twice, **PASS**: 6 of 7
+  held by type 18 each run, all reset; 20 s after the ask all 7 within
+  148-262 units of the player (the probe: they closed in from 1100-1700 in
+  some 12 s); the failure run "left behind"; the arrival run "You brought
+  7 of 7 refugees safe to Bravil (+2 fame, 300 gold, some of their things)" -
+  four things, all at the player's level 1. Not seen: the blink of the reset
+  (headless).
 
 Dynamic camps (Nadi, 2026-11-05/06: "Go dynamic") - **BUILT 2026-11-06**,
 props open (below). `CampCount` default 64 (INI and LINK, LINK version 21,

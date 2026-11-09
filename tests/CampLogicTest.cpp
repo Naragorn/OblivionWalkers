@@ -572,6 +572,17 @@ void TestEscortImage() {
 	Check(back.escort.camp == -1, "an escort's camp out of range: none");
 }
 
+void TestEscortReset() {
+	std::printf("An escorted one held by an engine package is reset\n");
+	const UInt32 follow = 0x26000A42;
+	Check(!walkers::EscortResets(follow, follow, false), "running the follow: left alone");
+	Check(!walkers::EscortResets(0x26000A43, follow, false), "its own wander (the ESP's): AddScriptPackage takes it");
+	Check(walkers::EscortResets(0xFF001242, follow, false),
+	      "an engine-made package (FF..., a talk between two - harness 2026-11-09): reset");
+	Check(!walkers::EscortResets(0xFF001242, follow, true), "fighting: left to the fight");
+	Check(!walkers::EscortResets(0, follow, false), "no package known: left alone");
+}
+
 void TestNearestGate() {
 	std::printf("The nearest city gate\n");
 	const walkers::CityGate gates[] = {
@@ -601,6 +612,7 @@ int main() {
 	TestEscort();
 	TestEscortImage();
 	TestNearestGate();
+	TestEscortReset();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }
