@@ -37,10 +37,60 @@ void Log(const char* format, ...) {
 	va_end(args);
 }
 
+// The last sessions' logs kept in OblivionWalkers-logs, named by the time
+// each was last written, the newest kKeptLogs of them (2026-11-10: a day of
+// sessions on Windows left only the last two, the one with the bug gone).
+constexpr const char* kLogDir = "OblivionWalkers-logs";
+constexpr int kKeptLogs = 20;
+
+int CompareNames(const void* a, const void* b) {
+	return std::strcmp(static_cast<const char*>(a), static_cast<const char*>(b));
+}
+
+void KeepLog() {
+	WIN32_FILE_ATTRIBUTE_DATA data;
+	if (!GetFileAttributesExA(kLogFile, GetFileExInfoStandard, &data)) {
+		return;
+	}
+	FILETIME local;
+	SYSTEMTIME t;
+	if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t)) {
+		return;
+	}
+	CreateDirectoryA(kLogDir, nullptr);
+	char kept[MAX_PATH];
+	std::snprintf(kept, sizeof(kept), "%s\\OblivionWalkers-%04u-%02u-%02u_%02u-%02u-%02u.log", kLogDir, t.wYear,
+	              t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+	CopyFileA(kLogFile, kept, FALSE);
+	static char names[256][64];
+	int count = 0;
+	WIN32_FIND_DATAA found;
+	char pattern[MAX_PATH];
+	std::snprintf(pattern, sizeof(pattern), "%s\\OblivionWalkers-*.log", kLogDir);
+	HANDLE find = FindFirstFileA(pattern, &found);
+	if (find == INVALID_HANDLE_VALUE) {
+		return;
+	}
+	do {
+		if (count < 256 && std::strlen(found.cFileName) < sizeof(names[0])) {
+			std::snprintf(names[count++], sizeof(names[0]), "%s", found.cFileName);
+		}
+	} while (FindNextFileA(find, &found));
+	FindClose(find);
+	std::qsort(names, count, sizeof(names[0]), CompareNames);
+	for (int i = 0; i + kKeptLogs < count; ++i) {
+		char old[MAX_PATH];
+		std::snprintf(old, sizeof(old), "%s\\%s", kLogDir, names[i]);
+		DeleteFileA(old);
+	}
+}
+
 // The last session's log survives one start as OblivionWalkers.log.prev,
-// so a player's run can still be read after a harness run took the game.
+// so a player's run can still be read after a harness run took the game;
+// the last kKeptLogs in OblivionWalkers-logs.
 void ResetLog() {
 	AcquireSRWLockExclusive(&g_logLock);
+	KeepLog();
 	MoveFileExA(kLogFile, "OblivionWalkers.log.prev", MOVEFILE_REPLACE_EXISTING);
 	if (FILE* file = std::fopen(kLogFile, "w")) {
 		std::fclose(file);

@@ -211,18 +211,82 @@ UInt32 PackageForm(UInt32 id) {
 	return LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypePackage ? form : 0;
 }
 
-// The group's follow package aimed at its leader, as xOBSE's SetPackageTarget
-// writes it.
-bool AimFollow(UInt32 group, UInt32 leaderId) {
+// The group's follow package target data (TESPackage +0x28), 0 without.
+UInt32 FollowTargetData(UInt32 group) {
 	const UInt32 package = PackageForm(g_settings.followBase + group);
 	const UInt32 target = package != 0 ? Read(package + kPackageTargetOffset) : 0;
+	return LooksLikeObject(target) ? target : 0;
+}
+
+// Whom each group's follow package points at now (HordeLogic.h
+// FollowTargetHolds): the leader's ID and the reference written, 0 when it
+// points at the group's marker.
+UInt32 g_aimedId[kHordeGroups] = {};
+UInt32 g_aimedRef[kHordeGroups] = {};
+UInt32 g_targetLogsLeft = 200;
+
+// Whether the leader the package points at still holds: his ID still gives
+// that very reference (looked up first - a freed one is never read), alive,
+// enabled, loaded.
+bool LeaderHolds(UInt32 leaderId, UInt32 ref, DeadFn dead) {
+	const bool held = ref != 0 && LookupForm(leaderId) == ref && LooksLikeObject(ref);
+	if (!held) {
+		return false;
+	}
+	return FollowTargetHolds(true, dead != nullptr && dead(ref), (Read(ref + kRefFlagsOffset) & kRefDisabled) != 0,
+	                         Read(ref + kRefNiNodeOffset) != 0);
+}
+
+// The group's follow package aimed at its own marker - persistent, never
+// freed: the followers walk on toward where their leader was heading.
+bool AimAtMarker(UInt32 group) {
+	const UInt32 target = FollowTargetData(group);
+	const UInt32 marker = LookupForm(EspFormId(g_espBase, kMarkerLocalId + group));
+	g_aimedId[group] = 0;
+	g_aimedRef[group] = 0;
+	if (target == 0 || !LooksLikeObject(marker)) {
+		return false;
+	}
+	*reinterpret_cast<UInt8*>(target) = 0;
+	*reinterpret_cast<UInt32*>(target + 4) = marker;
+	return true;
+}
+
+// The group's follow package aimed at its leader, as xOBSE's SetPackageTarget
+// writes it - only while he holds.
+bool AimFollow(UInt32 group, UInt32 leaderId, DeadFn dead) {
+	const UInt32 target = FollowTargetData(group);
 	const UInt32 leader = LookupForm(leaderId);
-	if (!LooksLikeObject(target) || !LooksLikeObject(leader)) {
+	if (target == 0 || !LeaderHolds(leaderId, leader, dead)) {
 		return false;
 	}
 	*reinterpret_cast<UInt8*>(target) = 0;
 	*reinterpret_cast<UInt32*>(target + 4) = leader;
+	g_aimedId[group] = leaderId;
+	g_aimedRef[group] = leader;
 	return true;
+}
+
+// Every frame: a package whose leader no longer holds is aimed at the
+// group's marker before the engine reads a reference it may free.
+void GuardFollowTargets(DeadFn dead, LogFn log) {
+	if (g_settings.followBase == 0) {
+		return;
+	}
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		if (g_aimedId[gi] == 0 || LeaderHolds(g_aimedId[gi], g_aimedRef[gi], dead)) {
+			continue;
+		}
+		const UInt32 was = g_aimedId[gi];
+		const bool aimed = AimAtMarker(gi);
+		g_state.groups[gi].aimedAt = 0;
+		if (g_targetLogsLeft > 0 && log != nullptr) {
+			--g_targetLogsLeft;
+			log("Horde: group %02u's leader %08X gone, dead, disabled or unloaded - its follow package aimed at the "
+			    "group's marker (%d)",
+			    gi, was, aimed ? 1 : 0);
+		}
+	}
 }
 
 // Whether a package given again to `walkerId` is held back now; when not,
@@ -569,6 +633,11 @@ void ResetHorde() {
 	g_guardsRead = false;
 	g_arrivalCount = 0;
 	g_noiseCount = 0;
+	// A load or a new game: the leaders the packages pointed at are freed -
+	// each package aimed at its group's marker before any follower runs it.
+	for (UInt32 gi = 0; gi < kHordeGroups && g_settings.followBase != 0; ++gi) {
+		AimAtMarker(gi);
+	}
 }
 
 bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UInt32 count) {
@@ -609,6 +678,7 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 	if (!g_ready && !g_guardsReady) {
 		return;
 	}
+	GuardFollowTargets(dead, log);
 	ReadyArrivals(console, dead, log);
 	for (UInt32 i = 0; i < g_pendingCount; ++i) {
 		const bool given = GivePackage(g_pending[i].walker, g_pending[i].package, console);
@@ -774,7 +844,10 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 				    line, done ? 1 : 0);
 			}
 		} else if (o.kind == HordeOrder::Aim) {
-			const bool aimed = AimFollow(o.group, o.walker);
+			const bool aimed = AimFollow(o.group, o.walker, dead);
+			if (!aimed) {
+				g_state.groups[o.group].aimedAt = 0;  // tried again the next step
+			}
 			if (g_logsLeft > 0) {
 				--g_logsLeft;
 				log("Horde: group %02u's follow package aimed at its leader %08X (%d)", o.group, o.walker, aimed ? 1 : 0);

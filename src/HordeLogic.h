@@ -302,6 +302,20 @@ inline bool InGroup(const HordeState& state, UInt32 id) {
 
 }  // namespace horde_detail
 
+// The follow package's target is a raw pointer to the leader, as xOBSE's
+// SetPackageTarget writes it; the engine reads it for every follower
+// (0x0064F650 reads the reference's flags, 0x0064F840 and 0x0063D0C0 call
+// through it without a null check - read with REA 2026-11-10). Two Windows
+// crashes of 2026-11-10 read it after the leader was gone (eip 0x0064F67C,
+// packages 37000816 and 37000817, the pointer in freed memory). It holds only
+// while the leader is the very reference the game keeps under his ID
+// (`held`), alive, enabled and loaded; otherwise the package is aimed at the
+// group's own marker - a persistent reference the game never frees - frames
+// before the engine can clean the leader up.
+inline bool FollowTargetHolds(bool held, bool dead, bool disabled, bool loaded) {
+	return held && !dead && !disabled && loaded;
+}
+
 // The gate the biggest group heads for (the news, docs/walkers-spec.md 4.9),
 // the first group's of two as big; -1 when no group heads for one.
 inline int HordeHeadingGate(const HordeState& state) {

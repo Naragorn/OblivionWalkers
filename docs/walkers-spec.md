@@ -2853,6 +2853,33 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **FIX BUILT 2026-11-10, harness and Windows open - the game crashed in a horde follow
+  package** (OBNG's reading of two Windows crash logs of 2026-11-10, 20:40 and 21:08:
+  EXCEPTION_ACCESS_VIOLATION at 0x0064F67C, call trace 0x0064F650 <- 0x0063A993 <-
+  0x006587CE, the current package 37000816 / 37000817, WalkersHordeFollow00/01). Cause,
+  read: the plugin wrote the leader's raw reference pointer into the group's follow
+  package (src/Horde.cpp AimFollow, as xOBSE's SetPackageTarget does) and never took it
+  back - once the leader was gone (cleaned up, unloaded, another load) every follower ran
+  a package pointing into freed memory, and 0x0064F650 read the reference's flags there.
+  A null target is no way out: 0x0064F840 and 0x0063D0C0 call through the target
+  without a check (REA 2026-11-10). Fix: each frame a package whose leader is no longer
+  the reference the game keeps under his ID, or is dead, disabled or unloaded, is aimed
+  at its group's own marker (persistent, never freed); every load and new game aims all
+  sixteen there; an aim at a leader that does not hold is refused and tried again
+  (HordeLogic.h FollowTargetHolds, HordeLogicTest "The follow package's target").
+  Not covered: a leader freed within the very frame he is still alive, enabled and
+  loaded - the engine frees no such reference as far as read, not measured.
+  Separately read by OBNG, cause unknown: the form heap 91 % and 99 % full at the two
+  crashes against 33-65 % in every older crash log.
+- **OPEN 2026-11-10 (Nadi, Windows, the siege save among others) - risen walkers lie on
+  the ground and twitch** ("walker manchmal am boden wiederbelebt ... zucken aber auch
+  nicht aufstehen"). Not read: which raise it was (the rise again of DieOnlyBeheaded,
+  RaiseAsSelf; the siege pool's console Resurrect; the safeguard), which walkers, what
+  their fatigue and process were. The session's log is gone - only the last two were
+  kept; since 2026-11-10 the last 20 sessions stay in OblivionWalkers-logs. Next: the
+  log of the next sighting, or a harness run on the siege save killing walkers that are
+  not beheaded and watching each risen one off its spot.
+
 - **OPEN 2026-10-28 night (Nadi, Windows, for the next day) - some walkers are peaceful**
   ("zombies waren teilweise friedlich zu mir auch zu guards"): some walkers neither attack
   the player nor guards. Not read yet: which ones (spawned, risen or replaced), their

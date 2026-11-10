@@ -253,6 +253,21 @@ void TestSlots() {
 	      "more lone walkers than groups: as many lead as there are slots, the rest keep their own AI");
 }
 
+// The follow package's target is a raw pointer to the leader (as xOBSE's
+// SetPackageTarget writes it): two Windows crashes of 2026-11-10 read it
+// after the leader was gone (0x0064F67C, packages 37000816/37000817). It is
+// kept only while the leader is the very reference the game holds under its
+// ID, alive, enabled and loaded - otherwise cleared before it can dangle.
+void TestFollowTarget() {
+	std::printf("The follow package's target\n");
+	Check(walkers::FollowTargetHolds(true, false, false, true), "the leader held, alive, enabled, loaded: kept");
+	Check(!walkers::FollowTargetHolds(false, false, false, true),
+	      "his ID no longer gives that reference (deleted, another load): cleared");
+	Check(!walkers::FollowTargetHolds(true, true, false, true), "the leader dead: cleared before his body is cleaned up");
+	Check(!walkers::FollowTargetHolds(true, false, true, true), "the leader disabled: cleared");
+	Check(!walkers::FollowTargetHolds(true, false, false, false), "the leader unloaded (no 3D): cleared");
+}
+
 }  // namespace
 
 float HeadingTo(float fromX, float fromY, float toX, float toY) { return std::atan2(toY - fromY, toX - fromX); }
@@ -474,6 +489,7 @@ int main() {
 	TestLeaderLost();
 	TestMerge();
 	TestSlots();
+	TestFollowTarget();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;
