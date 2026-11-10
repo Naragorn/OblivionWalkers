@@ -857,6 +857,43 @@ void TestKeepWalkers() {
 	Check(walkers::KeepWalkers(ids, baseOf, n, bases, 0, out, 256) == 0, "no walker kinds: none");
 }
 
+// Every raise watched until it stands and walks off its spot (Nadi,
+// 2026-11-10: risen walkers lay on the ground and twitched): a raise that
+// is still on its spot after kStandWatchMs is told once, with what the game
+// says of it then; a full list drops the oldest.
+void TestStandWatch() {
+	std::printf("Each raise watched off its spot\n");
+	walkers::StandWatch w;
+	walkers::WatchStand(w, 0x101, "the rise again", 1000);
+	walkers::WatchStand(w, 0x102, "the siege pool", 1000);
+	Check(w.count == 2, "two raises watched");
+	Check(walkers::StandStep(w.entries[1], 9000.0f, 0.0f, 0.0f, 1500) == walkers::StandVerdict::Waiting &&
+	          !w.entries[1].placed,
+	      "half a second on (its MoveTo not taken yet): its spot not read");
+	Check(walkers::StandStep(w.entries[0], 10.0f, 20.0f, 0.0f, 3000) == walkers::StandVerdict::Waiting &&
+	          w.entries[0].placed,
+	      "2 s after the raise: its spot read");
+	Check(walkers::StandStep(w.entries[1], 500.0f, 20.0f, 0.0f, 3000) == walkers::StandVerdict::Waiting,
+	      "the other's spot read where its MoveTo put it");
+	Check(walkers::StandStep(w.entries[0], 10.0f, 20.0f, 0.0f, 5000) == walkers::StandVerdict::Waiting,
+	      "4 s on its spot: still waiting");
+	Check(walkers::StandStep(w.entries[1], 520.0f, 20.0f, 0.0f, 5000) == walkers::StandVerdict::Walked,
+	      "20 units off its spot: walked - done");
+	Check(walkers::StandStep(w.entries[0], 12.0f, 20.0f, 0.0f, 1000 + walkers::kStandWatchMs) ==
+	          walkers::StandVerdict::Stuck,
+	      "2 units off when the watch's time is up: stuck - told");
+	walkers::WatchStand(w, 0x101, "the rise again", 9000);
+	Check(w.count == 2 && w.entries[1].refId == 0x101 && w.entries[1].startMs == 9000 && !w.entries[1].placed,
+	      "the same walker raised again: one watch, started anew");
+	walkers::StandWatch full;
+	for (UInt32 i = 0; i < walkers::kStandWatchMost + 1; ++i) {
+		walkers::WatchStand(full, 0x200 + i, "x", i);
+	}
+	Check(full.count == walkers::kStandWatchMost && full.entries[0].refId == 0x201, "full: the oldest dropped");
+	walkers::DropStand(full, 0);
+	Check(full.count == walkers::kStandWatchMost - 1 && full.entries[0].refId == 0x202, "a done watch dropped");
+}
+
 int main() {
 	TestVerdicts();
 	TestTick();
@@ -870,6 +907,7 @@ int main() {
 	TestEspPlace();
 	TestSwap();
 	TestRisenWatch();
+	TestStandWatch();
 	TestImage();
 	TestRisenLoot();
 	TestFame();

@@ -99,6 +99,8 @@ bool g_deathWatchOn = false;
 UInt32 g_registerTries = 0;
 RisenWatch g_risen;
 bool g_risenWatching = false;
+StandWatch g_stand;  // every raise, until it walks off its spot (RiseLogic.h)
+float g_standClock = 0.0f;
 Swap g_swap;
 // KeepCorpseApart: the walker whose corpse was moved out of its way, and the
 // one whose refusal was logged (once a swap).
@@ -1113,6 +1115,16 @@ bool ConsoleOn(UInt32 ref, const char* line) {
 	return g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
 }
 
+}  // namespace
+
+void NoteRaised(UInt32 ref, const char* how) {
+	if (LooksLikeObject(ref)) {
+		WatchStand(g_stand, FormIdOf(ref), how, GetTickCount());
+	}
+}
+
+namespace {
+
 // The engine's own raise of the person himself, as the console's "resurrect
 // 1" does it: Actor's virtual at vtable+0x20C with (1, has3D, animate=1) -
 // the get-up animation, the inventory kept. With CloneBase the reference
@@ -1155,6 +1167,7 @@ void RaiseAsSelf(UInt32 refId) {
 	const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
 	using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 	reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
+	NoteRaised(ref, IsWalkerRef(ref) ? "a walker up again" : "the person himself");
 	g_risen = RisenWatch{};
 	g_risen.refId = refId;
 	g_risen.startMs = GetTickCount();
@@ -1549,6 +1562,7 @@ void StepSwapInFlight(float dt) {
 		const UInt32 withModel = Read(zombie + kRefNiNodeOffset) != 0 ? 1u : 0u;
 		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(zombie), nullptr, 1, withModel, 1);
+		NoteRaised(zombie, "the swap's walker");
 		g_risen = RisenWatch{};
 		g_risen.refId = g_swap.zombieId;
 		g_risen.startMs = GetTickCount();
@@ -1818,6 +1832,63 @@ UInt32 HighProcessOf(UInt32 actor) {
 	}
 	using LevelFn = UInt32(__fastcall*)(void* process, void* edx);
 	return reinterpret_cast<LevelFn>(levelFn)(reinterpret_cast<void*>(process), nullptr) == 0 ? process : 0;
+}
+
+// An actor value now and its base (Health 8, Fatigue 10), as Horde.cpp's
+// HealthOf reads them; -1 unread.
+void ActorValueOf(UInt32 actor, UInt32 av, float& now, float& base) {
+	now = -1.0f;
+	base = -1.0f;
+	const UInt32 vtable = LooksLikeObject(actor) ? Read(actor) : 0;
+	const UInt32 fn = LooksLikeObject(vtable) ? Read(vtable + 0x288) : 0;
+	if (fn < kTextStart || fn >= kTextEnd) {
+		return;
+	}
+	using GetFloatFn = float(__fastcall*)(void* actor, void* edx, UInt32 av);
+	using GetBaseFn = SInt32(__fastcall*)(void* actor, void* edx, UInt32 av);
+	now = reinterpret_cast<GetFloatFn>(fn)(reinterpret_cast<void*>(actor), nullptr, av);
+	base = static_cast<float>(reinterpret_cast<GetBaseFn>(0x005F1910)(reinterpret_cast<void*>(actor), nullptr, av));
+}
+
+// Twice a second: each raise watched (RiseLogic.h StandWatch); one still on
+// its spot after the watch's time told with what the game says of it.
+void StepStandWatch(float dt) {
+	g_standClock += dt;
+	if (g_stand.count == 0 || g_standClock < 0.5f) {
+		return;
+	}
+	g_standClock = 0.0f;
+	const UInt32 now = GetTickCount();
+	for (UInt32 i = 0; i < g_stand.count;) {
+		StandEntry& e = g_stand.entries[i];
+		const UInt32 ref = LookupForm(e.refId);
+		if (!LooksLikeObject(ref) || !IsActor(ref)) {
+			DropStand(g_stand, i);
+			continue;
+		}
+		const StandVerdict v = StandStep(e, FloatAt(ref + kRefPositionOffset), FloatAt(ref + kRefPositionOffset + 4),
+		                                 FloatAt(ref + kRefPositionOffset + 8), now);
+		if (v == StandVerdict::Waiting) {
+			++i;
+			continue;
+		}
+		if (v == StandVerdict::Stuck) {
+			float health = 0.0f;
+			float healthBase = 0.0f;
+			float fatigue = 0.0f;
+			float fatigueBase = 0.0f;
+			ActorValueOf(ref, 8, health, healthBase);
+			ActorValueOf(ref, 10, fatigue, fatigueBase);
+			bool high = false;
+			const UInt32 package = ActorPackageNow(e.refId, high);
+			g_log("Risen: %08X (%s) still on its spot %u s after the raise - dead %d, health %.0f of %.0f, fatigue "
+			      "%.0f of %.0f, 3D %d, high process %d, package %08X type %u, combat %d, flags %08X",
+			      e.refId, e.how, (now - e.startMs) / 1000, IsDead(ref) ? 1 : 0, health, healthBase, fatigue,
+			      fatigueBase, Read(ref + kRefNiNodeOffset) != 0 ? 1 : 0, high ? 1 : 0, package,
+			      PackageType(package), ActorInCombat(e.refId) ? 1 : 0, Read(ref + 8));
+		}
+		DropStand(g_stand, i);
+	}
 }
 
 void StepWalkers(float dt) {
@@ -2426,6 +2497,7 @@ void StepSafeguardInGame(float dt) {
 		const UInt32 has3D = Read(ref + kRefNiNodeOffset) != 0 ? 1u : 0u;
 		using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 		reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
+		NoteRaised(ref, "the safeguard");
 		bool moved = false;
 		if (move == HomeMove::PositionCell) {
 			char line[160];
@@ -2491,6 +2563,7 @@ void Tick() {
 	if (!(dt > 0.0f && dt < 1.0f)) {
 		dt = 0.0f;
 	}
+	StepStandWatch(dt);
 	if (g_swap.active) {
 		StepSwapInFlight(dt);
 	}
@@ -2560,6 +2633,7 @@ void OnLoad(void*) {
 	g_linkSynced = false;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_stand = StandWatch{};
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_lootlessCount = 0;
@@ -2686,6 +2760,7 @@ void OnNewGame(void*) {
 	g_linkSynced = false;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_stand = StandWatch{};
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_lootlessCount = 0;
@@ -2722,12 +2797,14 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_lootlessCount = 0;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_stand = StandWatch{};
 	g_fame = FameCount{};
 	g_famePending = 0;
 	g_random = GetTickCount() | 1u;
 	g_deathWatchOn = false;
 	g_registerTries = 0;
 	g_risenWatching = false;
+	g_stand = StandWatch{};
 	g_swap = Swap{};
 	g_walkersLooked = false;
 	g_walkerCount = 0;

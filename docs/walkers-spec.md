@@ -2853,6 +2853,21 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **FIX BUILT 2026-11-10, Windows open - no refugee ever asked to be led** (Nadi, 2026-11-10:
+  found a camp, could start the escort nowhere). Cause, read: the escort's greeting,
+  its topic "Safety" and its lines sat in the LINK quest, priority 0; the game says the
+  first GREETING info whose conditions hold, taking the quests by priority (CS wiki Quest
+  Data Tab; Dialogue Tutorial, "NPCs won't say my stuff"), so every generic greeting went
+  first and the topic was never added. The harness had set the ask global directly and
+  never spoke. Fix: the escort's dialogue in a quest of its own, WalkersEscortQuest
+  (0xA46), start game enabled, priority 50 (the convention's miscellaneous quests; below
+  guilds 60, the main quest 85, crime 90); tools/esp-write.py reads it back. Not seen in
+  the game yet. The same priority 0 holds for the sieges', the night's and the camps'
+  rumors (INFOGENERAL) - not measured whether they are ever said.
+- **Rise stand watch, 2026-11-10:** every raise (a walker up again, the swap's walker, the
+  siege pool's, the safeguard's) is watched; one still within 16 units of its spot 20 s
+  after the raise logs "Risen: ... still on its spot" with its health, fatigue, 3D,
+  process, package and flags (RiseLogic.h StandWatch, RiseLogicTest).
 - **FIX BUILT 2026-11-10, harness and Windows open - the game crashed in a horde follow
   package** (OBNG's reading of two Windows crash logs of 2026-11-10, 20:40 and 21:08:
   EXCEPTION_ACCESS_VIOLATION at 0x0064F67C, call trace 0x0064F650 <- 0x0063A993 <-

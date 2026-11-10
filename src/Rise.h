@@ -19,4 +19,9 @@ using LogFn = void (*)(const char* format, ...);
 bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const ReplaceSettings& replace,
                  const char* iniPath, LogFn log);
 
+// A walker raised by the engine's Resurrect (`how` names the path): watched
+// until it walks off its spot, told in the log when it does not
+// (RiseLogic.h StandWatch).
+void NoteRaised(UInt32 ref, const char* how);
+
 }  // namespace walkers

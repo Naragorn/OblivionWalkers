@@ -235,6 +235,17 @@ SHOCK_SOUND_TEMPLATE = 0x00185DD3  # UIQuestUpdate
 # - its follow package and the refugees' camp life: sleep near where they
 # stand at night (aaaSleepCurrent22x8), wander about it otherwise (TWander).
 GREETING_TOPIC = 0x000000C8
+# The escort's dialogue lives in a quest of its own (docs/walkers-spec.md 7a,
+# 2026-11-10: no refugee ever asked to be led): the LINK quest's priority 0
+# lets every other quest's greeting go first, and the game says the first
+# GREETING info whose conditions hold, the quests taken by priority (CS wiki
+# Quest Data Tab, Dialogue Tutorial "NPCs won't say my stuff"). 50 is the
+# convention's miscellaneous quests - above the generic greetings (5, 10),
+# below guilds, the main quest, crime (60, 85, 90). Right after the
+# disguise's ability.
+ESCORT_QUEST_LOCAL = 0xA46
+ESCORT_QUEST_EDID = "WalkersEscortQuest"
+ESCORT_QUEST_PRIORITY = 50
 GET_IS_ID = 72  # the condition function (UESP CS wiki, GetIsID)
 CONDITION_OR = 0x01
 INFO_GOODBYE = 0x01
@@ -832,6 +843,12 @@ def build_link_quest(script_form: int) -> bytes:
             + subrecord(b"DATA", bytes([1, 0])))
 
 
+def build_escort_quest() -> bytes:
+    """The escort's dialogue quest: EDID, DATA flags 1 (start game enabled)
+    and priority ESCORT_QUEST_PRIORITY, no script."""
+    return subrecord(b"EDID", zstring(ESCORT_QUEST_EDID)) + subrecord(b"DATA", bytes([1, ESCORT_QUEST_PRIORITY]))
+
+
 def build_global(edid: str) -> bytes:
     """A short global, 0: EDID, FNAM 's', FLTV."""
     return subrecord(b"EDID", zstring(edid)) + subrecord(b"FNAM", b"s") + subrecord(b"FLTV", struct.pack("<f", 0.0))
@@ -1202,19 +1219,20 @@ def main() -> int:
     # quest added as the Rumors topic is) gets the refugees' two greetings;
     # the new topic "Safety" its yes, which sets the ask global.
     greeting_dial = find_record(esm, buf, b"DIAL", GREETING_TOPIC)
-    greeting_data = b"".join(subrecord(k, d) for k, d in greeting_dial) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
+    escort_quest_form = index | ESCORT_QUEST_LOCAL
+    greeting_data = b"".join(subrecord(k, d) for k, d in greeting_dial) + subrecord(b"QSTI", struct.pack("<I", escort_quest_form))
     topic_form = index | ids["kEscortTopicLocalId"]
-    topic_data = (subrecord(b"EDID", zstring("WalkersEscortSafety")) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
+    topic_data = (subrecord(b"EDID", zstring("WalkersEscortSafety")) + subrecord(b"QSTI", struct.pack("<I", escort_quest_form))
                   + subrecord(b"FULL", zstring("Safety")) + subrecord(b"DATA", bytes([0])))
     greetings = record(b"INFO", index | ids["kEscortGreetingLocalId"],
-                       build_line(link_quest_form, "The walkers will be back, and we won't last another night out here. "
+                       build_line(escort_quest_form, "The walkers will be back, and we won't last another night out here. "
                                   "Will you lead us to the city? We'd follow you anywhere safe.",
                                   refugee_conditions(camp_base_forms, offer_global, 1.0), add_topic=topic_form))
     greetings += record(b"INFO", index | ids["kEscortOnTheWayLocalId"],
-                        build_line(link_quest_form, "Keep going, we're right behind you. Just don't leave us behind.",
+                        build_line(escort_quest_form, "Keep going, we're right behind you. Just don't leave us behind.",
                                    refugee_conditions(camp_base_forms, offer_global, 2.0), flags=INFO_GOODBYE))
     yes = record(b"INFO", index | ids["kEscortYesLocalId"],
-                 build_line(link_quest_form, "You'll take us to the city? Thank the Nine! Lead the way - we'll stay "
+                 build_line(escort_quest_form, "You'll take us to the city? Thank the Nine! Lead the way - we'll stay "
                             "close behind you.", refugee_conditions(camp_base_forms, offer_global, 1.0),
                             flags=INFO_GOODBYE, set_global=ask_global, set_name="WalkersEscortAsk"))
     dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors)
@@ -1237,6 +1255,8 @@ def main() -> int:
     disguise_local = disguise_ability_id()
     if disguise_local != ids["kCampExtraEnd"] or disguise_local >= SHOCK_FIRST_LOCAL:
         raise SystemExit("DisguiseLogic.h's ability is not right after the camps' extras")
+    if ESCORT_QUEST_LOCAL != disguise_local + 1 or ESCORT_QUEST_LOCAL >= SHOCK_FIRST_LOCAL:
+        raise SystemExit("the escort's quest is not right after the disguise's ability")
     disguise_form = index | disguise_local
     spells = record(b"SPEL", disguise_form, build_disguise(find_record(esm, buf, b"SPEL", DISGUISE_TEMPLATE)))
     body = (globals_group + group(b"RACE", races) + group(b"SOUN", sounds) + group(b"SCPT", record(b"SCPT", link_script_form, build_link_script(link_names)))
@@ -1246,7 +1266,8 @@ def main() -> int:
             + cell_groups(cell_form, cell, markers + pool)
             + world
             + dial_group
-            + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form)))
+            + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form))
+                    + record(b"QUST", escort_quest_form, build_escort_quest()))
             + group(b"PACK", packages) + group(b"IDLE", idles))
     groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + 1 + exterior_groups_count  # + the SPEL group  # + the escort's two topic groups
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
@@ -1255,7 +1276,8 @@ def main() -> int:
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
                + camp_records + 2 + len(shock_forms)
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
-               + 1)  # the disguise's ability
+               + 1  # the disguise's ability
+               + 1)  # the escort's quest
     next_id = camp_end + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
@@ -1398,6 +1420,12 @@ def main() -> int:
     back_greet = dict(find_record(esm, plugin, b"INFO", index | ids["kEscortGreetingLocalId"]))
     if struct.unpack("<I", back_greet[b"NAME"])[0] != topic_form:
         raise SystemExit("the escort's greeting does not add its topic")
+    back_escort_quest = dict(find_record(esm, plugin, b"QUST", escort_quest_form))
+    if back_escort_quest[b"DATA"] != bytes([1, ESCORT_QUEST_PRIORITY]):
+        raise SystemExit("the escort's quest reads back wrong")
+    for local in ("kEscortGreetingLocalId", "kEscortYesLocalId", "kEscortOnTheWayLocalId"):
+        if struct.unpack("<I", dict(find_record(esm, plugin, b"INFO", index | ids[local]))[b"QSTI"])[0] != escort_quest_form:
+            raise SystemExit(f"the escort's line {local} is not the escort quest's")
     people = 0
     for k in range(kits):
         for slot in range(13):

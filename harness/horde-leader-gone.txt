@@ -1,0 +1,44 @@
+# The horde's leaders die under their followers, and every walker gets up
+# again (docs/walkers-spec.md 7a, 2026-11-10: two Windows crashes in a
+# follow package pointing at a gone leader; risen walkers that lay on the
+# ground and twitched). As horde-walk.txt: outdoors at Tamriel -29,5, the
+# player unseen, the groups formed over 30 s; then killall - the leaders and
+# their followers down at once. OblivionWalkers.log (read by
+# tools/horde-leader-gone.sh) reads "follow package aimed at its leader",
+# then "leader ... gone, dead, disabled or unloaded - its follow package
+# aimed at the group's marker (1)" for the groups, "End: walker ... gets up
+# again", and for each raise either nothing more or "Risen: ... still on its
+# spot" with what the game says of it - the twitching caught if it happens.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/horde-leader-gone.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready cow Tamriel -29 5
+console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 3
+console-at grouped killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 35
+mark grouped
+wait 30
+mark t30
+wait 30
+mark t60
+wait 30
+mark end
+wait 1

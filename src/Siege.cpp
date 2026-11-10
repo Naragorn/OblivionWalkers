@@ -4,6 +4,7 @@
 #include "LinkLogic.h"
 #include "News.h"
 #include "QuestVars.h"
+#include "Rise.h"
 #include "RiseLogic.h"
 
 #include <cstdio>
@@ -180,6 +181,7 @@ void ShowSiege(const CitySiege& c) {
 			if (raised) {
 				g_console(ref, "SetDestroyed 0");
 				g_console(ref, "Resurrect");
+				NoteRaised(ref, "the siege pool");
 			}
 			float x = 0.0f;
 			float y = 0.0f;

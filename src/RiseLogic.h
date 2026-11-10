@@ -814,6 +814,81 @@ inline UInt32 StepRisenWatch(RisenWatch& watch, bool dead, float x, float y, flo
 	return events;
 }
 
+// Every raise - the rise again, the siege pool's, the safeguard's - watched
+// until it walks off the spot where it lay (Nadi, 2026-11-10, Windows: risen
+// walkers lay on the ground, twitched and did not get up; which raise it was
+// is not known). One still on its spot after kStandWatchMs is told once in
+// the log with what the game says of it then.
+inline constexpr UInt32 kStandWatchMost = 32;
+inline constexpr UInt32 kStandWatchMs = 20000;
+inline constexpr float kStandMoveUnits = 16.0f;
+// Its spot read this long after the raise - after a MoveTo (the siege
+// pool's) has taken and the get-up's first shift is over.
+inline constexpr UInt32 kStandSettleMs = 2000;
+
+struct StandEntry {
+	UInt32 refId = 0;
+	const char* how = "";
+	UInt32 startMs = 0;
+	float x = 0.0f;
+	float y = 0.0f;
+	float z = 0.0f;
+	bool placed = false;  // its spot read (kStandSettleMs after the raise)
+};
+
+struct StandWatch {
+	StandEntry entries[kStandWatchMost];
+	UInt32 count = 0;
+};
+
+inline void DropStand(StandWatch& w, UInt32 i) {
+	if (i >= w.count) {
+		return;
+	}
+	for (UInt32 j = i + 1; j < w.count; ++j) {
+		w.entries[j - 1] = w.entries[j];
+	}
+	--w.count;
+}
+
+inline void WatchStand(StandWatch& w, UInt32 refId, const char* how, UInt32 nowMs) {
+	for (UInt32 i = 0; i < w.count; ++i) {
+		if (w.entries[i].refId == refId) {
+			DropStand(w, i);
+			break;
+		}
+	}
+	if (w.count == kStandWatchMost) {
+		DropStand(w, 0);
+	}
+	StandEntry& e = w.entries[w.count++];
+	e.refId = refId;
+	e.how = how;
+	e.startMs = nowMs;
+	e.placed = false;
+}
+
+enum class StandVerdict : UInt8 { Waiting, Walked, Stuck };
+
+inline StandVerdict StandStep(StandEntry& e, float x, float y, float z, UInt32 nowMs) {
+	if (!e.placed) {
+		if (nowMs - e.startMs >= kStandSettleMs) {
+			e.placed = true;
+			e.x = x;
+			e.y = y;
+			e.z = z;
+		}
+		return StandVerdict::Waiting;
+	}
+	const float dx = x - e.x;
+	const float dy = y - e.y;
+	const float dz = z - e.z;
+	if (dx * dx + dy * dy + dz * dz > kStandMoveUnits * kStandMoveUnits) {
+		return StandVerdict::Walked;
+	}
+	return nowMs - e.startMs >= kStandWatchMs ? StandVerdict::Stuck : StandVerdict::Waiting;
+}
+
 // The co-save record: type "WAIT", version 2 - the count, then reference,
 // base, seconds left and the missing day (version 1, before 2026-10-27:
 // without it) per entry, little-endian like the engine's own.
