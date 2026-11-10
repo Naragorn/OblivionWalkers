@@ -1,0 +1,90 @@
+# Risen walkers that lie on the ground and twitch (docs/walkers-spec.md 7a;
+# Nadi, 2026-11-10, Windows: "walker manchmal am boden wiederbelebt ...
+# zucken aber auch nicht aufstehen"). Four walkers killed four ways, each
+# getting up again 20 to 30 s later (DieOnlyBeheaded, OBVR's head cutter
+# on, no head cut):
+#   a  killed standing
+#   b  killed in flight - pushed away hard, killed the frame after
+#   c  killed lying - pushed down, killed once it lies
+#   d  killed standing, the player far away (its cell unloaded) while it
+#      gets up, back after 60 s
+# Every raise is watched (RiseLogic.h StandWatch): one still within 16
+# units of its spot 20 s after the raise logs "Risen: ... still on its spot"
+# with its health, fatigue, 3D, process, package and flags.
+# tools/rise-twitch.sh reads OblivionWalkers.log: each walker's death, its
+# raise and whether it walked off.
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/rise-twitch.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready cow Tamriel -29 5
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1
+console-at a-placed {actor}.moveto player 0 400 0
+console-at a-moved {actor}.kill player
+console-at a-done player.placeatme {form:OblivionWalkers.esp:802} 1
+console-at b-placed {actor}.moveto player 400 0 0
+console-at b-moved player.pushactoraway {actor} 80
+console-at b-pushed {actor}.kill player
+console-at b-done player.placeatme {form:OblivionWalkers.esp:803} 1
+console-at c-placed {actor}.moveto player -400 0 0
+console-at c-moved player.pushactoraway {actor} 30
+console-at c-down {actor}.kill player
+console-at c-done player.placeatme {form:OblivionWalkers.esp:804} 1
+console-at d-placed {actor}.moveto player 0 -400 0
+console-at d-moved {actor}.kill player
+console-at d-dead player.moveto player 0 30000 0
+console-at away cow Tamriel -29 5
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 2
+mark a-placed
+wait 2
+mark a-moved
+wait 3
+mark a-done
+wait 2
+mark b-placed
+wait 2
+mark b-moved
+wait 0.1
+mark b-pushed
+wait 3
+mark b-done
+wait 2
+mark c-placed
+wait 2
+mark c-moved
+wait 1.5
+mark c-down
+wait 3
+mark c-done
+wait 2
+mark d-placed
+wait 2
+mark d-moved
+wait 3
+mark d-dead
+wait 60
+mark away
+wait 30
+mark t30
+wait 30
+mark end
+wait 1
