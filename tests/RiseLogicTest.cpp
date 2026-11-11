@@ -862,7 +862,7 @@ void TestKeepWalkers() {
 // is still on its spot after kStandWatchMs is told once, with what the game
 // says of it then; a full list drops the oldest.
 void TestStandWatch() {
-	std::printf("Each raise watched off its spot\n");
+	std::printf("Each raise watched for its time\n");
 	walkers::StandWatch w;
 	walkers::WatchStand(w, 0x101, "the rise again", 1000);
 	walkers::WatchStand(w, 0x102, "the siege pool", 1000);
@@ -873,15 +873,19 @@ void TestStandWatch() {
 	Check(walkers::StandStep(w.entries[0], 10.0f, 20.0f, 0.0f, 3000) == walkers::StandVerdict::Waiting &&
 	          w.entries[0].placed,
 	      "2 s after the raise: its spot read");
-	Check(walkers::StandStep(w.entries[1], 500.0f, 20.0f, 0.0f, 3000) == walkers::StandVerdict::Waiting,
-	      "the other's spot read where its MoveTo put it");
-	Check(walkers::StandStep(w.entries[0], 10.0f, 20.0f, 0.0f, 5000) == walkers::StandVerdict::Waiting,
-	      "4 s on its spot: still waiting");
-	Check(walkers::StandStep(w.entries[1], 520.0f, 20.0f, 0.0f, 5000) == walkers::StandVerdict::Walked,
-	      "20 units off its spot: walked - done");
+	walkers::StandStep(w.entries[1], 500.0f, 20.0f, 0.0f, 3000);
+	Check(walkers::StandStep(w.entries[1], 520.0f, 20.0f, 0.0f, 5000) == walkers::StandVerdict::Waiting &&
+	          w.entries[1].moved,
+	      "20 units off its spot: moved - but watched on (a body dragged while it lies moves too)");
+	Check(walkers::StandStep(w.entries[1], 520.0f, 20.0f, 0.0f, 1000 + walkers::kStandWatchMs) ==
+	          walkers::StandVerdict::Done,
+	      "the watch's time up: done");
 	Check(walkers::StandStep(w.entries[0], 12.0f, 20.0f, 0.0f, 1000 + walkers::kStandWatchMs) ==
-	          walkers::StandVerdict::Stuck,
-	      "2 units off when the watch's time is up: stuck - told");
+	          walkers::StandVerdict::Done && !w.entries[0].moved,
+	      "the other done, 2 units off - never moved");
+	Check(walkers::StandStuck(false, 0) && walkers::StandStuck(true, 1) && walkers::StandStuck(true, -2) &&
+	          !walkers::StandStuck(true, 0) && !walkers::StandStuck(true, -1),
+	      "stuck: never off its spot, or still knocked (any state but 0; -1 unread) when the time is up");
 	walkers::WatchStand(w, 0x101, "the rise again", 9000);
 	Check(w.count == 2 && w.entries[1].refId == 0x101 && w.entries[1].startMs == 9000 && !w.entries[1].placed,
 	      "the same walker raised again: one watch, started anew");
@@ -892,6 +896,26 @@ void TestStandWatch() {
 	Check(full.count == walkers::kStandWatchMost && full.entries[0].refId == 0x201, "full: the oldest dropped");
 	walkers::DropStand(full, 0);
 	Check(full.count == walkers::kStandWatchMost - 1 && full.entries[0].refId == 0x202, "a done watch dropped");
+}
+
+// Nadi, 2026-11-10: risen walkers "blieben dann am boden liegen und machten
+// sounds und drehten sich" - alive, their get-up broken off. The CS wiki's
+// Resurrect: "Scripting or AI packages may interrupt the animation". A
+// walker getting up is left alone - no horde package, no StartCombat - while
+// the engine holds it knocked, and for kGetUpGraceMs after its raise.
+void TestGettingUp() {
+	std::printf("Left alone while getting up\n");
+	walkers::StandWatch w;
+	walkers::WatchStand(w, 0x101, "the rise again", 1000);
+	Check(walkers::RaisedWithin(w, 0x101, 1000 + walkers::kGetUpGraceMs - 1, walkers::kGetUpGraceMs),
+	      "raised just now: within the grace");
+	Check(!walkers::RaisedWithin(w, 0x101, 1000 + walkers::kGetUpGraceMs, walkers::kGetUpGraceMs),
+	      "the grace over: no more");
+	Check(!walkers::RaisedWithin(w, 0x999, 1000, walkers::kGetUpGraceMs), "never raised: no");
+	Check(walkers::GettingUp(0, true) && walkers::GettingUp(2, false) && walkers::GettingUp(1, false),
+	      "getting up: raised lately, or knocked in any state but 0");
+	Check(!walkers::GettingUp(0, false) && !walkers::GettingUp(-1, false),
+	      "standing (0), or its knocked state unread (-1) and not raised lately: free");
 }
 
 int main() {
@@ -908,6 +932,7 @@ int main() {
 	TestSwap();
 	TestRisenWatch();
 	TestStandWatch();
+	TestGettingUp();
 	TestImage();
 	TestRisenLoot();
 	TestFame();

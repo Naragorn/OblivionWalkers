@@ -834,6 +834,7 @@ struct StandEntry {
 	float y = 0.0f;
 	float z = 0.0f;
 	bool placed = false;  // its spot read (kStandSettleMs after the raise)
+	bool moved = false;   // off its spot since
 };
 
 struct StandWatch {
@@ -866,10 +867,14 @@ inline void WatchStand(StandWatch& w, UInt32 refId, const char* how, UInt32 nowM
 	e.how = how;
 	e.startMs = nowMs;
 	e.placed = false;
+	e.moved = false;
 }
 
-enum class StandVerdict : UInt8 { Waiting, Walked, Stuck };
+enum class StandVerdict : UInt8 { Waiting, Done };
 
+// Watched the whole kStandWatchMs: a walker that moves may still lie - its
+// body dragged or turned by the AI while the get-up is broken off (Nadi,
+// 2026-11-10: "am boden liegen ... drehten sich"); whether it moved is kept.
 inline StandVerdict StandStep(StandEntry& e, float x, float y, float z, UInt32 nowMs) {
 	if (!e.placed) {
 		if (nowMs - e.startMs >= kStandSettleMs) {
@@ -884,10 +889,30 @@ inline StandVerdict StandStep(StandEntry& e, float x, float y, float z, UInt32 n
 	const float dy = y - e.y;
 	const float dz = z - e.z;
 	if (dx * dx + dy * dy + dz * dz > kStandMoveUnits * kStandMoveUnits) {
-		return StandVerdict::Walked;
+		e.moved = true;
 	}
-	return nowMs - e.startMs >= kStandWatchMs ? StandVerdict::Stuck : StandVerdict::Waiting;
+	return nowMs - e.startMs >= kStandWatchMs ? StandVerdict::Done : StandVerdict::Waiting;
 }
+
+// At the watch's end: stuck when it never left its spot, or the engine still
+// holds it knocked (MiddleHighProcess::knockedState, 0 standing; -1 unread).
+inline bool StandStuck(bool moved, int knocked) { return !moved || (knocked != 0 && knocked != -1); }
+
+// A raise's get-up is left alone this long (rise-getup.txt measured the
+// get-up some 2 to 3 s), however the knocked state reads.
+inline constexpr UInt32 kGetUpGraceMs = 6000;
+
+inline bool RaisedWithin(const StandWatch& w, UInt32 refId, UInt32 nowMs, UInt32 ms) {
+	for (UInt32 i = 0; i < w.count; ++i) {
+		if (w.entries[i].refId == refId && nowMs - w.entries[i].startMs < ms) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// Getting up: raised lately, or knocked (any state but 0; -1 unread).
+inline bool GettingUp(int knocked, bool raisedLately) { return raisedLately || (knocked != 0 && knocked != -1); }
 
 // The co-save record: type "WAIT", version 2 - the count, then reference,
 // base, seconds left and the missing day (version 1, before 2026-10-27:

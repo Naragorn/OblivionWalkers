@@ -1642,6 +1642,7 @@ bool StepChapel(UInt32 actor, UInt32 refId) {
 }
 
 UInt32 HighProcessOf(UInt32 actor);
+bool GettingUpNow(UInt32 ref);
 
 // The walker records' held values (LevelingLogic.h kHeldValues): the hold's
 // SetAV on a dead walker writes the creature record that every walker of
@@ -1780,7 +1781,8 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	BeginNearTick(g_near);
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 walker = LookupForm(walkerRefs[i]);
-		if (!LooksLikeObject(walker) || !IsActor(walker) || IsDead(walker) || HighProcessOf(walker) == 0) {
+		if (!LooksLikeObject(walker) || !IsActor(walker) || IsDead(walker) || HighProcessOf(walker) == 0 ||
+		    GettingUpNow(walker)) {
 			continue;
 		}
 		const float wx = FloatAt(walker + kRefPositionOffset);
@@ -1850,6 +1852,20 @@ void ActorValueOf(UInt32 actor, UInt32 av, float& now, float& base) {
 	base = static_cast<float>(reinterpret_cast<GetBaseFn>(0x005F1910)(reinterpret_cast<void*>(actor), nullptr, av));
 }
 
+// The high process's knocked state (xOBSE GameProcess.h
+// MiddleHighProcess::knockedState, a signed byte at +0x11C; 0 standing),
+// -1 when not in the high process.
+int KnockedState(UInt32 ref) {
+	const UInt32 process = HighProcessOf(ref);
+	return process != 0 ? static_cast<int>(*reinterpret_cast<const signed char*>(process + 0x11C)) : -1;
+}
+
+// A walker getting up (RiseLogic.h GettingUp): left alone - its get-up is
+// broken off by a package or a fight given now.
+bool GettingUpNow(UInt32 ref) {
+	return GettingUp(KnockedState(ref), RaisedWithin(g_stand, FormIdOf(ref), GetTickCount(), kGetUpGraceMs));
+}
+
 // Twice a second: each raise watched (RiseLogic.h StandWatch); one still on
 // its spot after the watch's time told with what the game says of it.
 void StepStandWatch(float dt) {
@@ -1872,7 +1888,8 @@ void StepStandWatch(float dt) {
 			++i;
 			continue;
 		}
-		if (v == StandVerdict::Stuck) {
+		const int knocked = KnockedState(ref);
+		if (StandStuck(e.moved, knocked)) {
 			float health = 0.0f;
 			float healthBase = 0.0f;
 			float fatigue = 0.0f;
@@ -1881,15 +1898,11 @@ void StepStandWatch(float dt) {
 			ActorValueOf(ref, 10, fatigue, fatigueBase);
 			bool high = false;
 			const UInt32 package = ActorPackageNow(e.refId, high);
-			// The high process's knocked state (xOBSE GameProcess.h
-			// MiddleHighProcess::knockedState, SInt8 at +0x11C; 0 standing).
-			const UInt32 process = high ? Read(ref + kMobileProcessOffset) : 0;
-			const int knocked = LooksLikeObject(process) ? static_cast<int>(*reinterpret_cast<const signed char*>(process + 0x11C)) : -1;
-			g_log("Risen: %08X (%s) still on its spot %u s after the raise - dead %d, knocked state %d, health %.0f of "
+			g_log("Risen: %08X (%s) not up %u s after the raise - moved %d, knocked state %d, dead %d, health %.0f of "
 			      "%.0f, fatigue %.0f of %.0f, 3D %d, high process %d, package %08X type %u, combat %d, flags %08X, at "
 			      "%.0f %.0f %.0f",
-			      e.refId, e.how, (now - e.startMs) / 1000, IsDead(ref) ? 1 : 0, knocked, health, healthBase, fatigue,
-			      fatigueBase, Read(ref + kRefNiNodeOffset) != 0 ? 1 : 0, high ? 1 : 0, package,
+			      e.refId, e.how, (now - e.startMs) / 1000, e.moved ? 1 : 0, knocked, IsDead(ref) ? 1 : 0, health,
+			      healthBase, fatigue, fatigueBase, Read(ref + kRefNiNodeOffset) != 0 ? 1 : 0, high ? 1 : 0, package,
 			      PackageType(package), ActorInCombat(e.refId) ? 1 : 0, Read(ref + 8), FloatAt(ref + kRefPositionOffset),
 			      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8));
 		}
@@ -2265,7 +2278,9 @@ UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 		c.ref = ref;
 		c.alive = !IsDead(ref);
 		// A camp's attacker (4.20.6) keeps to its camp: no horde takes it.
-		c.busy = (g_swap.active && ids[i] == g_swap.zombieId) || IsCampWalker(ids[i]);
+		// One getting up neither: a package given now breaks its get-up off
+		// (Nadi, 2026-11-10: risen walkers lay, made sounds and turned).
+		c.busy = (g_swap.active && ids[i] == g_swap.zombieId) || IsCampWalker(ids[i]) || (c.alive && GettingUpNow(ref));
 	}
 	return count;
 }

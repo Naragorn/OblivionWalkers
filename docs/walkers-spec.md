@@ -2904,6 +2904,16 @@ roster line's counts.
   its raise - alive, health and fatigue full, high process, the horde's travel package
   (type 6), not in combat; whether it lay or stood is not known (the knocked state is
   logged since). Next: the log of Nadi's next sighting.
+  **Cause, derived 2026-11-11, fix built** (Nadi: "die walker wollten wiederbelebt werden
+  aber blieben dann am boden liegen und machten sounds und drehten sich"): alive - sounds,
+  turning - but the get-up broken off. The CS wiki's Resurrect: "Scripting or AI packages
+  may interrupt the animation". The horde handed a just-raised walker its package within
+  the second (it counted as fit: alive, high process, 3D, outdoors), the slow aggression
+  its StartCombat once near someone. Fix: a walker getting up - the engine's knocked state
+  not 0, or raised within 6 s (RiseLogic.h GettingUp, kGetUpGraceMs) - is busy for the
+  horde and skipped by the slow aggression. The stand watch now watches the full 20 s and
+  logs "not up" when it never moved or is still knocked (a lying body turned by the AI
+  moves too). Not yet run in the harness; not yet seen in the game.
 
 - **OPEN 2026-10-28 night (Nadi, Windows, for the next day) - some walkers are peaceful**
   ("zombies waren teilweise friedlich zu mir auch zu guards"): some walkers neither attack

@@ -28,7 +28,7 @@ check(count("follow package aimed at its leader") >= 1, "a group's follow packag
 check(count("its follow package aimed at the group's marker (1)") >= 1, "the dead leaders' packages aimed at the markers")
 check(count("its follow package aimed at the group's marker (0)") == 0, "no aim at a marker failed")
 check(count("gets up again") >= 1, "the walkers get up again")
-stuck = [l for l in lines if "still on its spot" in l]
+stuck = [l for l in lines if "not up " in l]
 print("  info  %d raise(s) still on the spot after the watch's time" % len(stuck))
 for l in stuck[:20]:
     print("        " + l)

@@ -46,7 +46,7 @@ def count(text):
 
 deaths = [l for l in lines if l.startswith("End: walker") and "gets up again" in l]
 raises = [l for l in lines if l.startswith("Rise: ") and " gets up at " in l]
-stuck = [l for l in lines if "still on its spot" in l]
+stuck = [l for l in lines if "not up " in l]
 check(len(deaths) >= 4, "four walkers down, each to get up again (%d)" % len(deaths))
 check(len(raises) >= 4, "each raised (%d)" % len(raises))
 for l in deaths + raises:
@@ -56,7 +56,7 @@ check(any("felled by someone else" in l for l in npc),
       "e: the walker an NPC killed ends (%s)" % (npc[0][:160] if npc else "no line"))
 npc_ids = {l[12:20] for l in npc}
 check(not any(l[6:14] in npc_ids for l in raises), "e: and is not raised")
-check(not stuck, "none still on its spot 20 s after its raise (%d)" % len(stuck))
+check(not stuck, "none not up  20 s after its raise (%d)" % len(stuck))
 for l in stuck:
     print("        " + l)
 sys.exit(1 if failures else 0)
