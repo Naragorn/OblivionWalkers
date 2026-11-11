@@ -2619,21 +2619,81 @@ ShockSoundDue, GrabLogicTest). Harness `grab-hold` 2026-11-06 12:4x PASS
 answered 0)" right with the grab. Whether it is heard is not known (headless;
 the console's answer is no success flag) - for the headset.
 
-#### 4.20.7 Refugees hold dungeons - idea (Nadi, 2026-11-05), not decided
+#### 4.20.7 Refugees hold dungeons - designed with Nadi 2026-11-11, not built
 
-Some dungeons are taken over by refugees: a cave, a mine or a fort whose
-bandits or creatures are gone, refugees living inside, walkers trying to get
-in. Cost **medium to large**, on top of the dynamic camps (4.20.6, the pool
-of people and props placed near the player - the same pool would serve a
-dungeon): which dungeons (interior cells behind a Tamriel door, of the
-caves', mines' and forts' kinds, none a quest's - Oblivion.esm's quest
-targets read off and left out), their occupants disabled while held (the
-spawn replacement, 4.6, already turns their creatures into walkers - which
-of the two wins is to settle), the refugees and props moved in near the
-door's arrival point (MoveTo into an interior works: the gate guards'
-pool), attacks coming in at the door, held or overrun as a camp. Open:
-whether a dungeon held stays held across its cell reset (the engine
-respawns leveled occupants after 3 days), the quests, the loot.
+Refugees hole up in dungeons; walkers try to get in. Idea of 2026-11-05,
+the vision settled in a question round on 2026-11-11 (Nadi's answers):
+
+- **Places**: every dungeon kind - forts, mines, caves and Ayleid ruins -
+  but never one a quest needs (main quest, guilds, Daedra, side quests).
+- **Choice of places**: a fixed pool of checked candidates, the situation
+  dynamic - as the camps (4.20.6: the places fixed, who lives there, the
+  attacks and the overruns rolled at run time). A script checks every
+  dungeon beforehand (its door in Tamriel, room at the arrival point, no
+  quest's) into a pool of some 20-40; at run time the game rolls which of
+  them is held, besieged or to be cleared, and that changes over time.
+- **At once**: 3-5 places active (INI).
+- **Where they live**: sometimes inside only, sometimes both (some outside
+  in front of the door, the rest inside).
+- **Variants**, equally likely by default, each weight in the INI:
+  1. Refuge - held and quiet, trade and a bed.
+  2. Besieged - held, walkers storm it, the player helps.
+  3. To clear - bandits or creatures inside, the refugees wait outside;
+     the player clears it, then they move in.
+  4. Walker dungeon - an overrun place; cleared, it can be taken again.
+  The occupants of a held place are disabled while it is held.
+- **Overrun**: the dead refugees rise as walkers, the place becomes a
+  walker dungeon (variant 4) - the circle closes with "take it".
+- **What the player does**: defend, rest (refuge), bring refugees there
+  (an escort from a camp to the place instead of a city), take a place.
+- **Quest display**: a real journal quest with stages (e.g. "Fort X is
+  besieged" -> "Clear Fort X" -> "Defended"), the place's map marker as
+  the quest target, vanilla's quest-updated sound.
+- **Dialogue**: 2-4 topics a variant - a greeting by the place's state,
+  "What happened?", "How can I help?", trade/rest; conditioned on the
+  place's state, silent (no voice), as the escort's lines (quest priority
+  50, see 7a).
+- **Finding one**: all of - rumors and dialogue (refugees, guards,
+  innkeepers), finding it oneself (the quest starts on entering), a
+  messenger who comes to the player (as vanilla's), the Black Horse
+  Courier, and MOO's notice board.
+- **Reward**: as the camps' (fame, gold, a thing - their settings).
+
+**MOO's notice board** (read 2026-11-11 off the installed MOO 5.0.7:
+`Maskar's Oblivion Overhaul Readme.pdf` chapter 8, `... for
+compatibility.ini`, `... for quests.ini`): the readme names the board's
+notice kinds only (creature invasions, houses for sale, wanted npcs,
+stolen, lost items, missing pets, the player's bounty, the Shivering Isles
+door) and no way for another mod to post one; the INIs configure only the
+boards' places (`MOO.ini_noticeboard_<city>_xpos/ypos/zpos`,
+`MOO.ini_noticeboard_worldspace`). So a notice of ours on MOO's board is not
+offered - not checked: MOO.esp's scripts (whether a notice list could be
+written from outside; reverse engineering, fragile across MOO updates).
+Proposed: a notice of our own (an ESP object, read to start the quest)
+placed next to MOO's board when MOO is loaded - its position read from
+those INI variables - and at the city gate or the inn otherwise.
+
+Found on the way: `... for quests.ini` lists, by map marker, the places
+MOO holds back until a quest is done (campsites, Ayleid ruins, ...) - a
+cross-check for our list of quest places, not a replacement for reading
+Oblivion.esm. MOO also changes dungeons itself (dungeon extensions, vampire
+invasions turning a region's dungeons' inhabitants into vampires) - a place
+of ours must not be one MOO took over; how to read that is open.
+
+Cost: **large** in all (the variants, an interior cell's people and attacks
+through the door, the journal quest with stages, the dialogue, five ways to
+find one). Reused: the camps' pool, roster, attack and end logic, the rise,
+the escort, the ESP writer (quests, INFOs), the rumors, the Courier.
+
+Open, to measure before building: whether a held place stays held across
+its cell reset (the engine respawns leveled occupants after 3 days);
+whether the spawn replacement (4.6) or a held place wins over its
+occupants; how walkers behave in an interior cell that is not loaded (the
+toll away, as the camps'); the roster cap (64; a camp attack had 142
+actors) shared with the camps; the price of far actors (OBNG measured
+2026-11-11 at Anvil's docks some 14-15 walkers ~150 m away in full high
+process every frame, about half of the actors' 5 ms). First step, cheap:
+the candidate count (the script over Oblivion.esm, quest places out).
 
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
