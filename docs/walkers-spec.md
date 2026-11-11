@@ -2161,7 +2161,15 @@ reading before the engine restored the quest's variables. Guard
 version but every setting with a least above 0 reading 0 - the INI's values
 go in ("the save had this version but no values (guard)"). Diagnosis: the
 first look logs the frames since the load, the version, how many variables
-were found and two raw values - the harness's load-save-load to settle it.
+were found and two raw values. Nadi (2026-11-11): the sliders could not be
+moved on Windows (only to their max), so Nadi pressed LINK's Defaults - LINK
+runs Data\OblivionWalkers.ini as a batch (LINK.esp
+LINKOnClickGenericModsConfigMenuDefaultsLoadIniFunctionScript). Harness
+`link-save-load.txt` (18:5x, Linux, LINK++): that batch, a save, two loads -
+each load "first look 1 frames after the load - version 32, 174 of 174
+variables there, values set", "the save's values decide", no change after:
+the first tick reads the save's values, and they survive. The Windows zeros
+are not reproduced; open (the Windows LINK, the save Nadi loaded).
 
 **Bug fixed 2026-11-11 (Nadi, Windows):** in a hand-to-hand fight a beaten
 NPC (00023502) fell by the player's hands and the disguise came on - log
@@ -2917,7 +2925,17 @@ CarryRouse; AggressionLogicTest TestRouse):
 - Log: "Slow aggression: walker X's time near Y ran out", "walker X roused
   - the engine decides whom it fights (...)", "walker X calms down (...)".
 Harness `harness/slow-aggression-rouse.txt` via
-`tools/slow-aggression-rouse.sh` - not run yet. Not measured: that ModAV
+`tools/slow-aggression-rouse.sh`, 2026-11-11 18:55 (Linux, headless): roused
+- "walker FF000FCA roused ... its time near 00000014 ran out; Aggression
+above its record 0, now 100; ModAV Aggression 100 answered 1" - so ModAV
+works per creature reference. Not seen: the calming - the roused walker
+followed the player the 4700 units away (an undead's own chase), so
+someone stayed near; the test needs the player out of its reach. Farm A/B
+of 18:57/19:00 with the rouse: the groups now form and walk (leaders 1000
+to 2500 units in a run, against 0 and groups broken up before) - the stuck
+farm was the fight resent every second. Gate run 4 (19:02): PASS, every
+check - "group 05 waits out of the player's grid ... the player 8970 units
+from the gate", "group 05 moves up to hold ... 1413 units". Not measured: that ModAV
 Aggression works on a creature reference as the CS wiki says for actors,
 and that the base GetBaseActorValue (0x005F1910) reads is the record the
 plugin holds at 0.
