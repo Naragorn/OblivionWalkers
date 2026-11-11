@@ -56,7 +56,7 @@ check(any("felled by someone else" in l for l in npc),
       "e: the walker an NPC killed ends (%s)" % (npc[0][:160] if npc else "no line"))
 npc_ids = {l[12:20] for l in npc}
 check(not any(l[6:14] in npc_ids for l in raises), "e: and is not raised")
-check(not stuck, "none not up  20 s after its raise (%d)" % len(stuck))
+check(not stuck, "every raise up 20 s after it (%d not)" % len(stuck))
 for l in stuck:
     print("        " + l)
 sys.exit(1 if failures else 0)

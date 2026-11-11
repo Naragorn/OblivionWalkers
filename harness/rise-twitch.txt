@@ -15,7 +15,7 @@
 #      the killer - with OthersEndPercent=100 it ends ("felled by someone
 #      else") and stays down; it must not be raised
 # Every raise is watched (RiseLogic.h StandWatch): one still within 16
-# units of its spot 20 s after the raise logs "Risen: ... not up "
+# units of its spot, or still knocked, 20 s after the raise logs "Risen: ... not up"
 # with its health, fatigue, 3D, process, package and flags.
 # tools/rise-twitch.sh reads OblivionWalkers.log: each walker's death, its
 # raise and whether it walked off.
