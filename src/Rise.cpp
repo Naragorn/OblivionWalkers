@@ -1989,11 +1989,13 @@ void StepStandWatch(float dt) {
 			const UInt32 package = ActorPackageNow(e.refId, high);
 			g_log("Risen: %08X (%s) not up %u s after the raise - moved %d, knocked state %d, dead %d, health %.0f of "
 			      "%.0f, fatigue %.0f of %.0f, 3D %d, high process %d, package %08X type %u, combat %d, flags %08X, at "
-			      "%.0f %.0f %.0f",
+			      "%.0f %.0f %.0f; the get-up tried %u times, fell back to down %u times, the walk rule held back %u "
+			      "times while it was down",
 			      e.refId, e.how, (now - e.startMs) / 1000, e.moved ? 1 : 0, knocked, IsDead(ref) ? 1 : 0, health,
 			      healthBase, fatigue, fatigueBase, Read(ref + kRefNiNodeOffset) != 0 ? 1 : 0, high ? 1 : 0, package,
 			      PackageType(package), ActorInCombat(e.refId) ? 1 : 0, Read(ref + 8), FloatAt(ref + kRefPositionOffset),
-			      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8));
+			      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8), e.tries, e.fallBacks,
+			      e.flipsDown);
 		}
 		DropStand(g_stand, i);
 	}
@@ -2040,8 +2042,17 @@ void StepWalkers(float dt) {
 		++high;
 		UInt16* const flags = reinterpret_cast<UInt16*>(process + kMovementFlagsOffset);
 		const UInt16 before = *flags;
-		if (g_settings.walkOnly) {
+		// 2026-11-11: a raised walker's get-up trail, and its flags left alone
+		// while it gets up (WalkRuleApplies).
+		const bool gettingUp = GettingUpNow(actor);
+		StandEntry* const stand = FindStand(g_stand, refs[i]);
+		if (stand != nullptr) {
+			NoteKnocked(*stand, KnockedState(actor));
+		}
+		if (WalkRuleApplies(g_settings.walkOnly, gettingUp)) {
 			*flags = WalkInsteadOfRun(before);
+		} else if (g_settings.walkOnly && stand != nullptr && WalkInsteadOfRun(before) != before) {
+			++stand->flipsDown;
 		}
 		g_walkTurned += before != *flags ? 1u : 0u;
 		WalkerSeen* seen = nullptr;

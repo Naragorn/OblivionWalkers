@@ -835,6 +835,13 @@ struct StandEntry {
 	float z = 0.0f;
 	bool placed = false;  // its spot read (kStandSettleMs after the raise)
 	bool moved = false;   // off its spot since
+	// The get-up's trail (NoteKnocked): the last knocked state seen, the
+	// tries at the get-up (into 5), the falls back to down (5 to 3), and the
+	// frames the walk rule rewrote its flags while it was down.
+	int lastKnocked = -1;
+	UInt16 tries = 0;
+	UInt16 fallBacks = 0;
+	UInt16 flipsDown = 0;
 };
 
 struct StandWatch {
@@ -868,6 +875,34 @@ inline void WatchStand(StandWatch& w, UInt32 refId, const char* how, UInt32 nowM
 	e.startMs = nowMs;
 	e.placed = false;
 	e.moved = false;
+	e.lastKnocked = -1;
+	e.tries = 0;
+	e.fallBacks = 0;
+	e.flipsDown = 0;
+}
+
+inline StandEntry* FindStand(StandWatch& w, UInt32 refId) {
+	for (UInt32 i = 0; i < w.count; ++i) {
+		if (w.entries[i].refId == refId) {
+			return &w.entries[i];
+		}
+	}
+	return nullptr;
+}
+
+// The engine's knocked states (MiddleHighProcess +0x11C, its update
+// 0x006545E0, read off the EXE 2026-11-11): 4 thrown, 3 down (the get-up
+// idle looked for: "No 'GetUp' animation found for actor" when none), 5 the
+// get-up playing (back to 3 when it stops before its end), 6 its blend out,
+// 0 standing.
+inline void NoteKnocked(StandEntry& e, int knocked) {
+	if (knocked == 5 && e.lastKnocked != 5) {
+		++e.tries;
+	}
+	if (knocked == 3 && e.lastKnocked == 5) {
+		++e.fallBacks;
+	}
+	e.lastKnocked = knocked;
 }
 
 enum class StandVerdict : UInt8 { Waiting, Done };
@@ -913,6 +948,12 @@ inline bool RaisedWithin(const StandWatch& w, UInt32 refId, UInt32 nowMs, UInt32
 
 // Getting up: raised lately, or knocked (any state but 0; -1 unread).
 inline bool GettingUp(int knocked, bool raisedLately) { return raisedLately || (knocked != 0 && knocked != -1); }
+
+// The walk rule (4.3: a run turned into a walk every frame) leaves a walker
+// that gets up alone - its movement flags rewritten each frame while the
+// get-up plays may be what stops it (2026-11-11, 13 walkers down at
+// Whitmond Farm in Nadi's Windows log, knocked 3 and 6).
+inline bool WalkRuleApplies(bool walkOnly, bool gettingUp) { return walkOnly && !gettingUp; }
 
 // The co-save record: type "WAIT", version 2 - the count, then reference,
 // base, seconds left and the missing day (version 1, before 2026-10-27:

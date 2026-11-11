@@ -2150,6 +2150,27 @@ then 4.20.1, with 4.20.5 as a cheap side dish.
 
 #### 4.20.1 Walker blood as a disguise - `[Disguise] Enabled=1`, `Seconds=180` - BUILT 2026-11-09
 
+**Walkers down after the raise, again (2026-11-11, Nadi's Windows log):**
+13 raised walkers at Whitmond Farm "not up 20 s after the raise", knocked
+state 3 (11) or 6 (2), health full, no package, no fight; all of MOO's and
+the vanilla looks alike (bases 3700091B..948); never on Linux. Read off
+the EXE (the knocked update 0x006545E0, its table at 0x00654C58): 4 thrown,
+3 down - the get-up idle looked for (IdleManager 0x00521450; none: "No
+'GetUp' animation found for actor '%s'." and it stays 3), 5 the get-up
+playing - back to 3 when the animation stops before its end, 6 the blend
+out - to 0 when done. The zombies' get-up idles exist for both skeletons
+(Oblivion.esm 00092159/0009215A Creatures\Zombie, MOO.esp
+MOOIdleZombieGetUpFaceUp/Down MOO\zombie; IsFacingUp ==/!= 1, fn 107 != 0),
+so "none found" is not the likely branch; a get-up stopped before its end
+and tried again is (Nadi's "twitching"). Built: the walk rule (a run turned
+to a walk, every frame) leaves a walker that gets up alone
+(`WalkRuleApplies`; it turned some walkers' runs 4000+ times); and the
+raise watch keeps the get-up's trail (`NoteKnocked`: tries into 5, falls
+back 5 to 3, the walk rule's held-back rewrites while down), told in the
+"not up" line. RiseLogicTest TestKnockedTrail. Not shown yet that this is
+the cause - the next Windows log's "not up" lines will tell (tries and
+falls back counted).
+
 **LINK values lost, 2026-11-11 (Nadi's Windows log, found by OBVR):** two
 loads read `ini_version` 32 and every setting 0 - every slider to its
 least (rise off, hordes off, speed 0.2); a load of the same session's day

@@ -922,6 +922,33 @@ void TestGettingUp() {
 	      "standing (0), or its knocked state unread (-1) and not raised lately: free");
 }
 
+// The engine's knocked states (MiddleHighProcess +0x11C; its update at
+// 0x006545E0, read off the EXE 2026-11-11): 4 thrown, 3 down, 5 the get-up
+// playing, 6 its blend out, 0 standing - 5 falls back to 3 when the get-up
+// animation stops before its end. A raised walker's tries and fall-backs are
+// counted, and whether the walk rule rewrote its flags while it was down.
+void TestKnockedTrail() {
+	std::printf("The get-up's trail\n");
+	walkers::StandWatch w;
+	walkers::WatchStand(w, 0x101, "the rise again", 1000);
+	walkers::StandEntry* e = walkers::FindStand(w, 0x101);
+	Check(e != nullptr && e->tries == 0 && e->fallBacks == 0 && e->lastKnocked == -1, "watched: nothing counted yet");
+	const int trail[] = {4, 3, 3, 5, 5, 3, 5, 6, 0};
+	for (int k : trail) {
+		walkers::NoteKnocked(*e, k);
+	}
+	Check(e->tries == 2 && e->fallBacks == 1 && e->lastKnocked == 0,
+	      "4 3 3 5 5 3 5 6 0: two tries at the get-up, one fell back to down, standing at the end");
+	walkers::WatchStand(w, 0x101, "the rise again", 2000);
+	e = walkers::FindStand(w, 0x101);
+	Check(e != nullptr && e->tries == 0 && e->fallBacks == 0 && e->flipsDown == 0 && e->lastKnocked == -1,
+	      "raised again: the trail starts anew");
+	Check(walkers::FindStand(w, 0x999) == nullptr, "not watched: none");
+	Check(walkers::WalkRuleApplies(true, false) && !walkers::WalkRuleApplies(true, true) &&
+	          !walkers::WalkRuleApplies(false, false),
+	      "the walk rule: on and the walker not getting up - while it gets up its flags are left alone");
+}
+
 int main() {
 	TestVerdicts();
 	TestTick();
@@ -937,6 +964,7 @@ int main() {
 	TestRisenWatch();
 	TestStandWatch();
 	TestGettingUp();
+	TestKnockedTrail();
 	TestImage();
 	TestRisenLoot();
 	TestFame();
