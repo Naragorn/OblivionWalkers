@@ -1,0 +1,39 @@
+# LINK's values across a save and a load (docs/walkers-spec.md 4.20.1's LINK
+# note, 2026-11-11: two loads on Windows read ini_version 32 and every setting
+# 0; Nadi had pressed LINK's Defaults - LINK runs Data\OblivionWalkers.ini as
+# a batch script, LINKOnClickGenericModsConfigMenuDefaultsLoadIniFunctionScript).
+# Here: the harness save loads (the first look writes or reads the values),
+# the defaults batch runs as LINK's button runs it, the game is saved and
+# loaded twice. Each load's "LINK: first look N frames after the load -
+# version V, ... values set|EMPTY" line and any "LINK: ini_... now" line after
+# it tell whether the values survive and whether the first look comes too
+# early. Run through tools/link-save-load.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at defaults RunBatchScript "Data\OblivionWalkers.ini"
+console-at saved save WalkersLinkTest
+console-at reload1 load WalkersLinkTest
+console-at reload2 load WalkersLinkTest
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 5
+mark defaults
+wait 4
+mark saved
+wait 6
+mark reload1
+wait 20
+mark reload2
+wait 20
+mark end
+wait 2
