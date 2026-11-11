@@ -643,7 +643,22 @@ void TestGateWait() {
 	}
 }
 
+// The marker's height (2026-11-11, Whitmond Farm): MoveTo puts it at the
+// leader's height plus this offset - on the land under it when asked and the
+// land is known there, else at the leader's height as before.
+void TestMarkerHeight() {
+	std::printf("The marker on the land\n");
+	using walkers::MarkerHeightOffset;
+	Check(MarkerHeightOffset(true, true, 800.0f, 1430.0f) == -630.0f,
+	      "on: the land 630 below the leader - the marker 630 lower, on the land");
+	Check(MarkerHeightOffset(true, true, 1700.0f, 1430.0f) == 270.0f, "on: the land higher - the marker higher");
+	Check(MarkerHeightOffset(true, false, 800.0f, 1430.0f) == 0.0f,
+	      "on, the land not known there (its cell not loaded): the leader's height");
+	Check(MarkerHeightOffset(false, true, 800.0f, 1430.0f) == 0.0f, "off ([Horde] MarkerOnGround=0): the leader's height");
+}
+
 int main() {
+	TestMarkerHeight();
 	TestGateWait();
 	TestHeading();
 	TestOff();

@@ -159,6 +159,26 @@ bool InCombat(UInt32 actor) {
 	return fn != 0 && reinterpret_cast<CombatFn>(fn)(reinterpret_cast<void*>(actor), nullptr, true);
 }
 
+// The land's height at x, y in the loaded cells: TES::GetTerrainHeight,
+// thiscall 0x00440590 (this the TES singleton at 0x00B333A0, a float[3]
+// position, the height out; ret 8 - read off the EXE 2026-11-11), as
+// xOBSE's GetTerrainHeight calls it (Commands_Cell.cpp, GameData.cpp).
+// False where no loaded cell is.
+bool LandHeight(float x, float y, float& z) {
+	const UInt32 tes = Read(0x00B333A0);
+	if (!LooksLikeObject(tes)) {
+		return false;
+	}
+	float pos[3] = {x, y, 0.0f};
+	float height = 0.0f;
+	using HeightFn = bool(__fastcall*)(void* tes, void* edx, float* pos, float* out);
+	if (!reinterpret_cast<HeightFn>(0x00440590)(reinterpret_cast<void*>(tes), nullptr, pos, &height)) {
+		return false;
+	}
+	z = height;
+	return true;
+}
+
 bool Outdoors(UInt32 ref) {
 	const UInt32 cell = Read(ref + kRefParentCellOffset);
 	return LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0;
@@ -840,10 +860,13 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 				const UInt32 marker = LookupForm(EspFormId(g_espBase, kMarkerLocalId + gi));
 				const float leaderZ = LooksLikeObject(leaderRef) ? FloatAt(leaderRef + kRefPositionOffset + 8) : 0.0f;
 				const float markerZ = LooksLikeObject(marker) ? FloatAt(marker + kRefPositionOffset + 8) : 0.0f;
-				log("Horde: group %02u - leader %08X at %.0f %.0f %.0f (marker z %.0f), %.0f to its marker, runs %08X "
+				float landZ = 0.0f;
+				const bool haveLand = LandHeight(g.targetX, g.targetY, landZ);
+				log("Horde: group %02u - leader %08X at %.0f %.0f %.0f (marker z %.0f, land there %s%.0f), %.0f to its "
+				    "marker, runs %08X "
 				    "(its own: %d); %u following (%u on their package), %.0f units from it on average, %.0f at most; "
 				    "gate %s%s",
-				    gi, g.leader, leader->x, leader->y, leaderZ, markerZ,
+				    gi, g.leader, leader->x, leader->y, leaderZ, markerZ, haveLand ? "" : "unknown ", landZ,
 				    horde_detail::Distance(leader->x, leader->y, g.targetX, g.targetY), leader->package,
 				    leader->package == g_settings.travelBase + gi ? 1 : 0, g.count, running,
 				    g.count > 0 ? sum / static_cast<float>(g.count) : 0.0f, most,
@@ -862,9 +885,13 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 			if (!LooksLikeObject(marker) || !LooksLikeObject(leader)) {
 				continue;
 			}
+			float land = 0.0f;
+			const bool haveLand = g_settings.markerOnGround && LandHeight(o.x, o.y, land);
+			const float dz =
+			    MarkerHeightOffset(g_settings.markerOnGround, haveLand, land, FloatAt(leader + kRefPositionOffset + 8));
 			char line[80];
-			std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f 0", o.walker,
-			              o.x - FloatAt(leader + kRefPositionOffset), o.y - FloatAt(leader + kRefPositionOffset + 4));
+			std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", o.walker,
+			              o.x - FloatAt(leader + kRefPositionOffset), o.y - FloatAt(leader + kRefPositionOffset + 4), dz);
 			const bool done = console(marker, line);
 			moved[o.group] = true;
 			if (g_logsLeft > 0) {

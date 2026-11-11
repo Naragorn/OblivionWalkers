@@ -65,6 +65,7 @@ struct HordeSettings {
 	UInt32 gateHordesMost = 1;      // [Horde] GateHordesMost
 	float gateNearUnits = 8000.0f;  // [Horde] GateNearUnits
 	UInt32 loadedGrid = 5;          // [Horde] LoadedGrid
+	bool markerOnGround = true;     // [Horde] MarkerOnGround: the marker on the land, not at the leader's height
 	const HordeGate* gates = nullptr;
 	UInt32 gateCount = 0;
 	NoiseSettings noise;            // 4.20.2: [Noise]
@@ -410,6 +411,15 @@ inline bool InGroup(const HordeState& state, UInt32 id) {
 // before the engine can clean the leader up.
 inline bool FollowTargetHolds(bool held, bool dead, bool disabled, bool loaded) {
 	return held && !dead && !disabled && loaded;
+}
+
+// The z offset for the marker's MoveTo onto the leader: the marker on the
+// land under its spot (`landZ`, when `haveLand`) when `onGround`, else at
+// the leader's height (0). Whitmond Farm, 2026-11-11: groups on the hill
+// stood still for minutes, their markers 2000 units downhill at the hill's
+// height.
+inline float MarkerHeightOffset(bool onGround, bool haveLand, float landZ, float leaderZ) {
+	return onGround && haveLand ? landZ - leaderZ : 0.0f;
 }
 
 // The gate the biggest group heads for (the news, docs/walkers-spec.md 4.9),

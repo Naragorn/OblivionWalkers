@@ -1311,8 +1311,25 @@ leaders moving a few hundred units at most, new headings every
 StaleSeconds without progress. Out of sight, inside the loaded grid, far
 from the gate: 4.11c does not touch them, and they are likely the bulk of
 OBNG's census (75 of 98 high-process actors Walkers horde members >= 10 000
-units off, 2026-11-11). Why they do not get on is not found (terrain - the
-hills north of Anvil - is a guess).
+units off, 2026-11-11). Where: Oblivion.esm puts Whitmond Farm's corn
+field there (CornStalk flora at z ~1430, fences, a fence gate 000975ED,
+unlocked), Maeva the Buxom (00185FE7) works it 9-18 (UESP). Nadi
+(2026-11-11): they stood about the farm and followed him when he came - so
+not fenced in. OBNG's census of 11:56 (Windows list) had three walkers there
+at 0 units/s beside Maeva. Hypothesis, not measured: the marker goes to the
+leader's height (`MoveTo <leader> dx dy 0`), the field lies on a hill
+(rocks 500 units south already 100-200 lower) - a marker 2000 units
+downhill hangs in the air, and the travel package does not get there.
+Built against it (proof switch `[Horde] MarkerOnGround=1`, INI only): the
+marker's MoveTo carries the land's height under its spot as the z offset -
+TES::GetTerrainHeight, thiscall 0x00440590 on the TES singleton at
+0x00B333A0 (xOBSE's GetTerrainHeight, GameData.cpp/Commands_Cell.cpp; `ret 8`
+read off the EXE), the leader's height where no loaded cell is
+(`MarkerHeightOffset`, HordeLogicTest TestMarkerHeight). The group summary
+logs the leader's z, the marker's z and the land's. A/B to settle it:
+`tools/horde-stuck-farm.sh` runs `harness/horde-stuck-farm.txt` with the
+switch 0 and 1 and prints each leader's way and the marker's height over
+the land - queued.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, built 2026-11-04)
 

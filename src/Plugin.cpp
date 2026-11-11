@@ -248,6 +248,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.horde.gateNearUnits = IniFloat("Horde", "GateNearUnits", 8000.0f, path);
 	const int loadedGrid = GetPrivateProfileIntA("Horde", "LoadedGrid", 5, path);
 	rise.horde.loadedGrid = loadedGrid < 1 ? 1u : static_cast<UInt32>(loadedGrid);
+	rise.horde.markerOnGround = GetPrivateProfileIntA("Horde", "MarkerOnGround", 1, path) != 0;
 	const int groupMost = GetPrivateProfileIntA("Horde", "GroupMost", 8, path);
 	rise.horde.groupMost = groupMost < 0 ? 0u : static_cast<UInt32>(groupMost);
 	// 4.20.2: noise draws the hordes.
