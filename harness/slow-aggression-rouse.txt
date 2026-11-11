@@ -1,0 +1,44 @@
+# Slow aggression, roused and calmed (docs/walkers-spec.md 4.21, 2026-11-11;
+# Nadi: "warum dann nicht einfach wieder auf 100 setzen sobald der timer weg
+# ist"). A walker (the ESP's 0x801) 600 units in front of the player: after
+# its drawn 5..10 s it is roused - "walker ... roused" with its Aggression
+# above its record 100 - and fights; the player then steps 4000 units away
+# (beyond SlowAggressionUnits 1000, nobody else near): after
+# SlowAggressionCalmSeconds (10) "calms down" and its Aggression is back at
+# the record's. At Tamriel -29,5 (the middle -116736, 22528; away to
+# x -112000). tgm: the player does not die; weather and time fixed; the
+# spawn replacement off for the run (tools/slow-aggression-rouse.sh), so the
+# walker is alone. Run through tools/slow-aggression-rouse.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -29 5
+console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1
+console-at placed player.setangle z 0
+console-at placed {actor}.moveto player 0 600 0
+console-at away player.setpos x -112000
+console-at away player.setpos z 2500
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark loaded
+wait 2
+mark placed
+wait 20
+mark away
+wait 25
+mark end
+wait 1

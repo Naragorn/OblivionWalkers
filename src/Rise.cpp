@@ -1764,7 +1764,76 @@ UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
 	return n;
 }
 
-// Every half second: who stayed near which walker long enough is attacked.
+void ActorValueOf(UInt32 actor, UInt32 av, float& now, float& base);
+
+// 2026-11-11: a walker's own calm time (NextRouse), by reference.
+struct CalmClock {
+	UInt32 refId = 0;
+	float seconds = 0.0f;
+};
+CalmClock g_calmClocks[256];
+UInt32 g_rouseLogsLeft = 200;
+constexpr UInt32 kAvAggression = 33;  // xOBSE kActorVal_Aggression
+
+float& CalmFor(UInt32 refId) {
+	for (CalmClock& c : g_calmClocks) {
+		if (c.refId == refId) {
+			return c.seconds;
+		}
+	}
+	for (CalmClock& c : g_calmClocks) {
+		if (c.refId == 0) {
+			c = CalmClock{refId, 0.0f};
+			return c.seconds;
+		}
+	}
+	g_calmClocks[refId % 256] = CalmClock{refId, 0.0f};
+	return g_calmClocks[refId % 256].seconds;
+}
+
+// The walker's Aggression above its record's (the ModAV the rouse added).
+float RousedBy(UInt32 walker) {
+	float now = 0.0f;
+	float base = 0.0f;
+	ActorValueOf(walker, kAvAggression, now, base);
+	return now >= 0.0f && base >= 0.0f ? now - base : 0.0f;
+}
+
+// One walker's rouse step carried out; `target` the one whose time ran out
+// (0 none), started on at once.
+void CarryRouse(UInt32 walker, UInt32 walkerId, RouseStep step, float above, UInt32 target, const char* why) {
+	if (step == RouseStep::None) {
+		return;
+	}
+	char line[48];
+	if (step == RouseStep::Rouse) {
+		std::snprintf(line, sizeof line, "ModAV Aggression %.0f", kRousedAggression);
+	} else {
+		std::snprintf(line, sizeof line, "ModAV Aggression %.0f", -above);
+	}
+	const bool handed = ConsoleOn(walker, line);
+	bool fight = false;
+	if (step == RouseStep::Rouse && target != 0) {
+		char start[40];
+		if (target == kPlayerRefId) {
+			std::snprintf(start, sizeof start, "StartCombat player");
+		} else {
+			std::snprintf(start, sizeof start, "StartCombat %08X", target);
+		}
+		fight = ConsoleOn(walker, start);
+	}
+	if (g_rouseLogsLeft > 0) {
+		--g_rouseLogsLeft;
+		g_log("Slow aggression: walker %08X %s (%s; Aggression above its record %.0f, now %.0f; %s answered %d%s)",
+		      walkerId, step == RouseStep::Rouse ? "roused - the engine decides whom it fights" : "calms down",
+		      why, above, RousedBy(walker), line, handed ? 1 : 0,
+		      step == RouseStep::Rouse && target != 0 ? (fight ? ", StartCombat 1" : ", StartCombat 0") : "");
+	}
+}
+
+// Every half second: who stayed near which walker long enough rouses it
+// (2026-11-11: its own Aggression to 100, vanilla from then on); a roused
+// walker with nobody living near for CalmSeconds calms down.
 void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	g_nearClock += dt;
 	if (g_nearClock < 0.5f) {
@@ -1772,8 +1841,20 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	}
 	const float step = g_nearClock;
 	g_nearClock = 0.0f;
-	if (!g_settings.slowAggression.enabled) {
+	const SlowAggressionSettings& slow = g_settings.slowAggression;
+	const bool disguised = Disguised();
+	if (!slow.enabled) {
 		g_near.count = 0;
+		for (UInt32 i = 0; i < count; ++i) {
+			const UInt32 walker = LookupForm(walkerRefs[i]);
+			if (!LooksLikeObject(walker) || !IsActor(walker) || IsDead(walker)) {
+				continue;
+			}
+			const float above = RousedBy(walker);
+			const RouseStep next =
+			    NextRouse(false, disguised, Roused(above), false, false, step, slow.calmSeconds, CalmFor(walkerRefs[i]));
+			CarryRouse(walker, walkerRefs[i], next, above, 0, "the slow aggression off");
+		}
 		return;
 	}
 	static NearOne ones[256];
@@ -1788,37 +1869,44 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 		const float wx = FloatAt(walker + kRefPositionOffset);
 		const float wy = FloatAt(walker + kRefPositionOffset + 4);
 		const float wz = FloatAt(walker + kRefPositionOffset + 8);
+		bool anyNear = false;
+		UInt32 due = 0;
 		for (UInt32 k = 0; k < found; ++k) {
 			// 4.20.1: none turns on a disguised player (his time near starts anew).
-			if (!WalkerMayTurnOn(Disguised(), ones[k].refId == kPlayerRefId)) {
+			if (!WalkerMayTurnOn(disguised, ones[k].refId == kPlayerRefId)) {
 				continue;
 			}
-			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, g_settings.slowAggression.units)) {
+			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, slow.units)) {
 				continue;
 			}
+			anyNear = true;
 			const float roll = static_cast<float>(NextRandom() % 10001) / 10000.0f;
-			const NearVerdict verdict =
-			    NoteNear(g_near, g_settings.slowAggression, walkerRefs[i], ones[k].refId, step, roll);
-			if (verdict == NearVerdict::None) {
-				continue;
+			const NearVerdict verdict = NoteNear(g_near, slow, walkerRefs[i], ones[k].refId, step, roll);
+			if (verdict != NearVerdict::Start) {
+				continue;  // Keep is no longer acted on (2026-11-11)
 			}
-			char line[40];
-			if (ones[k].refId == kPlayerRefId) {
-				std::snprintf(line, sizeof line, "StartCombat player");
-			} else {
-				std::snprintf(line, sizeof line, "StartCombat %08X", ones[k].refId);
+			if (due == 0) {
+				due = ones[k].refId;
 			}
-			const bool handed = ConsoleOn(walker, line);
-			if (verdict == NearVerdict::Start && g_nearLogsLeft > 0) {
+			if (g_nearLogsLeft > 0) {
 				--g_nearLogsLeft;
 				const NearPair* pair = FindNearPair(g_near, walkerRefs[i], ones[k].refId);
-				g_log("Slow aggression: walker %08X turns on %08X, near it %.1f s (drawn %.1f of %.1f..%.1f; StartCombat "
-				      "answered %d)",
+				g_log("Slow aggression: walker %08X's time near %08X ran out, %.1f s (drawn %.1f of %.1f..%.1f)",
 				      walkerRefs[i], ones[k].refId, pair != nullptr ? pair->seconds : 0.0f,
-				      pair != nullptr ? pair->needed : 0.0f, NeededSeconds(g_settings.slowAggression, 0.0f),
-				      NeededSeconds(g_settings.slowAggression, 1.0f), handed ? 1 : 0);
+				      pair != nullptr ? pair->needed : 0.0f, NeededSeconds(slow, 0.0f), NeededSeconds(slow, 1.0f));
 			}
 		}
+		const float above = RousedBy(walker);
+		const RouseStep next =
+		    NextRouse(true, disguised, Roused(above), due != 0, anyNear, step, slow.calmSeconds, CalmFor(walkerRefs[i]));
+		char why[48];
+		if (next == RouseStep::Rouse) {
+			std::snprintf(why, sizeof why, "its time near %08X ran out", due);
+		} else {
+			std::snprintf(why, sizeof why, disguised ? "the player disguised" : "nobody near for %.0f s",
+			              slow.calmSeconds);
+		}
+		CarryRouse(walker, walkerRefs[i], next, above, next == RouseStep::Rouse ? due : 0, why);
 	}
 	EndNearTick(g_near);
 }

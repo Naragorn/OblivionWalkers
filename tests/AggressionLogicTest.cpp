@@ -251,7 +251,50 @@ void TestMany() {
 
 }  // namespace
 
+// 2026-11-11 (Nadi: "warum dann nicht einfach wieder auf 100 setzen sobald
+// der timer weg ist"): a walker whose time near someone ran out is roused -
+// its own Aggression up to 100 (ModAV on the reference, the records stay 0)
+// and the engine's own rule decides whom it fights; with nobody living near
+// for CalmSeconds it calms back to 0. No fight is sent again every second.
+void TestRouse() {
+	std::printf("Roused and calmed (vanilla after the time near)\n");
+	using walkers::NextRouse;
+	using walkers::Roused;
+	using walkers::RouseStep;
+	Check(Roused(100.0f) && !Roused(0.0f) && !Roused(49.0f) && Roused(50.0f),
+	      "roused: the walker's Aggression 50 or more (the records hold 0)");
+	float calm = 0.0f;
+	Check(NextRouse(true, false, false, true, true, 0.5f, 10.0f, calm) == RouseStep::Rouse,
+	      "calm, someone's time near ran out: roused");
+	Check(NextRouse(true, false, false, false, true, 0.5f, 10.0f, calm) == RouseStep::None,
+	      "calm, someone near, the time not out yet: nothing");
+	calm = 3.0f;
+	Check(NextRouse(true, false, true, false, true, 0.5f, 10.0f, calm) == RouseStep::None && calm == 0.0f,
+	      "roused, someone living near: stays roused, its calm time starts anew");
+	calm = 0.0f;
+	RouseStep step = RouseStep::None;
+	UInt32 ticks = 0;
+	while (step == RouseStep::None && ticks < 100) {
+		step = NextRouse(true, false, true, false, false, 0.5f, 10.0f, calm);
+		++ticks;
+	}
+	Check(step == RouseStep::Calm && ticks == 20 && calm == 0.0f,
+	      "roused, nobody near for CalmSeconds (10 s in half seconds): calmed, the time reset");
+	calm = 0.0f;
+	Check(NextRouse(false, false, true, false, true, 0.5f, 10.0f, calm) == RouseStep::Calm,
+	      "the rule off, a walker still roused: calmed (the records' own aggression takes over)");
+	Check(NextRouse(false, false, false, true, true, 0.5f, 10.0f, calm) == RouseStep::None,
+	      "the rule off, calm: nothing");
+	Check(NextRouse(true, true, true, false, true, 0.5f, 10.0f, calm) == RouseStep::Calm,
+	      "the player disguised (4.20.1), a walker roused: calmed - a roused one would go for the player too");
+	Check(NextRouse(true, true, false, true, true, 0.5f, 10.0f, calm) == RouseStep::None,
+	      "disguised, a time near ran out: not roused");
+	SlowAggressionSettings defaults;
+	Check(defaults.calmSeconds == 10.0f, "[Zombies] SlowAggressionCalmSeconds=10 by default");
+}
+
 int main() {
+	TestRouse();
 	TestDefaults();
 	TestReach();
 	TestTime();

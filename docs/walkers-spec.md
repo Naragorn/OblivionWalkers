@@ -2866,6 +2866,38 @@ comes back (proposed 10 percent).
 
 ### 4.21 Slow aggression - BUILT 2026-11-08, harness PASS, headset open
 
+**Roused, then vanilla (2026-11-11, Nadi: "warum dann nicht einfach wieder
+auf 100 setzen sobald der timer weg ist" - "bau").** Why: the fight sent
+again every second (Keep, below) held walkers in fights they could not
+reach - at Whitmond Farm a dozen targets each (Maeva, sheep, MOO creatures,
+the player), the walkers out of their groups for good (4.11c's runs of
+2026-11-11). The records' aggression must stay 0 - a record is shared by
+every walker of its look - so it is raised per walker: `ModAV Aggression
+100` on the reference (CS wiki SetActorValue: SetAV changes the base,
+ModActorValue only the reference; kActorVal_Aggression 33, xOBSE). How
+(AggressionLogic.h `NextRouse`, `Roused`; Rise.cpp StepSlowAggression,
+CarryRouse; AggressionLogicTest TestRouse):
+- A walker whose time near someone ran out is roused: its Aggression 100
+  above its record's, one StartCombat on that one; from then on the
+  engine's own rule picks its fights (any undead's - the player, people,
+  animals). Keep is no longer acted on.
+- A roused walker with nobody living near (within SlowAggressionUnits; not
+  walkers, not the disguised player) for `SlowAggressionCalmSeconds` (10)
+  calms: ModAV back by what it is above its record. With the rule off or
+  the player disguised (4.20.1) every roused walker calms at once.
+- Roused is read off the game (the walker's Aggression above its
+  record's, 50 or more), so a save keeps it and nothing goes into the
+  co-save; a roused walker loaded calms by the same rule.
+- INI `[Zombies] SlowAggressionCalmSeconds=10`; LINK 173 (version 32,
+  header "Walkers - slow aggression, calm again").
+- Log: "Slow aggression: walker X's time near Y ran out", "walker X roused
+  - the engine decides whom it fights (...)", "walker X calms down (...)".
+Harness `harness/slow-aggression-rouse.txt` via
+`tools/slow-aggression-rouse.sh` - not run yet. Not measured: that ModAV
+Aggression works on a creature reference as the CS wiki says for actors,
+and that the base GetBaseActorValue (0x005F1910) reads is the record the
+plugin holds at 0.
+
 What (Nadi, 2026-11-08): walkers are slow to anger. A walker turns on the
 player or anyone else only once that one has stayed near it for 5 s. Default
 on, 5 s; near is some 14 m (Nadi: "ja ok 14m"), no line of sight ("nein").

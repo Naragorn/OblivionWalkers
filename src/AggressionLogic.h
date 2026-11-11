@@ -42,6 +42,9 @@ struct SlowAggressionSettings {
 	// [Zombies] SlowAggressionUnits: how near, in game units (1000 is some
 	// 14 m: 1 unit 1.43 cm, 70 units a yard).
 	float units = 1000.0f;
+	// [Zombies] SlowAggressionCalmSeconds: a roused walker with nobody living
+	// near for this long calms down again (2026-11-11).
+	float calmSeconds = 10.0f;
 };
 
 // The walker records' aggression: 0 with the rule on, their own without.
@@ -98,8 +101,10 @@ inline float NeededSeconds(const SlowAggressionSettings& settings, float roll) {
 inline constexpr UInt32 kNearPairsMost = 512;
 // Measured 2026-11-08 (harness/slow-aggression.txt): a walker with
 // Aggression 0 that StartCombat sent swung once and walked off - the engine
-// drops its fight. So while the one stays near, the fight is sent again
-// every second.
+// drops its fight. Until 2026-11-11 the fight was sent again every second
+// (Keep); that held walkers in fights they could not reach - Whitmond Farm,
+// sheep and Maeva, groups broken up. Since then the walker is roused instead
+// (NextRouse) and Keep is no longer acted on.
 inline constexpr float kNearKeepSeconds = 1.0f;
 
 enum class NearVerdict : UInt8 {
@@ -181,6 +186,47 @@ inline const NearPair* FindNearPair(const NearTracker& tracker, UInt32 walker, U
 		}
 	}
 	return nullptr;
+}
+
+// 2026-11-11 - a walker is roused while its own Aggression (ModAV on the
+// reference; the records hold 0) is this or more.
+inline constexpr float kRousedAggressionLeast = 50.0f;
+inline constexpr float kRousedAggression = 100.0f;
+
+inline bool Roused(float aggressionNow) { return aggressionNow >= kRousedAggressionLeast; }
+
+enum class RouseStep : UInt8 {
+	None,   // nothing to do
+	Rouse,  // its Aggression up to 100: the engine's own rule decides whom it fights
+	Calm,   // back to the records' 0
+};
+
+// One walker's step every half second: `slowOn` the rule, `disguised` the
+// player (4.20.1), `roused` the walker now, `due` someone's time near it ran
+// out this tick, `anyNear` someone living (not a walker; not the disguised
+// player) within reach. A roused walker calms after `calmSeconds` with
+// nobody near (`calmFor` its running time, kept by the caller); with the rule
+// off or the player disguised every roused one calms at once.
+inline RouseStep NextRouse(bool slowOn, bool disguised, bool roused, bool due, bool anyNear, float dt,
+                           float calmSeconds, float& calmFor) {
+	if (!slowOn || disguised) {
+		calmFor = 0.0f;
+		return roused ? RouseStep::Calm : RouseStep::None;
+	}
+	if (!roused) {
+		calmFor = 0.0f;
+		return due ? RouseStep::Rouse : RouseStep::None;
+	}
+	if (anyNear) {
+		calmFor = 0.0f;
+		return RouseStep::None;
+	}
+	calmFor += dt;
+	if (calmFor + 1e-4f < calmSeconds) {
+		return RouseStep::None;
+	}
+	calmFor = 0.0f;
+	return RouseStep::Calm;
 }
 
 // The tick's end: a pair not seen again is gone - its time starts anew.
