@@ -1243,6 +1243,52 @@ after the return. **Open:** the three days are from memory (about the
 game's cell reset), not read; the player leaving within a swap's two
 seconds; the feel and the cost in the headset.
 
+### 4.11c Hordes wait out of sight - `[Horde] GateHordesMost=1`, `GateNearUnits=8000`, `LoadedGrid=5` (Nadi 2026-11-11, built 2026-11-11)
+
+Why: OBNG's actor census at Anvil's docks (2026-11-11, OBNG repo
+`artifacts/shadow/obng-profile-anvil-docks/20261111-101335/OBNG.log`) found
+two Walkers hordes (groups 00 and 01, 14-15 walkers, OblivionWalkers log
+of that run) holding before Anvil Main Gate 10 000-11 700 units from the
+player, out of sight, each in high process with the full Actor::Update
+every frame - about half of the actors' 5 ms a frame there. A hold at a
+gate was unlimited (4.11b): every group within CityRange came and stayed,
+up to 16 groups of 9 - the crowd Nadi once met at a gate that was no siege.
+Nadi (2026-11-11): hordes wait out of sight and come when their turn is,
+and at most a few a gate.
+
+What (`HordeLogic.h` `MayHold`, `HoldAtGate`, `WaitAway`,
+`OutsideLoadedGrid`; `HordeLogicTest` TestGateWait):
+- A group near its gate holds there only if fewer than GateHordesMost
+  others hold at that gate (0: any) and the player is outdoors in Tamriel
+  within GateNearUnits of it (0: always; the player not outdoors in Tamriel
+  - in a city's own worldspace, inside - counts as near, as no walker of
+  Tamriel is in the player's grid then).
+- Otherwise it waits: its marker straight away from the player from its
+  leader, at the first 512-unit step outside the grid of LoadedGrid x
+  LoadedGrid exterior cells around the player's cell (the engine's
+  uGridsToLoad, 5 by default - read from the INI, not from the engine).
+  The spot is set once: a player who walks up to it meets the horde.
+- Each step a waiting group let to hold moves up to its gate (the same
+  hold spot as before), and a holding group no longer let (the player gone
+  beyond GateNearUnits) goes off to wait. A noise draws a waiting group as
+  any other (4.20.2).
+- Only a holding group begins a siege (4.12, NoteHordeAtGate) - so a horde
+  begins one only with the player near, as the siege's walkers show only
+  within 8000 units.
+- Log: "Horde: group NN waits out of the player's grid near <gate>" and
+  "... moves up to hold at <gate>", with the marker and the player's
+  distance (200 lines a session); the group summary says "waiting out of
+  sight". INI, LINK (170..172, header "Hordes - waiting out of sight",
+  version 31 - a save of version 30 takes the plugin INI's values once).
+
+Derived, not measured: that a horde outside the loaded grid leaves the
+full update (OBNG's reading from the distances; the engine's rule not
+read) - to measure with OBNG's census once a run shows hordes waiting.
+Walkers that walk out of the grid may leave the process lists and their
+group (as any walker out of reach - the group is formed anew when they come
+back in). Harness: `harness/horde-gate-wait.txt` via
+`tools/horde-gate-wait.sh` - not run yet (the Linux game was held).
+
 ### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, built 2026-11-04)
 
 **Built 2026-11-04** (Nadi: "ja mach 1-4", the guards' toll 2 a game hour,

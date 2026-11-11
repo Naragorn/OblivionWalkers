@@ -52,6 +52,9 @@ struct Run {
 		settings.enabled = true;
 		settings.travelBase = kTravel;
 		settings.followBase = kFollow;
+		// 4.11c off, as before it; TestGateWait sets them itself.
+		settings.gateHordesMost = 0;
+		settings.gateNearUnits = 0.0f;
 	}
 	UInt32 Step(const HordeWalker* walkers, UInt32 n, float dt = 1.0f) {
 		count = walkers::StepHorde(state, walkers, n, settings, dt, seed, orders, 64);
@@ -478,7 +481,170 @@ void TestHeading() {
 	Check(walkers::HordeHeadingGate(state) == -1, "groups gone (their gate left behind): none");
 }
 
+// 4.11c: a gate holds GateHordesMost groups at once, and only while the
+// player is outdoors in Tamriel within GateNearUnits of it; any other group
+// near its gate waits out of the player's loaded grid.
+void TestGateWait() {
+	std::printf("Waiting out of sight (4.11c)\n");
+	using walkers::OutsideLoadedGrid;
+	Check(!OutsideLoadedGrid(100.0f, 100.0f, 4000.0f, 4000.0f, 5), "grid: the player's own cell is loaded");
+	Check(!OutsideLoadedGrid(100.0f, 100.0f, 2.0f * 4096.0f + 10.0f, 0.0f, 5), "grid: two cells over is loaded (5)");
+	Check(OutsideLoadedGrid(100.0f, 100.0f, 3.0f * 4096.0f + 10.0f, 0.0f, 5), "grid: three cells over is not (5)");
+	Check(OutsideLoadedGrid(100.0f, 100.0f, 0.0f, -2.0f * 4096.0f - 10.0f, 5),
+	      "grid: below zero the cells round down (-8202 is cell -3, three from cell 0)");
+	Check(!OutsideLoadedGrid(100.0f, 100.0f, 3.0f * 4096.0f + 10.0f, 0.0f, 7), "grid: three cells over is loaded (7)");
+
+	const walkers::HordeGate gates[] = {{20000.0f, 0.0f}, {-90000.0f, 0.0f}};
+	auto setUp = [&](Run& run) {
+		run.settings.gates = gates;
+		run.settings.gateCount = 2;
+		run.settings.leadUnits = 2000.0f;
+		run.settings.gateHoldUnits = 800.0f;
+		run.settings.loadedGrid = 5;
+		run.state.player.tamriel = true;
+	};
+	auto at = [](const HordeGroup& g, float x, float y) {
+		return std::fabs(g.targetX - x) < 1.0f && std::fabs(g.targetY - y) < 1.0f;
+	};
+	auto groupOf = [](const Run& run, UInt32 leader) -> const HordeGroup* {
+		for (const HordeGroup& g : run.state.groups) {
+			if (g.used && g.leader == leader) {
+				return &g;
+			}
+		}
+		return nullptr;
+	};
+	{
+		Run run;
+		setUp(run);
+		run.settings.gateHordesMost = 1;
+		run.state.player.x = 20000.0f;
+		run.state.player.y = -3000.0f;
+		const HordeWalker two[] = {Walker(1, 17500, 0, 9), Walker(2, 20000, 2500, 8)};
+		run.Step(two, 2);
+		const HordeGroup* first = groupOf(run, 1);
+		const HordeGroup* second = groupOf(run, 2);
+		Check(first != nullptr && first->holding && !first->waiting && at(*first, 19200.0f, 0.0f),
+		      "GateHordesMost=1: the first group near the gate holds in front of it");
+		Check(second != nullptr && second->waiting && !second->holding && second->gate == 0,
+		      "the second group near the same gate does not hold - it waits");
+		Check(second != nullptr && at(*second, 20000.0f, 2500.0f + 6144.0f) &&
+		          OutsideLoadedGrid(20000.0f, -3000.0f, second->targetX, second->targetY, 5),
+		      "it waits straight away from the player, the first spot out of the loaded grid (512-unit steps)");
+		Check(run.Of(HordeOrder::MoveMarker) == 2 && run.Of(HordeOrder::Lead) == 2,
+		      "both markers moved, both leaders led");
+		// The first group's leader gone from the list: its group ends in this
+		// step, which frees the gate for the second.
+		const HordeWalker waiting[] = {Walker(2, 20000, 8644, 8, kTravel + 1)};
+		run.Step(waiting, 1);
+		const HordeGroup* moved = groupOf(run, 2);
+		Check(moved != nullptr && moved->holding && !moved->waiting && run.Of(HordeOrder::MoveMarker) == 1,
+		      "the holding group gone: the waiting one is let to the gate (its marker moved)");
+		Check(moved != nullptr && at(*moved, 20000.0f, 800.0f),
+		      "and holds GateHoldUnits in front of the door, on its own side");
+	}
+	{
+		Run run;
+		setUp(run);
+		run.settings.gateHordesMost = 1;
+		run.state.player.x = 20000.0f;
+		run.state.player.y = -3000.0f;
+		const HordeWalker two[] = {Walker(1, 17500, 0, 9), Walker(3, -87500, 0, 8)};
+		run.Step(two, 2);
+		const HordeGroup* first = groupOf(run, 1);
+		const HordeGroup* other = groupOf(run, 3);
+		Check(first != nullptr && first->holding && other != nullptr && other->holding && other->gate == 1,
+		      "GateHordesMost counts each gate on its own: a group at another gate holds too");
+	}
+	{
+		Run run;
+		setUp(run);
+		run.state.player.x = 20000.0f;
+		run.state.player.y = -3000.0f;
+		const HordeWalker two[] = {Walker(1, 17500, 0, 9), Walker(2, 20000, 2500, 8)};
+		run.Step(two, 2);
+		const HordeGroup* first = groupOf(run, 1);
+		const HordeGroup* second = groupOf(run, 2);
+		Check(first != nullptr && first->holding && second != nullptr && second->holding,
+		      "GateHordesMost=0 and GateNearUnits=0: every group holds, as before 4.11c");
+	}
+	{
+		Run run;
+		setUp(run);
+		run.settings.gateNearUnits = 8000.0f;
+		run.state.player.x = 12000.0f;
+		run.state.player.y = 6000.0f;
+		const HordeWalker w[] = {Walker(1, 17500, 0, 9)};
+		run.Step(w, 1);
+		const HordeGroup* g = groupOf(run, 1);
+		const float away = HeadingTo(12000.0f, 6000.0f, 17500.0f, 0.0f);
+		Check(g != nullptr && g->waiting && !g->holding,
+		      "GateNearUnits=8000, the player 10000 from the gate: the group near it waits instead of holding");
+		Check(g != nullptr && OutsideLoadedGrid(12000.0f, 6000.0f, g->targetX, g->targetY, 5) &&
+		          AngleBetween(HeadingTo(17500.0f, 0.0f, g->targetX, g->targetY), away) < 0.01f,
+		      "out of the loaded grid, straight away from the player");
+		const float waitX = g != nullptr ? g->targetX : 0.0f;
+		const float waitY = g != nullptr ? g->targetY : 0.0f;
+		const HordeWalker there[] = {Walker(1, waitX, waitY, 9, kTravel + 0)};
+		run.state.player.x = 13000.0f;
+		run.state.player.y = 5000.0f;
+		UInt32 moves = 0;
+		for (int t = 0; t < 60; ++t) {
+			run.Step(there, 1, 1.0f);
+			moves += run.Of(HordeOrder::MoveMarker);
+		}
+		Check(moves == 0, "waiting, the player still away: a minute on - the marker stays");
+		const HordeWalker lost[] = {Walker(1, waitX, waitY, 9, 0)};
+		run.Step(lost, 1);
+		Check(run.Of(HordeOrder::Lead, 1) == 1 && run.Of(HordeOrder::MoveMarker) == 0,
+		      "waiting, the package lost: given again, the marker left where it waits");
+		run.state.player.x = 19000.0f;
+		run.state.player.y = -3000.0f;
+		run.Step(there, 1);
+		Check(g != nullptr && g->holding && !g->waiting && run.Of(HordeOrder::MoveMarker) == 1 &&
+		          run.Of(HordeOrder::Lead, 1) == 1,
+		      "the player comes within GateNearUnits of the gate: the waiting group moves up to it and holds");
+		Check(g != nullptr && std::fabs(std::sqrt((g->targetX - 20000.0f) * (g->targetX - 20000.0f) +
+		                                          g->targetY * g->targetY) -
+		                                800.0f) < 1.0f,
+		      "GateHoldUnits in front of the door");
+		run.state.player.x = 12000.0f;
+		run.state.player.y = 6000.0f;
+		const HordeWalker atGate[] = {Walker(1, g != nullptr ? g->targetX : 0.0f, g != nullptr ? g->targetY : 0.0f, 9,
+		                                     kTravel + 0)};
+		run.Step(atGate, 1);
+		Check(g != nullptr && g->waiting && !g->holding && run.Of(HordeOrder::MoveMarker) == 1 &&
+		          OutsideLoadedGrid(12000.0f, 6000.0f, g->targetX, g->targetY, 5),
+		      "the player goes off again: the holding group leaves the gate and waits out of the grid");
+	}
+	{
+		Run run;
+		setUp(run);
+		run.settings.gateNearUnits = 8000.0f;
+		run.state.player.tamriel = false;
+		const HordeWalker w[] = {Walker(1, 17500, 0, 9)};
+		run.Step(w, 1);
+		const HordeGroup* g = groupOf(run, 1);
+		Check(g != nullptr && g->holding && !g->waiting,
+		      "the player not outdoors in Tamriel (a city, inside): nothing to keep out of the player's grid - it holds");
+	}
+	{
+		Run run;
+		setUp(run);
+		run.settings.gateNearUnits = 8000.0f;
+		run.settings.noise.enabled = true;
+		run.state.player.x = 12000.0f;
+		run.state.player.y = 6000.0f;
+		const HordeWalker w[] = {Walker(1, 17500, 0, 9)};
+		run.Step(w, 1);
+		walkers::HearNoise(run.state, w, 1, run.settings, 17600.0f, 0.0f, 0);
+		const HordeGroup* g = groupOf(run, 1);
+		Check(g != nullptr && g->drawn && !g->waiting && !g->holding, "a noise draws a waiting group off its spot");
+	}
+}
+
 int main() {
+	TestGateWait();
 	TestHeading();
 	TestOff();
 	TestGates();

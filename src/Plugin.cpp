@@ -241,6 +241,13 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.horde.cityPull = rise.horde.cityPull < 0.0f ? 0.0f : (rise.horde.cityPull > 1.0f ? 1.0f : rise.horde.cityPull);
 	rise.horde.cityRange = IniFloat("Horde", "CityRange", 40000.0f, path);
 	rise.horde.gateHoldUnits = IniFloat("Horde", "GateHoldUnits", 800.0f, path);
+	// 4.11c: a gate holds GateHordesMost groups, only with the player within
+	// GateNearUnits; the rest wait out of the loaded grid (LoadedGrid).
+	const int gateHordesMost = GetPrivateProfileIntA("Horde", "GateHordesMost", 1, path);
+	rise.horde.gateHordesMost = gateHordesMost < 0 ? 0u : static_cast<UInt32>(gateHordesMost);
+	rise.horde.gateNearUnits = IniFloat("Horde", "GateNearUnits", 8000.0f, path);
+	const int loadedGrid = GetPrivateProfileIntA("Horde", "LoadedGrid", 5, path);
+	rise.horde.loadedGrid = loadedGrid < 1 ? 1u : static_cast<UInt32>(loadedGrid);
 	const int groupMost = GetPrivateProfileIntA("Horde", "GroupMost", 8, path);
 	rise.horde.groupMost = groupMost < 0 ? 0u : static_cast<UInt32>(groupMost);
 	// 4.20.2: noise draws the hordes.

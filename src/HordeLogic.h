@@ -57,6 +57,14 @@ struct HordeSettings {
 	float cityPull = 0.5f;          // [Horde] CityPull, 0 to 1
 	float cityRange = 40000.0f;     // [Horde] CityRange
 	float gateHoldUnits = 800.0f;   // [Horde] GateHoldUnits
+	// 4.11c: a gate holds at most GateHordesMost groups at once (0: any),
+	// and only while the player is outdoors in Tamriel within GateNearUnits
+	// of it (0: always); any other group near its gate waits out of the
+	// player's loaded grid (LoadedGrid cells across, the engine's
+	// uGridsToLoad), where the engine keeps it out of the full update.
+	UInt32 gateHordesMost = 1;      // [Horde] GateHordesMost
+	float gateNearUnits = 8000.0f;  // [Horde] GateNearUnits
+	UInt32 loadedGrid = 5;          // [Horde] LoadedGrid
 	const HordeGate* gates = nullptr;
 	UInt32 gateCount = 0;
 	NoiseSettings noise;            // 4.20.2: [Noise]
@@ -85,6 +93,7 @@ struct HordeGroup {
 	UInt32 count = 0;
 	int gate = -1;         // the gate it heads for, -1 none
 	bool holding = false;  // at its gate: the marker stays
+	bool waiting = false;  // 4.11c: near its gate, not let to hold - waits out of the player's grid
 	UInt32 aimedAt = 0;    // whom its follow package was last aimed at (an Aim order)
 	// 4.20.2: drawn to a noise at noiseX, noiseY - on the way while
 	// searchLeft < 0, then searching it; noiseFresh until its marker is set.
@@ -97,9 +106,34 @@ struct HordeGroup {
 	float hopLeft = 0.0f;
 };
 
+// Where the player is, for 4.11c; set by the caller before each step.
+struct HordePlayer {
+	bool tamriel = false;  // outdoors in Tamriel, where the gates are
+	float x = 0.0f;
+	float y = 0.0f;
+};
+
 struct HordeState {
 	HordeGroup groups[kHordeGroups];
+	HordePlayer player;
 };
+
+inline constexpr float kHordeCellUnits = 4096.0f;
+inline constexpr float kHordeWaitStepUnits = 512.0f;
+inline constexpr float kHordeWaitMostUnits = 65536.0f;
+
+// Whether x, y lies outside the grid of `grid` x `grid` exterior cells the
+// engine keeps loaded around the player's cell (uGridsToLoad).
+inline bool OutsideLoadedGrid(float px, float py, float x, float y, UInt32 grid) {
+	const int half = static_cast<int>(grid / 2);
+	const int pcx = static_cast<int>(std::floor(px / kHordeCellUnits));
+	const int pcy = static_cast<int>(std::floor(py / kHordeCellUnits));
+	const int cx = static_cast<int>(std::floor(x / kHordeCellUnits));
+	const int cy = static_cast<int>(std::floor(y / kHordeCellUnits));
+	const int dx = cx > pcx ? cx - pcx : pcx - cx;
+	const int dy = cy > pcy ? cy - pcy : pcy - cy;
+	return dx > half || dy > half;
+}
 
 struct HordeOrder {
 	// Aim: the group's follow package aimed at `walker`, its leader - before
@@ -194,19 +228,81 @@ inline int NearestGate(const HordeWalker& w, const HordeSettings& s) {
 // A new marker for the group: at its gate (GateHoldUnits in front of the
 // door, on the leader's side) once the next step would bring it that near;
 // else LeadUnits ahead along `heading`, leaned CityPull toward the gate.
-inline void PlaceMarker(HordeGroup& g, const HordeWalker& leader, float heading, const HordeSettings& s) {
-	if (g.gate >= 0 && static_cast<UInt32>(g.gate) < s.gateCount) {
+// The marker GateHoldUnits in front of the group's gate, on the leader's
+// side; the group holds there.
+inline void HoldAtGate(HordeGroup& g, const HordeWalker& leader, float heading, const HordeSettings& s) {
+	const HordeGate& gate = s.gates[g.gate];
+	const float d = Distance(leader.x, leader.y, gate.x, gate.y);
+	const float outward = d > 1.0f ? std::atan2(leader.y - gate.y, leader.x - gate.x) : heading;
+	g.heading = std::atan2(gate.y - leader.y, gate.x - leader.x);
+	g.targetX = gate.x + std::cos(outward) * s.gateHoldUnits;
+	g.targetY = gate.y + std::sin(outward) * s.gateHoldUnits;
+	g.holding = true;
+	g.waiting = false;
+	g.bestDistance = Distance(leader.x, leader.y, g.targetX, g.targetY);
+	g.sinceBetter = 0.0f;
+}
+
+// 4.11c: the marker straight away from the player from the leader, at the
+// first 512-unit step out of the player's loaded grid; the group waits there
+// (the spot set once - a player who walks up to it meets the horde).
+inline void WaitAway(HordeGroup& g, const HordeWalker& leader, float heading, const HordeSettings& s,
+                     const HordePlayer& p) {
+	const float d = Distance(p.x, p.y, leader.x, leader.y);
+	const float away = d > 1.0f ? std::atan2(leader.y - p.y, leader.x - p.x) : heading;
+	float r = 0.0f;
+	while (r < kHordeWaitMostUnits && !OutsideLoadedGrid(p.x, p.y, leader.x + std::cos(away) * r,
+	                                                      leader.y + std::sin(away) * r, s.loadedGrid)) {
+		r += kHordeWaitStepUnits;
+	}
+	g.heading = away;
+	g.targetX = leader.x + std::cos(away) * r;
+	g.targetY = leader.y + std::sin(away) * r;
+	g.holding = false;
+	g.waiting = true;
+	g.bestDistance = r;
+	g.sinceBetter = 0.0f;
+}
+
+// The groups other than `except` holding at `gate`.
+inline UInt32 HoldingAt(const HordeState& state, int gate, UInt32 except) {
+	UInt32 n = 0;
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		const HordeGroup& g = state.groups[gi];
+		n += gi != except && g.used && g.holding && g.gate == gate ? 1u : 0u;
+	}
+	return n;
+}
+
+// 4.11c: whether group `gi` may hold at its gate now - the player within
+// GateNearUnits of it (or not outdoors in Tamriel: then no walker of it is
+// in the player's grid), fewer than GateHordesMost others holding there.
+inline bool MayHold(const HordeState& state, UInt32 gi, const HordeSettings& s) {
+	const HordeGroup& g = state.groups[gi];
+	const HordeGate& gate = s.gates[g.gate];
+	const HordePlayer& p = state.player;
+	const bool near = s.gateNearUnits <= 0.0f || !p.tamriel || Distance(p.x, p.y, gate.x, gate.y) <= s.gateNearUnits;
+	return near && (s.gateHordesMost == 0 || HoldingAt(state, g.gate, gi) < s.gateHordesMost);
+}
+
+inline bool HasGate(const HordeGroup& g, const HordeSettings& s) {
+	return g.gate >= 0 && static_cast<UInt32>(g.gate) < s.gateCount && s.gates != nullptr;
+}
+
+inline void PlaceMarker(HordeState& state, UInt32 gi, const HordeWalker& leader, float heading,
+                        const HordeSettings& s) {
+	HordeGroup& g = state.groups[gi];
+	g.waiting = false;
+	if (HasGate(g, s)) {
 		const HordeGate& gate = s.gates[g.gate];
 		const float d = Distance(leader.x, leader.y, gate.x, gate.y);
 		const float toGate = std::atan2(gate.y - leader.y, gate.x - leader.x);
 		if (d - s.leadUnits <= s.gateHoldUnits) {
-			const float outward = d > 1.0f ? std::atan2(leader.y - gate.y, leader.x - gate.x) : heading;
-			g.heading = toGate;
-			g.targetX = gate.x + std::cos(outward) * s.gateHoldUnits;
-			g.targetY = gate.y + std::sin(outward) * s.gateHoldUnits;
-			g.holding = true;
-			g.bestDistance = Distance(leader.x, leader.y, g.targetX, g.targetY);
-			g.sinceBetter = 0.0f;
+			if (MayHold(state, gi, s)) {
+				HoldAtGate(g, leader, heading, s);
+			} else {
+				WaitAway(g, leader, heading, s, state.player);
+			}
 			return;
 		}
 		const float vx = (1.0f - s.cityPull) * std::cos(heading) + s.cityPull * std::cos(toGate);
@@ -365,6 +461,7 @@ inline UInt32 HearNoise(HordeState& state, const HordeWalker* walkers, UInt32 n,
 		g.drawn = true;
 		g.noiseFresh = true;
 		g.holding = false;
+		g.waiting = false;
 		g.noiseX = x;
 		g.noiseY = y;
 		g.targetX = x;
@@ -499,7 +596,7 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			g.used = true;
 			g.leader = w.id;
 			g.gate = NearestGate(w, s);
-			PlaceMarker(g, w, Random01(seed) * 2.0f * kHordePi, s);
+			PlaceMarker(state, gi, w, Random01(seed) * 2.0f * kHordePi, s);
 			fresh[gi] = true;
 			out.Add(HordeOrder::MoveMarker, gi, w.id, 0, g.targetX, g.targetY);
 			out.Add(HordeOrder::Lead, gi, w.id, s.travelBase + gi);
@@ -540,7 +637,7 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 				if (g.searchLeft <= 0.0f) {
 					g.drawn = false;
 					g.searchLeft = -1.0f;
-					PlaceMarker(g, *leader, g.heading, s);
+					PlaceMarker(state, gi, *leader, g.heading, s);
 					lead = true;
 				} else if (g.hopLeft <= 0.0f) {
 					g.hopLeft = s.noise.hopSeconds;
@@ -567,10 +664,21 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			}
 			continue;
 		}
-		if (g.holding) {
-			// At the gate: the marker stays; only a leader drawn far off it (a
-			// fight) is sent back.
-			if (d > s.leadUnits) {
+		if (g.holding || g.waiting) {
+			// At the gate, or waiting out of sight: the marker stays; only a
+			// leader drawn far off it (a fight) is sent back. 4.11c: a holding
+			// group no longer let to hold goes off to wait, a waiting one let
+			// to hold moves up to its gate.
+			const bool may = HasGate(g, s) && MayHold(state, gi, s);
+			if (g.holding != may && HasGate(g, s)) {
+				if (may) {
+					HoldAtGate(g, *leader, g.heading, s);
+				} else {
+					WaitAway(g, *leader, g.heading, s, state.player);
+				}
+				out.Add(HordeOrder::MoveMarker, gi, g.leader, 0, g.targetX, g.targetY);
+				out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
+			} else if (d > s.leadUnits) {
 				out.Add(HordeOrder::MoveMarker, gi, g.leader, 0, g.targetX, g.targetY);
 				out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
 			} else if (leader->package != s.travelBase + gi && !out.Given(g.leader)) {
@@ -589,7 +697,7 @@ inline UInt32 StepHorde(HordeState& state, const HordeWalker* walkers, UInt32 n,
 			const float turn = s.turnDegrees * kHordePi / 180.0f;
 			const float heading = reached ? g.heading + (Random01(seed) * 2.0f - 1.0f) * turn
 			                              : Random01(seed) * 2.0f * kHordePi;
-			PlaceMarker(g, *leader, heading, s);
+			PlaceMarker(state, gi, *leader, heading, s);
 			out.Add(HordeOrder::MoveMarker, gi, g.leader, 0, g.targetX, g.targetY);
 			out.Add(HordeOrder::Lead, gi, g.leader, s.travelBase + gi);
 		} else if (leader->package != s.travelBase + gi && !out.Given(g.leader)) {

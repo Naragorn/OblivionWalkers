@@ -54,6 +54,7 @@ HordeSettings g_settings;
 // on it (SetHordeNightLead) - kept apart, so a LINK change of LeadUnits at
 // night keeps the night's share.
 float g_dayLeadUnits = 2000.0f;
+UInt32 g_waitLogsLeft = 200;  // 4.11c: "waits"/"moves up" lines left this session
 float g_nightLeadFactor = 1.0f;
 HordeState g_state;
 UInt32 g_espBase = kNoEsp;
@@ -579,10 +580,11 @@ void ConfigureHorde(const HordeSettings& settings, UInt32 espBase, LogFn log) {
 	    g_settings.noise.travelSeconds);
 	log("Horde: on - %u groups, a walker joins a leader within %.0f units, the marker %.0f ahead, %u followers at "
 	    "most, a new heading after %.0f s without progress; toward the cities %d (%u gates, pull %.2f, within %.0f, "
-	    "holding %.0f in front of the door)",
+	    "holding %.0f in front of the door; %u groups a gate at most, only with the player within %.0f, the rest "
+	    "waiting out of a loaded grid of %u)",
 	    kHordeGroups, g_settings.joinRadius, g_settings.leadUnits, g_settings.groupMost, g_settings.staleSeconds,
 	    g_settings.towardCities ? 1 : 0, g_settings.gateCount, g_settings.cityPull, g_settings.cityRange,
-	    g_settings.gateHoldUnits);
+	    g_settings.gateHoldUnits, g_settings.gateHordesMost, g_settings.gateNearUnits, g_settings.loadedGrid);
 }
 
 void ConfigureGuards(const GuardSettings& settings, LogFn log) {
@@ -752,8 +754,31 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 		wasDrawn[gi] = g_state.groups[gi].used && g_state.groups[gi].drawn;
 		wasSearching[gi] = wasDrawn[gi] && g_state.groups[gi].searchLeft >= 0.0f;
 	}
+	// 4.11c: where the player is, for whether a group may hold at its gate.
+	const UInt32 player = LookupForm(0x14);
+	g_state.player.tamriel = LooksLikeObject(player) && InTamriel(player);
+	g_state.player.x = g_state.player.tamriel ? FloatAt(player + kRefPositionOffset) : 0.0f;
+	g_state.player.y = g_state.player.tamriel ? FloatAt(player + kRefPositionOffset + 4) : 0.0f;
+	bool wasWaiting[kHordeGroups];
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		wasWaiting[gi] = g_state.groups[gi].used && g_state.groups[gi].waiting;
+	}
 	HordeOrder orders[64];
 	const UInt32 ordered = StepHorde(g_state, walkers, n, g_settings, elapsed, g_seed, orders, 64);
+	for (UInt32 gi = 0; gi < kHordeGroups; ++gi) {
+		const HordeGroup& g = g_state.groups[gi];
+		if (g.used && g.waiting != wasWaiting[gi] && g.gate >= 0 && g_waitLogsLeft > 0) {
+			--g_waitLogsLeft;
+			log("Horde: group %02u %s %s - marker at %.0f %.0f, the player %s%.0f units from the gate",
+			    gi, g.waiting ? "waits out of the player's grid near" : "moves up to hold at",
+			    kCityGates[g.gate].name, g.targetX, g.targetY, g_state.player.tamriel ? "" : "not in Tamriel, ",
+			    g_state.player.tamriel ? std::sqrt((g_state.player.x - kCityGates[g.gate].x) *
+			                                           (g_state.player.x - kCityGates[g.gate].x) +
+			                                       (g_state.player.y - kCityGates[g.gate].y) *
+			                                           (g_state.player.y - kCityGates[g.gate].y))
+			                           : 0.0f);
+		}
+	}
 	for (UInt32 gi = 0; gi < kHordeGroups && g_noiseLogsLeft > 0; ++gi) {
 		const HordeGroup& g = g_state.groups[gi];
 		const HordeWalker* leader = g.used ? horde_detail::Find(walkers, n, g.leader) : nullptr;
@@ -815,7 +840,8 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 				    horde_detail::Distance(leader->x, leader->y, g.targetX, g.targetY), leader->package,
 				    leader->package == g_settings.travelBase + gi ? 1 : 0, g.count, running,
 				    g.count > 0 ? sum / static_cast<float>(g.count) : 0.0f, most,
-				    g.gate >= 0 ? kCityGates[g.gate].name : "none", g.holding ? ", holding there" : "");
+				    g.gate >= 0 ? kCityGates[g.gate].name : "none",
+		    g.holding ? ", holding there" : (g.waiting ? ", waiting out of sight" : ""));
 			}
 		}
 		log("Horde: %u walkers here, %u fit, %u groups", n, fit, used);

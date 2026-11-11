@@ -1,0 +1,55 @@
+# Hordes wait out of sight (docs/walkers-spec.md 4.11c): at a gate at most
+# [Horde] GateHordesMost groups hold (1), and only while the player is
+# outdoors within GateNearUnits (8000) of it; any other group near its gate
+# waits just outside the player's loaded grid (LoadedGrid 5).
+#
+# Two batches of walkers (the ESP's 0x801) near Anvil Main Gate
+# (-189812, -27878): three at Tamriel -47,-7 (the cell's middle, ~1400 units
+# from the gate) and three at -48,-7 (~4900 units off, ~4100 from the first -
+# beyond JoinRadius, so two groups). The first group holds at the gate, the
+# second waits ("waits out of the player's grid near Anvil Main Gate"). The
+# player then goes to -45,-9 (~10200 units from the gate, two cells over -
+# the gate's cells still loaded): the holding group waits too. Back at
+# -47,-7, a group moves up to hold ("moves up to hold at Anvil Main Gate").
+# tdetect: the walkers do not see the player, so no fight takes them out of
+# their packages; weather and time fixed.
+#
+# Run through tools/horde-gate-wait.sh (checks OblivionWalkers.log).
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -48 -7
+console-at second player.placeatme {form:OblivionWalkers.esp:801} 3
+console-at first cow Tamriel -47 -7
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 3
+console-at away cow Tamriel -45 -9
+console-at back cow Tamriel -47 -7
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark second
+wait 3
+mark first
+wait 15
+mark placed
+wait 60
+mark away
+wait 40
+mark back
+wait 40
+mark end
+wait 2

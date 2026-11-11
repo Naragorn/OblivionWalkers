@@ -802,6 +802,10 @@ void TestZombieDefaults() {
 	Check(settings.horde.towardCities && settings.horde.cityPull == 0.5f && settings.horde.cityRange == 40000.0f &&
 	          settings.horde.gateHoldUnits == 800.0f,
 	      "[Horde] TowardCities=1, CityPull=0.5, CityRange=40000, GateHoldUnits=800 (4.11b)");
+	Check(settings.horde.gateHordesMost == 1 && settings.horde.gateNearUnits == 8000.0f &&
+	          settings.horde.loadedGrid == 5,
+	      "[Horde] GateHordesMost=1, GateNearUnits=8000, LoadedGrid=5 - one group a gate, only with the player near, "
+	      "the rest out of sight (4.11c)");
 	Check(settings.holdDeathSound, "[Rise] HoldDeathSound=1 - the unseen kill's death sound held back (a test switch)");
 	Check(settings.soundAtGetUpPercent == 60,
 	      "[Rise] SoundAtGetUpPercent=60 - the death sound held back at the unseen kill plays as the walker gets up "

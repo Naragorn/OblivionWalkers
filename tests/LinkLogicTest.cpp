@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 170,
-	      "170 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 173,
+	      "173 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -320,7 +320,21 @@ void TestValues() {
 	const int intoCity = IndexOf("ini_camps_escort_into_city");
 	Check(intoCity == 169 && walkers::LinkValue(rise, replace, intoCity) == 1.0 &&
 	          walkers::SetLinkValue(rise, replace, intoCity, 0.0) && !rise.camps.escortIntoCity,
-	      "EscortIntoCity last, 169: on by default, off from the menu");
+	      "EscortIntoCity, 169: on by default, off from the menu");
+	const int gateMost = IndexOf("ini_horde_gate_hordes_most");
+	const int gateNear = IndexOf("ini_horde_gate_near_units");
+	const int grid = IndexOf("ini_horde_loaded_grid");
+	Check(gateMost == 170 && gateNear == 171 && grid == 172 && walkers::LinkValue(rise, replace, gateMost) == 1.0 &&
+	          walkers::LinkValue(rise, replace, gateNear) == 8000.0 && walkers::LinkValue(rise, replace, grid) == 5.0 &&
+	          kLinkSettings[gateMost].effect == walkers::LinkEffect::Horde &&
+	          kLinkSettings[gateNear].effect == walkers::LinkEffect::Horde &&
+	          kLinkSettings[grid].effect == walkers::LinkEffect::Horde,
+	      "the gates' waiting last, 170..172 (4.11c): one group a gate, 8000 units, a grid of 5; configured anew with "
+	      "the horde");
+	Check(walkers::SetLinkValue(rise, replace, gateMost, 0.0) && rise.horde.gateHordesMost == 0 &&
+	          walkers::SetLinkValue(rise, replace, gateNear, 12000.0) && rise.horde.gateNearUnits == 12000.0f &&
+	          walkers::SetLinkValue(rise, replace, grid, 7.0) && rise.horde.loadedGrid == 7,
+	      "each set from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -409,7 +423,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 30\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 31\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
