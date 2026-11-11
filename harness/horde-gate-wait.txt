@@ -4,13 +4,16 @@
 # waits just outside the player's loaded grid (LoadedGrid 5).
 #
 # Two batches of walkers (the ESP's 0x801) near Anvil Main Gate
-# (-189812, -27878): three at Tamriel -47,-7 (the cell's middle, ~1400 units
-# from the gate) and three at -48,-7 (~4900 units off, ~4100 from the first -
-# beyond JoinRadius, so two groups). The first group holds at the gate, the
-# second waits ("waits out of the player's grid near Anvil Main Gate"). The
-# player then goes to -45,-9 (~10200 units from the gate, two cells over -
+# (-189812, -27878): three at -192300,-27500 (~2500 units west of it) and
+# three at -47,-7's middle (-190464,-26624, ~1400 off; ~2000 from the first -
+# beyond JoinRadius, so two groups). One group holds at the gate, the other
+# waits ("waits out of the player's grid near Anvil Main Gate"). The player
+# then steps to -181000,-26200 (~8800 units from the gate, two cells east -
 # the gate's cells still loaded): the holding group waits too. Back at
-# -47,-7, a group moves up to hold ("moves up to hold at Anvil Main Gate").
+# -47,-7's middle, a group moves up to hold ("moves up to hold at Anvil Main
+# Gate"). The player moves by setpos, not cow: run 2 (2026-11-11 11:33) went
+# by cow, which loads the grid anew - the groups ended and formed again, so
+# neither step could be seen.
 # tdetect: the walkers do not see the player, so no fight takes them out of
 # their packages; weather and time fixed.
 #
@@ -25,12 +28,21 @@ console-at ready tdetect
 console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready fw 00038EEE
-console-at ready cow Tamriel -48 -7
-console-at second player.placeatme {form:OblivionWalkers.esp:801} 3
-console-at first cow Tamriel -47 -7
+console-at ready cow Tamriel -47 -7
+console-at second player.setpos x -192300
+console-at second player.setpos y -27500
+console-at second player.setpos z 1500
+console-at second2 player.placeatme {form:OblivionWalkers.esp:801} 3
+console-at first player.setpos x -190464
+console-at first player.setpos y -26624
+console-at first player.setpos z 1500
 console-at placed player.placeatme {form:OblivionWalkers.esp:801} 3
-console-at away cow Tamriel -45 -9
-console-at back cow Tamriel -47 -7
+console-at away player.setpos x -181000
+console-at away player.setpos y -26200
+console-at away player.setpos z 1500
+console-at back player.setpos x -190464
+console-at back player.setpos y -26624
+console-at back player.setpos z 1500
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -42,6 +54,8 @@ wait 1
 mark ready
 wait 15
 mark second
+wait 4
+mark second2
 wait 3
 mark first
 wait 15

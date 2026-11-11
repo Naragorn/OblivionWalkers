@@ -21,7 +21,9 @@ path = sys.argv[1]
 text = open(path, encoding="latin-1", newline="").read()
 head = re.search(r"^\[Siege\]\s*$", text, re.M)
 if head is None:
-    sys.exit("no [Siege] section in " + path)
+    # A deployed INI older than 4.12 has none (the plugin's default is on).
+    open(path, "w", encoding="latin-1", newline="").write(text.rstrip("\r\n") + "\r\n\r\n[Siege]\r\nEnabled=0\r\n")
+    sys.exit(0)
 end = re.search(r"^\[", text[head.end():], re.M)
 stop = head.end() + (end.start() if end else len(text) - head.end())
 section = re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, flags=re.M)

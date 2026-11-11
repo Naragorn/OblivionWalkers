@@ -1297,7 +1297,22 @@ waiting group moving up - the hold began a siege at once (4.12), its
 walkers joined the groups (a group led by siege walker 2600095A) and went
 back to the pool when the player left, so neither group was left for those
 steps. The runner now turns [Siege] Enabled off for the run (restored
-after); run 2 queued.
+after; the deployed INI had no [Siege] section - added for the run). Run 2
+(11:33, `.../20261111-113336/`): no siege; a group held at the gate, but no
+second group came near it (one batch went into a group of the save's), and
+the player's moves by `cow` load the grid anew - the holding group ended
+and the slots were taken by others, so the cap, the going off and the
+moving up were not seen. The scenario now moves the player by `setpos`;
+run 3 queued.
+Found in both runs: four or five groups of the harness save (eight
+followers each) stood some 6000 units north of Anvil Main Gate around
+-191200, -21700 for minutes - "2000 to its marker" step after step, the
+leaders moving a few hundred units at most, new headings every
+StaleSeconds without progress. Out of sight, inside the loaded grid, far
+from the gate: 4.11c does not touch them, and they are likely the bulk of
+OBNG's census (75 of 98 high-process actors Walkers horde members >= 10 000
+units off, 2026-11-11). Why they do not get on is not found (terrain - the
+hills north of Anvil - is a guess).
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, built 2026-11-04)
 
