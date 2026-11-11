@@ -2148,13 +2148,14 @@ void ApplyLinkEffect(LinkEffect effect) {
 	}
 }
 
-// Once a second in a game: at the first look after a load, StartOf decides
-// whether the plugin INI's values go into the quest's variables or LINK's
-// (the save's) into the settings; after that, with LINK, what the menu
-// changed is applied.
+// At the first tick after a load, StartOf decides whether the plugin INI's
+// values go into the quest's variables or LINK's (the save's) into the
+// settings - at once, not a second on: a slider moved in LINK's menu within
+// that second was written over (OBVR's LINK test, 2026-11-11). After that,
+// once a second, with LINK, what the menu changed is applied.
 void StepLink(float dt) {
 	g_linkClock += dt;
-	if (g_linkClock < 1.0f || g_walkerCount == 0) {
+	if ((g_linkSynced && g_linkClock < 1.0f) || g_walkerCount == 0) {
 		return;
 	}
 	g_linkClock = 0.0f;
