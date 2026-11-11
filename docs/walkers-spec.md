@@ -1329,7 +1329,24 @@ read off the EXE), the leader's height where no loaded cell is
 logs the leader's z, the marker's z and the land's. A/B to settle it:
 `tools/horde-stuck-farm.sh` runs `harness/horde-stuck-farm.txt` with the
 switch 0 and 1 and prints each leader's way and the marker's height over
-the land - queued.
+the land - run 2026-11-11 12:54 (A, off) and 12:56 (B, on),
+`artifacts/hand-script/horde-stuck-farm/`: not settled by it - in both, the
+farm groups fell apart within seconds of forming ("9 walkers here, 0 fit,
+0 groups" step after step in B): Slow aggression (4.20.x) had each walker
+"turn on" a dozen actors within 1000 units after 5-10 s - Maeva, the
+player (tdetect notwithstanding) and creatures that died there to walkers
+in these runs: CreatureSheep 000151DD and CreatureSheepRam 0005D558
+(Oblivion.esm), MOO creatures (2300C07F/C086) - and a walker in combat is
+unfit for its group. The marker's height: A's leaders on the field at z
+1360-1372 with the land 1367-1391 under their first spots - no marker in the
+air there; group 01 on the hill east at z 4983 with the land 3945 under its
+spot (1038 below) walked 2018 units in A all the same. So the marker's
+height is not shown to be the cause; the switch stays on (a marker on the
+land is right either way). The pictures of headless runs are black. Gate
+run 3 (12:59): the batches placed at the gate formed no group at all (the
+same slow aggression near the gate), so 4.11c's going off and moving up are
+still not seen. Next: the slow aggression's line names its target's base,
+kind and distance, and a group member's unfitness its reason.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, built 2026-11-04)
 
