@@ -2913,7 +2913,10 @@ roster line's counts.
   not 0, or raised within 6 s (RiseLogic.h GettingUp, kGetUpGraceMs) - is busy for the
   horde and skipped by the slow aggression. The stand watch now watches the full 20 s and
   logs "not up" when it never moved or is still knocked (a lying body turned by the AI
-  moves too). Not yet run in the harness; not yet seen in the game.
+  moves too). Harness 2026-11-11 09:10 with the fix: all four raised and up after 20 s
+  (moved, knocked state 0), the NPC-killed walker ended. The bug was never reproduced in
+  the harness before the fix, so this run shows no regression, not that the fix cures
+  it - that is Nadi's next Windows run.
 
 - **OPEN 2026-10-28 night (Nadi, Windows, for the next day) - some walkers are peaceful**
   ("zombies waren teilweise friedlich zu mir auch zu guards"): some walkers neither attack

@@ -46,7 +46,7 @@ def count(text):
 
 deaths = [l for l in lines if l.startswith("End: walker") and "gets up again" in l]
 raises = [l for l in lines if l.startswith("Rise: ") and " gets up at " in l]
-stuck = [l for l in lines if "not up " in l]
+stuck = [l for l in lines if l.startswith("Risen: ") and " not up " in l]
 check(len(deaths) >= 4, "four walkers down, each to get up again (%d)" % len(deaths))
 check(len(raises) >= 4, "each raised (%d)" % len(raises))
 for l in deaths + raises:
