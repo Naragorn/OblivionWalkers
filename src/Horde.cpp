@@ -834,9 +834,16 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 				running += f->package == g_settings.followBase + gi ? 1u : 0u;
 			}
 			if (used <= 6) {
-				log("Horde: group %02u - leader %08X at %.0f %.0f, %.0f to its marker, runs %08X (its own: %d); %u "
-				    "following (%u on their package), %.0f units from it on average, %.0f at most; gate %s%s",
-				    gi, g.leader, leader->x, leader->y,
+				// The heights too: the marker goes to the leader's height
+				// (MoveTo ... 0), whatever the land does on the way.
+				const UInt32 leaderRef = LookupForm(g.leader);
+				const UInt32 marker = LookupForm(EspFormId(g_espBase, kMarkerLocalId + gi));
+				const float leaderZ = LooksLikeObject(leaderRef) ? FloatAt(leaderRef + kRefPositionOffset + 8) : 0.0f;
+				const float markerZ = LooksLikeObject(marker) ? FloatAt(marker + kRefPositionOffset + 8) : 0.0f;
+				log("Horde: group %02u - leader %08X at %.0f %.0f %.0f (marker z %.0f), %.0f to its marker, runs %08X "
+				    "(its own: %d); %u following (%u on their package), %.0f units from it on average, %.0f at most; "
+				    "gate %s%s",
+				    gi, g.leader, leader->x, leader->y, leaderZ, markerZ,
 				    horde_detail::Distance(leader->x, leader->y, g.targetX, g.targetY), leader->package,
 				    leader->package == g_settings.travelBase + gi ? 1 : 0, g.count, running,
 				    g.count > 0 ? sum / static_cast<float>(g.count) : 0.0f, most,

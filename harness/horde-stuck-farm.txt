@@ -6,7 +6,11 @@
 # FenceGateAnimation, REFR 000975ED at -191502, -21653, no lock) in its west
 # side; Maeva the Buxom (00185FE7) works it from 9 to 18. A look, not a
 # test: the player north of the field, facing south, a picture every 10 s,
-# the log's horde summaries beside them. tdetect: the walkers do not see the
+# the log's horde summaries beside them (with the leader's and the
+# marker's heights since 2026-11-11: the marker goes to the leader's height,
+# and the field lies on a hill - a marker 2000 units downhill may hang in the
+# air, which the travel package may not reach). Nadi, 2026-11-11: they stood
+# about the farm and followed him when he came - not fenced in. tdetect: the walkers do not see the
 # player; weather and time fixed (12:00 - Maeva in the field).
 #
 # Runs on OBVR's harness, from the OBVR folder:
