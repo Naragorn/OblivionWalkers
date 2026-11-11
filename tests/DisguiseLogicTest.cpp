@@ -122,7 +122,23 @@ void TestMessages() {
 
 }  // namespace
 
+// OBVR's smear gesture ('WGBL') names the corpse; only a dead walker's
+// blood disguises (Nadi, 2026-11-11 on Windows: a hand-to-hand fight, the
+// beaten NPC 00023502 fell by the hands - the disguise came on).
+void TestSmear() {
+	std::printf("OBVR's smear\n");
+	walkers::DisguiseSettings s;
+	s.enabled = true;
+	Check(walkers::SmearAccepted(s, true, true), "a dead walker's corpse: the disguise on");
+	Check(!walkers::SmearAccepted(s, false, true), "a dead person, no walker: nothing");
+	Check(!walkers::SmearAccepted(s, false, false), "a person knocked down, alive (the hand-to-hand fight): nothing");
+	Check(!walkers::SmearAccepted(s, true, false), "a walker alive (down, getting up): nothing");
+	s.enabled = false;
+	Check(!walkers::SmearAccepted(s, true, true), "the disguise off: nothing");
+}
+
 int main() {
+	TestSmear();
 	TestOffer();
 	TestBeginAndClock();
 	TestEnds();

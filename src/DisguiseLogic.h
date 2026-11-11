@@ -55,6 +55,12 @@ inline bool DisguiseOffered(const DisguiseSettings& s, const DisguiseState& st, 
 	return s.enabled && !st.asking && byPlayer && walker && dead && sneaking;
 }
 
+// OBVR's smear gesture ('WGBL'): only a dead walker's blood disguises - the
+// corpse it names is checked here, as the dialog's (2026-11-11: a person
+// beaten in a hand-to-hand fight fell by the player's hands and the disguise
+// came on).
+inline bool SmearAccepted(const DisguiseSettings& s, bool walker, bool dead) { return s.enabled && walker && dead; }
+
 // Yes (or OBVR's gesture): on, the full time.
 inline void BeginDisguise(DisguiseState& st, const DisguiseSettings& s) {
 	st.asking = false;

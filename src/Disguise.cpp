@@ -223,6 +223,15 @@ void NoteDisguiseSmear(UInt32 corpse) {
 	if (g_settings == nullptr || !g_settings->enabled) {
 		return;
 	}
+	const UInt32 ref = LookupForm(corpse);
+	const bool walker = LooksLikeObject(ref) && g_walker != nullptr && g_walker(ref);
+	const bool dead = walker && g_dead != nullptr && g_dead(ref);
+	if (!SmearAccepted(*g_settings, walker, dead)) {
+		g_log("Disguise: OBVR's gesture smeared from %08X - no disguise (walker %d, dead %d): only a dead walker's "
+		      "blood",
+		      corpse, walker ? 1 : 0, dead ? 1 : 0);
+		return;
+	}
 	g_log("Disguise: OBVR's gesture smeared from %08X", corpse);
 	Begin("OBVR's gesture");
 }

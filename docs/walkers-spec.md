@@ -2150,6 +2150,17 @@ then 4.20.1, with 4.20.5 as a cheap side dish.
 
 #### 4.20.1 Walker blood as a disguise - `[Disguise] Enabled=1`, `Seconds=180` - BUILT 2026-11-09
 
+**Bug fixed 2026-11-11 (Nadi, Windows):** in a hand-to-hand fight a beaten
+NPC (00023502) fell by the player's hands and the disguise came on - log
+"Disguise: OBVR's gesture smeared from 00023502", "on (OBVR's gesture)".
+Cause: Walkers took OBVR's 'WGBL' as it came; OBVR's side says "OBVR only
+sends dead bodies; which of them count is Walkers' call" (OBVR
+vr/WalkersDisguise.h), and Walkers never made that call. Now
+(`SmearAccepted`, DisguiseLogicTest TestSmear) the corpse must be a walker
+and dead, as for the dialog; otherwise "no disguise (walker 0, dead 0)".
+That OBVR took a knocked-down, living NPC for a dead body is OBVR's to look
+at (told).
+
 The player smears himself with a fallen walker's blood (activates its
 corpse, a choice in a small menu or a held activate): for a few game
 minutes the walkers take him for one of theirs and leave him be - until he
