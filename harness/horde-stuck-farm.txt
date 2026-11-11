@@ -1,0 +1,63 @@
+# Hordes standing still at Whitmond Farm (docs/walkers-spec.md 4.11c, the
+# finding of 2026-11-11): in the harness save four or five groups of nine
+# stand around -191200, -21700 for minutes, their travel packages on, the
+# leaders not getting on. Oblivion.esm puts Whitmond Farm's corn field there:
+# CornStalk flora, fence posts and slopes on its sides, a fence gate (DOOR
+# FenceGateAnimation, REFR 000975ED at -191502, -21653, no lock) in its west
+# side; Maeva the Buxom (00185FE7) works it from 9 to 18. A look, not a
+# test: the player north of the field, facing south, a picture every 10 s,
+# the log's horde summaries beside them. tdetect: the walkers do not see the
+# player; weather and time fixed (12:00 - Maeva in the field).
+#
+# Runs on OBVR's harness, from the OBVR folder:
+#   python3 tools/hand-script-run.py ../OblivionWalkers/harness/horde-stuck-farm.txt --headless \
+#       --artifact-root ../OblivionWalkers/artifacts/hand-script
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -47 -6
+console-at placed player.setpos x -191100
+console-at placed player.setpos y -20200
+console-at placed player.setpos z 1700
+console-at placed player.setangle z 180
+console-at close player.setpos x -191100
+console-at close player.setpos y -20900
+console-at close player.setpos z 1600
+console-at close player.setangle z 180
+console-at west player.setpos x -192300
+console-at west player.setpos y -21650
+console-at west player.setpos z 1600
+console-at west player.setangle z 90
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark placed
+wait 10
+mark t10
+wait 10
+mark t20
+wait 10
+mark close
+wait 10
+mark close10
+wait 10
+mark west
+wait 10
+mark west10
+wait 10
+mark end
+wait 2
