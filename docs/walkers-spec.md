@@ -2882,6 +2882,8 @@ roster line's counts.
   at its group's own marker (persistent, never freed); every load and new game aims all
   sixteen there; an aim at a leader that does not hold is refused and tried again
   (HordeLogic.h FollowTargetHolds, HordeLogicTest "The follow package's target").
+  `tools/horde-leader-gone.sh` 2026-11-11 07:58 PASS: groups formed, killall, every dead
+  leader's package aimed at its marker, none failed, the walkers up again.
   Not covered: a leader freed within the very frame he is still alive, enabled and
   loaded - the engine frees no such reference as far as read, not measured.
   Separately read by OBNG, cause unknown: the form heap 91 % and 99 % full at the two
@@ -2894,6 +2896,14 @@ roster line's counts.
   kept; since 2026-11-10 the last 20 sessions stay in OblivionWalkers-logs. Next: the
   log of the next sighting, or a harness run on the siege save killing walkers that are
   not beheaded and watching each risen one off its spot.
+  **Harness 2026-11-11 07:54 PASS, not reproduced** (`tools/rise-twitch.sh`, the spawn
+  replacement off for the run): killed standing, in flight (push 20), lying (push 5),
+  unloaded while it got up - all four raised and walked off within 20 s; killed by an
+  NPC (Oblivion.esm's 0002C0B9 as the killer) ended and stayed down. One earlier run
+  (2026-11-10 23:13, push 30, killer none) logged FF00114F "still on its spot" 20 s after
+  its raise - alive, health and fatigue full, high process, the horde's travel package
+  (type 6), not in combat; whether it lay or stood is not known (the knocked state is
+  logged since). Next: the log of Nadi's next sighting.
 
 - **OPEN 2026-10-28 night (Nadi, Windows, for the next day) - some walkers are peaceful**
   ("zombies waren teilweise friedlich zu mir auch zu guards"): some walkers neither attack

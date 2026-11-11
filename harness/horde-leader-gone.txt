@@ -17,6 +17,7 @@
 ini Hands Enabled=1
 ini Debug GripTrace=0
 ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
 console-at ready tgm
 console-at ready tdetect
 console-at ready cow Tamriel -29 5

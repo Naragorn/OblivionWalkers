@@ -1881,11 +1881,17 @@ void StepStandWatch(float dt) {
 			ActorValueOf(ref, 10, fatigue, fatigueBase);
 			bool high = false;
 			const UInt32 package = ActorPackageNow(e.refId, high);
-			g_log("Risen: %08X (%s) still on its spot %u s after the raise - dead %d, health %.0f of %.0f, fatigue "
-			      "%.0f of %.0f, 3D %d, high process %d, package %08X type %u, combat %d, flags %08X",
-			      e.refId, e.how, (now - e.startMs) / 1000, IsDead(ref) ? 1 : 0, health, healthBase, fatigue,
+			// The high process's knocked state (xOBSE GameProcess.h
+			// MiddleHighProcess::knockedState, SInt8 at +0x11C; 0 standing).
+			const UInt32 process = high ? Read(ref + kMobileProcessOffset) : 0;
+			const int knocked = LooksLikeObject(process) ? static_cast<int>(*reinterpret_cast<const signed char*>(process + 0x11C)) : -1;
+			g_log("Risen: %08X (%s) still on its spot %u s after the raise - dead %d, knocked state %d, health %.0f of "
+			      "%.0f, fatigue %.0f of %.0f, 3D %d, high process %d, package %08X type %u, combat %d, flags %08X, at "
+			      "%.0f %.0f %.0f",
+			      e.refId, e.how, (now - e.startMs) / 1000, IsDead(ref) ? 1 : 0, knocked, health, healthBase, fatigue,
 			      fatigueBase, Read(ref + kRefNiNodeOffset) != 0 ? 1 : 0, high ? 1 : 0, package,
-			      PackageType(package), ActorInCombat(e.refId) ? 1 : 0, Read(ref + 8));
+			      PackageType(package), ActorInCombat(e.refId) ? 1 : 0, Read(ref + 8), FloatAt(ref + kRefPositionOffset),
+			      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8));
 		}
 		DropStand(g_stand, i);
 	}
