@@ -1287,7 +1287,17 @@ read) - to measure with OBNG's census once a run shows hordes waiting.
 Walkers that walk out of the grid may leave the process lists and their
 group (as any walker out of reach - the group is formed anew when they come
 back in). Harness: `harness/horde-gate-wait.txt` via
-`tools/horde-gate-wait.sh` - not run yet (the Linux game was held).
+`tools/horde-gate-wait.sh`. Run 1 (2026-11-11 11:12, Linux, headless,
+`artifacts/hand-script/horde-gate-wait/20261111-111253/`): "Horde: on" with
+1 and 8000; a group held at Anvil Main Gate, and a second group near it
+waited ("group 02 waits out of the player's grid near Anvil Main Gate -
+marker at -180139 -24623, the player 1817 units from the gate") - the cap
+seen. Not seen: the holding group going off with the player away, and a
+waiting group moving up - the hold began a siege at once (4.12), its
+walkers joined the groups (a group led by siege walker 2600095A) and went
+back to the pool when the player left, so neither group was left for those
+steps. The runner now turns [Siege] Enabled off for the run (restored
+after); run 2 queued.
 
 ### 4.12 City siege - `[Siege] Enabled=1`, `WalkersAtGate=24`, `ChancePerDayPercent=10`, `WalkersMin=40`, `WalkersMax=120`, `PauseDays=3` (designed 2026-10-26, built 2026-11-04)
 
