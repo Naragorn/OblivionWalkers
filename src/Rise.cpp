@@ -143,6 +143,7 @@ UInt32 g_levelingIndex = 0x100;
 // settings since the game's load, and the second's clock.
 bool g_linkLoaded = false;
 bool g_linkSynced = false;
+UInt32 g_linkLoadFrame = 0;  // g_frame at the last load or new game
 float g_linkClock = 0.0f;
 // The kills by the player whose experience the log checks a frame later:
 // ULVL.XP read before Ultimate Leveling's handler of the death, and after.
@@ -2257,7 +2258,19 @@ void StepLink(float dt) {
 	}
 	if (!g_linkSynced) {
 		g_linkSynced = true;
-		if (StartOf(g_linkLoaded, *version) == LinkStart::WriteIni) {
+		static double values[kLinkSettingCount];
+		UInt32 read = 0;
+		for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+			const double* var = QuestVariable(quest, kLinkSettings[i].var);
+			values[i] = var != nullptr ? *var : -1.0;
+			read += var != nullptr ? 1u : 0u;
+		}
+		const bool empty = LinkLooksEmpty(values, kLinkSettingCount);
+		g_log("LINK: first look %u frames after the load - version %.0f, %u of %u variables there, values %s "
+		      "(ini_rise_after %.0f, ini_speed_multiplier %.2f)",
+		      g_frame - g_linkLoadFrame, *version, read, kLinkSettingCount, empty ? "EMPTY" : "set", values[2],
+		      values[10]);
+		if (StartOf(g_linkLoaded, *version, empty) == LinkStart::WriteIni) {
 			UInt32 written = 0;
 			for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
 				double* var = QuestVariable(quest, kLinkSettings[i].var);
@@ -2269,7 +2282,9 @@ void StepLink(float dt) {
 			const double was = *version;
 			*version = kLinkVersion;
 			g_log("LINK: %s - the plugin INI's values written into the quest's %u of %u variables (version %.0f was %.0f)",
-			      g_linkLoaded ? "loaded, the save had none of this version" : "not loaded, the plugin INI decides",
+			      !g_linkLoaded ? "not loaded, the plugin INI decides"
+			                    : (empty && was == kLinkVersion ? "loaded, the save had this version but no values (guard)"
+			                                                    : "loaded, the save had none of this version"),
 			      written, kLinkSettingCount, kLinkVersion, was);
 			return;
 		}
@@ -2741,6 +2756,7 @@ bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
 
 void OnLoad(void*) {
 	g_linkSynced = false;
+	g_linkLoadFrame = g_frame;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
 	g_stand = StandWatch{};
@@ -2868,6 +2884,7 @@ void OnLoad(void*) {
 
 void OnNewGame(void*) {
 	g_linkSynced = false;
+	g_linkLoadFrame = g_frame;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
 	g_stand = StandWatch{};
@@ -2921,6 +2938,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_mooLooked = false;
 	g_mooStrip = MooStrip{};
 	g_linkSynced = false;
+	g_linkLoadFrame = g_frame;
 	WriteLinkFiles();
 	if (xse.QueryInterface == nullptr) {
 		log("xOBSE offers no QueryInterface: no death watch");

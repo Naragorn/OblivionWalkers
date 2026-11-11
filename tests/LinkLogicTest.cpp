@@ -418,6 +418,40 @@ void TestStart() {
 	      "a version not this one: the INI's values again");
 }
 
+// 2026-11-11 (Nadi's Windows log, OBVR's find): two loads read version 32
+// and every setting 0 - every slider dropped to its least. A save whose
+// settings with a least above 0 all read 0 holds no LINK values worth
+// taking: the INI's values go in instead (a guard; the cause is open).
+void TestEmpty() {
+	std::printf("A save with the version but no values\n");
+	using walkers::kLinkSettingCount;
+	using walkers::kLinkSettings;
+	static double values[kLinkSettingCount];
+	walkers::RiseSettings rise;
+	walkers::ReplaceSettings replace;
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		values[i] = walkers::LinkValue(rise, replace, i);
+	}
+	Check(!walkers::LinkLooksEmpty(values, kLinkSettingCount), "the INI's values: not empty");
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		values[i] = 0.0;
+	}
+	Check(walkers::LinkLooksEmpty(values, kLinkSettingCount), "every value 0: empty");
+	UInt32 least = 0;
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		if (kLinkSettings[i].min > 0.0f) {
+			least = i;
+			break;
+		}
+	}
+	values[least] = kLinkSettings[least].min;
+	Check(!walkers::LinkLooksEmpty(values, kLinkSettingCount),
+	      "one setting with a least above 0 at its least: a value taken - not empty");
+	Check(walkers::StartOf(true, walkers::kLinkVersion, true) == walkers::LinkStart::WriteIni &&
+	          walkers::StartOf(true, walkers::kLinkVersion, false) == walkers::LinkStart::ReadLink,
+	      "this version but empty: the INI's values; this version with values: LINK's");
+}
+
 void TestFiles() {
 	std::printf("The files LINK reads\n");
 	walkers::RiseSettings rise;
@@ -450,6 +484,7 @@ int main() {
 	TestValues();
 	TestEffects();
 	TestStart();
+	TestEmpty();
 	TestFiles();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

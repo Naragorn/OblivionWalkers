@@ -2150,6 +2150,19 @@ then 4.20.1, with 4.20.5 as a cheap side dish.
 
 #### 4.20.1 Walker blood as a disguise - `[Disguise] Enabled=1`, `Seconds=180` - BUILT 2026-11-09
 
+**LINK values lost, 2026-11-11 (Nadi's Windows log, found by OBVR):** two
+loads read `ini_version` 32 and every setting 0 - every slider to its
+least (rise off, hordes off, speed 0.2); a load of the same session's day
+before had read good values; never seen in older logs. OBVR writes no quest
+variables (its laser only clicks LINK's menu). Cause open; candidates: a
+save holding zeros, or b021941's first sync at the first tick after a load
+reading before the engine restored the quest's variables. Guard
+(`LinkLooksEmpty`, `StartOf(..., empty)`, LinkLogicTest TestEmpty): this
+version but every setting with a least above 0 reading 0 - the INI's values
+go in ("the save had this version but no values (guard)"). Diagnosis: the
+first look logs the frames since the load, the version, how many variables
+were found and two raw values - the harness's load-save-load to settle it.
+
 **Bug fixed 2026-11-11 (Nadi, Windows):** in a hand-to-hand fight a beaten
 NPC (00023502) fell by the player's hands and the disguise came on - log
 "Disguise: OBVR's gesture smeared from 00023502", "on (OBVR's gesture)".

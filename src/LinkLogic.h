@@ -691,8 +691,26 @@ enum class LinkStart : UInt8 {
 
 // At a game load: without LINK the plugin INI decides, always; with LINK the
 // save's values do, once the plugin wrote this version's into them.
-inline LinkStart StartOf(bool linkLoaded, double storedVersion) {
-	return linkLoaded && storedVersion == kLinkVersion ? LinkStart::ReadLink : LinkStart::WriteIni;
+// `empty` (LinkLooksEmpty): this version but no values - the INI's go in.
+inline LinkStart StartOf(bool linkLoaded, double storedVersion, bool empty = false) {
+	return linkLoaded && storedVersion == kLinkVersion && !empty ? LinkStart::ReadLink : LinkStart::WriteIni;
+}
+
+// 2026-11-11 (Nadi's Windows log): loads read version 32 and every setting 0.
+// Values in which every setting with a least above 0 reads 0 hold nothing
+// worth taking. A guard - the cause is open (docs/walkers-spec.md, LINK).
+inline bool LinkLooksEmpty(const double* values, UInt32 count) {
+	UInt32 checked = 0;
+	for (UInt32 i = 0; i < count && i < kLinkSettingCount; ++i) {
+		if (kLinkSettings[i].min <= 0.0f) {
+			continue;
+		}
+		++checked;
+		if (values[i] != 0.0) {
+			return false;
+		}
+	}
+	return checked > 0;
 }
 
 namespace link_detail {
