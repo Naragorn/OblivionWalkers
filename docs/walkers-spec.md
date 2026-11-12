@@ -2190,7 +2190,11 @@ LINKOnClickGenericModsConfigMenuDefaultsLoadIniFunctionScript). Harness
 each load "first look 1 frames after the load - version 32, 174 of 174
 variables there, values set", "the save's values decide", no change after:
 the first tick reads the save's values, and they survive. The Windows zeros
-are not reproduced; open (the Windows LINK, the save Nadi loaded).
+are not reproduced; open (the Windows LINK, the save Nadi loaded). Again
+2026-11-12 09:56 with 5ba1a32: PASS - the checker
+(tools/link-save-load-check.py) judges only the script's two reloads; the
+harness's own save loads before them with no Walkers values (version 0,
+EMPTY - right there, the guard writes the INI's).
 
 **Bug fixed 2026-11-11 (Nadi, Windows):** in a hand-to-hand fight a beaten
 NPC (00023502) fell by the player's hands and the disguise came on - log
@@ -2949,9 +2953,16 @@ Harness `harness/slow-aggression-rouse.txt` via
 `tools/slow-aggression-rouse.sh`, 2026-11-11 18:55 (Linux, headless): roused
 - "walker FF000FCA roused ... its time near 00000014 ran out; Aggression
 above its record 0, now 100; ModAV Aggression 100 answered 1" - so ModAV
-works per creature reference. Not seen: the calming - the roused walker
-followed the player the 4700 units away (an undead's own chase), so
-someone stayed near; the test needs the player out of its reach. Farm A/B
+works per creature reference. Not seen then: the calming - corrected
+2026-11-12: not the walker following the player, but the place (-29,5, a
+deer herd's spawn points): others stayed near and one killed the walker.
+Run 2026-11-12 09:58 at -29,-11 (no Oblivion.esm spawn or placed actor
+within three cells; the player 3000 east): "walker FF000F9D roused (its
+time near FF000F8D ran out ...)", then "calms down (nobody near for 10 s;
+Aggression above its record 100, now 0; ModAV Aggression -100 answered 1)"
+- the calm PASS. Three of MOO's people (2301CAEE x3, load index 0x23)
+stood there and roused it first, not the player; the checker lists them,
+a note now, not a failure. Farm A/B
 of 18:57/19:00 with the rouse: the groups now form and walk (leaders 1000
 to 2500 units in a run, against 0 and groups broken up before) - the stuck
 farm was the fight resent every second. Gate run 4 (19:02): PASS, every
