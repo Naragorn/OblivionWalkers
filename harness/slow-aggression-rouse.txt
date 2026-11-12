@@ -2,13 +2,20 @@
 # Nadi: "warum dann nicht einfach wieder auf 100 setzen sobald der timer weg
 # ist"). A walker (the ESP's 0x801) 600 units in front of the player: after
 # its drawn 5..10 s it is roused - "walker ... roused" with its Aggression
-# above its record 100 - and fights; the player then steps 4000 units away
-# (beyond SlowAggressionUnits 1000, nobody else near): after
-# SlowAggressionCalmSeconds (10) "calms down" and its Aggression is back at
-# the record's. At Tamriel -29,5 (the middle -116736, 22528; away to
-# x -112000). tgm: the player does not die; weather and time fixed; the
-# spawn replacement off for the run (tools/slow-aggression-rouse.sh), so the
-# walker is alone. Run through tools/slow-aggression-rouse.sh.
+# above its record 100 - and fights; the player then goes 3000 units away
+# (beyond SlowAggressionUnits 1000; the walker, 17-18 units/s, comes about
+# 450 nearer in 25 s): after SlowAggressionCalmSeconds (10) with nobody near
+# it "calms down" and its Aggression is back at the record's.
+# The place: Tamriel -29,-11 (middle -116736, -43008), no spawn point and no
+# placed actor of Oblivion.esm within three cells (artifacts/esm, made by
+# tools/esm-spawns.py, 2026-11-12). The first run at -29,5 (2026-11-11) sat
+# among a deer herd's spawn points: a deer and two others stayed near the
+# walker and one of them killed it - no calm to see. Mods may still put
+# someone there: the checker lists every "time near" that is not the player.
+# Away: 3000 east, from 4000 high (tgm: the fall does nothing). Weather and
+# time fixed; the spawn replacement off for the run
+# (tools/slow-aggression-rouse.sh), so the walker is alone. Run through
+# tools/slow-aggression-rouse.sh.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
@@ -18,12 +25,12 @@ console-at ready tgm
 console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready fw 00038EEE
-console-at ready cow Tamriel -29 5
+console-at ready cow Tamriel -29 -11
 console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1
 console-at placed player.setangle z 0
 console-at placed {actor}.moveto player 0 600 0
-console-at away player.setpos x -112000
-console-at away player.setpos z 2500
+console-at away player.setpos x -113736
+console-at away player.setpos z 4000
 
 expect HandScript: finished
 reject HandScript: WARNING
