@@ -3695,11 +3695,13 @@ frame, the most of a 10 s period in brackets:
 | actors off the list, bases by binary search, records looked up once (298539c, d046f84) | - | (load changed, see below) |
 | the log file kept open, the per-walker walk lines bounded (3d73866) | walkers 50-85 us (5.6 ms), horde 30-70 us (5.8 ms), frame most 5-6.7 ms | walkers 17-21 us (0.26 ms), horde 5-8 us (0.5 ms), frame most 1.8 ms |
 | the grab's lunge by the engine's SetPos/SetAngle calls, not console lines (d2070a2) | grab 104 us, console 96 us (57 MoveTo + 53 SetAngle in 10 s), tick 148 us | grab 35 us, console 10-16 us (1-2 MoveTo), tick 95 us |
+| the grab's shock sound (PlaySound) and the bites' and struggle's ModAV2 by the engine's calls (9c53e2b) | console 10-16 us, PlaySound 0.9-3 ms a grab | grab 27-30 us, console 2-3 us (2-4 lines in 10 s); "shock sound 1 (... made 1)", the bites "-10", "-10", "-49" as before |
 
 The first runs at the farm's hordes (61 walkers once, 10 the next) were
 not comparable - the fixed 60 since 2026-11-13 14:0x. Spikes of 1-4 ms in
 steps that do almost nothing (the dungeons' once a second) look like the
-thread being preempted under Wine - not shown, not chased. Left: a console
-PlaySound (the grab's shock sound) 0.9-3 ms once a grab, ModAV2 (the bites)
-~170 us each, the horde markers' MoveTo (they change cell - SetPos would
-not) ~400 us each a few times a minute.
+thread being preempted under Wine - not shown, not chased. Left: the horde
+markers' MoveTo (they change cell - SetPos would not) ~300-400 us each a
+few times a minute, the horde's AddScriptPackage, the slow aggression's
+ModAV and StartCombat (a walker roused). Not heard in the harness: whether
+the shock sound sounds - the log only says the engine made it.
