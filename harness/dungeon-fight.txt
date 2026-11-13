@@ -17,6 +17,9 @@ console-at ready set gamehour to 12
 console-at ready fw 00038EEE
 console-at ready cow Tamriel -9 19
 console-at inside coc FortAsh01
+console-at seen CloseAllMenus
+console-at t30 CloseAllMenus
+console-at t70 CloseAllMenus
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -30,7 +33,9 @@ wait 16
 mark outside
 wait 2
 mark inside
-wait 30
+wait 5
+mark seen
+wait 25
 mark t30
 wait 40
 mark t70

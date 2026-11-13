@@ -22,12 +22,15 @@ case "$mode" in
 	notice) state=1; walkers=8; behead=0; scenario=dungeon-notice; site="Fort Ash" ;;
 	*) echo "mode: siege | taken | fight | clear | talk | runner | paper | notice" >&2; exit 2 ;;
 esac
+# fight only: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
+people="${2:-8}"
+if [[ "$mode" == "fight" && -n "${3:-}" ]]; then walkers="$3"; fi
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
-python3 - "$ini" "$state" "$walkers" "$behead" "$site" "$mode" <<'INI'
+python3 - "$ini" "$state" "$walkers" "$behead" "$site" "$mode" "$people" <<'INI'
 import re, sys
-path, state, walkers, behead, site, mode = sys.argv[1:7]
+path, state, walkers, behead, site, mode, people = sys.argv[1:8]
 text = open(path, encoding="latin-1", newline="").read()
 
 def put(text, section, key, value):
@@ -45,7 +48,7 @@ def put(text, section, key, value):
 
 for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"),
                    ("AttackWalkersMin", walkers), ("AttackWalkersMax", walkers), ("WalkersAtOnce", "6"),
-                   ("PeopleMin", "8"), ("PeopleMax", "8"), ("Journal", "1"), ("Rumors", "1"),
+                   ("PeopleMin", people), ("PeopleMax", people), ("Journal", "1"), ("Rumors", "1"),
                    # the test site alone: it is the news, and its quest the one told
                    ("ActiveMin", "1"), ("ActiveMax", "1"),
                    # a runner for help only in his own run
