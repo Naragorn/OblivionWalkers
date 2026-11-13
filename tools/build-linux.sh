@@ -4,7 +4,7 @@
 # unit tests natively (clang++ -m32). Releases are built with MSVC on Windows;
 # this is the build for working on Linux.
 #
-#   tools/build-linux.sh            tests, then the DLL into build-linux/
+#   tools/build-linux.sh            tests and the INI check, then the DLL into build-linux/
 #   tools/build-linux.sh --deploy   also copy the DLL (and the INI, if none is
 #                                   there yet) into every game's Data/OBSE/Plugins,
 #                                   the ESP (tools/esp-write.py, its file time in
@@ -61,6 +61,8 @@ game_running() {
 cmake -S "$root/tests" -B "$root/build-linux-tests" -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS=-m32 >/dev/null
 cmake --build "$root/build-linux-tests"
 ctest --test-dir "$root/build-linux-tests" --output-on-failure
+# The shipped INI as the game's reader takes it (a comment without its ";").
+python3 "$root/tools/ini-check.py" "$root/OblivionWalkers.ini"
 
 cmake -S "$root" -B "$root/build-linux" -G Ninja -DCMAKE_BUILD_TYPE=Release \
 	--toolchain "$root/cmake/toolchain-linux-clang-cl.cmake" >/dev/null
