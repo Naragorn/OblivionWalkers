@@ -1,0 +1,41 @@
+# The refugees' dialogue before a place to clear (docs/walkers-spec.md
+# 4.20.7, step 4). tools/dungeon-walkers.sh talk sets [Dungeons]
+# TestSite=Echo Mine, TestSiteState=3: the kit waits outside.
+# - outside (Tamriel -27,9, Echo Mine's door): "news - now 3: Echo Mine",
+#   then, met within 1500 units, "journal - Echo Mine: stage 30 (seen ...",
+#   "news - now 0", "talk - the kit's people speak as 3";
+# - talk: the kit's first man activated for the player - the dialogue menu
+#   with his greeting (state 3) and the topics "What happened?" and "How can
+#   I help?"; the picture at 'talked' is the proof (a look).
+# Run through tools/dungeon-walkers.sh talk.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -27 9
+console-at outside CloseAllMenus
+console-at talk "{form:OblivionWalkers.esp:A47}".activate player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 18
+mark outside
+wait 3
+mark talk
+wait 4
+mark talked
+wait 3
+mark end
+wait 1

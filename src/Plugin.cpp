@@ -178,6 +178,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.slowAggression.calmSeconds = IniFloat("Zombies", "SlowAggressionCalmSeconds", 10.0f, path);
 	rise.dungeonsOnlyChosen = GetPrivateProfileIntA("Dungeons", "OnlyChosen", 0, path) != 0;
 	rise.dungeons.walkersAtOnce = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WalkersAtOnce", 6, path));
+	rise.dungeons.journal = GetPrivateProfileIntA("Dungeons", "Journal", 1, path) != 0;
+	rise.dungeons.rumors = GetPrivateProfileIntA("Dungeons", "Rumors", 1, path) != 0;
 	rise.dungeonsTestSiteState = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "TestSiteState", 1, path));
 	rise.stepTiming = GetPrivateProfileIntA("Debug", "StepTiming", 0, path) != 0;
 	GetPrivateProfileStringA("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);

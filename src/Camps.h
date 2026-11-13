@@ -32,6 +32,14 @@ void ConfigureCampsEsp(UInt32 espBase);
 // off its attack or its walkers. False for any other.
 bool NoteCampWalkerEnded(UInt32 refId);
 
+// The refugees' reward by the camps' settings (RewardFame and FamePoints,
+// RewardGold and Gold, RewardThings: a thing for each of `alive`), given to
+// the player - for a held dungeon defended or taken (4.20.7); `what` gets
+// " (+N fame, N gold, ...)" or stays empty.
+void GiveRefugeeReward(UInt32 alive, char* what, UInt32 size);
+// Vanilla's quest-updated sound.
+bool PlayQuestSound();
+
 // One of the camps' pool of walkers, out at a camp now (no horde takes it).
 bool IsCampWalker(UInt32 refId);
 

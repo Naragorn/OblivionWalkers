@@ -263,6 +263,165 @@ SLEEP_TEMPLATE = 0x000A3A5A   # aaaSleepCurrent22x8: sleep near the current loca
 DISGUISE_TEMPLATE = 0x00079118
 REFUGEE_WANDER_UNITS = 600
 ESCORT_FOLLOW_UNITS = 200
+# The held dungeons' journal (4.20.7 step 4, src/DungeonQuestLogic.h): a quest
+# for every candidate of src/DungeonCandidates.h - WalkersDungeonNNN, its
+# local ID down from 0xFFF by the candidate's index (the camps' props end
+# below them in the ESL and step over them in the plain ESP), named after the
+# place, repeated stages allowed (DATA flag 0x08: a place is besieged more
+# than once), one log entry a stage, and the place's map marker its target
+# (no condition - build_dungeon_quest). Layout as Oblivion.esm's MS12 (read
+# 2026-11-13): EDID, FULL, ICON, DATA flags and priority; a stage INDX (16
+# bits), QSDT (1 completes the quest), CNAM, an empty SCHR of type 1; a
+# target QSTA (the reference, flags).
+QUEST_REPEATED_STAGES = 0x08
+QUEST_ICON = "Quest\\icon_miscellaneous.dds"
+GET_STAGE = 58
+STAGE_SCHR = bytes(16) + struct.pack("<I", 1)
+# (stage, completes, the log entry - {name} the place's)
+DUNGEON_STAGES = [
+    (5, False, "Word is that people who fled the walkers have holed up at {name}. I have marked the place on my map. "
+               "I could look in on them."),
+    (10, True, "Refugees hold {name}. They have barred themselves in against the walkers and trade what little they "
+               "have. I am welcome among them."),
+    (20, False, "Walkers are storming {name}, and the refugees inside cannot hold them off for long. I should help "
+                "them fight the dead off."),
+    (30, False, "A band of refugees waits outside {name}. They dare not go in: the place is not empty. If I clear it "
+                "out, they can make it their refuge."),
+    (40, False, "{name} is lost. Whoever held it is dead, and the dead walk its halls. If I put every last one of "
+                "them down, the living could take the place again."),
+    (50, True, "The walkers at {name} are beaten. The refugees hold the place, and they will not forget my help."),
+    (55, True, "The refugees of {name} have beaten the walkers off without me. They hold the place still."),
+    (60, True, "{name} is cleared. Refugees have moved in and barred the doors - it is a refuge now."),
+    (90, True, "Nobody is left at {name}. The refugees have moved on."),
+]
+
+
+# The held dungeons' dialogue and rumors (4.20.7 step 4; the IDs are
+# src/DungeonQuestLogic.h's): a dialogue quest above the escort's (55 - the
+# kit's people are of the camps' bases, their own lines go first), a global
+# for how the place the kit stands at is (1 a refuge, 2 besieged, 3 waiting
+# before a place to clear, 4 a refuge the player defended or cleared), and
+# for every line the speaker one of the kit's thirteen references
+# (GetIsReference, 136 - the game's command table, read 2026-11-13: opcode
+# 0x1088) and that global at its value. Silent lines, as the escort's.
+# The rumors: a global for the news' kind (1 a refuge, 2 a siege, 3 a place
+# to clear, 4 a fallen place); a rumor of each kind, said before the game's
+# while there is such news, sets "heard" - the plugin tells the place then
+# (its quest names it, its map marker is shown).
+DUNGEON_TALK_PRIORITY = 55
+GET_IS_REFERENCE = 136
+DUNGEON_GREETINGS = [
+    (1, "You're no walker, so you're welcome here. Keep your voice down, though - the dead have sharp ears."),
+    (2, "They're at the door! If you can fight, then fight - we can't hold them much longer!"),
+    (3, "Don't go in there unprepared. We meant to shelter in this place, but something lives in it already."),
+    (4, "We're alive because of you. Nobody here will forget that."),
+]
+DUNGEON_WHAT = [
+    ((1, 4), "We ran when the dead came through our village. This place has thick walls and one way in. "
+             "That's more than most have left."),
+    ((2,), "They followed someone back here, and now they won't stop coming. For every one we put down, another "
+           "takes its place."),
+    ((3,), "We've walked for days. This place would do - strong walls, one way in. But it isn't empty, and we're "
+           "no fighters."),
+]
+DUNGEON_HELP = [
+    ((1,), "We manage. If you have food or arms to spare, our trader pays a fair price. And if you meet others on "
+           "the road, tell them there's room here."),
+    ((2,), "Stand with us and put the dead down for good. Take their heads, or they get up again."),
+    ((3,), "Clear the place out, every room of it. When nothing's left alive in there, we'll move in and bar the "
+           "door behind us."),
+    ((4,), "You've done enough. Rest, trade, stay as long as you like."),
+]
+DUNGEON_RUMORS = [
+    (1, "Folk who fled the walkers have holed up in an old place out in the wilds, they say. Here, I'll mark it on "
+        "your map. Might be they'd welcome a friendly face."),
+    (2, "A fellow came through here half out of his wits. Said there's refugees trapped in an old place out in the "
+        "wilds, and walkers at their door. I'll mark it on your map - somebody ought to help them."),
+    (3, "I heard of folk camped outside an old place in the wilds. Too frightened of what's inside to go in, too "
+        "frightened of the dead to stay out. I'll mark it on your map."),
+    (4, "You hear about that refuge out in the wilds? Gone. The dead got in, and now they have the run of the "
+        "place. I'll mark it on your map, so you can stay well clear of it. Or not."),
+]
+
+
+def dungeon_talk_ids() -> dict[str, int]:
+    text = (HERE.parent / "src" / "DungeonQuestLogic.h").read_text()
+    ids = {}
+    for name in ("kDungeonTalkQuestLocalId", "kDungeonTalkGlobalLocalId", "kDungeonNewsGlobalLocalId",
+                 "kDungeonHeardGlobalLocalId", "kDungeonTopicWhatLocalId", "kDungeonTopicHelpLocalId",
+                 "kDungeonLineFirstLocalId"):
+        ids[name] = int(re.search(name + r" = (0x[0-9A-Fa-f]+);", text).group(1), 16)
+    ids["kDungeonLineCount"] = int(re.search(r"kDungeonLineCount = (\d+);", text).group(1))
+    ids["kDungeonRumorCount"] = int(re.search(r"kDungeonRumorCount = (\d+);", text).group(1))
+    if "kDungeonRumorFirstLocalId = kDungeonLineFirstLocalId + kDungeonLineCount;" not in text:
+        raise SystemExit("DungeonQuestLogic.h's rumors do not follow the lines")
+    ids["kDungeonRumorFirstLocalId"] = ids["kDungeonLineFirstLocalId"] + ids["kDungeonLineCount"]
+    return ids
+
+
+def kit_conditions(kit_refs: list[int], global_form: int, values: tuple) -> bytes:
+    """The speaker one of the kit's references (GetIsReference, OR'd), and
+    the global at one of `values` (OR'd)."""
+    out = b""
+    for k, ref in enumerate(kit_refs):
+        flag = CONDITION_OR if k < len(kit_refs) - 1 else 0
+        out += subrecord(b"CTDA", struct.pack("<B3xfIIII", flag, 1.0, GET_IS_REFERENCE, ref, 0, 0))
+    for k, value in enumerate(values):
+        flag = CONDITION_OR if k < len(values) - 1 else 0
+        out += subrecord(b"CTDA", struct.pack("<B3xfIIII", flag, float(value), GET_GLOBAL_VALUE, global_form, 0, 0))
+    return out
+
+
+def build_news_rumor(quest_form: int, news_global: int, kind: int, text: str, heard_global: int) -> bytes:
+    """A line of the Rumors topic as build_rumor's, said while the news'
+    global is `kind`; its result script sets "heard" (SET_GLOBAL_*)."""
+    out = subrecord(b"DATA", bytes([1, 0, 0]))
+    out += subrecord(b"QSTI", struct.pack("<I", quest_form))
+    out += subrecord(b"TRDT", struct.pack("<IiIB3s", 0, 50, 0, 1, b"\0\0\0"))
+    out += subrecord(b"NAM1", zstring(text))
+    out += subrecord(b"NAM2", b"\0")
+    out += subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, float(kind), GET_GLOBAL_VALUE, news_global, 0, 0))
+    out += subrecord(b"SCHR", SET_GLOBAL_SCHR) + subrecord(b"SCDA", SET_GLOBAL_SCDA)
+    out += subrecord(b"SCTX", b"set WalkersDungeonHeard to 1")
+    out += subrecord(b"SCRO", struct.pack("<I", heard_global))
+    return out
+
+
+def dungeon_candidates() -> list[tuple[str, int]]:
+    """src/DungeonCandidates.h's places in its order: (name, map marker)."""
+    text = (HERE.parent / "src" / "DungeonCandidates.h").read_text()
+    rows = re.findall(r'\{"([^"]+)", DungeonKind::\w+, \{[^}]*\}, \d+, 0x[0-9A-Fa-f]+, (0x[0-9A-Fa-f]+),', text)
+    count = int(re.search(r"// (\d+) of \d+ dungeons", text).group(1))
+    if len(rows) != count:
+        raise SystemExit(f"DungeonCandidates.h: {len(rows)} rows read, its header says {count}")
+    return [(name, int(marker, 16)) for name, marker in rows]
+
+
+def dungeon_quest_local(candidate: int) -> int:
+    text = (HERE.parent / "src" / "DungeonQuestLogic.h").read_text()
+    last = int(re.search(r"kDungeonQuestLastLocalId = (0x[0-9A-Fa-f]+);", text).group(1), 16)
+    if "return kDungeonQuestLastLocalId - candidate;" not in text:
+        raise SystemExit("DungeonQuestLogic.h's quest IDs are not counted down from the last")
+    return last - candidate
+
+
+def build_dungeon_quest(quest_form: int, candidate: int, name: str, marker: int) -> bytes:
+    out = subrecord(b"EDID", zstring(f"WalkersDungeon{candidate:03d}"))
+    out += subrecord(b"FULL", zstring(f"Refugees at {name}"))
+    out += subrecord(b"ICON", zstring(QUEST_ICON))
+    out += subrecord(b"DATA", bytes([QUEST_REPEATED_STAGES, 0]))
+    for stage, completes, text in DUNGEON_STAGES:
+        out += subrecord(b"INDX", struct.pack("<H", stage))
+        out += subrecord(b"QSDT", bytes([1 if completes else 0]))
+        out += subrecord(b"CNAM", zstring(text.format(name=name)))
+        out += subrecord(b"SCHR", STAGE_SCHR)
+    # The target without a condition: a completed quest cannot be the active
+    # one, so the marker is the target just while there is something to do.
+    # GetStage would not do: with repeated stages the engine's stage stays
+    # the highest ever set (measured 2026-11-13: SetStage 20 after 50 wrote
+    # the log entry, the quest stayed "at stage 50").
+    out += subrecord(b"QSTA", struct.pack("<IB3x", marker, 0))
+    return out
 
 
 def load_places_module():
@@ -570,11 +729,13 @@ def group(label: bytes, records: bytes) -> bytes:
 # ESLHooks.cpp, read 2026-10-28) reads off the TES4 record's flags: 0x200 as
 # the TES4Edit custom build sets it (0x80000 is its own, also taken). With
 # it OblivionESL loads the ESP as a light plugin, its forms at 0xFE |
-# light index << 12 | local ID - every local ID must lie in 0x800..0xFFF and
-# there may be 2048 records at most.
+# light index << 12 | local ID - every local ID must lie in 0x800..0xFFF
+# (ESLManager.h kMinLocalID, kMaxLocalID; ESLLoadPatch.cpp drops an own record
+# below 0x800 and counts one past 0xFFF as bad). No count of records is
+# looked at (master, read again 2026-11-13) - the 2048 are the IDs of that
+# range, and a record overriding a master's (a cell, a topic) takes none.
 ESL_FLAG = 0x200
 LIGHT_LOCAL_LAST = 0xFFF
-LIGHT_RECORDS_MOST = 2048
 
 
 def header(num_records: int, next_object_id: int, masters: list[str], flags: int = 0) -> bytes:
@@ -871,7 +1032,7 @@ def build_rumor(quest_form: int, global_form: int, text: str, flags: int = 0) ->
 
 
 def build_line(quest_form: int, text: str, conditions: bytes, flags: int = 0, add_topic: int = 0,
-               set_global: int = 0, set_name: str = "") -> bytes:
+               set_global: int = 0, set_name: str = "", add_topics: tuple = ()) -> bytes:
     """A topic's line (4.20.6's escort): DATA (type 0, a topic's, as GREETING
     is), QSTI the quest, PNAM none (first), NAME the topic it adds, TRDT
     neutral, NAM1 the text, NAM2 no notes, the conditions, then no script or
@@ -881,6 +1042,8 @@ def build_line(quest_form: int, text: str, conditions: bytes, flags: int = 0, ad
     out += subrecord(b"PNAM", struct.pack("<I", 0))
     if add_topic:
         out += subrecord(b"NAME", struct.pack("<I", add_topic))
+    for topic in add_topics:
+        out += subrecord(b"NAME", struct.pack("<I", topic))
     out += subrecord(b"TRDT", struct.pack("<IiIB3s", 0, 50, 0, 1, b"\0\0\0"))
     out += subrecord(b"NAM1", zstring(text))
     out += subrecord(b"NAM2", b"\0")
@@ -1165,6 +1328,10 @@ def main() -> int:
     refs_by_cell: dict[tuple[int, int], bytes] = {}
     next_prop = marker_first + len(places)
     props_laid = 0
+    dungeon_places = dungeon_candidates()
+    dungeon_quest_first = dungeon_quest_local(len(dungeon_places) - 1)
+    if dungeon_quest_local(0) != LIGHT_LOCAL_LAST:
+        raise SystemExit("the held dungeons' quests do not end at the light plugin's last ID")
     for c, place in enumerate(places):
         marker_form = index | (marker_first + c)
         world_refs += record(b"REFR", marker_form,
@@ -1181,6 +1348,10 @@ def main() -> int:
             if grid not in cells:
                 raise SystemExit(f"candidate {c}'s prop {p} at {x:.0f},{y:.0f}: no exterior cell {grid}")
             xesp = subrecord(b"XESP", struct.pack("<II", marker_form, 0))
+            if next_prop == dungeon_quest_first:
+                if args.esl:
+                    raise SystemExit(f"--esl: the camps' props reach the held dungeons' quests at {next_prop:03X}")
+                next_prop = LIGHT_LOCAL_LAST + 1  # the plain ESP's props go on past the quests
             refs_by_cell[grid] = refs_by_cell.get(grid, b"") + record(
                 b"REFR", index | next_prop, build_placed(base, x, y, z, rx, rz, extra=xesp))
             next_prop += 1
@@ -1188,7 +1359,12 @@ def main() -> int:
     camp_records += props_laid
     exterior, exterior_groups_count, exterior_cells_count = exterior_groups(cells, refs_by_cell)
     camp_records += exterior_cells_count
-    camp_end = next_prop
+    camp_end = max(next_prop, LIGHT_LOCAL_LAST + 1) if next_prop > dungeon_quest_first else next_prop
+    if args.esl and camp_end > dungeon_quest_first:
+        raise SystemExit(f"--esl: the camps' props end at {camp_end - 1:03X}, in the held dungeons' quests")
+    dungeon_quests = b"".join(
+        record(b"QUST", index | dungeon_quest_local(c), build_dungeon_quest(index | dungeon_quest_local(c), c, name, marker))
+        for c, (name, marker) in enumerate(dungeon_places))
     world_record = find_record(esm, buf, b"WRLD", TAMRIEL)
     persistent_cell = find_record(esm, buf, b"CELL", TAMRIEL_PERSISTENT_CELL)
     world = world_groups(world_record, persistent_cell, RECORD_PERSISTENT, world_refs, exterior)
@@ -1229,12 +1405,12 @@ def main() -> int:
     camps_global = index | ids["kCampRumorGlobalLocalId"]
     offer_global = index | ids["kEscortOfferGlobalLocalId"]
     ask_global = index | ids["kEscortAskGlobalLocalId"]
-    globals_group = group(b"GLOB", b"".join(record(b"GLOB", form, build_global(f"WalkersSiege{CITIES[c]}"))
-                                            for c, form in enumerate(siege_globals))
-                          + record(b"GLOB", night_global, build_global("WalkersNight"))
-                          + record(b"GLOB", camps_global, build_global("WalkersCamps"))
-                          + record(b"GLOB", offer_global, build_global("WalkersEscortOffer"))
-                          + record(b"GLOB", ask_global, build_global("WalkersEscortAsk")))
+    globals_records = (b"".join(record(b"GLOB", form, build_global(f"WalkersSiege{CITIES[c]}"))
+                               for c, form in enumerate(siege_globals))
+                       + record(b"GLOB", night_global, build_global("WalkersNight"))
+                       + record(b"GLOB", camps_global, build_global("WalkersCamps"))
+                       + record(b"GLOB", offer_global, build_global("WalkersEscortOffer"))
+                       + record(b"GLOB", ask_global, build_global("WalkersEscortAsk")))
     rumors_dial = find_record(esm, buf, b"DIAL", RUMORS_TOPIC)
     dial_data = b"".join(subrecord(k, d) for k, d in rumors_dial) + subrecord(b"QSTI", struct.pack("<I", link_quest_form))
     rumor_texts = load_editions_module().rumors()
@@ -1265,9 +1441,53 @@ def main() -> int:
                  build_line(escort_quest_form, "You'll take us to the city? Thank the Nine! Lead the way - we'll stay "
                             "close behind you.", refugee_conditions(camp_base_forms, offer_global, 1.0),
                             flags=INFO_GOODBYE, set_global=ask_global, set_name="WalkersEscortAsk"))
+    # The held dungeons' dialogue and rumors (DUNGEON_TALK_PRIORITY's comment).
+    talk = dungeon_talk_ids()
+    if talk["kDungeonTalkQuestLocalId"] != dungeon_pool_first + dungeon_pool or \
+            talk["kDungeonRumorFirstLocalId"] + talk["kDungeonRumorCount"] > SHOCK_FIRST_LOCAL:
+        raise SystemExit("DungeonQuestLogic.h's dialogue does not follow the dungeons' pool or reaches the shock sounds")
+    if talk["kDungeonLineCount"] != len(DUNGEON_GREETINGS) + len(DUNGEON_WHAT) + len(DUNGEON_HELP) or \
+            talk["kDungeonRumorCount"] != len(DUNGEON_RUMORS):
+        raise SystemExit("DungeonQuestLogic.h's line or rumor count is not the texts'")
+    talk_quest_form = index | talk["kDungeonTalkQuestLocalId"]
+    talk_global = index | talk["kDungeonTalkGlobalLocalId"]
+    news_global = index | talk["kDungeonNewsGlobalLocalId"]
+    heard_global = index | talk["kDungeonHeardGlobalLocalId"]
+    what_form = index | talk["kDungeonTopicWhatLocalId"]
+    help_form = index | talk["kDungeonTopicHelpLocalId"]
+    kit_refs = [index | (dungeon_kit_first + slot) for slot in range(dungeon_kit_slots)]
+    line_form = index | talk["kDungeonLineFirstLocalId"]
+    for state, text in DUNGEON_GREETINGS:
+        greetings += record(b"INFO", line_form, build_line(talk_quest_form, text, kit_conditions(kit_refs, talk_global, (state,)),
+                                                          add_topics=(what_form, help_form)))
+        line_form += 1
+    what_lines = b""
+    for states, text in DUNGEON_WHAT:
+        what_lines += record(b"INFO", line_form, build_line(talk_quest_form, text, kit_conditions(kit_refs, talk_global, states)))
+        line_form += 1
+    help_lines = b""
+    for states, text in DUNGEON_HELP:
+        help_lines += record(b"INFO", line_form, build_line(talk_quest_form, text, kit_conditions(kit_refs, talk_global, states)))
+        line_form += 1
+    for k, (kind, text) in enumerate(DUNGEON_RUMORS):
+        rumors += record(b"INFO", index | (talk["kDungeonRumorFirstLocalId"] + k),
+                         build_news_rumor(talk_quest_form, news_global, kind, text, heard_global))
+    talk_qsti = subrecord(b"QSTI", struct.pack("<I", talk_quest_form))
+    dial_data += talk_qsti
+    greeting_data += talk_qsti
+    what_data = (subrecord(b"EDID", zstring("WalkersDungeonWhat")) + talk_qsti
+                 + subrecord(b"FULL", zstring("What happened?")) + subrecord(b"DATA", bytes([0])))
+    help_data = (subrecord(b"EDID", zstring("WalkersDungeonHelp")) + talk_qsti
+                 + subrecord(b"FULL", zstring("How can I help?")) + subrecord(b"DATA", bytes([0])))
+    globals_group = group(b"GLOB", globals_records
+                          + record(b"GLOB", talk_global, build_global("WalkersDungeonTalk"))
+                          + record(b"GLOB", news_global, build_global("WalkersDungeonNews"))
+                          + record(b"GLOB", heard_global, build_global("WalkersDungeonHeard")))
     dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors)
                        + record(b"DIAL", GREETING_TOPIC, greeting_data) + topic_group(GREETING_TOPIC, greetings)
-                       + record(b"DIAL", topic_form, topic_data) + topic_group(topic_form, yes))
+                       + record(b"DIAL", topic_form, topic_data) + topic_group(topic_form, yes)
+                       + record(b"DIAL", what_form, what_data) + topic_group(what_form, what_lines)
+                       + record(b"DIAL", help_form, help_data) + topic_group(help_form, help_lines))
     # The grab's shock sounds (GrabLogic.h kGrabShockFirstLocalId): copies of
     # UIQuestUpdate (00185DD3, a 2D sound) but EDID and FNAM, the WAVs of
     # tools/grab-shock-sounds.py under Data\Sound\fx\OblivionWalkers.
@@ -1297,9 +1517,13 @@ def main() -> int:
             + world
             + dial_group
             + group(b"QUST", record(b"QUST", link_quest_form, build_link_quest(link_script_form))
-                    + record(b"QUST", escort_quest_form, build_escort_quest()))
+                    + record(b"QUST", escort_quest_form, build_escort_quest())
+                    + record(b"QUST", talk_quest_form, subrecord(b"EDID", zstring("WalkersDungeonTalk"))
+                             + subrecord(b"DATA", bytes([1, DUNGEON_TALK_PRIORITY])))
+                    + dungeon_quests)
             + group(b"PACK", packages) + group(b"IDLE", idles))
     groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + 1 + exterior_groups_count  # + the SPEL group  # + the escort's two topic groups
+    groups += 2  # the held dungeons' two topics' groups
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
                + len(siege_globals) + 1 + len(CITIES) + 2
@@ -1308,10 +1532,12 @@ def main() -> int:
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
                + 1  # the escort's quest
-               + dungeon_kit_slots + dungeon_pool)  # the held dungeons' kit and pool
-    next_id = camp_end + test_pool
-    if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
-        raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
+               + dungeon_kit_slots + dungeon_pool  # the held dungeons' kit and pool
+               + len(dungeon_places)  # and their quests
+               + 3 + 1 + 2 + talk["kDungeonLineCount"] + talk["kDungeonRumorCount"])  # their globals, dialogue quest, topics, lines, rumors
+    next_id = max(camp_end + test_pool, LIGHT_LOCAL_LAST + 1)
+    if args.esl and next_id - 1 > LIGHT_LOCAL_LAST:
+        raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} does not fit a light plugin")
     # Every record the plugin looks up (by its 0xFFF mask, RiseLogic.h
     # kEspLocalMask) ends at the candidates' markers; only the plain ESP's
     # camp props, never looked up, may run past 0xFFF.
@@ -1470,6 +1696,34 @@ def main() -> int:
         if struct.unpack("<I", back[b"NAME"])[0] != camp_base_forms[camp_base_index(0, slot)] \
                 or (b"XMRC" in back) != (slot == 12):
             raise SystemExit(f"the dungeon kit's person {slot} reads back wrong")
+    back_greeting = find_record(esm, plugin, b"INFO", index | talk["kDungeonLineFirstLocalId"])
+    greeting_ctda = [struct.unpack_from("<B3xfIIII", d, 0) for k, d in back_greeting if k == b"CTDA"]
+    if ([c[3] for c in greeting_ctda[:-1]] != kit_refs or any(c[2] != GET_IS_REFERENCE for c in greeting_ctda[:-1])
+            or greeting_ctda[-2][0] != 0 or greeting_ctda[-1][1:4] != (1.0, GET_GLOBAL_VALUE, talk_global)
+            or [struct.unpack("<I", d)[0] for k, d in back_greeting if k == b"NAME"] != [what_form, help_form]
+            or struct.unpack("<I", dict(back_greeting)[b"QSTI"])[0] != talk_quest_form):
+        raise SystemExit("the held dungeons' first greeting reads back wrong")
+    for k, (kind, text) in enumerate(DUNGEON_RUMORS):
+        back = dict(find_record(esm, plugin, b"INFO", index | (talk["kDungeonRumorFirstLocalId"] + k)))
+        if (struct.unpack_from("<B3xfIIII", back[b"CTDA"], 0)[1:4] != (float(kind), GET_GLOBAL_VALUE, news_global)
+                or back[b"SCDA"] != SET_GLOBAL_SCDA or struct.unpack("<I", back[b"SCRO"])[0] != heard_global):
+            raise SystemExit(f"the held dungeons' rumor {k} reads back wrong")
+    if dict(find_record(esm, plugin, b"QUST", talk_quest_form))[b"DATA"] != bytes([1, DUNGEON_TALK_PRIORITY]):
+        raise SystemExit("the held dungeons' dialogue quest reads back wrong")
+    for c, (name, marker) in enumerate(dungeon_places):
+        form = index | dungeon_quest_local(c)
+        back = find_record(esm, plugin, b"QUST", form)
+        got = dict(back)
+        stages = [struct.unpack("<H", d)[0] for k, d in back if k == b"INDX"]
+        ends = [d[0] for k, d in back if k == b"QSDT"]
+        targets = [struct.unpack_from("<fII", d, 4) for k, d in back if k == b"CTDA"]
+        if (got[b"EDID"] != zstring(f"WalkersDungeon{c:03d}") or name.encode("latin-1") not in got[b"FULL"]
+                or got[b"DATA"] != bytes([QUEST_REPEATED_STAGES, 0])
+                or stages != [s for s, _, _ in DUNGEON_STAGES] or ends != [1 if e else 0 for _, e, _ in DUNGEON_STAGES]
+                or struct.unpack_from("<I", got[b"QSTA"], 0)[0] != marker
+                or targets != []
+                or sum(1 for k, d in back if k == b"CNAM" and name.encode("latin-1") in d) != len(DUNGEON_STAGES)):
+            raise SystemExit(f"the held dungeon quest {c} ({name}) reads back wrong")
     if struct.unpack_from("<I", plugin, 8)[0] != (ESL_FLAG if args.esl else 0):
         raise SystemExit("the header's flags read back wrong")
     print(f"{out}: {len(plugin)} bytes{' (ESL-flagged)' if args.esl else ''} - RACE {race_form:08X} {RACE_EDID}, CREA "

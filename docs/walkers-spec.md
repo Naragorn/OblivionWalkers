@@ -2781,7 +2781,7 @@ ShockSoundDue, GrabLogicTest). Harness `grab-hold` 2026-11-06 12:4x PASS
 answered 0)" right with the grab. Whether it is heard is not known (headless;
 the console's answer is no success flag) - for the headset.
 
-#### 4.20.7 Refugees hold dungeons - designed with Nadi 2026-11-11, not built
+#### 4.20.7 Refugees hold dungeons - designed with Nadi 2026-11-11; steps 1-5 BUILT 2026-11-13 (the places, the people, the walkers, the journal, the dialogue, the rumors, the reward), harness PASS, headset open
 
 Refugees hole up in dungeons; walkers try to get in. Idea of 2026-11-05,
 the vision settled in a question round on 2026-11-11 (Nadi's answers):
@@ -3093,9 +3093,84 @@ enabled, 9 in its first cell"; siege and taken PASS again - the ended lie
 (no "back in the pool" with the player there), a taken place's kit "in by
 the door". A person put outside with the player near (its 3D loaded at
 once) cost up to 2.7 ms in its frame, inside up to 0.9 ms.
-Not built yet: beds, the journal quest, the dialogue, the ways to hear of
-a place, the rewards; walkers outside the door (a siege is fought inside
-only). Open: a living thing the player cannot reach (a slaughterfish, a
+**Step 4, the journal, the dialogue, the rumors, the reward** (Nadi,
+2026-11-13: "go journal"; `src/DungeonQuestLogic.h`, flows in
+tests/DungeonQuestLogicTest.cpp):
+- **A quest for every place** in the ESP: `WalkersDungeonNNN` (the
+  candidate's index), named "Refugees at <place>", its log entries naming
+  the place, the place's map marker its target (no condition: a completed
+  quest cannot be the active one). 91 quests, their local IDs down from
+  0xFFF by the index; the camps' props end below them in the ESL and step
+  over them in the plain ESP. Why one a place: the journal's text is read
+  off the file - a quest's name or entry cannot be written at run time.
+- **The stages**: 5 heard of, 10 a quiet refuge, 20 besieged, 30 to
+  clear, 40 fallen (a walker dungeon), 50 defended, 55 the siege he knew
+  of beaten off without him, 60 cleared and taken, 90 the refugees have
+  left. 10, 50, 55, 60 and 90 complete the quest; the others leave
+  something to do. Repeated stages are allowed (a place is besieged more
+  than once); a quest completed before is taken off "completed" first
+  (xOBSE's `UncompleteQuest`).
+- **When he is told**: inside the place, or - a place to clear, whose
+  people wait before the door - within 1500 units of the door (the spec's
+  "the quest starts on entering"); by the event when a place is defended
+  or taken (with the reward) or given up with its quest open; and by
+  hearing of it. The stage told last is kept with the site (co-save 'DNGN',
+  a byte that was unused: old saves read 0, nothing told).
+- **The game's own box**: every stage set opens "Quest added" or "Quest
+  updated" with the entry and Continue, as each of the game's quests does,
+  and holds the game until it is closed.
+- **The reward** for a place defended or taken: the camps' (their
+  settings - `[Survivors] RewardFame`, `FamePoints`, `RewardGold`, `Gold`,
+  `RewardThings`: a thing for each person alive), a message naming it.
+- **The dialogue**: a quest of its own, priority 55 (above the escort's
+  50 - the kit's people are of the camps' bases); the kit's thirteen
+  references speak by a global the plugin sets: 1 a refuge, 2 besieged, 3
+  waiting before a place to clear, 4 a refuge he just defended or cleared.
+  A greeting for each, and the topics "What happened?" and "How can I
+  help?" with a line for each state. Silent, as the escort's. No "rest"
+  topic: there are no beds yet.
+- **Rumors**: while there is news - a place whose state he does not know;
+  a siege first, then a place to clear, a fallen place, a refuge - the
+  Rumors topic has a line of ours before the game's (one for each kind,
+  none names the place); said, its result script sets a global, the plugin
+  tells that place's stage and shows its map marker (`ShowMap`): the
+  journal names the place.
+- `[Dungeons] Journal=1`, `Rumors=1` (LINK 192, 193, version 36).
+- **Found on the way**: the quests' targets took all 91 candidates out of
+  the pool (A reads every loaded quest's targets) - the dungeons' own
+  quests are now left out by their editor ID. With repeated stages the
+  engine's stage stays the highest ever set (SetStage 20 after 50 writes
+  the entry, `GetStage` stays 50) - so the target has no stage condition.
+  RunScriptLine2's answer to SetStage reads 0 though it worked. OblivionESL
+  limits only the local IDs (0x800..0xFFF), no count of records
+  (ESLManager.h, ESLLoadPatch.cpp, read 2026-11-13) - tools/esp-write.py's
+  check of 2048 records was mine and is gone.
+Runs 2026-11-13 18:36-18:42, `tools/dungeon-walkers.sh` (the test site
+alone, ActiveMin=ActiveMax=1; the boxes closed by xOBSE's CloseAllMenus):
+taken PASS - the console's "set WalkersDungeonHeard to 1" outside, "stage
+40 (heard; told 0 before), taken off completed first", the quest's flags
+09 (running), the last walker ended "stage 60 (taken; told 40 before)",
+flags 0B (completed), "Fort Ash is cleared - refugees move in (+1 fame,
+150 gold, a thing of theirs)"; clear PASS - "stage 30 (seen ...)" before
+Echo Mine's door, "stage 60 (taken ...)"; siege PASS - "stage 20 (heard
+...)", inside nothing new, "stage 50 (defended ...)" flags 0B, the reward,
+a game day on (AttackChancePercent=100) "attacked", "stage 20 (seen; told
+50 before), taken off completed first", flags 09 and the game's box "Quest
+updated - Refugees at Fort Ash ... Walkers are storming Fort Ash" (the
+picture); talk PASS - "the kit's people speak as 3", the first man
+activated by the console: the dialogue menu "Refugee" with "How can I
+help?", "Rumors", "What happened?" (the picture - the topics come only
+from our greeting; the greeting's own text had gone from the screen after
+four seconds). A map marker shown: flags 0000 before, 0001 after (Bedrock
+Break, the run of 18:33); Fort Ash's and Echo Mine's were 0003 already in
+the test save.
+Not seen in a run: a rumor said by an NPC (its global is set by the
+console), the lines of the two topics, the stages 5, 10, 55 and 90 in the
+game (their flows are the unit tests'), the journal with `Journal=0`.
+
+Not built yet: beds; a messenger, the Courier and a notice as ways to hear
+of a place; walkers outside the door (a siege is fought inside only).
+Open: a living thing the player cannot reach (a slaughterfish, a
 rat behind a wall) keeps a place from being cleared - the log names
 nothing yet; the refugees win a siege of ten walkers without the player
 (walkers at 15 % health) - the siege's numbers to tune with Nadi. Not measured: that a summoned creature stands on the player's

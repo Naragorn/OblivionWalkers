@@ -25,8 +25,10 @@ console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready fw 00038EEE
 console-at ready cow Tamriel -27 9
+console-at close1 CloseAllMenus
 console-at inside coc EchoMine
 console-at killall killall
+console-at close2 CloseAllMenus
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -39,9 +41,13 @@ mark ready
 wait 18
 mark outside
 wait 2
+mark close1
+wait 2
 mark inside
 wait 8
 mark killall
-wait 12
+wait 4
+mark close2
+wait 10
 mark end
 wait 1

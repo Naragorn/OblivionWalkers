@@ -7,6 +7,7 @@
 
 #include "DungeonKitLogic.h"
 #include "DungeonLogic.h"
+#include "DungeonQuestLogic.h"
 #include "DungeonSiteLogic.h"
 #include "Rise.h"
 

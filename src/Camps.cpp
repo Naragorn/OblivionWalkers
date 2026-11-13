@@ -1180,6 +1180,17 @@ bool NoteCampWalkerEnded(UInt32 refId) {
 	return true;
 }
 
+void GiveRefugeeReward(UInt32 alive, char* what, UInt32 size) {
+	what[0] = '\0';
+	if (g_settings == nullptr) {
+		return;
+	}
+	GiveReward(g_settings->rewardFame ? g_settings->famePoints : 0, g_settings->rewardGold ? g_settings->gold : 0,
+	           CampThings(g_settings->rewardThings, alive, 0, false), what, size);
+}
+
+bool PlayQuestSound() { return QuestSound(); }
+
 bool IsCampWalker(UInt32 refId) {
 	if (g_espBase == 0) {
 		return false;

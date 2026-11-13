@@ -49,6 +49,8 @@ struct DungeonSiteSettings {
 	UInt32 lossPercentPerHour = 25;      // LossPercentPerHour: a siege away, one lost an hour by this
 	float leaveAfterDays = 7.0f;         // LeaveAfterDays: unseen this long - given up; 0 never
 	UInt32 walkersAtOnce = 6;            // WalkersAtOnce: of a siege's or a walker dungeon's, in the place at a time
+	bool journal = true;                 // Journal: each place's quest in the journal (DungeonQuestLogic.h)
+	bool rumors = true;                  // Rumors: people tell of the places (it needs the journal)
 };
 
 // The ESP's pool of walkers for the place the player is at (DungeonKitLogic.h).
@@ -69,6 +71,7 @@ struct DungeonSite {
 	float carry = 0.0f;      // the part of a kill short of one
 	bool seen = false;       // the player near during this siege
 	UInt8 cleared = 0;       // ToClear: its cells the player found empty of the living, a bit each
+	UInt8 journal = 0;       // the stage of its quest the player was told last (DungeonQuestLogic.h), 0 none
 };
 
 struct DungeonSitesState {
@@ -363,8 +366,9 @@ inline void DropFreeSites(DungeonSitesState& st) {
 
 // The co-save record: type "DNGN", version 1 - the target and the count,
 // then per site of kDungeonActiveMost: the candidate (16 bits), the state,
-// seen, people, waiting, lost, the cells cleared, the walkers left (32 bits), and
-// dayFrom, lastSeen, tollFrom, carry as their bits.
+// seen, people, waiting, lost, the cells cleared, the walkers left (16 bits),
+// the journal's stage told last (a byte, 0 in a save of before it; a byte
+// unused), and dayFrom, lastSeen, tollFrom, carry as their bits.
 inline constexpr UInt32 kDungeonRecordType = 0x444E474E;  // 'DNGN'
 inline constexpr UInt32 kDungeonRecordVersion = 1;
 inline constexpr UInt32 kDungeonSiteBytes = 28;
@@ -405,6 +409,7 @@ inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capac
 		at[6] = d.lost;
 		at[7] = d.cleared;
 		Put32(at + 8, d.walkersLeft);
+		at[10] = d.journal;
 		Put32(at + 12, dungeon_detail::Bits(d.dayFrom));
 		Put32(at + 16, dungeon_detail::Bits(d.lastSeen));
 		Put32(at + 20, dungeon_detail::Bits(d.tollFrom));
@@ -440,6 +445,7 @@ inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 leng
 		d.lost = at[6];
 		d.cleared = at[7];
 		d.walkersLeft = static_cast<UInt16>(Get32(at + 8));
+		d.journal = at[10];
 		d.dayFrom = dungeon_detail::Float(Get32(at + 12));
 		d.lastSeen = dungeon_detail::Float(Get32(at + 16));
 		d.tollFrom = dungeon_detail::Float(Get32(at + 20));

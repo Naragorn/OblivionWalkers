@@ -16,14 +16,15 @@ case "$mode" in
 	taken) state=4; walkers=8; behead=0; scenario=dungeon-walkers; site="Fort Ash" ;;
 	fight) state=2; walkers=10; behead=1; scenario=dungeon-fight; site="Fort Ash" ;;
 	clear) state=3; walkers=8; behead=0; scenario=dungeon-clear; site="Echo Mine" ;;
-	*) echo "mode: siege | taken | fight | clear" >&2; exit 2 ;;
+	talk) state=3; walkers=8; behead=0; scenario=dungeon-talk; site="Echo Mine" ;;
+	*) echo "mode: siege | taken | fight | clear | talk" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
-python3 - "$ini" "$state" "$walkers" "$behead" "$site" <<'INI'
+python3 - "$ini" "$state" "$walkers" "$behead" "$site" "$mode" <<'INI'
 import re, sys
-path, state, walkers, behead, site = sys.argv[1:6]
+path, state, walkers, behead, site, mode = sys.argv[1:7]
 text = open(path, encoding="latin-1", newline="").read()
 
 def put(text, section, key, value):
@@ -41,7 +42,11 @@ def put(text, section, key, value):
 
 for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"),
                    ("AttackWalkersMin", walkers), ("AttackWalkersMax", walkers), ("WalkersAtOnce", "6"),
-                   ("PeopleMin", "8"), ("PeopleMax", "8")):
+                   ("PeopleMin", "8"), ("PeopleMax", "8"), ("Journal", "1"), ("Rumors", "1"),
+                   # the test site alone: it is the news, and its quest the one told
+                   ("ActiveMin", "1"), ("ActiveMax", "1"),
+                   # siege: a day on, the refuge is attacked again (the quest opened anew)
+                   ("AttackChancePercent", "100" if mode == "siege" else "0")):
     text = put(text, "Dungeons", key, value)
 text = put(text, "Zombies", "DieOnlyBeheaded", behead)
 text = put(text, "Debug", "StepTiming", "1")
@@ -65,9 +70,33 @@ def check(ok, what):
     failures += 0 if ok else 1
 
 d = [l for l in lines if l.startswith("Dungeons: ")]
+place = "Echo Mine" if mode in ("clear", "talk") else "Fort Ash"
+told = [m for l in d for m in [re.search(
+    r"journal - " + place + r": stage (\d+) \((\w[\w ]*); told (\d+) before\)(, taken off completed first)? - SetStage "
+    r"(\w+) answered (\d); the quest (\w+) at stage (\d+), flags (\w\w) \((\w\w) before\)", l)] if m]
+
+def journal(stage, why, before, reopened, completed, what, nth=0):
+    hits = [m for m in told if m.group(1) == str(stage) and m.group(2) == why and m.group(3) == str(before)]
+    ok = len(hits) > nth
+    if ok:
+        m = hits[nth]
+        # (SetStage's answer is no success flag - xOBSE's RunScriptLine2 reads 0; the quest's stage is the proof)
+        # and neither is the engine's stage: with repeated stages it stays the highest ever set - the flags
+        # are the proof (1 running, 2 completed) and the pictures of the game's box)
+        ok = (bool(m.group(4)) == reopened and int(m.group(9), 16) & 1 == 1
+              and bool(int(m.group(9), 16) & 2) == completed and m.group(7) != "00000000")
+    check(ok, what + (f" ({hits[nth].group(0)[10:]})" if len(hits) > nth else f" (told: {[m.group(1, 2, 3) for m in told]})"))
+
+shown = [m for l in d for m in [re.search(r"map marker \w+ shown: flags (\w+), (\w+) before", l)] if m]
+check(len(shown) == 1 and int(shown[0].group(1), 16) & 1 == 1 and shown[0].group(1) != "FFFF",
+      "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
+rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
+link = [l for l in lines if "variables" in l and "LINK" in l]
+check(any("194 of 194" in l for l in link), "LINK holds the 194 variables" + (f" ({link[-1][:90]})" if link else ""))
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
-into = [l for l in d if re.search(r"walker \w+ into Fort Ash", l)]
-ended = [l for l in d if "Fort Ash - walker" in l and "ended" in l]
+again = next((k for k, l in enumerate(d) if "site 0 Fort Ash (fort) attacked" in l), len(d))
+into = [l for l in d[:again] if re.search(r"walker \w+ into Fort Ash", l)]
+ended = [l for l in d[:again] if "Fort Ash - walker" in l and "ended" in l]
 if mode == "clear":
     kit = [l for l in d if "the kit to site 0 Echo Mine" in l]
     check(len(kit) >= 1 and "(mine; to clear, 8 people) - waiting outside" in kit[0], "the kit waits outside Echo Mine, eight of them")
@@ -82,6 +111,17 @@ if mode == "clear":
     check(any("move in by the door (9)" in l for l in d), "those who waited move in by the door, the trader with them")
     check(len(stands) >= 2 and stands[-1].group(1, 2, 3) == ("9", "9", "9"),
           "three seconds on the nine stand in its cell" + (f" ({stands[-1].group(0)})" if len(stands) >= 2 else ""))
+    journal(30, "seen", 0, True, False, "met before the door: the quest says to clear it, open")
+    journal(60, "taken", 30, False, True, "cleared: the quest says taken, completed")
+    check(len(rewards) == 1 and "Echo Mine is cleared - refugees move in" in rewards[0], "the reward once" + (f" ({rewards[0][19:]})" if rewards else ""))
+elif mode == "talk":
+    journal(30, "seen", 0, True, False, "met before the door: the quest says to clear it, open")
+    talk = [l for l in d if "talk - the kit's people speak as" in l]
+    check(len(talk) >= 1 and "speak as 3" in talk[-1], "the kit's people speak as those waiting outside (3)" + (f" ({talk[-1][10:60]})" if talk else ""))
+    news = [l for l in d if l.startswith("Dungeons: news - now")]
+    check(len(news) >= 1 and "now 3" in news[0] and "Echo Mine" in news[0], "before he met them the place was news, a place to clear" + (f" ({news[0][10:]})" if news else ""))
+    check(len(news) >= 2 and "now 0" in news[-1], "met: no news any more")
+    print("  look  the picture at 'talked': the greeting and the two topics")
 elif mode == "fight":
     died = [l for l in d if "one of its people" in l and "died" in l]
     print(f"  look  the pool: {len(pool)}, walkers into the place: {len(into)}, walkers ended: {len(ended)}, "
@@ -104,10 +144,19 @@ else:
         kit = [l for l in d if "the kit to site" in l and "besieged, 8 people" in l]
         check(len(kit) >= 1, "the kit stands in the besieged place")
         check(any("site 0 Fort Ash (fort) defended - now refuge, 8 people" in l for l in d), "the last walker ended: defended, a refuge again")
+        journal(20, "heard", 0, True, False, "heard of outside (the rumor's global): the quest says besieged, open")
+        check(not any(m.group(1) == "20" and m.group(2) == "seen" and m.group(3) == "20" for m in told), "inside nothing new")
+        journal(50, "defended", 20, False, True, "defended: the quest says so, completed")
+        check(len(rewards) == 1 and "The refugees of Fort Ash are safe" in rewards[0], "the reward once" + (f" ({rewards[0][19:]})" if rewards else ""))
+        check(any("site 0 Fort Ash (fort) attacked" in l for l in d), "a game day on the refuge is attacked again")
+        journal(20, "seen", 50, True, False, "and the completed quest is opened again: besieged")
     else:
         taken = [l for l in d if "site 0 Fort Ash (fort) taken - now refuge" in l]
         check(len(taken) == 1, "the last walker ended: the place taken, a refuge" + (f" ({taken[0][-40:]})" if taken else ""))
         check(any("the kit to site 0 Fort Ash" in l and "refuge" in l for l in d), "and the kit of people moves in")
+        journal(40, "heard", 0, True, False, "heard of outside (the rumor's global): the quest says the place is lost, open")
+        journal(60, "taken", 40, False, True, "the last walker ended: the quest says taken, completed")
+        check(len(rewards) == 1 and "Fort Ash is cleared - refugees move in" in rewards[0], "the reward once" + (f" ({rewards[0][19:]})" if rewards else ""))
 for l in d[2:44]:
     print("        " + l[:210])
 for l in [l for l in lines if l.startswith("Timing:   dungeons")][-8:]:

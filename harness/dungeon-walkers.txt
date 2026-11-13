@@ -11,6 +11,16 @@
 #   "2 walkers left", the last two come in by the door;
 # - kill2: those two killed - a siege: "defended - now refuge"; a walker
 #   dungeon: "taken - now refuge, N people", and the kit moves in.
+# - again: time runs a game day (timescale 10000 for 12 s); the runner sets
+#   AttackChancePercent=100 for the siege, so the refuge is attacked again
+#   and its completed quest opened anew (the journal, step 4).
+# The journal (step 4): outside, the console sets WalkersDungeonHeard (as a
+# rumor's result script does) - "news - told", "journal - Fort Ash: stage
+# 20 | 40 (heard ...", its map marker shown; inside nothing new; then "stage 50 (defended ..." or "stage 60 (taken ..."
+# and the reward.
+# Each stage told opens the game's own "Quest added / updated" box, which
+# holds the game (measured 2026-11-13: the kills behind it counted nothing);
+# xOBSE's CloseAllMenus closes it at close1, close2 and stop.
 # tgm and tdetect: nobody fights, the count is the console's; time stands.
 # Run through tools/dungeon-walkers.sh siege|taken.
 
@@ -24,6 +34,8 @@ console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready fw 00038EEE
 console-at ready cow Tamriel -9 19
+console-at outside set WalkersDungeonHeard to 1
+console-at close1 CloseAllMenus
 console-at inside coc FortAsh01
 console-at kill1 "{form:OblivionWalkers.esp:A54}".kill
 console-at kill1 "{form:OblivionWalkers.esp:A55}".kill
@@ -33,6 +45,10 @@ console-at kill1 "{form:OblivionWalkers.esp:A58}".kill
 console-at kill1 "{form:OblivionWalkers.esp:A59}".kill
 console-at kill2 "{form:OblivionWalkers.esp:A5A}".kill
 console-at kill2 "{form:OblivionWalkers.esp:A5B}".kill
+console-at close2 CloseAllMenus
+console-at again set timescale to 10000
+console-at stop set timescale to 0
+console-at stop CloseAllMenus
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -42,14 +58,22 @@ right pos 0.20 -0.40 -0.30
 left pos -0.20 -0.40 -0.30
 wait 1
 mark ready
-wait 16
+wait 13
 mark outside
+wait 3
+mark close1
 wait 2
 mark inside
 wait 10
 mark kill1
 wait 8
 mark kill2
-wait 10
+wait 6
+mark close2
+wait 4
+mark again
+wait 12
+mark stop
+wait 4
 mark end
 wait 1

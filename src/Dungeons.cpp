@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "CampLogic.h"
+#include "Camps.h"
 #include "DungeonCandidates.h"
 #include "DungeonKitLogic.h"
 #include "Engine.h"
@@ -108,6 +109,10 @@ constexpr float kStepSeconds = 1.0f;
 constexpr UInt32 kEventsMost = 32;
 constexpr UInt32 kFollowersMost = 32;
 constexpr short kSpotLift = 16;  // the people put this far above their path grid point
+constexpr UInt32 kQuestFlagsOffset = 0x3C;      // TESQuest::questFlags (xOBSE GameForms.h): 0x02 completed
+constexpr UInt32 kQuestStageOffset = 0x5C;      // TESQuest::stageIndex
+constexpr UInt8 kExtraMapMarker = 0x33;         // xOBSE GameExtraData.h kExtraData_MapMarker; its Data* at +0x0C
+constexpr UInt32 kMapMarkerFlagsOffset = 0x0C;  // ExtraMapMarker::Data: a TESFullName (12 bytes), then the flags (16 bits)
 
 const DungeonSiteSettings* g_siteSettings = nullptr;
 DungeonRollFn g_roll = nullptr;
@@ -151,6 +156,9 @@ bool g_poolSpread = false;  // a walker dungeon's first filling: over all the sp
 int g_poolWait = 0;
 bool g_poolUnknown = true;  // after a load: whatever the save left enabled goes back in
 UInt32 g_poolLogsLeft = 120;
+
+// The candidate the player is thanked at (he defended or cleared it), -1 none.
+int g_thankedCandidate = -1;
 
 // The occupants taken out, and the player's cell as it was last frame.
 DungeonOccupants g_occupants;
@@ -213,6 +221,123 @@ void LogEvents(const DungeonEvent* ev, UInt32 n, const DungeonSite& d, LogFn log
 
 // The player and candidate `c`: 0 in one of its cells, his distance from its
 // door outside when in Tamriel within kDungeonSeenUnits of it, else -1.
+bool Say(UInt32 ref, const char* line);
+
+// A map marker's flags (ExtraMapMarker's data: 1 visible, 2 can travel),
+// 0xFFFF when it has none.
+UInt32 MarkerFlags(UInt32 marker) {
+	if (!LooksLikeObject(marker)) {
+		return 0xFFFF;
+	}
+	UInt32 visited = 0;
+	for (UInt32 extra = Read(marker + kRefExtraFirstOffset); LooksLikeObject(extra) && visited < 64;
+	     extra = Read(extra + 8), ++visited) {
+		if (Read8(extra + 4) == kExtraMapMarker) {
+			const UInt32 data = Read(extra + 0x0C);
+			return LooksLikeObject(data) ? (Read(data + kMapMarkerFlagsOffset) & 0xFFFF) : 0xFFFF;
+		}
+	}
+	return 0xFFFF;
+}
+
+// A global of the ESP: its value, 0 when it is not there.
+float GlobalValue(UInt32 local) {
+	const UInt32 global = g_espBase != kNoEsp ? LookupForm(EspFormId(g_espBase, local)) : 0;
+	return LooksLikeObject(global) ? FloatAt(global + kGlobalValueOffset) : 0.0f;
+}
+
+// A global of the ESP set to `value`; true when that changed it.
+bool SetGlobal(UInt32 local, float value) {
+	const UInt32 global = g_espBase != kNoEsp ? LookupForm(EspFormId(g_espBase, local)) : 0;
+	if (!LooksLikeObject(global) || FloatAt(global + kGlobalValueOffset) == value) {
+		return false;
+	}
+	*reinterpret_cast<float*>(global + kGlobalValueOffset) = value;
+	return true;
+}
+
+// The player told `stage` of the place's quest (DungeonQuestLogic.h): one
+// completed before taken off "completed" when there is something to do
+// again, the stage set (the engine writes the log entry and sounds it), at
+// the first word its map marker shown. Console lines: a few a place and
+// game day at most.
+void Tell(DungeonSite& d, UInt8 stage, const char* why, LogFn log) {
+	if (stage == kJournalNone || d.candidate >= kDungeonCandidateCount || g_siteSettings == nullptr ||
+	    !g_siteSettings->journal) {
+		return;
+	}
+	const DungeonCandidate& c = kDungeonCandidates[d.candidate];
+	char id[24];
+	if (!DungeonQuestEditorId(d.candidate, id, sizeof(id))) {
+		return;
+	}
+	const UInt32 player = LookupForm(kPlayerRefId);
+	const UInt32 quest = g_espBase != kNoEsp ? LookupForm(EspFormId(g_espBase, DungeonQuestLocalId(d.candidate))) : 0;
+	const UInt32 flagsBefore = LooksLikeObject(quest) ? Read8(quest + kQuestFlagsOffset) : 0xFF;
+	char line[64];
+	const bool reopen = JournalUncompletesFirst(d.journal, stage);
+	if (reopen) {
+		std::snprintf(line, sizeof(line), "UncompleteQuest %s", id);
+		Say(player, line);
+	}
+	std::snprintf(line, sizeof(line), "SetStage %s %u", id, stage);
+	const bool said = Say(player, line);
+	UInt32 markerBefore = 0xFFFF;
+	UInt32 markerAfter = 0xFFFF;
+	const bool map = JournalShowsMap(d.journal);
+	if (map) {
+		const UInt32 marker = LookupForm(c.marker);
+		markerBefore = MarkerFlags(marker);
+		std::snprintf(line, sizeof(line), "ShowMap %08X", c.marker);
+		Say(player, line);
+		markerAfter = MarkerFlags(marker);
+	}
+	// The answer is no success flag, and the engine's stage stays the highest
+	// ever set (measured 2026-11-13): the flags tell - 1 running, 2 completed.
+	log("Dungeons: journal - %s: stage %u (%s; told %u before)%s - SetStage %s answered %d; the quest %08X at stage "
+	    "%u, flags %02X (%02X before)%s",
+	    c.name, stage, why, d.journal, reopen ? ", taken off completed first" : "", id, said ? 1 : 0,
+	    LooksLikeObject(quest) ? FormIdOf(quest) : 0, LooksLikeObject(quest) ? Read8(quest + kQuestStageOffset) : 0,
+	    LooksLikeObject(quest) ? Read8(quest + kQuestFlagsOffset) : 0xFF, flagsBefore, "");
+	if (map) {
+		log("Dungeons: journal - %s's map marker %08X shown: flags %04X, %04X before", c.name, c.marker, markerAfter,
+		    markerBefore);
+	}
+	d.journal = stage;
+}
+
+// What a site's events mean to the player: defended and taken reward him
+// (the camps' reward) and are told, a place given up closes its open quest.
+// `d` as it stands after them, `before` as it was (a site given up is empty
+// after).
+void Carry(const DungeonEvent* ev, UInt32 n, DungeonSite& d, const DungeonSite& before, LogFn log) {
+	for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
+		const DungeonEventKind kind = ev[k].kind;
+		DungeonSite gone = before;
+		DungeonSite& at = kind == DungeonEventKind::Left ? gone : d;
+		if (at.candidate >= kDungeonCandidateCount) {
+			continue;
+		}
+		const UInt8 stage = JournalOnEvent(at.journal, kind);
+		if (JournalRewards(stage)) {
+			char what[96];
+			GiveRefugeeReward(at.people, what, sizeof(what));
+			char text[200];
+			std::snprintf(text, sizeof(text),
+			              kind == DungeonEventKind::Defended ? "The refugees of %s are safe - the walkers are beaten%s."
+			                                                 : "%s is cleared - refugees move in%s.",
+			              kDungeonCandidates[at.candidate].name, what);
+			char line[220];
+			std::snprintf(line, sizeof(line), "Message \"%s\"", text);
+			Say(LookupForm(kPlayerRefId), line);
+			g_thankedCandidate = static_cast<int>(at.candidate);
+			const bool own = g_siteSettings != nullptr && !g_siteSettings->journal && PlayQuestSound();
+			log("Dungeons: reward - %s (%u people; the plugin's own quest sound %d)", text, at.people, own ? 1 : 0);
+		}
+		Tell(at, stage, EventName(kind), log);
+	}
+}
+
 float Closeness(const DungeonCandidate& c, UInt32 player) {
 	const UInt32 cell = LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0;
 	if (!LooksLikeObject(cell)) {
@@ -439,6 +564,7 @@ void StepKit(const float* closeness, LogFn log) {
 		    slot < kDungeonKitPeopleMost ? "one of its people" : "its trader", FormIdOf(ref),
 		    KitOutside(d.state) ? d.waiting : d.people, StateName(d.state));
 		LogEvents(ev, n, d, log);
+		Carry(ev, n, d, d, log);
 	}
 	// What changed since (a siege's toll, the state): told one a frame.
 	g_kitToTell = static_cast<UInt16>(g_kitToTell | (KitWantedNow() ^ g_kitShown));
@@ -575,6 +701,7 @@ void StepPool(const float* closeness, LogFn log) {
 		log("Dungeons: %s - walker %08X ended; %u walkers left, now %s", kDungeonCandidates[g_poolCandidate].name,
 		    g_poolEnded[k], d.walkersLeft, StateName(d.state));
 		LogEvents(ev, n, d, log);
+		Carry(ev, n, d, d, log);
 	}
 	g_poolEndedCount = 0;
 	if (g_poolUnknown) {
@@ -766,6 +893,7 @@ void StepClearing(UInt32 cell, UInt32 player, LogFn log) {
 		DungeonEvent ev[4];
 		const UInt32 n = DungeonCleared(d, static_cast<UInt32>(site), *g_siteSettings, roll, ev, 4);
 		LogEvents(ev, n, d, log);
+		Carry(ev, n, d, d, log);
 	}
 }
 
@@ -859,6 +987,7 @@ void ResetDungeonsInGame() {
 	g_lastCell = 0;
 	g_lastCellHeld = false;
 	g_putBackCell = 0;
+	g_thankedCandidate = -1;
 }
 
 void StepDungeonsInGame(float dt, LogFn log) {
@@ -921,6 +1050,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			const UInt32 n = StepDungeonSite(d, i, *g_siteSettings, now, close, roll, ev, kEventsMost);
 			// A site given up is logged with its name from before.
 			LogEvents(ev, n, d.state == DungeonState::Free ? before : d, log);
+			Carry(ev, n, d, before, log);
 		}
 		DropFreeSites(g_sites);
 		const UInt32 n = FillDungeons(g_sites, *g_siteSettings, kDungeonCandidates, kDungeonCandidateCount, g_inPool,
@@ -937,12 +1067,48 @@ void StepDungeonsInGame(float dt, LogFn log) {
 	if (g_siteSettings->enabled && LooksLikeObject(cell)) {
 		StepClearing(cell, player, log);
 	}
+	// Where he sees how a place stands - inside it, or with those waiting
+	// before a place to clear - its quest says so.
+	for (UInt32 i = 0; g_siteSettings->enabled && i < g_sites.count; ++i) {
+		DungeonSite& d = g_sites.sites[i];
+		if (JournalSees(d.state, closeness[i])) {
+			Tell(d, JournalNear(d.journal, d.state), "seen", log);
+		}
+	}
 	// The pool first: a siege's last walker ended makes the place a refuge
 	// again before the kit is looked at.
 	StepPool(closeness, log);
 	StepKit(closeness, log);
 	if (g_kitAtOnce) {
 		StepKitSlots();
+	}
+	// What the kit's people say (their lines' global), and what is news: a
+	// rumor told sets "heard" - that place's quest then says how it stands.
+	{
+		const int kitSite = g_kitCandidate >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(g_kitCandidate)) : -1;
+		const DungeonState kitState = kitSite >= 0 ? g_sites.sites[kitSite].state : DungeonState::Free;
+		g_thankedCandidate = ThankedStill(g_thankedCandidate, g_kitCandidate, kitState);
+		const UInt8 talk = DungeonTalkState(kitState, g_thankedCandidate >= 0 && g_thankedCandidate == g_kitCandidate);
+		if (SetGlobal(kDungeonTalkGlobalLocalId, static_cast<float>(talk))) {
+			log("Dungeons: talk - the kit's people speak as %u (0 not ours, 1 a refuge, 2 besieged, 3 waiting outside, "
+			    "4 their thanks)", talk);
+		}
+		const bool hears = g_siteSettings->enabled && g_siteSettings->journal && g_siteSettings->rumors;
+		int news = hears ? DungeonNewsSite(g_sites) : -1;
+		if (GlobalValue(kDungeonHeardGlobalLocalId) != 0.0f) {
+			SetGlobal(kDungeonHeardGlobalLocalId, 0.0f);
+			log("Dungeons: news - told to the player (site %d)", news);
+			if (news >= 0) {
+				DungeonSite& d = g_sites.sites[news];
+				Tell(d, JournalHeard(d.journal, d.state), "heard", log);
+				news = DungeonNewsSite(g_sites);
+			}
+		}
+		const UInt8 kind = DungeonNewsKind(g_sites, news);
+		if (SetGlobal(kDungeonNewsGlobalLocalId, static_cast<float>(kind))) {
+			log("Dungeons: news - now %u (0 none, 1 a refuge, 2 a siege, 3 a place to clear, 4 a fallen place)%s%s", kind,
+			    news >= 0 ? ": " : "", news >= 0 ? kDungeonCandidates[g_sites.sites[news].candidate].name : "");
+		}
 	}
 	// The player's cell held now and not before, or the other way (the place
 	// overrun, given up, [Dungeons] Enabled changed): looked at again.

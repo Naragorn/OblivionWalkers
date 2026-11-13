@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "DungeonQuestLogic.h"
 #include "Engine.h"
 #include "NightLogic.h"
 
@@ -399,6 +400,7 @@ constexpr UInt8 kFormTypeQuest = 0x3B;
 constexpr UInt32 kQuestScriptOffset = 0x1C;
 constexpr UInt32 kQuestStagesOffset = 0x40;
 constexpr UInt32 kQuestTargetsOffset = 0x48;
+constexpr UInt32 kQuestEditorIdOffset = 0x60;  // TESQuest::editorName (a BSStringT: its characters first; xOBSE GameForms.h)
 constexpr UInt32 kStageItemsOffset = 0x04;
 constexpr UInt32 kStageItemScriptOffset = 0x0C;
 constexpr UInt32 kTargetRefOffset = 0x0C;
@@ -412,6 +414,7 @@ struct QuestNames {
 	UInt32 names = 0;
 	UInt32 placed = 0;  // lists kept through a placed reference
 	UInt32 direct = 0;  // lists named themselves
+	UInt32 own = 0;     // the held dungeons' own quests, not read
 };
 
 void NoteQuestName(UInt32 form, QuestNames& seen) {
@@ -476,6 +479,14 @@ void CollectQuestNames(LogFn log) {
 			if (!LooksLikeObject(quest) || Read8(quest + kFormTypeOffset) != kFormTypeQuest) {
 				continue;
 			}
+			// The held dungeons' own quests target every place's map marker:
+			// not quests that need the place (measured 2026-11-13: with them
+			// read, all 91 candidates went out of the pool).
+			const UInt32 editorId = Read(quest + kQuestEditorIdOffset);
+			if (LooksLikeObject(editorId) && IsDungeonQuestEditorId(reinterpret_cast<const char*>(editorId))) {
+				++seen.own;
+				continue;
+			}
 			++seen.quests;
 			if (LooksLikeObject(Read(quest + kQuestScriptOffset))) {
 				NoteScriptNames(Read(quest + kQuestScriptOffset), seen);
@@ -510,8 +521,9 @@ void CollectQuestNames(LogFn log) {
 	    "themselves), %u creatures and people named",
 	    seen.quests, seen.names, static_cast<UInt32>(g_questLists.size()), seen.placed, seen.direct,
 	    static_cast<UInt32>(g_questBases.size()));
-	log("Quests: %u cells named or holding a named reference, %u references named",
-	    static_cast<UInt32>(g_questCells.size()), static_cast<UInt32>(g_questRefs.size()));
+	log("Quests: %u cells named or holding a named reference, %u references named; %u quests of the held dungeons' "
+	    "own not read",
+	    static_cast<UInt32>(g_questCells.size()), static_cast<UInt32>(g_questRefs.size()), seen.own);
 	UInt32 shown = 0;
 	for (const UInt32 list : g_questLists) {
 		if (shown++ < 64) {
