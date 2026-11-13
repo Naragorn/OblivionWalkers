@@ -3079,6 +3079,20 @@ game's own, a look): the walkers turned on the refugees (slow aggression,
 "its time near 25000A4E ran out"), the eight refugees ended all ten in
 under 110 s, none of them died - "defended". The dungeons' step 1.3-1.5
 us a frame during the fight; a walker put in at most 0.9 ms in its frame.
+Runs 2026-11-13 15:52-15:57 (a840057): clear PASS (Echo Mine, one cell) -
+"the kit to site 0 Echo Mine (mine; to clear, 8 people) - waiting
+outside; ... 12 outside", three seconds on "8 shown, 8 enabled, ... 8
+with their 3D; the farthest 492 units from its spot, the lowest 30
+beneath it" (on the land; why one stood 492 units off after three seconds
+is not looked into - the camps' wander package, or they made room for
+each other); inside nothing noted while its occupants lived; after the
+console's killall "Echo Mine (cell 00015C2F, 1 of 1) - nobody living left
+in it; cells cleared 01 - the place is cleared", "taken - now refuge, 8
+people", "those who waited outside move in by the door (9)", "9 shown, 9
+enabled, 9 in its first cell"; siege and taken PASS again - the ended lie
+(no "back in the pool" with the player there), a taken place's kit "in by
+the door". A person put outside with the player near (its 3D loaded at
+once) cost up to 2.7 ms in its frame, inside up to 0.9 ms.
 Not built yet: beds, the journal quest, the dialogue, the ways to hear of
 a place, the rewards; walkers outside the door (a siege is fought inside
 only). Open: a living thing the player cannot reach (a slaughterfish, a
