@@ -41,6 +41,7 @@ inline const char* DungeonKindName(DungeonKind kind) {
 
 inline constexpr UInt32 kDungeonCellsMost = 4;
 inline constexpr UInt32 kDungeonSpotsMost = 13;
+inline constexpr UInt32 kDungeonOutsideMost = 12;
 
 struct DungeonSpot {
 	short dx, dy, dz;
@@ -59,6 +60,8 @@ struct DungeonCandidate {
 	UInt32 insideDoor = 0;  // the door inside the first cell (persistent): the people are moved by it
 	UInt8 spotCount = 0;
 	DungeonSpot spots[kDungeonSpotsMost] = {};  // where its people stand, as offsets from the door inside
+	UInt8 outsideCount = 0;
+	DungeonSpot outside[kDungeonOutsideMost] = {};  // where they wait before a place to clear, offsets from the door outside
 };
 
 // What the loaded quests name (Replace.cpp CollectQuestNames): the cells

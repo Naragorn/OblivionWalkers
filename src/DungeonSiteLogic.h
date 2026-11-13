@@ -68,6 +68,7 @@ struct DungeonSite {
 	float tollFrom = -1.0f;  // Besieged away: the toll counted since
 	float carry = 0.0f;      // the part of a kill short of one
 	bool seen = false;       // the player near during this siege
+	UInt8 cleared = 0;       // ToClear: its cells the player found empty of the living, a bit each
 };
 
 struct DungeonSitesState {
@@ -295,6 +296,7 @@ UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, Ro
 	d.waiting = 0;
 	d.walkersLeft = 0;
 	d.lost = 0;
+	d.cleared = 0;
 	d.dayFrom = d.lastSeen;
 	d.state = DungeonState::Refuge;
 	return dungeon_detail::Put(out, 0, most, DungeonEventKind::Taken, i);
@@ -331,6 +333,23 @@ inline UInt32 DungeonWalkersOut(const DungeonSite& d, UInt32 atOnce) {
 	return n > kDungeonPool ? kDungeonPool : n;
 }
 
+// A place to clear: its cell `index` (of `cellCount`) found empty of living
+// occupants with the player in it. True once every cell was: cleared.
+inline bool NoteCellClear(DungeonSite& d, UInt32 index, UInt32 cellCount) {
+	if (d.state != DungeonState::ToClear || cellCount == 0 || cellCount > 8 || index >= cellCount) {
+		return false;
+	}
+	d.cleared = static_cast<UInt8>(d.cleared | (1u << index));
+	return d.cleared == static_cast<UInt8>((1u << cellCount) - 1u);
+}
+
+// One of those waiting before a place to clear died.
+inline void DungeonWaitingDied(DungeonSite& d) {
+	if (d.state == DungeonState::ToClear && d.waiting > 0) {
+		--d.waiting;
+	}
+}
+
 // The sites given up taken off the list, the rest in their order.
 inline void DropFreeSites(DungeonSitesState& st) {
 	UInt32 kept = 0;
@@ -344,7 +363,7 @@ inline void DropFreeSites(DungeonSitesState& st) {
 
 // The co-save record: type "DNGN", version 1 - the target and the count,
 // then per site of kDungeonActiveMost: the candidate (16 bits), the state,
-// seen, people, waiting, lost, a pad byte, the walkers left (32 bits), and
+// seen, people, waiting, lost, the cells cleared, the walkers left (32 bits), and
 // dayFrom, lastSeen, tollFrom, carry as their bits.
 inline constexpr UInt32 kDungeonRecordType = 0x444E474E;  // 'DNGN'
 inline constexpr UInt32 kDungeonRecordVersion = 1;
@@ -384,6 +403,7 @@ inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capac
 		at[4] = d.people;
 		at[5] = d.waiting;
 		at[6] = d.lost;
+		at[7] = d.cleared;
 		Put32(at + 8, d.walkersLeft);
 		Put32(at + 12, dungeon_detail::Bits(d.dayFrom));
 		Put32(at + 16, dungeon_detail::Bits(d.lastSeen));
@@ -418,6 +438,7 @@ inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 leng
 		d.people = at[4];
 		d.waiting = at[5];
 		d.lost = at[6];
+		d.cleared = at[7];
 		d.walkersLeft = static_cast<UInt16>(Get32(at + 8));
 		d.dayFrom = dungeon_detail::Float(Get32(at + 12));
 		d.lastSeen = dungeon_detail::Float(Get32(at + 16));

@@ -64,8 +64,13 @@ int NearSite(const DungeonSitesState& st, const float* closeness, bool enabled, 
 	return best;
 }
 
+// The kit waits outside, before the door.
+inline bool KitOutside(DungeonState s) { return s == DungeonState::ToClear; }
+
 inline int KitSite(const DungeonSitesState& st, const float* closeness, bool enabled, int current) {
-	return NearSite(st, closeness, enabled, current, [](const DungeonSite& d) { return DungeonHeld(d.state); });
+	return NearSite(st, closeness, enabled, current, [](const DungeonSite& d) {
+		return DungeonHeld(d.state) || (KitOutside(d.state) && d.waiting > 0);
+	});
 }
 
 // The site the pool of walkers should be at, -1 none: the nearest whose
@@ -114,6 +119,36 @@ inline DungeonSpot KitSpot(const DungeonCandidate& c, UInt32 slot, bool besieged
 	return s;
 }
 
+// Where the kit's `slot` waits outside, an offset from the door outside.
+inline DungeonSpot OutsideSpot(const DungeonCandidate& c, UInt32 slot) {
+	if (c.outsideCount == 0) {
+		return DungeonSpot{0, 0, 0};
+	}
+	DungeonSpot s = c.outside[slot % c.outsideCount];
+	if (slot >= c.outsideCount) {
+		s.dx = static_cast<short>(s.dx + (slot % 2 == 0 ? 50 : -50));
+		s.dy = static_cast<short>(s.dy + ((slot / c.outsideCount) % 2 == 0 ? -50 : 50));
+	}
+	return s;
+}
+
+// Where the kit's `n`th stands when it comes in by the door: the people's
+// spots from the door on, in turn.
+inline DungeonSpot DoorSpot(const DungeonCandidate& c, UInt32 n) { return KitSpot(c, n); }
+
+// The slots shown at a site: its people inside (the trader in a quiet
+// refuge), or those waiting before a place to clear when it has spots
+// outside; `dead` those of the kit that died there.
+inline UInt16 KitWantedFor(const DungeonSite& d, const DungeonCandidate& c, UInt16 dead) {
+	if (DungeonHeld(d.state)) {
+		return KitWanted(d.people, KitTrader(d.state), dead);
+	}
+	if (KitOutside(d.state) && c.outsideCount > 0) {
+		return KitWanted(d.waiting, false, dead);
+	}
+	return 0;
+}
+
 // Where the pool's walker `k` stands: `comingIn` (a siege's, and every one
 // raised again) on the kDungeonEntrySpots nearest the door, a step aside
 // when they share one; else (a walker dungeon found so) spread over all.
@@ -129,6 +164,16 @@ inline DungeonSpot WalkerSpot(const DungeonCandidate& c, UInt32 k, bool comingIn
 	}
 	return s;
 }
+
+// The pool's place has no walkers left (the siege held, the walker dungeon
+// taken): those ended lie where they fell while the player is still near -
+// the pool goes back in when he is gone, or when it is wanted elsewhere.
+inline bool PoolStays(int wantSite, float closenessOfCurrent) { return wantSite < 0 && closenessOfCurrent >= 0.0f; }
+
+// The kit put into a place while the player stands in it (he cleared it,
+// they move in) comes in by the door, not onto its spots out of nowhere;
+// right after a load it stands where it belongs. `closenessOfWant` 0: inside.
+inline bool KitByTheDoor(float closenessOfWant, bool afterLoad) { return !afterLoad && closenessOfWant == 0.0f; }
 
 // What Dungeons.cpp reads off a reference of a held place's cell.
 struct OccupantFacts {

@@ -1,0 +1,47 @@
+# A place to clear (docs/walkers-spec.md 4.20.7, step 5): the refugees wait
+# outside, the player clears it, they move in. tools/dungeon-walkers.sh clear
+# sets [Dungeons] TestSite=Echo Mine (one cell, EchoMine; its door in
+# Tamriel -27,9), TestSiteState=3, PeopleMin/Max=8 and [Zombies]
+# DieOnlyBeheaded=0 (the console's killall ends the walkers among its
+# occupants).
+# - outside: "the kit to site 0 Echo Mine (mine; to clear, 8 people) -
+#   waiting outside", three seconds on "8 shown, 8 enabled, ... 8 with their
+#   3D; the farthest N units from its spot, the lowest M beneath it" - on
+#   the land before the door;
+# - inside (coc EchoMine): its occupants live - nothing noted;
+# - killall: "Echo Mine (cell ..., 1 of 1) - nobody living left in it; cells
+#   cleared 01 - the place is cleared", "taken - now refuge, 8 people",
+#   "those who waited outside move in by the door (9)" - the trader with
+#   them - and three seconds on "9 shown, 9 enabled, 9 in its first cell".
+# tgm and tdetect; time stands. Run through tools/dungeon-walkers.sh clear.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -27 9
+console-at inside coc EchoMine
+console-at killall killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 18
+mark outside
+wait 2
+mark inside
+wait 8
+mark killall
+wait 12
+mark end
+wait 1

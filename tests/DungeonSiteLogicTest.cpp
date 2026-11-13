@@ -238,6 +238,30 @@ void TestCleared() {
 	DungeonSite refuge = Refuge(4);
 	Check(walkers::DungeonCleared(refuge, 0, s, rolls, ev, 8) == 0 && refuge.people == 4,
 	      "a refuge is not cleared: nothing");
+	DungeonSite three = Refuge(0);
+	three.state = DungeonState::ToClear;
+	three.waiting = 6;
+	Check(!walkers::NoteCellClear(three, 0, 3) && three.cleared == 0x1, "the first of three cells found empty: noted");
+	Check(!walkers::NoteCellClear(three, 2, 3) && three.cleared == 0x5, "the third: two of three");
+	Check(!walkers::NoteCellClear(three, 2, 3), "the same again: still two");
+	Check(walkers::NoteCellClear(three, 1, 3), "the last: every cell empty - cleared");
+	walkers::DungeonCleared(three, 0, s, rolls, ev, 8);
+	Check(three.state == DungeonState::Refuge && three.cleared == 0 && three.people == 6, "taken: the cells' marks gone");
+	DungeonSite notClear = Refuge(3);
+	Check(!walkers::NoteCellClear(notClear, 0, 1) && notClear.cleared == 0, "a refuge's cell found empty: nothing");
+	DungeonSite bad = Refuge(0);
+	bad.state = DungeonState::ToClear;
+	Check(!walkers::NoteCellClear(bad, 5, 2) && !walkers::NoteCellClear(bad, 0, 0), "a cell past its count, no cells: nothing");
+	DungeonSite wait = Refuge(0);
+	wait.state = DungeonState::ToClear;
+	wait.waiting = 2;
+	walkers::DungeonWaitingDied(wait);
+	walkers::DungeonWaitingDied(wait);
+	walkers::DungeonWaitingDied(wait);
+	Check(wait.waiting == 0 && wait.state == DungeonState::ToClear, "those waiting outside die: counted off, never below none");
+	DungeonSite inside = Refuge(3);
+	walkers::DungeonWaitingDied(inside);
+	Check(inside.people == 3, "a refuge has nobody waiting: nothing");
 }
 
 void TestLeft() {
@@ -374,6 +398,7 @@ void TestImage() {
 	st.sites[1].tollFrom = 13.0f;
 	st.sites[1].carry = 0.5f;
 	st.sites[1].seen = true;
+	st.sites[1].cleared = 0x5;
 	UInt8 image[walkers::kDungeonImageBytes];
 	Check(walkers::DungeonImage(st, image, 10) == 0, "too small a buffer: nothing written");
 	const UInt32 n = walkers::DungeonImage(st, image, sizeof image);
@@ -387,7 +412,7 @@ void TestImage() {
 	          a.lastSeen == 11.25f,
 	      "a refuge as it was");
 	Check(b.candidate == 3 && b.state == DungeonState::Besieged && b.people == 2 && b.lost == 3 &&
-	          b.walkersLeft == 300 && b.tollFrom == 13.0f && b.carry == 0.5f && b.seen,
+	          b.walkersLeft == 300 && b.tollFrom == 13.0f && b.carry == 0.5f && b.seen && b.cleared == 0x5,
 	      "a siege as it was");
 	Check(!walkers::ReadDungeonImage(back, image, n - 1, 100) && back.count == 0, "cut short: empty, rolled anew");
 	Check(walkers::ReadDungeonImage(back, image, n, 10) && back.count == 1 && back.sites[0].candidate == 3,

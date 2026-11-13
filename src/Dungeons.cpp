@@ -131,7 +131,10 @@ UInt16 g_kitToPlace = 0;
 UInt16 g_kitToTell = 0;
 bool g_kitAtOnce = true;  // after a load: all in one frame, not one a frame
 int g_kitReportIn = -1;   // seconds until the kit's standing is logged, -1 none
-bool g_kitBesieged = false;  // put there during a siege: on the far spots
+// Where the kit was put: on its spots, on the far ones (a siege), by the
+// door (it came in with the player inside), or outside (a place to clear).
+enum class KitMode : UInt8 { Spots, FarSpots, ByDoor, Outside };
+KitMode g_kitMode = KitMode::Spots;
 
 // The pool of walkers: the candidate it is out at (-1 none), per slot out
 // or lying ended, those ended since the last step, how many still to come
@@ -272,8 +275,23 @@ UInt16 KitWantedNow() {
 	if (site < 0) {
 		return 0;
 	}
-	const DungeonSite& d = g_sites.sites[site];
-	return DungeonHeld(d.state) ? KitWanted(d.people, KitTrader(d.state), g_kitDead) : 0;
+	return KitWantedFor(g_sites.sites[site], kDungeonCandidates[g_kitCandidate], g_kitDead);
+}
+
+// The reference the kit is moved by and slot `slot`'s offset from it, as
+// the kit's mode says.
+UInt32 KitAnchor(const DungeonCandidate& c, UInt32 slot, DungeonSpot& at) {
+	switch (g_kitMode) {
+		case KitMode::Outside:
+			at = OutsideSpot(c, slot);
+			return c.door;
+		case KitMode::ByDoor:
+			at = DoorSpot(c, slot);
+			return c.insideDoor;
+		default:
+			at = KitSpot(c, slot, g_kitMode == KitMode::FarSpots);
+			return c.insideDoor;
+	}
 }
 
 // One slot brought to what it should be: moved to its spot (a dead one
@@ -304,9 +322,11 @@ void TellSlot(UInt32 slot) {
 	if (place && g_kitCandidate >= 0) {
 		const DungeonCandidate& c = kDungeonCandidates[g_kitCandidate];
 		Raise(ref, slot);
-		const DungeonSpot at = KitSpot(c, slot, g_kitBesieged);
+		DungeonSpot at{};
+		const UInt32 anchor = KitAnchor(c, slot, at);
 		char line[64];
-		std::snprintf(line, sizeof(line), "MoveTo %08X %d %d %d", c.insideDoor, at.dx, at.dy, at.dz + kSpotLift);
+		std::snprintf(line, sizeof(line), "MoveTo %08X %d %d %d", anchor, at.dx, at.dy,
+		              at.dz + (g_kitMode == KitMode::Outside ? 0 : kSpotLift));
 		Say(ref, line);
 	}
 	if (wasDisabled) {
@@ -370,19 +390,34 @@ void StepKit(const float* closeness, LogFn log) {
 			if (CampBits(KitWanted(kDungeonKitPeopleMost, false, deadHere)) >= d.people) {
 				g_kitDead = deadHere;
 			}
-			g_kitToPlace = KitWanted(d.people, KitTrader(d.state), g_kitDead);
-			g_kitBesieged = d.state == DungeonState::Besieged;
+			g_kitMode = KitOutside(d.state)                           ? KitMode::Outside
+			            : KitByTheDoor(closeness[want], g_kitAtOnce)   ? KitMode::ByDoor
+			            : d.state == DungeonState::Besieged           ? KitMode::FarSpots
+			                                                          : KitMode::Spots;
+			g_kitToPlace = KitWantedFor(d, kDungeonCandidates[wantCandidate], g_kitDead);
 			g_kitReportIn = 3;
-			log("Dungeons: the kit to site %d %s (%s; %s, %u people%s) - by its door inside %08X, %u spots", want,
-			    kDungeonCandidates[wantCandidate].name, DungeonKindName(kDungeonCandidates[wantCandidate].kind),
-			    StateName(d.state), d.people, KitTrader(d.state) && d.people > 0 ? " and the trader" : "",
-			    kDungeonCandidates[wantCandidate].insideDoor, kDungeonCandidates[wantCandidate].spotCount);
+			static const char* const where[] = {"on its spots", "on its far spots", "in by the door", "waiting outside"};
+			log("Dungeons: the kit to site %d %s (%s; %s, %u people%s) - %s; its door inside %08X, %u spots, %u outside",
+			    want, kDungeonCandidates[wantCandidate].name, DungeonKindName(kDungeonCandidates[wantCandidate].kind),
+			    StateName(d.state), KitOutside(d.state) ? d.waiting : d.people,
+			    KitTrader(d.state) && d.people > 0 ? " and the trader" : "", where[static_cast<UInt32>(g_kitMode)],
+			    kDungeonCandidates[wantCandidate].insideDoor, kDungeonCandidates[wantCandidate].spotCount,
+			    kDungeonCandidates[wantCandidate].outsideCount);
 		}
 	}
 	if (g_kitCandidate < 0 || g_kitToPlace != 0) {
 		return;
 	}
 	const int site = SiteOfCandidate(g_sites, static_cast<UInt32>(g_kitCandidate));
+	// The place cleared with the kit waiting outside: they move in, by the door.
+	if (site >= 0 && g_kitMode == KitMode::Outside && DungeonHeld(g_sites.sites[site].state)) {
+		g_kitMode = KitMode::ByDoor;
+		g_kitToPlace = KitWantedFor(g_sites.sites[site], kDungeonCandidates[g_kitCandidate], g_kitDead);
+		g_kitReportIn = 3;
+		log("Dungeons: %s is theirs - those who waited outside move in by the door (%u)",
+		    kDungeonCandidates[g_kitCandidate].name, CampBits(g_kitToPlace));
+		return;
+	}
 	// The dead counted off: the last overruns the place.
 	for (UInt32 slot = 0; site >= 0 && slot < kDungeonKitSlots; ++slot) {
 		const UInt16 bit = static_cast<UInt16>(1u << slot);
@@ -394,10 +429,15 @@ void StepKit(const float* closeness, LogFn log) {
 		g_kitShown = static_cast<UInt16>(g_kitShown & ~bit);
 		DungeonSite& d = g_sites.sites[site];
 		DungeonEvent ev[4];
-		const UInt32 n = slot < kDungeonKitPeopleMost ? DungeonPersonDied(d, static_cast<UInt32>(site), ev, 4) : 0;
+		UInt32 n = 0;
+		if (KitOutside(d.state)) {
+			DungeonWaitingDied(d);
+		} else if (slot < kDungeonKitPeopleMost) {
+			n = DungeonPersonDied(d, static_cast<UInt32>(site), ev, 4);
+		}
 		log("Dungeons: %s - %s %08X died; %u people left, now %s", kDungeonCandidates[g_kitCandidate].name,
-		    slot < kDungeonKitPeopleMost ? "one of its people" : "its trader", FormIdOf(ref), d.people,
-		    StateName(d.state));
+		    slot < kDungeonKitPeopleMost ? "one of its people" : "its trader", FormIdOf(ref),
+		    KitOutside(d.state) ? d.waiting : d.people, StateName(d.state));
 		LogEvents(ev, n, d, log);
 	}
 	// What changed since (a siege's toll, the state): told one a frame.
@@ -411,7 +451,8 @@ void StepKit(const float* closeness, LogFn log) {
 		UInt32 inFirstCell = 0;
 		// How far each stands from its spot, and how far beneath it (one
 		// fallen through the floor shows here).
-		const UInt32 door = LookupForm(kDungeonCandidates[g_kitCandidate].insideDoor);
+		DungeonSpot unused{};
+		const UInt32 door = LookupForm(KitAnchor(kDungeonCandidates[g_kitCandidate], 0, unused));
 		float farthest = 0.0f;
 		float lowest = 0.0f;
 		for (UInt32 slot = 0; slot < kDungeonKitSlots; ++slot) {
@@ -420,7 +461,8 @@ void StepKit(const float* closeness, LogFn log) {
 				continue;
 			}
 			if (LooksLikeObject(door)) {
-				const DungeonSpot at = KitSpot(kDungeonCandidates[g_kitCandidate], slot, g_kitBesieged);
+				DungeonSpot at{};
+				KitAnchor(kDungeonCandidates[g_kitCandidate], slot, at);
 				const float dx = FloatAt(ref + kRefPositionOffset) - FloatAt(door + kRefPositionOffset) - at.dx;
 				const float dy = FloatAt(ref + kRefPositionOffset + 4) - FloatAt(door + kRefPositionOffset + 4) - at.dy;
 				const float dz = FloatAt(ref + kRefPositionOffset + 8) - FloatAt(door + kRefPositionOffset + 8) - at.dz;
@@ -545,6 +587,10 @@ void StepPool(const float* closeness, LogFn log) {
 	const int current = g_poolCandidate >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(g_poolCandidate)) : -1;
 	const int want = WalkerSite(g_sites, closeness, enabled, current);
 	const int wantCandidate = want >= 0 ? static_cast<int>(g_sites.sites[want].candidate) : -1;
+	if (g_poolCandidate >= 0 && PoolStays(want, current >= 0 ? closeness[current] : -1.0f)) {
+		g_poolPending = 0;
+		return;
+	}
 	if (wantCandidate != g_poolCandidate) {
 		HidePool(log);
 		g_poolCandidate = wantCandidate;
@@ -669,6 +715,57 @@ void PutBack(UInt32 cellId, bool atOnce, LogFn log) {
 	g_putBackOf = OccupantsOf(g_occupants, cellId);
 	if (atOnce) {
 		PutBackSome(kDungeonOccupantsMost, log);
+	}
+}
+
+// Once a second with the player in a cell of a place to clear: nobody
+// living left in it (but him, his followers and our own) - the cell is
+// noted; every cell so, and the place is cleared: those waiting move in.
+void StepClearing(UInt32 cell, UInt32 player, LogFn log) {
+	const UInt32 cellId = FormIdOf(cell);
+	const int c = CandidateOfCell(kDungeonCandidates, kDungeonCandidateCount, cellId);
+	const int site = c >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(c)) : -1;
+	if (site < 0 || g_sites.sites[site].state != DungeonState::ToClear) {
+		return;
+	}
+	const DungeonCandidate& place = kDungeonCandidates[c];
+	UInt32 index = 0;
+	while (index < place.cellCount && place.cells[index] != cellId) {
+		++index;
+	}
+	DungeonSite& d = g_sites.sites[site];
+	if (index >= place.cellCount || (d.cleared & (1u << index)) != 0) {
+		return;
+	}
+	UInt32 followers[kFollowersMost];
+	const UInt32 followerCount = Followers(player, followers, kFollowersMost);
+	UInt32 seen = 0;
+	for (UInt32 node = cell + kCellObjectListOffset; LooksLikeObject(node) && seen < 16384; node = Read(node + 4), ++seen) {
+		const UInt32 ref = Read(node);
+		if (!LooksLikeObject(ref)) {
+			continue;
+		}
+		const UInt32 vtable = Read(ref);
+		if ((vtable != kVtblCharacter && vtable != kVtblCreature) || ref == player || Disabled(ref) ||
+		    IsDungeonPerson(FormIdOf(ref)) || IsDungeonWalker(FormIdOf(ref)) || (g_dead != nullptr && g_dead(ref))) {
+			continue;
+		}
+		bool follower = false;
+		for (UInt32 k = 0; k < followerCount; ++k) {
+			follower = follower || followers[k] == ref;
+		}
+		if (!follower) {
+			return;  // someone lives here still
+		}
+	}
+	const bool all = NoteCellClear(d, index, place.cellCount);
+	log("Dungeons: %s (cell %08X, %u of %u) - nobody living left in it; cells cleared %02X%s", place.name, cellId,
+	    index + 1, place.cellCount, d.cleared, all ? " - the place is cleared" : "");
+	if (all) {
+		Roll roll;
+		DungeonEvent ev[4];
+		const UInt32 n = DungeonCleared(d, static_cast<UInt32>(site), *g_siteSettings, roll, ev, 4);
+		LogEvents(ev, n, d, log);
 	}
 }
 
@@ -836,6 +933,9 @@ void StepDungeonsInGame(float dt, LogFn log) {
 	for (UInt32 i = 0; i < g_sites.count; ++i) {
 		const UInt16 c = g_sites.sites[i].candidate;
 		closeness[i] = c < kDungeonCandidateCount ? Closeness(kDungeonCandidates[c], player) : -1.0f;
+	}
+	if (g_siteSettings->enabled && LooksLikeObject(cell)) {
+		StepClearing(cell, player, log);
 	}
 	// The pool first: a siege's last walker ended makes the place a refuge
 	// again before the kit is looked at.

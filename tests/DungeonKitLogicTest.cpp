@@ -27,7 +27,8 @@ using walkers::DungeonSitesState;
 using walkers::DungeonState;
 
 constexpr DungeonCandidate kAll[] = {
-    {"A", DungeonKind::Cave, {0x11, 0x12, 0, 0}, 2, 0, 0, true, 0.0f, 0.0f, 0x100, 2, {{100, 0, 0}, {200, 50, -10}}},
+    {"A", DungeonKind::Cave, {0x11, 0x12, 0, 0}, 2, 0, 0, true, 0.0f, 0.0f, 0x100, 2, {{100, 0, 0}, {200, 50, -10}},
+     2, {{0, -300, 5}, {120, -300, 9}}},
     {"B", DungeonKind::Fort, {0x21, 0, 0, 0}, 1, 0, 0, true, 30000.0f, 0.0f, 0x200, 0, {}},
 };
 
@@ -57,11 +58,38 @@ void TestKitSite() {
 	const float inside[] = {3000.0f, 0.0f};
 	Check(walkers::KitSite(st, inside, true, 0) == 1, "the player inside the other: it moves there");
 	DungeonSitesState clear = Two(DungeonState::ToClear, DungeonState::WalkerDungeon);
-	Check(walkers::KitSite(clear, both, true, -1) == -1, "to clear and a walker dungeon: nobody lives inside");
+	Check(walkers::KitSite(clear, both, true, -1) == -1, "a walker dungeon, and a place to clear nobody waits at: no kit");
+	clear.sites[0].waiting = 4;
+	Check(walkers::KitSite(clear, both, true, -1) == 0, "a place to clear with people waiting: the kit waits outside it");
+	Check(walkers::KitOutside(DungeonState::ToClear) && !walkers::KitOutside(DungeonState::Refuge) &&
+	          !walkers::KitOutside(DungeonState::Besieged),
+	      "outside: only before a place to clear");
 	Check(walkers::DungeonHeld(DungeonState::Refuge) && walkers::DungeonHeld(DungeonState::Besieged) &&
 	          !walkers::DungeonHeld(DungeonState::ToClear) && !walkers::DungeonHeld(DungeonState::WalkerDungeon) &&
 	          !walkers::DungeonHeld(DungeonState::Free),
 	      "held: a refuge and a besieged place");
+	Check(walkers::PoolStays(-1, 0.0f) && walkers::PoolStays(-1, 900.0f),
+	      "no walkers left, the player still in or by the place: the ended lie where they fell");
+	Check(!walkers::PoolStays(-1, -1.0f), "the player gone: the pool goes back in");
+	Check(!walkers::PoolStays(1, 0.0f), "wanted at another place: it goes there");
+	Check(walkers::KitByTheDoor(0.0f, false), "the kit put in with the player inside: it comes in by the door");
+	Check(!walkers::KitByTheDoor(1500.0f, false), "the player outside: onto its spots");
+	Check(!walkers::KitByTheDoor(0.0f, true), "right after a load: onto its spots");
+	const walkers::DungeonSpot o0 = walkers::OutsideSpot(kAll[0], 0);
+	const walkers::DungeonSpot o2 = walkers::OutsideSpot(kAll[0], 2);
+	Check(o0.dx == 0 && o0.dy == -300 && o0.dz == 5, "waiting outside: the first on the first spot before the door");
+	Check(o2.dz == 5 && (o2.dx != 0 || o2.dy != -300), "more people than spots outside: a step aside");
+	const walkers::DungeonSpot d0 = walkers::DoorSpot(kAll[0], 1);
+	Check(d0.dx == 200 && d0.dy == 50, "coming in by the door: the spots nearest it in turn");
+	Check(walkers::KitWantedFor(clear.sites[0], kAll[0], 0) == 0x0041 + 0x0082,
+	      "a place to clear: those waiting shown (two men, two women), no trader");
+	Check(walkers::KitWantedFor(clear.sites[0], kAll[1], 0) == 0, "no spot outside the door: they wait out of sight");
+	DungeonSitesState refuge = Two(DungeonState::Refuge, DungeonState::Besieged);
+	Check(walkers::KitWantedFor(refuge.sites[0], kAll[0], 0) == (0x0007 | 0x00C0 | 0x1000),
+	      "a refuge of five: five and the trader");
+	Check(walkers::KitWantedFor(refuge.sites[1], kAll[1], 0) == (0x0003 | 0x0040), "a siege of three: three, no trader");
+	DungeonSitesState gone2 = Two(DungeonState::WalkerDungeon, DungeonState::Free);
+	Check(walkers::KitWantedFor(gone2.sites[0], kAll[0], 0) == 0, "a walker dungeon: nobody");
 	const float gone[] = {-1.0f, 2500.0f};
 	Check(walkers::KitSite(st, gone, true, 0) == 1, "the kit's site no longer near: to the other");
 	DungeonSitesState w = Two(DungeonState::WalkerDungeon, DungeonState::Refuge);

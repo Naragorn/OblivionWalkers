@@ -2,7 +2,8 @@
 # Runs a held dungeon's walkers on OBVR's harness (harness/dungeon-walkers.txt
 # or dungeon-fight.txt), the live INI set for the run and put back whatever
 # happens. Mode: siege (a siege counted off by the console's kills), taken
-# (a walker dungeon cleared so), fight (a siege fought by the game - a look).
+# (a walker dungeon cleared so), fight (a siege fought by the game - a look),
+# clear (a place to clear: the people wait outside, killall, they move in).
 # Exit 0: every check held. Announce "busy" first.
 set -euo pipefail
 mode="${1:-siege}"
@@ -11,17 +12,18 @@ obvr="${OBVR_DIR:-$root/../OBVR}"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 case "$mode" in
-	siege) state=2; walkers=8; behead=0; scenario=dungeon-walkers ;;
-	taken) state=4; walkers=8; behead=0; scenario=dungeon-walkers ;;
-	fight) state=2; walkers=10; behead=1; scenario=dungeon-fight ;;
-	*) echo "mode: siege | taken | fight" >&2; exit 2 ;;
+	siege) state=2; walkers=8; behead=0; scenario=dungeon-walkers; site="Fort Ash" ;;
+	taken) state=4; walkers=8; behead=0; scenario=dungeon-walkers; site="Fort Ash" ;;
+	fight) state=2; walkers=10; behead=1; scenario=dungeon-fight; site="Fort Ash" ;;
+	clear) state=3; walkers=8; behead=0; scenario=dungeon-clear; site="Echo Mine" ;;
+	*) echo "mode: siege | taken | fight | clear" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
-python3 - "$ini" "$state" "$walkers" "$behead" <<'INI'
+python3 - "$ini" "$state" "$walkers" "$behead" "$site" <<'INI'
 import re, sys
-path, state, walkers, behead = sys.argv[1:5]
+path, state, walkers, behead, site = sys.argv[1:6]
 text = open(path, encoding="latin-1", newline="").read()
 
 def put(text, section, key, value):
@@ -37,7 +39,7 @@ def put(text, section, key, value):
         body = "\r\n" + key + "=" + value + body
     return text[:head.end()] + body + text[stop:]
 
-for key, value in (("TestSite", "Fort Ash"), ("TestSiteState", state), ("Enabled", "1"),
+for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"),
                    ("AttackWalkersMin", walkers), ("AttackWalkersMax", walkers), ("WalkersAtOnce", "6"),
                    ("PeopleMin", "8"), ("PeopleMax", "8")):
     text = put(text, "Dungeons", key, value)
@@ -66,7 +68,21 @@ d = [l for l in lines if l.startswith("Dungeons: ")]
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
 into = [l for l in d if re.search(r"walker \w+ into Fort Ash", l)]
 ended = [l for l in d if "Fort Ash - walker" in l and "ended" in l]
-if mode == "fight":
+if mode == "clear":
+    kit = [l for l in d if "the kit to site 0 Echo Mine" in l]
+    check(len(kit) >= 1 and "(mine; to clear, 8 people) - waiting outside" in kit[0], "the kit waits outside Echo Mine, eight of them")
+    stands = [m for l in d for m in [re.search(r"stands - (\d+) shown, (\d+) enabled, (\d+) in its first cell \w+, (\d+) with their 3D; the farthest (\d+) units from its spot, the lowest (-?\d+) beneath it", l)] if m]
+    check(len(stands) >= 1 and stands[0].group(1, 2, 4) == ("8", "8", "8") and int(stands[0].group(6)) < 150,
+          "outside the eight stand enabled with their 3D on the land" + (f" ({stands[0].group(0)})" if stands else ""))
+    noted = [l for l in d if "nobody living left in it" in l]
+    check(len(noted) == 1 and "cells cleared 01 - the place is cleared" in noted[0], "after the killall the one cell is noted: cleared")
+    check(not any("nobody living" in l for l in lines[:lines.index(noted[0])] if "Echo Mine" in l) if noted else False,
+          "not before - its occupants lived")
+    check(any("site 0 Echo Mine (mine) taken - now refuge, 8 people" in l for l in d), "the place taken: a refuge of the eight")
+    check(any("move in by the door (9)" in l for l in d), "those who waited move in by the door, the trader with them")
+    check(len(stands) >= 2 and stands[-1].group(1, 2, 3) == ("9", "9", "9"),
+          "three seconds on the nine stand in its cell" + (f" ({stands[-1].group(0)})" if len(stands) >= 2 else ""))
+elif mode == "fight":
     died = [l for l in d if "one of its people" in l and "died" in l]
     print(f"  look  the pool: {len(pool)}, walkers into the place: {len(into)}, walkers ended: {len(ended)}, "
           f"people died: {len(died)}")

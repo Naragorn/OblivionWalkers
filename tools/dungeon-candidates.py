@@ -152,6 +152,8 @@ def main() -> int:
     p.add_argument("--spot-most", type=float, default=2048.0)
     p.add_argument("--spot-apart", type=float, default=110.0)
     p.add_argument("--spots-least", type=int, default=5, help="fewer spots than this: out")
+    p.add_argument("--outside-rise", type=float, default=160.0,
+                   help="its people's spots outside: the land this near the coming-out point's height")
     p.add_argument("--header", help="also write src/DungeonCandidates.h here: the pool's dungeons, their cells")
     p.add_argument("--moo-quests", help="MOO's \"Maskar's Oblivion Overhaul for quests.ini\": the map markers "
                    "it holds back until a quest is done count as quest places")
@@ -176,6 +178,17 @@ def main() -> int:
                 moo_held[int(m.group(1), 16)] = q.group(1).strip() if q else "no quest named"
             block = []
 
+    # The land's heights, for the spots outside (the header only: it is a
+    # second pass over Oblivion.esm).
+    land = None
+    places = None
+    if args.header:
+        import importlib.util
+        here = Path(__file__).resolve().parent
+        spec = importlib.util.spec_from_file_location("camp_places", here / "camp-places.py")
+        places = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(places)
+        land = places.read_land(places.load_esm_module(), Path(args.files[0]).read_bytes())
     cells: dict[int, dict] = {}
     refs: dict[int, dict] = {}
     doors: set[int] = set()
@@ -384,6 +397,25 @@ def main() -> int:
             why.append("the door inside is no persistent reference of the first cell")
         elif len(spots) < args.spots_least:
             why.append(f"spots ({len(spots)} for its people)")
+        # Where its people wait outside (a place to clear): a fan before the
+        # door outside - from where one comes out of it (the door inside's
+        # XTEL) away from the door, four rows of three, on the land's height
+        # (LAND, tools/camp-places.py), each within --outside-rise of the
+        # coming-out point's height; as offsets from the door outside.
+        outside_spots = []
+        if inside and inside["tel"] and door["pos"] and land is not None:
+            ox, oy, oz = inside["tel"][1]
+            ux, uy = ox - door["pos"][0], oy - door["pos"][1]
+            length = math.hypot(ux, uy)
+            if length >= 20.0:
+                ux, uy = ux / length, uy / length
+                for row in range(4):
+                    for col in (0, -1, 1):
+                        x = ox + ux * (220.0 + 110.0 * row) - uy * 120.0 * col
+                        y = oy + uy * (220.0 + 110.0 * row) + ux * 120.0 * col
+                        h = places.ground_at(land, x, y)
+                        if h is not None and abs(h - oz) <= args.outside_rise:
+                            outside_spots.append((x - door["pos"][0], y - door["pos"][1], h + 20.0 - door["pos"][2]))
         spawns = sum(1 for c in group for r in by_cell.get(c, ()) if r["base"] in lists)
         placed = sum(1 for c in group for r in by_cell.get(c, ()) if r["base"] in actors)
         name = (near[1]["name"] if near else "") or cells[first]["name"]
@@ -392,7 +424,7 @@ def main() -> int:
             "cells": len(group), "doors_in": len(outside), "door": door["form"], "x": door["pos"][0],
             "y": door["pos"][1], "arrival": arrival, "room": room, "spawns": spawns, "placed": placed,
             "marker": near[1]["form"] if near else 0, "why": "; ".join(why), "group": group,
-            "inside": inside["form"] if inside else 0,
+            "inside": inside["form"] if inside else 0, "outside": outside_spots,
             "spots": [(x - inside["pos"][0], y - inside["pos"][1], z - inside["pos"][2]) for x, y, z in spots]
             if inside and inside["pos"] else []})
 
@@ -448,7 +480,8 @@ def main() -> int:
              "// Oblivion.esm form IDs, the first the one the door outside leads into; then",
              "// the door outside, the map marker, whether it is one of the chosen, the door",
              "// outside's x and y, the door inside and its people's spots as offsets from",
-             "// that door (path grid points near the arrival).",
+             "// that door (path grid points near the arrival), and where they wait outside",
+             "// (a fan before the door outside on the land's height, offsets from that door).",
              f"// ({len(chosen)}: at least {args.chosen_room} path grid points at the arrival, at most "
              f"{args.chosen_cells} cells, doors {args.chosen_apart:.0f} apart).", "",
              '#include "DungeonLogic.h"', "", "namespace walkers {", "",
@@ -463,7 +496,9 @@ def main() -> int:
                      + f"}}, {len(r['group'])}, 0x{r['door']:08X}, 0x{r['marker']:08X}, "
                      + ("true" if r["chosen"] else "false") + f", {r['x']:.0f}.0f, {r['y']:.0f}.0f, "
                      + f"0x{r['inside']:08X}, {len(r['spots'])}, {{"
-                     + ", ".join(f"{{{x:.0f}, {y:.0f}, {z:.0f}}}" for x, y, z in r["spots"]) + "}},")
+                     + ", ".join(f"{{{x:.0f}, {y:.0f}, {z:.0f}}}" for x, y, z in r["spots"]) + "}, "
+                     + f"{len(r['outside'])}, {{"
+                     + ", ".join(f"{{{x:.0f}, {y:.0f}, {z:.0f}}}" for x, y, z in r["outside"]) + "}},")
         h += ["};", "", "inline constexpr UInt32 kDungeonCandidateCount =",
               "    static_cast<UInt32>(sizeof kDungeonCandidates / sizeof kDungeonCandidates[0]);", "",
               "}  // namespace walkers", ""]
