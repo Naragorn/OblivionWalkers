@@ -32,7 +32,7 @@ struct NewsSettings {
 	float headingHoldDays = 0.5f;
 };
 
-enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost };
+enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost, Refuges };
 
 struct Edition {
 	EditionKind kind = EditionKind::General;
@@ -42,7 +42,7 @@ struct Edition {
 // The edition's number - the order tools/esp-write.py writes the books in:
 // general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25 and
 // lifted 26-33 (4.12), a refugee camp saved 34 and lost 35 (4.20.6).
-inline constexpr UInt32 kEditionCount = 4 + 4 * kNewsCities;
+inline constexpr UInt32 kEditionCount = 5 + 4 * kNewsCities;
 
 inline UInt32 EditionIndex(const Edition& e) {
 	switch (e.kind) {
@@ -60,6 +60,8 @@ inline UInt32 EditionIndex(const Edition& e) {
 			return 2 + 4 * kNewsCities;
 		case EditionKind::CampLost:
 			return 3 + 4 * kNewsCities;
+		case EditionKind::Refuges:
+			return 4 + 4 * kNewsCities;
 		case EditionKind::General:
 		default:
 			return 0;
@@ -71,7 +73,8 @@ inline UInt32 EditionIndex(const Edition& e) {
 // 0xA38 (CampLogic.h kCampExtraFirstLocalId; tools/esp-write.py
 // LOCAL_EDITION_IDS).
 inline UInt32 EditionLocalId(UInt32 index) {
-	return index < 18 ? 0x8FC + index : (index < 34 ? 0x9B7 + (index - 18) : 0xA38 + (index - 34));
+	// 36, the held dungeons': DungeonQuestLogic.h kDungeonEditionLocalId.
+	return index < 18 ? 0x8FC + index : (index < 34 ? 0x9B7 + (index - 18) : (index < 36 ? 0xA38 + (index - 34) : 0xA75));
 }
 
 struct NewsState {
@@ -87,6 +90,7 @@ struct NewsState {
 	// lost (overrun).
 	float campDays = -1.0f;
 	bool campSaved = false;
+	bool refuges = false;  // a held dungeon is news now (Dungeons.cpp says it each second; not kept in the save)
 };
 
 // A camp saved or lost at game day `days`: the camps' latest news.
@@ -176,7 +180,7 @@ inline Edition ChooseEdition(const NewsState& news, float now, float recentDays,
 	    now - news.headingDays <= holdDays) {
 		return Edition{EditionKind::Approaching, news.headingCity};
 	}
-	return Edition{EditionKind::General, -1};
+	return Edition{news.refuges ? EditionKind::Refuges : EditionKind::General, -1};
 }
 
 // The game's clock in days: GameDaysPassed's whole days plus GameHour. The

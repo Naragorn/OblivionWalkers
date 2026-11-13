@@ -1,0 +1,41 @@
+# A paper that tells of a held dungeon (docs/walkers-spec.md 4.20.7, the
+# ways to hear of a place). tools/dungeon-walkers.sh paper sets [Dungeons]
+# TestSite=Fort Ash, TestSiteState=2, MessengerHours=0; the player far from
+# the fort.
+# - read: the refugees' notice (the ESP's book A76) added and equipped - the
+#   game's book menu opens: "news - the player reads ...A76", "news - told to
+#   the player (site 0)", "journal - Fort Ash: stage 20 (heard ...";
+# - closed: CloseAllMenus - "the paper ... is closed (the book menu now
+#   holds 00000000)".
+# Run through tools/dungeon-walkers.sh paper.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel 5 5
+console-at read player.additem {form:OblivionWalkers.esp:A76} 1
+console-at read player.equipitem {form:OblivionWalkers.esp:A76}
+console-at closed CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 14
+mark read
+wait 5
+mark opened
+wait 2
+mark closed
+wait 4
+mark end
+wait 1

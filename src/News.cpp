@@ -59,6 +59,8 @@ const char* EditionText(const Edition& edition) {
 			return "a refugee camp saved";
 		case EditionKind::CampLost:
 			return "a refugee camp overrun";
+		case EditionKind::Refuges:
+			return "refugees in the old forts and caves";
 		case EditionKind::General:
 		default:
 			return "the outbreak";
@@ -116,6 +118,12 @@ void NoteCampInNews(bool saved) {
 	if (now >= 0.0f) {
 		NoteCampNews(g_news, saved, now);
 	}
+}
+
+void NoteRefugesInNews(bool news) { g_news.refuges = news; }
+
+UInt32 EditionBookFormId(UInt32 index) {
+	return index < kEditionCount && LooksLikeObject(g_editions[index]) ? FormIdOf(g_editions[index]) : 0;
 }
 
 NewsState& CurrentNews() { return g_news; }

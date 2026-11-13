@@ -33,6 +33,11 @@ float GameDaysNow();
 // The attacks kept across saves (Rise.cpp's co-save callbacks).
 // 4.20.6: a refugee camp saved (defended, or brought to a city) or overrun.
 void NoteCampInNews(bool saved);
+// A held dungeon is news now, or none is (4.20.7; said each second, not kept
+// in the save): with nothing else to report the Courier writes of them.
+void NoteRefugesInNews(bool news);
+// The form ID of edition `index`'s book, 0 when it is not there.
+UInt32 EditionBookFormId(UInt32 index);
 NewsState& CurrentNews();
 
 }  // namespace walkers

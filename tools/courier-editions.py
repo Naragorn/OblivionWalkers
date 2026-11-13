@@ -170,7 +170,49 @@ def editions() -> list[tuple[str, str, str]]:
     out += [_besieged(key, name, region) for key, name, region in CITIES]
     out += [_lifted(key, name, region) for key, name, region in CITIES]
     out += [_camp_saved(), _camp_lost()]
+    out.append(_refuges())
     return out
+
+
+def _refuges() -> tuple[str, str, str]:
+    """Refugees hold dungeons (4.20.7): the edition while a held dungeon is
+    news and nothing else is to report; reading it tells of that place."""
+    return (
+        "WalkersCourierRefuges",
+        "Refugees Take to the Old Forts!",
+        _sheet(
+            "Refugees Take to the Old Forts!",
+            [
+                "With the roads no longer safe and the camps overrun one after another, those who fled the walkers "
+                "have found themselves new shelter: the old forts, the mines, the caves and even the ruins of the "
+                "Ayleids. Behind thick walls and a single door, they say, a handful can hold out against many.",
+                "Not every such place is a safe one. Some are besieged by the dead day and night. Before others the "
+                "refugees wait in the open, for bandits or beasts hold what they hoped to make their own. And some "
+                "have fallen already, their defenders walking the halls with the rest.",
+                "The Courier has word of one such place, and prints it here for the bold and the charitable. Readers "
+                "who would help are asked to mark it on their maps.",
+            ],
+        ),
+    )
+
+
+def dungeon_notice() -> tuple[str, str, str]:
+    """The refugees' notice (4.20.7): a paper as an edition; reading it tells
+    of a held dungeon."""
+    return (
+        "WalkersDungeonNotice",
+        "Notice: Help Wanted",
+        _sheet(
+            "To Any Who Can Bear Arms",
+            [
+                "We are honest folk, driven from our homes by the walking dead. We have found shelter in the wilds, "
+                "but we cannot hold it alone.",
+                "Whoever reads this and has a strong arm and a kind heart: come and stand with us. We have little, "
+                "and we will share it gladly.",
+                "The place is marked for you. May the Nine guide your steps.",
+            ],
+        ),
+    )
 
 
 def _camp_saved() -> tuple[str, str, str]:

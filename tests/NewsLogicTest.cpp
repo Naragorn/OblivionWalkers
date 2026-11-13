@@ -123,13 +123,38 @@ void TestIndex() {
 	}
 	mark(Edition{EditionKind::CampSaved, -1});
 	mark(Edition{EditionKind::CampLost, -1});
+	mark(Edition{EditionKind::Refuges, -1});
 	bool all = true;
 	for (bool s : seen) {
 		all = all && s;
 	}
 	Check(unique && inRange && all,
-	      "36 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
-	      "lifted 26-33, the camps' 34 and 35");
+	      "37 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
+	      "lifted 26-33, the camps' 34 and 35, the held dungeons' 36");
+	Check(walkers::kEditionCount == 37 && walkers::EditionIndex(Edition{EditionKind::Refuges, -1}) == 36 &&
+	          walkers::EditionLocalId(36) == 0xA75,
+	      "the held dungeons' book after their rumors (DungeonQuestLogic.h kDungeonEditionLocalId)");
+	{
+		walkers::NewsState quiet;
+		const Edition general = walkers::ChooseEdition(quiet, 10.0f, 3.0f, 0.5f);
+		quiet.refuges = true;
+		const Edition refuges = walkers::ChooseEdition(quiet, 10.0f, 3.0f, 0.5f);
+		Check(general.kind == EditionKind::General && refuges.kind == EditionKind::Refuges,
+		      "nothing else to report and a held dungeon is news: the refuges' edition in place of the general one");
+		walkers::NoteHeading(quiet, 2, 9.9f);
+		Check(walkers::ChooseEdition(quiet, 10.0f, 3.0f, 0.5f).kind == EditionKind::Approaching,
+		      "a horde heading for a city goes first");
+		walkers::NewsState camp;
+		camp.refuges = true;
+		walkers::NoteCampNews(camp, true, 9.0f);
+		Check(walkers::ChooseEdition(camp, 10.0f, 3.0f, 0.5f).kind == EditionKind::CampSaved, "and a camp's news");
+		UInt8 image[walkers::kNewsImageBytes];
+		walkers::NewsState back;
+		back.refuges = true;
+		Check(walkers::NewsImage(camp, image, sizeof(image)) == walkers::kNewsImageBytes &&
+		          walkers::ReadNewsImage(back, image, walkers::kNewsImageBytes) && !back.refuges,
+		      "the refuges' news is not kept in the save (the dungeons say it anew each second)");
+	}
 	Check(walkers::EditionIndex(Edition{EditionKind::CampSaved, -1}) == 34 &&
 	          walkers::EditionIndex(Edition{EditionKind::CampLost, -1}) == 35 && walkers::EditionLocalId(34) == 0xA38 &&
 	          walkers::EditionLocalId(35) == 0xA39,

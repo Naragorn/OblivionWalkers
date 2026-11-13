@@ -61,6 +61,82 @@ inline constexpr UInt32 kDungeonRumorFirstLocalId = kDungeonLineFirstLocalId + k
 inline constexpr UInt32 kDungeonRumorCount = 4;
 inline constexpr UInt32 kDungeonTalkEnd = kDungeonRumorFirstLocalId + kDungeonRumorCount;  // 0xA75
 
+// After them: the Courier's edition on the held dungeons (NewsLogic.h
+// EditionLocalId(36)), a notice (a paper as the edition, to hang where
+// people pass), the messenger - his base, his reference in the holding
+// cell, his three greetings (a siege, a place to clear, too late).
+inline constexpr UInt32 kDungeonEditionLocalId = kDungeonTalkEnd;  // 0xA75
+inline constexpr UInt32 kDungeonNoticeLocalId = 0xA76;
+inline constexpr UInt32 kDungeonMessengerBaseLocalId = 0xA77;
+inline constexpr UInt32 kDungeonMessengerRefLocalId = 0xA78;
+inline constexpr UInt32 kDungeonMessengerLineFirstLocalId = 0xA79;
+inline constexpr UInt32 kDungeonMessengerLineCount = 3;
+
+// The messenger: one of the refugees runs to the player for help - with
+// news of a siege or of a place to clear, MessengerHours apart at the
+// soonest, only out of doors. He comes up and speaks (the game's forced
+// greeting; his line sets "heard"), then stays about until the player has
+// walked on.
+enum class MessengerPhase : UInt8 { Away, Coming, Leaving };
+enum class MessengerDoes : UInt8 { Nothing, Leave, Go };
+inline constexpr UInt32 kMessengerComingSeconds = 60;
+inline constexpr UInt32 kMessengerLeavingSeconds = 90;
+inline constexpr float kMessengerGoneUnits = 1500.0f;
+inline constexpr float kMessengerFromUnits = 800.0f;  // behind the player
+
+struct DungeonMessenger {
+	MessengerPhase phase = MessengerPhase::Away;
+	float lastSentDay = -1000.0f;
+	float seconds = 0.0f;  // in this phase
+};
+
+inline bool MessengerSends(const DungeonMessenger& m, UInt8 newsKind, float hours, float now, bool outdoors) {
+	return m.phase == MessengerPhase::Away && hours > 0.0f && outdoors && (newsKind == 2 || newsKind == 3) &&
+	       now - m.lastSentDay >= hours / 24.0f;
+}
+
+inline void MessengerSent(DungeonMessenger& m, float now) {
+	m.phase = MessengerPhase::Coming;
+	m.lastSentDay = now;
+	m.seconds = 0.0f;
+}
+
+// Coming, he is told to speak to the player a second after he was put out
+// (his 3D is there by then) and every ten seconds again until he has.
+inline bool MessengerGreetsNow(const DungeonMessenger& m) {
+	return m.phase == MessengerPhase::Coming && static_cast<UInt32>(m.seconds) % 10 == 1;
+}
+
+// A second on: `told` - the news was told this second; `distance` from the
+// player.
+inline MessengerDoes StepMessenger(DungeonMessenger& m, bool told, float distance) {
+	if (m.phase == MessengerPhase::Away) {
+		return MessengerDoes::Nothing;
+	}
+	m.seconds += 1.0f;
+	if (m.phase == MessengerPhase::Coming) {
+		if (told || m.seconds >= static_cast<float>(kMessengerComingSeconds)) {
+			m.phase = MessengerPhase::Leaving;
+			m.seconds = 0.0f;
+			return MessengerDoes::Leave;
+		}
+		return MessengerDoes::Nothing;
+	}
+	if (distance > kMessengerGoneUnits || m.seconds >= static_cast<float>(kMessengerLeavingSeconds)) {
+		m.phase = MessengerPhase::Away;
+		m.seconds = 0.0f;
+		return MessengerDoes::Go;
+	}
+	return MessengerDoes::Nothing;
+}
+
+// The book the player has open now against a second ago: one of our papers
+// (the Courier's edition on the dungeons, the notice) newly opened is read -
+// it tells the news as a rumor does.
+inline bool PaperOpened(UInt32 bookNow, UInt32 bookBefore, UInt32 edition, UInt32 notice) {
+	return bookNow != 0 && bookNow != bookBefore && (bookNow == edition || bookNow == notice);
+}
+
 // What the kit's people say, by the place they stand at: 1 a quiet refuge,
 // 2 besieged, 3 waiting before a place to clear, 4 a refuge the player just
 // defended or cleared (their thanks); 0 nothing of ours.

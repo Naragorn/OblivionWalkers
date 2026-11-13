@@ -179,6 +179,12 @@ bool LandHeight(float x, float y, float& z) {
 	return true;
 }
 
+}  // namespace
+
+bool LandHeightAt(float x, float y, float& z) { return LandHeight(x, y, z); }
+
+namespace {
+
 bool Outdoors(UInt32 ref) {
 	const UInt32 cell = Read(ref + kRefParentCellOffset);
 	return LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0;

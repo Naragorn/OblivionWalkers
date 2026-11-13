@@ -4,6 +4,7 @@
 
 #include <vector>
 
+#include <cmath>
 #include <cstdio>
 
 #include "CampLogic.h"
@@ -11,6 +12,7 @@
 #include "DungeonCandidates.h"
 #include "DungeonKitLogic.h"
 #include "Engine.h"
+#include "Horde.h"
 #include "News.h"
 #include "Replace.h"
 #include "RiseLogic.h"
@@ -113,6 +115,15 @@ constexpr UInt32 kQuestFlagsOffset = 0x3C;      // TESQuest::questFlags (xOBSE G
 constexpr UInt32 kQuestStageOffset = 0x5C;      // TESQuest::stageIndex
 constexpr UInt8 kExtraMapMarker = 0x33;         // xOBSE GameExtraData.h kExtraData_MapMarker; its Data* at +0x0C
 constexpr UInt32 kMapMarkerFlagsOffset = 0x0C;  // ExtraMapMarker::Data: a TESFullName (12 bytes), then the flags (16 bits)
+// The open menus (xOBSE GameMenus.cpp GetMenuByType): g_TileMenuArray, an
+// NiTArray<TileMenu*> whose data (+4) is indexed by the menu's type less
+// kMenuType_Message; a TileMenu's menu at +0x44; a BookMenu's book at +0x34.
+constexpr UInt32 kTileMenuArray = 0x00B13970;
+constexpr UInt32 kMenuTypeMessage = 0x3E9;
+constexpr UInt32 kMenuTypeBook = 0x402;
+constexpr UInt32 kTileMenuMenuOffset = 0x44;
+constexpr UInt32 kBookMenuBookOffset = 0x34;
+constexpr UInt32 kRefRotZOffset = 0x28;  // TESObjectREFR::rotZ, radians (xOBSE GameObjects.h)
 
 const DungeonSiteSettings* g_siteSettings = nullptr;
 DungeonRollFn g_roll = nullptr;
@@ -159,6 +170,12 @@ UInt32 g_poolLogsLeft = 120;
 
 // The candidate the player is thanked at (he defended or cleared it), -1 none.
 int g_thankedCandidate = -1;
+// The runner for help, whether the save may hold him enabled, and the book
+// the player had open a second ago.
+DungeonMessenger g_messenger;
+bool g_messengerUnknown = true;
+bool g_messengerDeadLogged = false;
+UInt32 g_bookBefore = 0;
 
 // The occupants taken out, and the player's cell as it was last frame.
 DungeonOccupants g_occupants;
@@ -254,6 +271,91 @@ bool SetGlobal(UInt32 local, float value) {
 	}
 	*reinterpret_cast<float*>(global + kGlobalValueOffset) = value;
 	return true;
+}
+
+// The book the player has open in the game's book menu: its form ID, 0 none.
+UInt32 BookOpen() {
+	const UInt32 data = Read(kTileMenuArray + 4);
+	if (!LooksLikeObject(data)) {
+		return 0;
+	}
+	const UInt32 tile = Read(data + (kMenuTypeBook - kMenuTypeMessage) * 4);
+	const UInt32 menu = LooksLikeObject(tile) ? Read(tile + kTileMenuMenuOffset) : 0;
+	const UInt32 book = LooksLikeObject(menu) ? Read(menu + kBookMenuBookOffset) : 0;
+	return LooksLikeObject(book) ? FormIdOf(book) : 0;
+}
+
+bool Disabled(UInt32 ref);
+
+// The runner for help (DungeonQuestLogic.h): put out behind the player on
+// the land, told to speak to him, taken away when he has walked on.
+void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, LogFn log) {
+	const UInt32 ref = g_espBase != kNoEsp ? LookupForm(EspFormId(g_espBase, kDungeonMessengerRefLocalId)) : 0;
+	if (!LooksLikeObject(ref)) {
+		return;
+	}
+	if (g_messengerUnknown) {
+		// After a load: wherever the save holds him, he goes back in.
+		g_messengerUnknown = false;
+		if (!Disabled(ref)) {
+			Say(ref, "Disable");
+			log("Dungeons: runner - the save held him out; taken away");
+		}
+		return;
+	}
+	const float px = FloatAt(player + kRefPositionOffset);
+	const float py = FloatAt(player + kRefPositionOffset + 4);
+	const float pz = FloatAt(player + kRefPositionOffset + 8);
+	const UInt32 cell = Read(player + kRefParentCellOffset);
+	const bool outdoors = LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0;
+	if (MessengerSends(g_messenger, newsKind, g_siteSettings->messengerHours, now, outdoors)) {
+		if (g_dead != nullptr && g_dead(ref)) {
+			if (!g_messengerDeadLogged) {
+				log("Dungeons: runner - he is dead; nobody comes");
+				g_messengerDeadLogged = true;
+			}
+			return;
+		}
+		// Behind the player (the engine's heading: 0 north, clockwise), on the land.
+		const float heading = FloatAt(player + kRefRotZOffset);
+		const float x = px - std::sin(heading) * kMessengerFromUnits;
+		const float y = py - std::cos(heading) * kMessengerFromUnits;
+		float z = pz;
+		if (!LandHeightAt(x, y, z)) {
+			return;  // no loaded land there: the next second again
+		}
+		char line[64];
+		std::snprintf(line, sizeof(line), "MoveTo player %d %d %d", static_cast<int>(x - px), static_cast<int>(y - py),
+		              static_cast<int>(z - pz) + 8);
+		const bool moved = Say(ref, line);
+		if (Disabled(ref)) {
+			Say(ref, "Enable");
+		}
+		MessengerSent(g_messenger, now);
+		log("Dungeons: runner - sent with news of kind %u (%s answered %d; the land there %.0f, the player at %.0f; "
+		    "game day %.3f)", newsKind, line, moved ? 1 : 0, z, pz, now);
+		return;
+	}
+	const float dx = FloatAt(ref + kRefPositionOffset) - px;
+	const float dy = FloatAt(ref + kRefPositionOffset + 4) - py;
+	const float distance = std::sqrt(dx * dx + dy * dy);
+	const MessengerDoes does = StepMessenger(g_messenger, told, distance);
+	if (MessengerGreetsNow(g_messenger)) {
+		// As the game's own scripts say it (27 of Oblivion.esm's: no topic -
+		// the greeting).
+		const bool said = Say(ref, "StartConversation player");
+		log("Dungeons: runner - told to speak to the player (StartConversation player answered %d; %.0f units from "
+		    "him, his 3D %d)",
+		    said ? 1 : 0, distance, LooksLikeObject(Read(ref + 0x3C)) ? 1 : 0);  // TESObjectREFR::niNode
+	}
+	if (does == MessengerDoes::Leave) {
+		Say(ref, "EvaluatePackage");
+		log("Dungeons: runner - %s; he stays about until the player has walked on",
+		    told ? "he told his news" : "a minute without reaching the player");
+	} else if (does == MessengerDoes::Go) {
+		Say(ref, "Disable");
+		log("Dungeons: runner - taken away (%.0f units from the player)", distance);
+	}
 }
 
 // The player told `stage` of the place's quest (DungeonQuestLogic.h): one
@@ -933,8 +1035,9 @@ bool IsDungeonPerson(UInt32 refId) {
 		return false;
 	}
 	const UInt32 local = refId & kEspLocalMask;
-	return EspFormId(g_espBase, local) == refId && local >= kDungeonKitFirstLocalId &&
-	       local < kDungeonKitFirstLocalId + kDungeonKitSlots;
+	return EspFormId(g_espBase, local) == refId &&
+	       ((local >= kDungeonKitFirstLocalId && local < kDungeonKitFirstLocalId + kDungeonKitSlots) ||
+	        local == kDungeonMessengerRefLocalId);
 }
 
 bool IsDungeonWalker(UInt32 refId) {
@@ -988,6 +1091,10 @@ void ResetDungeonsInGame() {
 	g_lastCellHeld = false;
 	g_putBackCell = 0;
 	g_thankedCandidate = -1;
+	g_messenger = DungeonMessenger{};
+	g_messengerUnknown = true;
+	g_messengerDeadLogged = false;
+	g_bookBefore = 0;
 }
 
 void StepDungeonsInGame(float dt, LogFn log) {
@@ -1095,9 +1202,26 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		}
 		const bool hears = g_siteSettings->enabled && g_siteSettings->journal && g_siteSettings->rumors;
 		int news = hears ? DungeonNewsSite(g_sites) : -1;
+		// A paper of ours newly opened - the Courier's edition on the held
+		// dungeons, the notice - is read: it tells as a rumor does.
+		const UInt32 book = BookOpen();
+		if (g_espBase != kNoEsp &&
+		    PaperOpened(book, g_bookBefore, EspFormId(g_espBase, kDungeonEditionLocalId),
+		                EspFormId(g_espBase, kDungeonNoticeLocalId))) {
+			SetGlobal(kDungeonHeardGlobalLocalId, 1.0f);
+			log("Dungeons: news - the player reads %08X", book);
+		}
+		if (g_espBase != kNoEsp && book != g_bookBefore &&
+		    (g_bookBefore == EspFormId(g_espBase, kDungeonEditionLocalId) ||
+		     g_bookBefore == EspFormId(g_espBase, kDungeonNoticeLocalId))) {
+			log("Dungeons: news - the paper %08X is closed (the book menu now holds %08X)", g_bookBefore, book);
+		}
+		g_bookBefore = book;
+		bool told = false;
 		if (GlobalValue(kDungeonHeardGlobalLocalId) != 0.0f) {
 			SetGlobal(kDungeonHeardGlobalLocalId, 0.0f);
 			log("Dungeons: news - told to the player (site %d)", news);
+			told = true;
 			if (news >= 0) {
 				DungeonSite& d = g_sites.sites[news];
 				Tell(d, JournalHeard(d.journal, d.state), "heard", log);
@@ -1109,6 +1233,8 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			log("Dungeons: news - now %u (0 none, 1 a refuge, 2 a siege, 3 a place to clear, 4 a fallen place)%s%s", kind,
 			    news >= 0 ? ": " : "", news >= 0 ? kDungeonCandidates[g_sites.sites[news].candidate].name : "");
 		}
+		NoteRefugesInNews(kind != 0);
+		StepMessengerInGame(kind, told, player, now, log);
 	}
 	// The player's cell held now and not before, or the other way (the place
 	// overrun, given up, [Dungeons] Enabled changed): looked at again.

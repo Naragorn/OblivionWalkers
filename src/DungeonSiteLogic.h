@@ -51,6 +51,7 @@ struct DungeonSiteSettings {
 	UInt32 walkersAtOnce = 6;            // WalkersAtOnce: of a siege's or a walker dungeon's, in the place at a time
 	bool journal = true;                 // Journal: each place's quest in the journal (DungeonQuestLogic.h)
 	bool rumors = true;                  // Rumors: people tell of the places (it needs the journal)
+	float messengerHours = 24.0f;        // MessengerHours: a runner for help this far apart at the soonest; 0 never
 };
 
 // The ESP's pool of walkers for the place the player is at (DungeonKitLogic.h).

@@ -75,6 +75,10 @@ void StepHordeInGame(float dt, CandidatesFn candidates, ConsoleFn console, DeadF
 // in the same interior or the same worldspace (the safeguard's check).
 bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UInt32 count);
 
+// The land's height at x, y in the loaded cells (the engine's
+// TES::GetTerrainHeight); false where no loaded cell is.
+bool LandHeightAt(float x, float y, float& z);
+
 // The distance from `ref` to the nearest living walker of `candidates` in
 // the same interior or worldspace; -1 when there is none.
 float NearestWalkerDistance(UInt32 ref, const HordeCandidate* candidates, UInt32 count);

@@ -3168,8 +3168,36 @@ Not seen in a run: a rumor said by an NPC (its global is set by the
 console), the lines of the two topics, the stages 5, 10, 55 and 90 in the
 game (their flows are the unit tests'), the journal with `Journal=0`.
 
-Not built yet: beds; a messenger, the Courier and a notice as ways to hear
-of a place; walkers outside the door (a siege is fought inside only).
+**Step 4b, more ways to hear of a place** (2026-11-13; built, the unit
+flows green - tests/DungeonQuestLogicTest.cpp, NewsLogicTest.cpp - **not
+yet run in the game**: the Linux game was OBNG's; `tools/dungeon-walkers.sh
+runner` and `paper` are written for it):
+- **A runner for help**: with news of a siege or of a place to clear, the
+  player out of doors, one of the refugees ("Refugee Runner", a base of his
+  own, his reference in the holding cell) is put on the land 800 units
+  behind the player (`LandHeightAt`), a second on told `StartConversation
+  player` (as 27 of Oblivion.esm's scripts say it) and every ten seconds
+  again; his greeting - one for a siege, one for a place to clear - sets
+  "heard" as a rumor does; then he stays about (the refugees' wander
+  package) until the player is 1500 units off, or ninety seconds, and is
+  taken away. A minute without reaching the player and he gives up.
+  `[Dungeons] MessengerHours=24` between two at the soonest, 0 never (LINK
+  194, version 37). Not kept in the save (after a load he is taken in; the
+  next may come at once). A dead runner is not replaced - open.
+- **The Courier**: edition 36, "Refugees Take to the Old Forts!", in place
+  of the general one while a held dungeon is news and nothing else is to
+  report (`NewsState::refuges`, said by the dungeons each second, not kept
+  in the save).
+- **Reading tells**: the game's book menu is looked at once a second
+  (xOBSE GetMenuByType's table 0x00B13970, a BookMenu's book at +0x34);
+  that edition or the refugees' notice newly opened tells the news as a
+  rumor does. Neither paper names the place - the journal does.
+- **The notice**: the book is in the ESP ("Notice: Help Wanted", local ID
+  0xA76) and reading it tells; it hangs nowhere yet. MOO's board offers no
+  way in (above); where ours hangs is Nadi's to decide.
+
+Not built yet: beds; where the notice hangs; walkers outside the door (a
+siege is fought inside only).
 Open: a living thing the player cannot reach (a slaughterfish, a
 rat behind a wall) keeps a place from being cleared - the log names
 nothing yet; the refugees win a siege of ten walkers without the player

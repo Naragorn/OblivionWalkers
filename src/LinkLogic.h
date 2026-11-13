@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 36.0;  // 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 37.0;  // 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -441,6 +441,9 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_dungeons_rumors", "Dungeons: rumors",
 	 "People tell you of held dungeons when you ask for rumors; the place is marked on your map. Needs the journal quests.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_messenger_hours", "Dungeons: a runner for help",
+	 "Game hours between the runners who find you to ask for help - at a siege or a place to clear. 0: nobody comes.",
+	 LinkKind::Slider, 0, 168, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -600,6 +603,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 191: return rise.dungeons.walkersAtOnce;
 		case 192: return rise.dungeons.journal ? 1.0 : 0.0;
 		case 193: return rise.dungeons.rumors ? 1.0 : 0.0;
+		case 194: return rise.dungeons.messengerHours;
 		default: return 0.0;
 	}
 }
@@ -780,6 +784,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 191: rise.dungeons.walkersAtOnce = whole; break;
 		case 192: rise.dungeons.journal = on; break;
 		case 193: rise.dungeons.rumors = on; break;
+		case 194: rise.dungeons.messengerHours = static_cast<float>(whole); break;
 		default: return false;
 	}
 	return true;

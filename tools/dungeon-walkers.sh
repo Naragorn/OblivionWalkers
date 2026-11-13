@@ -17,7 +17,9 @@ case "$mode" in
 	fight) state=2; walkers=10; behead=1; scenario=dungeon-fight; site="Fort Ash" ;;
 	clear) state=3; walkers=8; behead=0; scenario=dungeon-clear; site="Echo Mine" ;;
 	talk) state=3; walkers=8; behead=0; scenario=dungeon-talk; site="Echo Mine" ;;
-	*) echo "mode: siege | taken | fight | clear | talk" >&2; exit 2 ;;
+	runner) state=2; walkers=8; behead=0; scenario=dungeon-runner; site="Fort Ash" ;;
+	paper) state=2; walkers=8; behead=0; scenario=dungeon-paper; site="Fort Ash" ;;
+	*) echo "mode: siege | taken | fight | clear | talk | runner | paper" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -45,6 +47,8 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
                    ("PeopleMin", "8"), ("PeopleMax", "8"), ("Journal", "1"), ("Rumors", "1"),
                    # the test site alone: it is the news, and its quest the one told
                    ("ActiveMin", "1"), ("ActiveMax", "1"),
+                   # a runner for help only in his own run
+                   ("MessengerHours", "1" if mode == "runner" else "0"),
                    # siege: a day on, the refuge is attacked again (the quest opened anew)
                    ("AttackChancePercent", "100" if mode == "siege" else "0")):
     text = put(text, "Dungeons", key, value)
@@ -71,6 +75,8 @@ def check(ok, what):
 
 d = [l for l in lines if l.startswith("Dungeons: ")]
 place = "Echo Mine" if mode in ("clear", "talk") else "Fort Ash"
+if mode in ("runner", "paper"):
+    again = len(d)
 told = [m for l in d for m in [re.search(
     r"journal - " + place + r": stage (\d+) \((\w[\w ]*); told (\d+) before\)(, taken off completed first)? - SetStage "
     r"(\w+) answered (\d); the quest (\w+) at stage (\d+), flags (\w\w) \((\w\w) before\)", l)] if m]
@@ -92,7 +98,7 @@ check(len(shown) == 1 and int(shown[0].group(1), 16) & 1 == 1 and shown[0].group
       "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
 rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
 link = [l for l in lines if "variables" in l and "LINK" in l]
-check(any("194 of 194" in l for l in link), "LINK holds the 194 variables" + (f" ({link[-1][:90]})" if link else ""))
+check(any("195 of 195" in l for l in link), "LINK holds the 195 variables" + (f" ({link[-1][:90]})" if link else ""))
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
 again = next((k for k, l in enumerate(d) if "site 0 Fort Ash (fort) attacked" in l), len(d))
 into = [l for l in d[:again] if re.search(r"walker \w+ into Fort Ash", l)]
@@ -114,6 +120,24 @@ if mode == "clear":
     journal(30, "seen", 0, True, False, "met before the door: the quest says to clear it, open")
     journal(60, "taken", 30, False, True, "cleared: the quest says taken, completed")
     check(len(rewards) == 1 and "Echo Mine is cleared - refugees move in" in rewards[0], "the reward once" + (f" ({rewards[0][19:]})" if rewards else ""))
+elif mode == "runner":
+    sent = [l for l in d if "runner - sent with news of kind 2" in l]
+    check(len(sent) == 1, "a runner is sent with the siege's news, once" + (f" ({sent[0][19:140]})" if sent else ""))
+    spoke = [l for l in d if "runner - told to speak to the player" in l]
+    check(len(spoke) >= 1 and "his 3D 1" in spoke[0], "a second on he is told to speak to the player, his 3D there" + (f" ({spoke[0][19:150]})" if spoke else ""))
+    check(any("news - told to the player (site 0)" in l for l in d), "his greeting's result script tells the news")
+    journal(20, "heard", 0, True, False, "the quest says besieged, open")
+    check(any("runner - he told his news" in l for l in d), "he has told his news and stays about")
+    check(any("runner - taken away" in l for l in d), "the player gone, he is taken away")
+    print("  look  the picture at 'spoken': the dialogue with the runner")
+elif mode == "paper":
+    read = [l for l in d if "news - the player reads" in l]
+    check(len(read) == 1 and read[0].endswith("A76"), "the notice opened in the book menu is seen, once" + (f" ({read[0][10:]})" if read else ""))
+    journal(20, "heard", 0, True, False, "reading it tells the news: the quest says besieged, open")
+    closed = [l for l in d if "is closed (the book menu now holds 00000000)" in l]
+    check(len(closed) == 1, "the menus closed, the book menu holds nothing" + (f" ({closed[0][10:]})" if closed else ""))
+    news = [l for l in lines if l.startswith("News: ")]
+    check(not any("missing" in l and " 0 missing" not in l for l in news), "every edition's book is there" + (f" ({news[0][:110]})" if news else " (no News line)"))
 elif mode == "talk":
     journal(30, "seen", 0, True, False, "met before the door: the quest says to clear it, open")
     talk = [l for l in d if "talk - the kit's people speak as" in l]

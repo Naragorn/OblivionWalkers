@@ -1,0 +1,42 @@
+# The runner for help (docs/walkers-spec.md 4.20.7, the ways to hear of a
+# place). tools/dungeon-walkers.sh runner sets [Dungeons] TestSite=Fort Ash,
+# TestSiteState=2 (besieged), MessengerHours=1; the player stands out of
+# doors far from the fort (Tamriel 5,5).
+# - "runner - sent with news of kind 2 (MoveTo player ...)", a second on
+#   "runner - told to speak to the player (StartConversation ...)";
+# - he comes up and speaks (the picture at 'spoken'); his greeting's result
+#   script sets WalkersDungeonHeard: "news - told to the player (site 0)",
+#   "journal - Fort Ash: stage 20 (heard ...", "runner - he told his news";
+# - closed: the game's boxes closed; away: the player far off (Tamriel
+#   20,20) - "runner - taken away".
+# Run through tools/dungeon-walkers.sh runner.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel 5 5
+console-at closed CloseAllMenus
+console-at away cow Tamriel 20 20
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 18
+mark spoken
+wait 12
+mark closed
+wait 4
+mark away
+wait 14
+mark end
+wait 1

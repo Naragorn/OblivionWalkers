@@ -222,6 +222,70 @@ void TestTalk() {
 	      "the dialogue's records: 0xA60..0xA74, before the grab's shock sounds");
 }
 
+void TestMessenger() {
+	std::printf("the messenger and the papers\n");
+	using walkers::DungeonMessenger;
+	using walkers::MessengerDoes;
+	using walkers::MessengerPhase;
+	DungeonMessenger m;
+	Check(MessengerSends(m, 2, 24.0f, 10.0f, true) && MessengerSends(m, 3, 24.0f, 10.0f, true),
+	      "a siege, a place to clear: someone runs for help");
+	Check(!MessengerSends(m, 1, 24.0f, 10.0f, true) && !MessengerSends(m, 4, 24.0f, 10.0f, true) &&
+	          !MessengerSends(m, 0, 24.0f, 10.0f, true),
+	      "a quiet refuge, a fallen place, no news: nobody runs");
+	Check(!MessengerSends(m, 2, 0.0f, 10.0f, true), "MessengerHours 0: never");
+	Check(!MessengerSends(m, 2, 24.0f, 10.0f, false), "the player indoors: not now");
+	walkers::MessengerSent(m, 10.0f);
+	Check(m.phase == MessengerPhase::Coming && m.lastSentDay == 10.0f && m.seconds == 0.0f, "sent: coming");
+	Check(!MessengerSends(m, 2, 24.0f, 12.0f, true), "one on his way: no second");
+	Check(!walkers::MessengerGreetsNow(m), "the second he is put out: not yet spoken to");
+	Check(walkers::StepMessenger(m, false, 500.0f) == MessengerDoes::Nothing && m.phase == MessengerPhase::Coming,
+	      "coming, nothing told yet: on");
+	Check(walkers::MessengerGreetsNow(m), "a second on: told to speak to the player");
+	{
+		DungeonMessenger again = m;
+		UInt32 greets = 0;
+		for (UInt32 k = 0; k < 25; ++k) {
+			walkers::StepMessenger(again, false, 500.0f);
+			greets += walkers::MessengerGreetsNow(again) ? 1u : 0u;
+		}
+		Check(greets == 2, "and every ten seconds again (twice in the next 25)");
+	}
+	Check(walkers::StepMessenger(m, true, 100.0f) == MessengerDoes::Leave && m.phase == MessengerPhase::Leaving &&
+	          m.seconds == 0.0f,
+	      "he told his news: he leaves");
+	Check(walkers::StepMessenger(m, false, 300.0f) == MessengerDoes::Nothing, "leaving, the player by him: he stays in sight");
+	Check(walkers::StepMessenger(m, false, walkers::kMessengerGoneUnits + 1.0f) == MessengerDoes::Go &&
+	          m.phase == MessengerPhase::Away,
+	      "the player has walked on: taken away");
+	Check(!MessengerSends(m, 2, 24.0f, 10.9f, true) && MessengerSends(m, 2, 24.0f, 11.0f, true),
+	      "the next one MessengerHours later at the soonest");
+	DungeonMessenger late;
+	walkers::MessengerSent(late, 3.0f);
+	MessengerDoes did = MessengerDoes::Nothing;
+	for (UInt32 k = 0; k < walkers::kMessengerComingSeconds; ++k) {
+		did = walkers::StepMessenger(late, false, 400.0f);
+	}
+	Check(did == MessengerDoes::Leave && late.phase == MessengerPhase::Leaving,
+	      "a minute without reaching the player: he gives up and leaves");
+	for (UInt32 k = 0; k < walkers::kMessengerLeavingSeconds; ++k) {
+		did = walkers::StepMessenger(late, false, 300.0f);
+	}
+	Check(did == MessengerDoes::Go && late.phase == MessengerPhase::Away, "ninety seconds leaving: taken away at last");
+	DungeonMessenger away;
+	Check(walkers::StepMessenger(away, true, 0.0f) == MessengerDoes::Nothing, "none out: nothing");
+	Check(walkers::PaperOpened(0x25000A75, 0, 0x25000A75, 0x25000A76) &&
+	          walkers::PaperOpened(0x25000A76, 0x0006D6F3, 0x25000A75, 0x25000A76),
+	      "the dungeons' edition or the notice opened: read");
+	Check(!walkers::PaperOpened(0x25000A75, 0x25000A75, 0x25000A75, 0x25000A76), "still open: not read again");
+	Check(!walkers::PaperOpened(0x0006D6F3, 0, 0x25000A75, 0x25000A76) && !walkers::PaperOpened(0, 0x25000A75, 0x25000A75, 0x25000A76) &&
+	          !walkers::PaperOpened(0, 0, 0, 0),
+	      "another book, the book closed, no book and no papers: nothing");
+	Check(walkers::kDungeonEditionLocalId == walkers::kDungeonTalkEnd && walkers::kDungeonNoticeLocalId == 0xA76 &&
+	          walkers::kDungeonMessengerLineFirstLocalId + walkers::kDungeonMessengerLineCount <= 0xAA4,
+	      "the edition right after the rumors, the notice, the messenger - before the grab's shock sounds");
+}
+
 void TestImage() {
 	std::printf("the journal in the co-save\n");
 	DungeonSitesState st;
@@ -256,6 +320,7 @@ int main() {
 	TestNews();
 	TestTelling();
 	TestTalk();
+	TestMessenger();
 	TestImage();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
