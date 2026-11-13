@@ -129,6 +129,7 @@ UInt16 g_kitDead = 0;
 UInt16 g_kitToPlace = 0;
 UInt16 g_kitToTell = 0;
 bool g_kitAtOnce = true;  // after a load: all in one frame, not one a frame
+int g_kitReportIn = -1;   // seconds until the kit's standing is logged, -1 none
 
 // The occupants taken out, and the player's cell as it was last frame.
 DungeonOccupants g_occupants;
@@ -277,19 +278,23 @@ void TellSlot(UInt32 slot) {
 		g_kitShown = static_cast<UInt16>(g_kitShown & ~bit);
 		return;
 	}
+	// One enabled already (the save's, or shown at the place before) is only
+	// moved: a console Disable takes hold after the frame (measured 2026-11-13,
+	// dungeon-refuge: the flag still clear right after it, so no Enable
+	// followed and the kit stayed away after a load).
+	const bool wasDisabled = Disabled(ref);
 	if (place && g_kitCandidate >= 0) {
 		const DungeonCandidate& c = kDungeonCandidates[g_kitCandidate];
 		Raise(ref, slot);
-		if (!Disabled(ref)) {
-			Say(ref, "Disable");
-		}
 		const DungeonSpot at = KitSpot(c, slot);
 		char line[64];
 		std::snprintf(line, sizeof(line), "MoveTo %08X %d %d %d", c.insideDoor, at.dx, at.dy, at.dz + kSpotLift);
 		Say(ref, line);
 	}
-	if (Disabled(ref)) {
+	if (wasDisabled) {
 		Say(ref, "Enable");
+	}
+	if (wasDisabled || place) {
 		// Their camp life's packages (sleep, wander) near where they now stand.
 		Say(ref, "EvaluatePackage");
 	}
@@ -337,7 +342,23 @@ void StepKit(UInt32 player, LogFn log) {
 		g_kitToPlace = 0;
 		if (wantCandidate >= 0) {
 			const DungeonSite& d = g_sites.sites[want];
-			g_kitToPlace = KitWanted(d.people, KitTrader(d.state), 0);
+			// Those of the kit lying dead in this place (a save loaded, the
+			// kit back after a while) stay dead - the living stand in for
+			// the site's people; only with too few living are they raised.
+			UInt16 deadHere = 0;
+			for (UInt32 slot = 0; slot < kDungeonKitSlots; ++slot) {
+				const UInt32 ref = KitRef(slot);
+				const UInt32 at = LooksLikeObject(ref) ? Read(ref + kRefParentCellOffset) : 0;
+				if (LooksLikeObject(at) && g_dead != nullptr && g_dead(ref) &&
+				    CandidateOfCell(kDungeonCandidates, kDungeonCandidateCount, FormIdOf(at)) == wantCandidate) {
+					deadHere = static_cast<UInt16>(deadHere | (1u << slot));
+				}
+			}
+			if (CampBits(KitWanted(kDungeonKitPeopleMost, false, deadHere)) >= d.people) {
+				g_kitDead = deadHere;
+			}
+			g_kitToPlace = KitWanted(d.people, KitTrader(d.state), g_kitDead);
+			g_kitReportIn = 3;
 			log("Dungeons: the kit to site %d %s (%s; %s, %u people%s) - by its door inside %08X, %u spots", want,
 			    kDungeonCandidates[wantCandidate].name, DungeonKindName(kDungeonCandidates[wantCandidate].kind),
 			    StateName(d.state), d.people, KitTrader(d.state) && d.people > 0 ? " and the trader" : "",
@@ -367,6 +388,43 @@ void StepKit(UInt32 player, LogFn log) {
 	}
 	// What changed since (a siege's toll, the state): told one a frame.
 	g_kitToTell = static_cast<UInt16>(g_kitToTell | (KitWantedNow() ^ g_kitShown));
+	// Three seconds after it was put there: how the kit stands, for the log.
+	if (g_kitReportIn > 0 && --g_kitReportIn == 0) {
+		g_kitReportIn = -1;
+		UInt32 shown = 0;
+		UInt32 enabled = 0;
+		UInt32 with3D = 0;
+		UInt32 inFirstCell = 0;
+		// How far each stands from its spot, and how far beneath it (one
+		// fallen through the floor shows here).
+		const UInt32 door = LookupForm(kDungeonCandidates[g_kitCandidate].insideDoor);
+		float farthest = 0.0f;
+		float lowest = 0.0f;
+		for (UInt32 slot = 0; slot < kDungeonKitSlots; ++slot) {
+			const UInt32 ref = KitRef(slot);
+			if ((g_kitShown & (1u << slot)) == 0 || !LooksLikeObject(ref)) {
+				continue;
+			}
+			if (LooksLikeObject(door)) {
+				const DungeonSpot at = KitSpot(kDungeonCandidates[g_kitCandidate], slot);
+				const float dx = FloatAt(ref + kRefPositionOffset) - FloatAt(door + kRefPositionOffset) - at.dx;
+				const float dy = FloatAt(ref + kRefPositionOffset + 4) - FloatAt(door + kRefPositionOffset + 4) - at.dy;
+				const float dz = FloatAt(ref + kRefPositionOffset + 8) - FloatAt(door + kRefPositionOffset + 8) - at.dz;
+				const float flat = std::sqrt(dx * dx + dy * dy);
+				farthest = flat > farthest ? flat : farthest;
+				lowest = dz < lowest ? dz : lowest;
+			}
+			++shown;
+			enabled += Disabled(ref) ? 0u : 1u;
+			with3D += LooksLikeObject(Read(ref + 0x3C)) ? 1u : 0u;  // TESObjectREFR::niNode
+			const UInt32 at = Read(ref + kRefParentCellOffset);
+			inFirstCell += LooksLikeObject(at) && FormIdOf(at) == kDungeonCandidates[g_kitCandidate].cells[0] ? 1u : 0u;
+		}
+		log("Dungeons: the kit at %s stands - %u shown, %u enabled, %u in its first cell %08X, %u with their 3D; "
+		    "the farthest %.0f units from its spot, the lowest %.0f beneath it",
+		    kDungeonCandidates[g_kitCandidate].name, shown, enabled, inFirstCell,
+		    kDungeonCandidates[g_kitCandidate].cells[0], with3D, farthest, -lowest);
+	}
 }
 
 // The player's followers (ExtraFollower on him: companions, summons - the
@@ -436,32 +494,51 @@ void TakeOut(UInt32 cell, UInt32 cellId, UInt32 player, LogFn log) {
 	    c >= 0 ? kDungeonCandidates[c].name : "?", cellId, seen, out, spared, g_occupants.count);
 }
 
-// A cell of a place held no more: those taken out of it put back.
-void PutBack(UInt32 cellId, LogFn log) {
+// A cell of a place held no more: those taken out of it put back - all at
+// once when the player comes in (the door's loading hides it), else four a
+// frame (an Enable is some 240 us: 43 at once were 10 ms, 2026-11-13).
+UInt32 g_putBackCell = 0;
+UInt32 g_putBackDone = 0;
+UInt32 g_putBackOf = 0;
+
+void PutBackSome(UInt32 most, LogFn log) {
 	static UInt32 refs[kDungeonOccupantsMost];
-	const UInt32 n = TakeOccupantsOf(g_occupants, cellId, refs, kDungeonOccupantsMost);
-	UInt32 back = 0;
+	const UInt32 n = TakeOccupantsOf(g_occupants, g_putBackCell, refs, most);
 	for (UInt32 i = 0; i < n; ++i) {
 		const UInt32 ref = LookupForm(refs[i]);
 		if (LooksLikeObject(ref) && Disabled(ref)) {
-			back += Say(ref, "Enable") ? 1u : 0u;
+			g_putBackDone += Say(ref, "Enable") ? 1u : 0u;
 		}
 	}
-	const int c = CandidateOfCell(kDungeonCandidates, kDungeonCandidateCount, cellId);
+	if (OccupantsOf(g_occupants, g_putBackCell) > 0) {
+		return;
+	}
+	const int c = CandidateOfCell(kDungeonCandidates, kDungeonCandidateCount, g_putBackCell);
 	log("Dungeons: %s (cell %08X) is held no more - %u of %u occupants put back (the others gone from the game)",
-	    c >= 0 ? kDungeonCandidates[c].name : "?", cellId, back, n);
+	    c >= 0 ? kDungeonCandidates[c].name : "?", g_putBackCell, g_putBackDone, g_putBackOf);
+	g_putBackCell = 0;
+}
+
+void PutBack(UInt32 cellId, bool atOnce, LogFn log) {
+	g_putBackCell = cellId;
+	g_putBackDone = 0;
+	g_putBackOf = OccupantsOf(g_occupants, cellId);
+	if (atOnce) {
+		PutBackSome(kDungeonOccupantsMost, log);
+	}
 }
 
 // The player's cell looked at: a held place's occupants out, a place's held
 // no more back in.
-void SyncCell(UInt32 cell, UInt32 player, LogFn log) {
+void SyncCell(UInt32 cell, UInt32 player, bool atOnce, LogFn log) {
 	const UInt32 cellId = FormIdOf(cell);
 	const bool enabled = g_siteSettings != nullptr && g_siteSettings->enabled;
 	g_lastCellHeld = CellHeld(g_sites, kDungeonCandidates, kDungeonCandidateCount, cellId, enabled);
 	if (g_lastCellHeld) {
+		g_putBackCell = 0;
 		TakeOut(cell, cellId, player, log);
 	} else if (OccupantsOf(g_occupants, cellId) > 0) {
-		PutBack(cellId, log);
+		PutBack(cellId, atOnce, log);
 	}
 }
 
@@ -507,8 +584,10 @@ void ResetDungeonsInGame() {
 	g_kitToPlace = 0;
 	g_kitToTell = static_cast<UInt16>((1u << kDungeonKitSlots) - 1u);
 	g_kitAtOnce = true;
+	g_kitReportIn = -1;
 	g_lastCell = 0;
 	g_lastCellHeld = false;
+	g_putBackCell = 0;
 }
 
 void StepDungeonsInGame(float dt, LogFn log) {
@@ -522,9 +601,13 @@ void StepDungeonsInGame(float dt, LogFn log) {
 	if (cell != g_lastCell) {
 		g_lastCell = cell;
 		g_lastCellHeld = false;
+		g_putBackCell = 0;  // what was left of another cell's waits for the next visit
 		if (LooksLikeObject(cell) && GameDaysNow() > 0.0f) {
-			SyncCell(cell, player, log);
+			SyncCell(cell, player, true, log);
 		}
+	}
+	if (g_putBackCell != 0) {
+		PutBackSome(4, log);
 	}
 	if ((g_kitToTell | g_kitToPlace) != 0 && !g_kitAtOnce) {
 		StepKitSlots();
@@ -581,7 +664,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		const bool held = CellHeld(g_sites, kDungeonCandidates, kDungeonCandidateCount, FormIdOf(cell),
 		                           g_siteSettings->enabled);
 		if (held != g_lastCellHeld) {
-			SyncCell(cell, player, log);
+			SyncCell(cell, player, false, log);
 		}
 	}
 }

@@ -64,6 +64,13 @@ back = [m for l in d for m in [re.search(r"is held no more - (\d+) of (\d+) occu
 check(len(back) >= 1 and int(back[-1].group(1)) >= 1 and back[-1].group(1) == back[-1].group(2),
       "Enabled=0: every occupant put back" + (f" ({back[-1].group(0)})" if back else ""))
 check(any("the kit off Fort Ash" in l for l in d), "and the kit put away")
+check(not any(l.startswith("Rise:") and "25000A47" in l and "raised again" in l for l in lines) and
+      sum(1 for l in lines if "Resurrect" in l and "25000A47" in l) == 0, "the dead one is not raised by the load")
+stands = [m for l in d for m in [re.search(r"stands - (\d+) shown, (\d+) enabled, (\d+) in its first cell \w+, (\d+) with their 3D", l)] if m]
+check(len(stands) >= 2 and stands[0].group(1) == "9" and stands[0].group(2) == "9" and stands[0].group(3) == "9",
+      "three seconds on, the nine stand enabled in Fort Ash's first cell" + (f" ({stands[0].group(0)})" if stands else ""))
+check(len(stands) >= 2 and stands[-1].group(1) == "8" and stands[-1].group(2) == "8" and stands[-1].group(4) == "8",
+      "after the load the eight left stand enabled with their 3D" + (f" ({stands[-1].group(0)})" if stands else ""))
 for l in d[:60]:
     print("        " + l[:230])
 for l in [l for l in lines if l.startswith("Timing:   dungeons") or l.startswith("Timing: ") and "frames" in l][-6:]:

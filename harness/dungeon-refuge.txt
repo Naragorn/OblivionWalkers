@@ -27,7 +27,8 @@ console-at ready set gamehour to 12
 console-at ready fw 00038EEE
 console-at ready cow Tamriel -9 19
 console-at inside coc FortAsh01
-console-at killed {form:OblivionWalkers.esp:A47}.kill
+console-at seen tlb
+console-at killed "{form:OblivionWalkers.esp:A47}".kill
 console-at saved save WalkersDungeonTest
 console-at reload load WalkersDungeonTest
 console-at off set Walkers.ini_dungeons_enabled to 0

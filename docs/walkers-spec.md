@@ -3006,6 +3006,32 @@ eight fast game days attacks, tolls, places given up and others rolled).
   (after a load all at once); a cell read through once on entering.
 - `[Dungeons] TestSite=<name>` (INI only, a test switch): that candidate
   the first site, a refuge of PeopleMax.
+Runs `harness/dungeon-refuge.txt` via `tools/dungeon-refuge.sh`,
+2026-11-13 15:02-15:10 (Linux, headless; TestSite=Fort Ash): PASS, every
+check - "the kit to site 0 Fort Ash (fort; refuge, 8 people and the
+trader)", three seconds on "9 shown, 9 enabled, 9 in its first cell
+00015E2A, 0 with their 3D" (the player still outside); inside "Fort Ash
+(cell 00015E2A, 337 references) is held - 35 occupants taken out" (25, 35
+and 43 in three runs: the spawn replacement's walkers, 1 to 10 a spawn);
+the kit's first man killed by the console - "one of its people 25000A47
+died; 7 people left"; after a save and a load "35 occupants taken out of
+held dungeons read", "0 occupants taken out" (they still are), the kit
+there again "8 shown, 8 enabled, ... 8 with their 3D", the dead one left
+dead; `set Walkers.ini_dungeons_enabled to 0` - "the kit off Fort Ash",
+"is held no more - 35 of 35 occupants put back".
+Found by the first run: a console Disable takes hold only after the frame
+(the flag 0x800 still clear right after it) - a person enabled already is
+now only moved, never disabled and enabled in one frame (the kit stayed
+away after a load); and the kit's dead lying in the place stay dead across
+a load (the living stand in for the site's people).
+Measured (StepTiming): the dungeons' step ~2 us a frame; the kit's
+placing at most 1.2 ms in a frame for nine frames (MoveTo ~300 us, Enable
+~650 us); entering the held cell 2.7 ms once (43 Disable lines, under the
+door's loading); putting 43 back at once 10 ms - since then four a frame
+when it happens with the player inside.
+Not seen: the harness's pictures inside the fort are black (also with the
+console's tlb) - that the people stand on the floor is read off the log's
+"the farthest N units from its spot, the lowest M beneath it".
 Not built yet: a besieged place's walkers (the siege counts only while the
 player is away), the people waiting outside a place to clear, a walker
 dungeon's walkers, beds, the journal quest, the dialogue, the ways to hear
