@@ -2,10 +2,12 @@
 # performant" - measured before and after every optimization). [Debug]
 # StepTiming=1 (set by tools/walkers-timing.sh, put back after): every 10 s
 # "Timing: N frames - Walkers' tick X us a frame on average, Y us the most"
-# and one line a step. The place: by Whitmond Farm (Tamriel -47,-6), where
-# the harness save's hordes stand (horde-stuck-farm.txt: four or five
-# groups of nine) - the heavy case; tdetect, so they do not come for the
-# player; weather and time fixed.
+# and one line a step. The load: 60 walkers (the ESP's 0x801) placed about
+# the player in four groups of 15, 1500 units off - the same every run;
+# the spawn replacement off for the run (the runner), so no other walkers
+# come and go (the first runs at the farm's hordes saw 61 once and 10 the
+# next time). By Whitmond Farm (Tamriel -47,-6); tdetect, so they do not
+# come for the player; weather and time fixed.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
@@ -21,6 +23,10 @@ console-at placed player.setpos x -191100
 console-at placed player.setpos y -20200
 console-at placed player.setpos z 1700
 console-at placed player.setangle z 180
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 15 1500 0
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 15 1500 1
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 15 1500 2
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 15 1500 3
 
 expect HandScript: finished
 reject HandScript: WARNING

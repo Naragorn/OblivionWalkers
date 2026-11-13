@@ -21,6 +21,12 @@ if re.search(r"^\[Debug\]\s*$", text, re.M):
         text = re.sub(r"^\[Debug\]\s*$", "[Debug]\r\nStepTiming=1", text, count=1, flags=re.M)
 else:
     text += "\r\n[Debug]\r\nStepTiming=1\r\n"
+# The spawn replacement off: the same 60 walkers every run.
+head = re.search(r"^\[Replace\]\s*$", text, re.M)
+if head:
+    end = re.search(r"^\[", text[head.end():], re.M)
+    stop = head.end() + (end.start() if end else len(text) - head.end())
+    text = text[:head.end()] + re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, flags=re.M) + text[stop:]
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/walkers-timing.txt" --headless \
