@@ -378,14 +378,14 @@ void StepLunges(UInt32 player, float dt) {
 		if (!LooksLikeObject(walker)) {
 			continue;
 		}
-		char line[96];
-		std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f 0", x - FloatAt(player + kRefPositionOffset),
-		              y - FloatAt(player + kRefPositionOffset + 4));
-		g_services.console(walker, line);
+		// The engine's SetPos and SetAngle done directly (Engine.h): the
+		// console's MoveTo and SetAngle every frame of a lunge were ~620 us a
+		// frame (StepTiming, 2026-11-13). At the player's height, as the
+		// MoveTo's offset 0 put it.
+		engine::DirectSetPos(walker, x, y, FloatAt(player + kRefPositionOffset + 8));
 		const Forearm* f = FreshForearm(slot == 0 ? Arm::Left : Arm::Right);
 		if (f != nullptr) {
-			std::snprintf(line, sizeof(line), "SetAngle z %.1f", std::atan2(f->x - x, f->y - y) * 57.29578f);
-			g_services.console(walker, line);
+			engine::DirectSetAngleZ(walker, std::atan2(f->x - x, f->y - y));
 		}
 	}
 }

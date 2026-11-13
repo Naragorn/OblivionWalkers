@@ -51,5 +51,77 @@ inline const char* ModNameAt(UInt32 index) {
 	return LooksLikeObject(entry) ? reinterpret_cast<const char*>(entry + kModEntryNameOffset) : nullptr;
 }
 
+// A reference moved and turned without the console (2026-11-13, StepTiming:
+// a console MoveTo was ~520 us, a SetAngle ~100 us - each a script compiled
+// and run; the grab's lunge sent both every frame). What the engine's own
+// SetPos (its handler 0x00508FC0) and SetAngle (0x00509110) do, read off
+// Oblivion.exe with objdump:
+// - SetPos: thiscall 0x004D8A30(ref, NiPoint3 by value; ret 0Ch) writes
+//   +0x2C..+0x34 and marks the reference changed; an Actor (the RTTI cast
+//   0x009832E6(ref, 0, 0x00B03054, 0x00B05538, 0)) has its character
+//   controller (thiscall 0x0065A2C0(actor)) moved, thiscall 0x00452A10(ctl,
+//   &pos; ret 4), unless thiscall 0x0088D370(ctl + 0x1E0) answers 4; then
+//   the 3D (vtable +0x154) gets the translate (+0x54..+0x5C), cdecl
+//   0x00897A20(node, 1), thiscall 0x00707370(node, 0.0f, 0; ret 8).
+// - SetAngle z: thiscall 0x004D8A10(ref, radians; ret 4) writes +0x28; the
+//   3D's rotate (+0x30, 9 floats) from thiscall 0x004D7AF0(ref, &matrix),
+//   cdecl 0x00897A20(node, 1), and the update unless vtable +0x164 answers.
+inline void DirectSetPos(UInt32 ref, float x, float y, float z) {
+	using SetPosFn = void(__fastcall*)(void* self, void* edx, float x, float y, float z);
+	reinterpret_cast<SetPosFn>(0x004D8A30)(reinterpret_cast<void*>(ref), nullptr, x, y, z);
+	using CastFn = void*(__cdecl*)(void* object, UInt32 vfDelta, void* from, void* to, UInt32 isReference);
+	void* const actor = reinterpret_cast<CastFn>(0x009832E6)(reinterpret_cast<void*>(ref), 0,
+	                                                         reinterpret_cast<void*>(0x00B03054),
+	                                                         reinterpret_cast<void*>(0x00B05538), 0);
+	float pos[3] = {x, y, z};
+	if (actor != nullptr) {
+		using ThisFn = void*(__fastcall*)(void* self, void* edx);
+		void* const ctl = reinterpret_cast<ThisFn>(0x0065A2C0)(actor, nullptr);
+		if (ctl != nullptr) {
+			using StateFn = UInt32(__fastcall*)(void* self, void* edx);
+			const UInt32 state =
+			    reinterpret_cast<StateFn>(0x0088D370)(reinterpret_cast<UInt8*>(ctl) + 0x1E0, nullptr);
+			if (state != 4) {
+				using MoveFn = void(__fastcall*)(void* self, void* edx, float* pos);
+				reinterpret_cast<MoveFn>(0x00452A10)(ctl, nullptr, pos);
+			}
+		}
+	}
+	using NodeFn = UInt32(__fastcall*)(void* self, void* edx);
+	const UInt32 node = reinterpret_cast<NodeFn>(Read(Read(ref) + 0x154))(reinterpret_cast<void*>(ref), nullptr);
+	if (LooksLikeObject(node)) {
+		*reinterpret_cast<float*>(node + 0x54) = x;
+		*reinterpret_cast<float*>(node + 0x58) = y;
+		*reinterpret_cast<float*>(node + 0x5C) = z;
+		using MarkFn = void(__cdecl*)(UInt32 node, UInt32 flag);
+		reinterpret_cast<MarkFn>(0x00897A20)(node, 1);
+		using UpdateFn = void(__fastcall*)(void* self, void* edx, float time, UInt32 flags);
+		reinterpret_cast<UpdateFn>(0x00707370)(reinterpret_cast<void*>(node), nullptr, 0.0f, 0);
+	}
+}
+
+inline void DirectSetAngleZ(UInt32 ref, float radians) {
+	using SetFn = void(__fastcall*)(void* self, void* edx, float radians);
+	reinterpret_cast<SetFn>(0x004D8A10)(reinterpret_cast<void*>(ref), nullptr, radians);
+	using NodeFn = UInt32(__fastcall*)(void* self, void* edx);
+	const UInt32 node = reinterpret_cast<NodeFn>(Read(Read(ref) + 0x154))(reinterpret_cast<void*>(ref), nullptr);
+	if (!LooksLikeObject(node)) {
+		return;
+	}
+	float matrix[9] = {};
+	using MatrixFn = float*(__fastcall*)(void* self, void* edx, float* out);
+	const float* m = reinterpret_cast<MatrixFn>(0x004D7AF0)(reinterpret_cast<void*>(ref), nullptr, matrix);
+	for (int i = 0; i < 9; ++i) {
+		reinterpret_cast<float*>(node + 0x30)[i] = m[i];
+	}
+	using MarkFn = void(__cdecl*)(UInt32 node, UInt32 flag);
+	reinterpret_cast<MarkFn>(0x00897A20)(node, 1);
+	using AskFn = UInt32(__fastcall*)(void* self, void* edx);
+	if (reinterpret_cast<AskFn>(Read(Read(ref) + 0x164))(reinterpret_cast<void*>(ref), nullptr) == 0) {
+		using UpdateFn = void(__fastcall*)(void* self, void* edx, float time, UInt32 flags);
+		reinterpret_cast<UpdateFn>(0x00707370)(reinterpret_cast<void*>(node), nullptr, 0.0f, 0);
+	}
+}
+
 }  // namespace engine
 }  // namespace walkers
