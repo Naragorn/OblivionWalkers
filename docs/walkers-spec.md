@@ -2967,6 +2967,52 @@ AttackChancePercent, AttackWalkersMin, AttackWalkersMax,
 RefugeeKillsPerHour, LossPercentPerHour, LeaveAfterDays (LINK 175..190,
 version 34).
 
+**Step 3, in the game.** 3a (8546fbe): the sites rolled, stepped once a
+game second with the player near or not (in a cell of the place, or within
+6000 units of its door outside), logged, kept in the co-save ('DNGN');
+`harness/dungeon-sites.txt` PASS 2026-11-13 (a save's five read back; in
+eight fast game days attacks, tolls, places given up and others rolled).
+3b (3396fa6), the people and the occupants (`src/DungeonKitLogic.h`,
+`Dungeons.cpp`; flows in tests/DungeonKitLogicTest.cpp):
+- **One kit of people** in the ESP (0xA47..0xA53: the camps' bases - six
+  men, six women, a trader with the camps' chest - persistent, initially
+  disabled, in the holding cell). It stands at the held site (a refuge, a
+  besieged place) the player is near - inside it first, else the nearest
+  door; it stays while another is less than 2000 units nearer. The sites
+  elsewhere are numbers only.
+- **Where they stand**: each candidate carries the door inside its first
+  cell and up to 13 spots - path grid points 160 to 2048 units from the
+  arrival, 110 apart (`tools/dungeon-candidates.py`; every one of the 91
+  has 12 or 13). A person is moved by `MoveTo <door inside> dx dy dz`, 16
+  above its point, enabled, its packages asked anew (the camps' sleep and
+  wander near where it stands). A man, a woman, a man ... for the site's
+  people; the trader with them in a quiet refuge.
+- **Its dead**: looked for once a second; one of the people dead counts off
+  the site (DungeonPersonDied - the last overruns it), the corpse lies for
+  the rise. Shown again later (the kit back at the place), a dead one is
+  raised and dressed as the camps' are.
+- **The occupants**: when the player enters a cell of a held place - the
+  frame his cell changes - its reference list is read once (TESObjectCELL
+  +0x48): every actor alive that is not the player, not of the kit, not on
+  the player's follower list (ExtraFollower 0x23: companions, summons), not
+  a walker the rise made, and not disabled already, is disabled and noted
+  with its cell (512 at most, co-save 'DNGO', form IDs resolved at the
+  load). A place held no more (overrun, given up, `[Dungeons] Enabled=0`):
+  when he enters the cell, those noted for it are enabled again, the list
+  shortened. So a cell reset's new spawns are taken out at the next visit,
+  and the spawn replacement's walkers in a held place too.
+- **Cost** (Nadi, 2026-11-13: extremely performant): a frame only the
+  player's cell against the last frame's; the kit told one person a frame
+  (after a load all at once); a cell read through once on entering.
+- `[Dungeons] TestSite=<name>` (INI only, a test switch): that candidate
+  the first site, a refuge of PeopleMax.
+Not built yet: a besieged place's walkers (the siege counts only while the
+player is away), the people waiting outside a place to clear, a walker
+dungeon's walkers, beds, the journal quest, the dialogue, the ways to hear
+of a place. Not measured: that a summoned creature stands on the player's
+follower list (a companion with a follow package does, by the engine's
+own door travel) - the log names how many followers were left.
+
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
 Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting
