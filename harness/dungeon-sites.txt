@@ -1,0 +1,41 @@
+# The held dungeons' situation in the game (docs/walkers-spec.md 4.20.7,
+# step 3a, 2026-11-13): at the first game second after the load the active
+# places are rolled - "Dungeons: site N <name> (<kind>) rolled - now
+# <variant>, ..."; a save and a load bring the same back ("Co-save: N held
+# dungeons read"); then time runs fast (timescale 10000: a real second some
+# 0.116 game days) for 70 s - about eight game days: refuges attacked,
+# sieges away counted off (held or overrun), places unseen for seven days
+# given up and others rolled. The player stays where the harness save puts
+# him (a candidate near him would be seen, not given up - the log says
+# which). Run through tools/dungeon-sites.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at saved save WalkersDungeonTest
+console-at reload load WalkersDungeonTest
+console-at fast set timescale to 10000
+console-at slow set timescale to 30
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark saved
+wait 6
+mark reload
+wait 15
+mark fast
+wait 70
+mark slow
+wait 3
+mark end
+wait 1

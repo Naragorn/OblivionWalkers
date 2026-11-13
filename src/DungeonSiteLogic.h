@@ -18,6 +18,9 @@
 // over time, the places stay those of the pool.
 
 #include <cmath>
+#include <cstring>
+
+#include "Bytes.h"
 
 #include "DungeonLogic.h"
 #include "Types.h"
@@ -199,13 +202,13 @@ UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const D
 
 // Once a second for site `i` at game day `now`, the player `near` it or not.
 template <typename RollFn>
-UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, float now, bool near, RollFn& roll,
+UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, float now, bool playerClose, RollFn& roll,
                        DungeonEvent* out, UInt32 most) {
 	if (d.state == DungeonState::Free || now < 0.0f) {
 		return 0;
 	}
 	UInt32 n = 0;
-	if (near) {
+	if (playerClose) {
 		d.lastSeen = now;
 	}
 	if (d.state == DungeonState::Refuge) {
@@ -217,7 +220,7 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 					d.state = DungeonState::Besieged;
 					d.walkersLeft = static_cast<UInt16>(dungeon_detail::Between(s.walkersMin, s.walkersMax, roll()));
 					d.tollFrom = now;
-					d.seen = near;
+					d.seen = playerClose;
 					d.carry = 0.0f;
 					d.lost = 0;
 					n = dungeon_detail::Put(out, n, most, DungeonEventKind::Attacked, i);
@@ -227,8 +230,8 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 		}
 	}
 	if (d.state == DungeonState::Besieged) {
-		if (near || d.tollFrom < 0.0f) {
-			d.seen = d.seen || near;
+		if (playerClose || d.tollFrom < 0.0f) {
+			d.seen = d.seen || playerClose;
 			d.tollFrom = now;
 			return n;
 		}
@@ -256,7 +259,7 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 		}
 		return n;
 	}
-	if (s.leaveAfterDays > 0.0f && !near && now - d.lastSeen >= s.leaveAfterDays) {
+	if (s.leaveAfterDays > 0.0f && !playerClose && now - d.lastSeen >= s.leaveAfterDays) {
 		d = DungeonSite();
 		n = dungeon_detail::Put(out, n, most, DungeonEventKind::Left, i);
 	}
@@ -319,6 +322,94 @@ inline void DropFreeSites(DungeonSitesState& st) {
 		}
 	}
 	st.count = kept;
+}
+
+// The co-save record: type "DNGN", version 1 - the target and the count,
+// then per site of kDungeonActiveMost: the candidate (16 bits), the state,
+// seen, people, waiting, lost, a pad byte, the walkers left (32 bits), and
+// dayFrom, lastSeen, tollFrom, carry as their bits.
+inline constexpr UInt32 kDungeonRecordType = 0x444E474E;  // 'DNGN'
+inline constexpr UInt32 kDungeonRecordVersion = 1;
+inline constexpr UInt32 kDungeonSiteBytes = 28;
+inline constexpr UInt32 kDungeonImageBytes = 8 + kDungeonActiveMost * kDungeonSiteBytes;
+
+namespace dungeon_detail {
+
+inline UInt32 Bits(float f) {
+	UInt32 b = 0;
+	std::memcpy(&b, &f, sizeof b);
+	return b;
+}
+
+inline float Float(UInt32 b) {
+	float f = 0.0f;
+	std::memcpy(&f, &b, sizeof f);
+	return f;
+}
+
+}  // namespace dungeon_detail
+
+inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capacity) {
+	if (capacity < kDungeonImageBytes) {
+		return 0;
+	}
+	std::memset(out, 0, kDungeonImageBytes);
+	Put32(out, st.target);
+	Put32(out + 4, st.count);
+	for (UInt32 i = 0; i < kDungeonActiveMost; ++i) {
+		const DungeonSite& d = st.sites[i];
+		UInt8* at = out + 8 + i * kDungeonSiteBytes;
+		at[0] = static_cast<UInt8>(d.candidate & 0xFF);
+		at[1] = static_cast<UInt8>(d.candidate >> 8);
+		at[2] = static_cast<UInt8>(d.state);
+		at[3] = d.seen ? 1 : 0;
+		at[4] = d.people;
+		at[5] = d.waiting;
+		at[6] = d.lost;
+		Put32(at + 8, d.walkersLeft);
+		Put32(at + 12, dungeon_detail::Bits(d.dayFrom));
+		Put32(at + 16, dungeon_detail::Bits(d.lastSeen));
+		Put32(at + 20, dungeon_detail::Bits(d.tollFrom));
+		Put32(at + 24, dungeon_detail::Bits(d.carry));
+	}
+	return kDungeonImageBytes;
+}
+
+// `st` emptied first; false when too short (rolled anew then). A site whose
+// candidate is not below `candidates` (another build's list) is dropped.
+inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 length, UInt32 candidates) {
+	st = DungeonSitesState{};
+	if (length < kDungeonImageBytes) {
+		return false;
+	}
+	st.target = Get32(in);
+	if (st.target > kDungeonActiveMost) {
+		st.target = kDungeonActiveMost;
+	}
+	UInt32 count = Get32(in + 4);
+	if (count > kDungeonActiveMost) {
+		count = kDungeonActiveMost;
+	}
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt8* at = in + 8 + i * kDungeonSiteBytes;
+		DungeonSite d;
+		d.candidate = static_cast<UInt16>(at[0] | (at[1] << 8));
+		d.state = at[2] <= static_cast<UInt8>(DungeonState::WalkerDungeon) ? static_cast<DungeonState>(at[2])
+		                                                                    : DungeonState::Free;
+		d.seen = at[3] != 0;
+		d.people = at[4];
+		d.waiting = at[5];
+		d.lost = at[6];
+		d.walkersLeft = static_cast<UInt16>(Get32(at + 8));
+		d.dayFrom = dungeon_detail::Float(Get32(at + 12));
+		d.lastSeen = dungeon_detail::Float(Get32(at + 16));
+		d.tollFrom = dungeon_detail::Float(Get32(at + 20));
+		d.carry = dungeon_detail::Float(Get32(at + 24));
+		if (d.candidate < candidates && d.state != DungeonState::Free) {
+			st.sites[st.count++] = d;
+		}
+	}
+	return true;
 }
 
 }  // namespace walkers

@@ -2681,6 +2681,7 @@ void Tick() {
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
+		StepDungeonsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, g_log);
 		StepNight(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepGrabInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
@@ -2758,6 +2759,11 @@ void OnSave(void*) {
 	    !g_serialization->WriteRecordData(camps, campsLength)) {
 		g_log("Co-save: the camps could not be written");
 	}
+	UInt8 dungeons[kDungeonImageBytes];
+	const UInt32 dungeonsLength = DungeonImage(CurrentDungeons(), dungeons, sizeof(dungeons));
+	const bool dungeonsWritten = g_serialization->OpenRecord(kDungeonRecordType, kDungeonRecordVersion) &&
+	                             g_serialization->WriteRecordData(dungeons, dungeonsLength);
+	g_log("Co-save: %u held dungeons %s", CurrentDungeons().count, dungeonsWritten ? "written" : "could not be written");
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -2789,6 +2795,7 @@ void OnLoad(void*) {
 	ResetSiegeInGame();
 	CurrentCamps() = CampsState{};
 	ResetCampsInGame();
+	ResetDungeonsInGame();
 	ResetDisguise();
 	g_banished.clear();
 	if (g_replace.enabled) {
@@ -2857,6 +2864,16 @@ void OnLoad(void*) {
 			      whole ? "" : " (version or length off: all living)");
 			continue;
 		}
+		if (type == kDungeonRecordType) {
+			UInt8 dungeons[kDungeonImageBytes];
+			const UInt32 read = version == kDungeonRecordVersion && length <= sizeof(dungeons)
+			                        ? g_serialization->ReadRecordData(dungeons, length)
+			                        : 0;
+			const bool whole = ReadDungeonImage(CurrentDungeons(), dungeons, read, kDungeonCandidateCountForSave());
+			g_log("Co-save: %u held dungeons read (version %u)%s", CurrentDungeons().count, version,
+			      whole ? "" : " (version or length off: rolled anew)");
+			continue;
+		}
 		if (type == kFameRecordType) {
 			UInt8 fame[kFameImageBytes];
 			const UInt32 read =
@@ -2917,6 +2934,7 @@ void OnNewGame(void*) {
 	ResetSiegeInGame();
 	CurrentCamps() = CampsState{};
 	ResetCampsInGame();
+	ResetDungeonsInGame();
 	ResetDisguise();
 	g_banished.clear();
 	if (g_replace.enabled) {
@@ -3015,6 +3033,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
+	ConfigureDungeons(&g_settings.dungeons, &NextRandom);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }

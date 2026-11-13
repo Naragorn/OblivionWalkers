@@ -328,9 +328,51 @@ void TestWalkerDungeonAndCap() {
 	      "thirty days away, nobody killed: the toll counts at most seven days at a time");
 }
 
+void TestImage() {
+	std::printf("The co-save image\n");
+	DungeonSitesState st;
+	st.target = 4;
+	st.count = 2;
+	st.sites[0] = Refuge(6);
+	st.sites[0].candidate = 17;
+	st.sites[0].dayFrom = 12.5f;
+	st.sites[0].lastSeen = 11.25f;
+	st.sites[1].candidate = 3;
+	st.sites[1].state = DungeonState::Besieged;
+	st.sites[1].people = 2;
+	st.sites[1].waiting = 0;
+	st.sites[1].lost = 3;
+	st.sites[1].walkersLeft = 300;
+	st.sites[1].tollFrom = 13.0f;
+	st.sites[1].carry = 0.5f;
+	st.sites[1].seen = true;
+	UInt8 image[walkers::kDungeonImageBytes];
+	Check(walkers::DungeonImage(st, image, 10) == 0, "too small a buffer: nothing written");
+	const UInt32 n = walkers::DungeonImage(st, image, sizeof image);
+	Check(n == walkers::kDungeonImageBytes, "the whole image written");
+	DungeonSitesState back;
+	Check(walkers::ReadDungeonImage(back, image, n, 100), "read back");
+	const DungeonSite& a = back.sites[0];
+	const DungeonSite& b = back.sites[1];
+	Check(back.count == 2 && back.target == 4, "the count and the target");
+	Check(a.candidate == 17 && a.state == DungeonState::Refuge && a.people == 6 && a.dayFrom == 12.5f &&
+	          a.lastSeen == 11.25f,
+	      "a refuge as it was");
+	Check(b.candidate == 3 && b.state == DungeonState::Besieged && b.people == 2 && b.lost == 3 &&
+	          b.walkersLeft == 300 && b.tollFrom == 13.0f && b.carry == 0.5f && b.seen,
+	      "a siege as it was");
+	Check(!walkers::ReadDungeonImage(back, image, n - 1, 100) && back.count == 0, "cut short: empty, rolled anew");
+	Check(walkers::ReadDungeonImage(back, image, n, 10) && back.count == 1 && back.sites[0].candidate == 3,
+	      "a candidate past the ones there now (another build): that site dropped");
+	image[4] = 99;
+	Check(walkers::ReadDungeonImage(back, image, n, 100) && back.count <= walkers::kDungeonActiveMost,
+	      "a count past the most: held to the most");
+}
+
 }  // namespace
 
 int main() {
+	TestImage();
 	TestRolledKinds();
 	TestWalkerDungeonAndCap();
 	TestVariant();
