@@ -350,7 +350,7 @@ void TestRolledKinds() {
 		s.activeMax = 1;
 		DungeonSitesState st;
 		bool onlyC[kCount] = {false, false, true, false, false, false};
-		// the target, the place among those open, the variant, people (roll 1 -> 5), walkers (roll 2 -> 10)
+		// the target, the place among those open, the variant, people (roll 1 of 3..6 -> 4), walkers (roll 2 -> 10)
 		const UInt32 r[] = {0, 0, variantRoll[k], 1, 2};
 		Rolls rolls{r, 5};
 		DungeonEvent ev[4];
@@ -359,13 +359,13 @@ void TestRolledKinds() {
 		bool ok = st.count == 1 && d.candidate == 2 && d.state == kinds[k] && d.dayFrom == 3.0f && d.lastSeen == 3.0f;
 		switch (kinds[k]) {
 			case DungeonState::Refuge:
-				ok = ok && d.people == 5 && d.waiting == 0 && d.walkersLeft == 0 && d.tollFrom < 0.0f;
+				ok = ok && d.people == 4 && d.waiting == 0 && d.walkersLeft == 0 && d.tollFrom < 0.0f;
 				break;
 			case DungeonState::Besieged:
-				ok = ok && d.people == 5 && d.walkersLeft == 10 && d.tollFrom == 3.0f;
+				ok = ok && d.people == 4 && d.walkersLeft == 10 && d.tollFrom == 3.0f;
 				break;
 			case DungeonState::ToClear:
-				ok = ok && d.people == 0 && d.waiting == 5 && d.walkersLeft == 0;
+				ok = ok && d.people == 0 && d.waiting == 4 && d.walkersLeft == 0;
 				break;
 			default:
 				ok = ok && d.people == 0 && d.waiting == 0 && d.walkersLeft == 10;
@@ -391,8 +391,8 @@ void TestWalkerDungeonAndCap() {
 	      "one ended in a walker dungeon: one fewer, still theirs");
 	const UInt32 taken = walkers::DungeonWalkerEnded(w, 0, s, people, ev, 8);
 	Check(taken == 1 && ev[0].kind == walkers::DungeonEventKind::Taken && w.state == DungeonState::Refuge &&
-	          w.people == 5 && w.walkersLeft == 0,
-	      "the last one ended: the place is cleared and taken - new people (roll 1 of 4..8: 5), a refuge");
+	          w.people == 4 && w.walkersLeft == 0,
+	      "the last one ended: the place is cleared and taken - new people (roll 1 of 3..6: 4), a refuge");
 	Check(walkers::DungeonWalkersOut(w, 6) == 0, "a refuge has no walkers out");
 	DungeonSite many = Refuge(3);
 	many.state = DungeonState::Besieged;

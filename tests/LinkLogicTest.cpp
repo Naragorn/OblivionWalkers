@@ -355,8 +355,8 @@ void TestValues() {
 		                      "ini_dungeons_people_min", "ini_dungeons_people_max", "ini_dungeons_attack_chance",
 		                      "ini_dungeons_walkers_min", "ini_dungeons_walkers_max", "ini_dungeons_kills",
 		                      "ini_dungeons_loss", "ini_dungeons_leave_days"};
-		const double defaults[] = {1, 3, 5, 25, 25, 25, 25, 15000, 4, 8, 15, 8, 16, 2, 25, 7};
-		const double set[] = {0, 2, 6, 10, 40, 0, 50, 20000, 3, 10, 30, 5, 30, 3.5, 40, 14};
+		const double defaults[] = {1, 3, 5, 25, 25, 25, 25, 15000, 3, 6, 15, 8, 16, 2, 25, 7};
+		const double set[] = {0, 2, 6, 10, 40, 0, 50, 20000, 2, 10, 30, 5, 30, 3.5, 40, 14};
 		bool ok = true;
 		for (int k = 0; k < 16; ++k) {
 			const int at = IndexOf(vars[k]);
@@ -510,7 +510,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 37\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 38\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

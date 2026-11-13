@@ -244,7 +244,7 @@ void TestForce() {
 	DungeonSitesState st;
 	const walkers::DungeonSiteSettings fs;
 	Check(walkers::ForceSite(st, kAll, 2, inPool, "b", DungeonState::Refuge, fs, 2.5f) && st.count == 1 && st.sites[0].candidate == 1 &&
-	          st.sites[0].state == DungeonState::Refuge && st.sites[0].people == 8 && st.sites[0].dayFrom == 2.5f &&
+	          st.sites[0].state == DungeonState::Refuge && st.sites[0].people == 6 && st.sites[0].dayFrom == 2.5f &&
 	          st.sites[0].lastSeen == 2.5f && st.sites[0].walkersLeft == 0,
 	      "TestSite=b: the first site, a refuge with PeopleMax (the name without regard to case)");
 	Check(!walkers::ForceSite(st, kAll, 2, inPool, "A", DungeonState::Refuge, fs, 3.0f) && st.count == 1,
@@ -257,7 +257,7 @@ void TestForce() {
 	Check(!walkers::ForceSite(none, kAll, 2, inPool, "", DungeonState::Refuge, fs, 1.0f), "no name: nothing");
 	DungeonSitesState siege;
 	Check(walkers::ForceSite(siege, kAll, 2, inPool, "A", DungeonState::Besieged, fs, 1.0f) &&
-	          siege.sites[0].people == 8 && siege.sites[0].walkersLeft == 16 && siege.sites[0].tollFrom == 1.0f,
+	          siege.sites[0].people == 6 && siege.sites[0].walkersLeft == 16 && siege.sites[0].tollFrom == 1.0f,
 	      "TestSiteState besieged: PeopleMax inside, AttackWalkersMax storming");
 	DungeonSitesState dead;
 	Check(walkers::ForceSite(dead, kAll, 2, inPool, "A", DungeonState::WalkerDungeon, fs, 1.0f) &&
@@ -265,7 +265,7 @@ void TestForce() {
 	      "a walker dungeon: its walkers, nobody");
 	DungeonSitesState clear;
 	Check(walkers::ForceSite(clear, kAll, 2, inPool, "A", DungeonState::ToClear, fs, 1.0f) &&
-	          clear.sites[0].people == 0 && clear.sites[0].waiting == 8 && clear.sites[0].walkersLeft == 0,
+	          clear.sites[0].people == 0 && clear.sites[0].waiting == 6 && clear.sites[0].walkersLeft == 0,
 	      "to clear: the people waiting outside");
 	DungeonSitesState free;
 	Check(!walkers::ForceSite(free, kAll, 2, inPool, "A", DungeonState::Free, fs, 1.0f), "no state: nothing");

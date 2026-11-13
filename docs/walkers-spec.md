@@ -2945,8 +2945,10 @@ the first deploy showed "174 of 175 variables".
 (`src/DungeonSiteLogic.h`, flows in tests/DungeonSiteLogicTest.cpp; not
 in the game, no INI or LINK keys yet - they come with step 3). ActiveMin
 3 to ActiveMax 5 places active (rolled once), their doors SpacingUnits
-15000 apart, each a variant by its weight (25 each): Refuge (PeopleMin 4
-to PeopleMax 8 inside), Besieged (people and AttackWalkersMin 8 to
+15000 apart, each a variant by its weight (25 each): Refuge (PeopleMin 3
+to PeopleMax 6 inside - 4 to 8 until 2026-11-13 evening, Nadi: "3-6
+besser"; eight had held a siege of ten without the player; LINK version
+38 so a save's 4 to 8 is replaced), Besieged (people and AttackWalkersMin 8 to
 AttackWalkersMax 16 walkers), ToClear (the people waiting outside),
 WalkerDungeon (walkers, nobody). A refuge is attacked by
 AttackChancePercent 15 a game day (days missed rolled for, one attack at

@@ -192,8 +192,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.dungeons.weightToClear = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightToClear", 25, path));
 	rise.dungeons.weightWalkerDungeon = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightWalkerDungeon", 25, path));
 	rise.dungeons.spacingUnits = IniFloat("Dungeons", "SpacingUnits", 15000.0f, path);
-	rise.dungeons.peopleMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMin", 4, path));
-	rise.dungeons.peopleMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMax", 8, path));
+	rise.dungeons.peopleMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMin", 3, path));
+	rise.dungeons.peopleMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMax", 6, path));
 	rise.dungeons.attackChancePercent = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackChancePercent", 15, path));
 	rise.dungeons.walkersMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackWalkersMin", 8, path));
 	rise.dungeons.walkersMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackWalkersMax", 16, path));

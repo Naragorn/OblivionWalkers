@@ -40,8 +40,8 @@ struct DungeonSiteSettings {
 	UInt32 weightToClear = 25;           // WeightToClear
 	UInt32 weightWalkerDungeon = 25;     // WeightWalkerDungeon
 	float spacingUnits = 15000.0f;       // SpacingUnits: the active places' doors at least this far apart
-	UInt32 peopleMin = 4;                // PeopleMin
-	UInt32 peopleMax = 8;                // PeopleMax
+	UInt32 peopleMin = 3;                // PeopleMin (Nadi, 2026-11-13: 3 to 6 - eight held a siege by themselves)
+	UInt32 peopleMax = 6;                // PeopleMax
 	UInt32 attackChancePercent = 15;     // AttackChancePercent: a refuge and game day
 	UInt32 walkersMin = 8;               // AttackWalkersMin
 	UInt32 walkersMax = 16;              // AttackWalkersMax
