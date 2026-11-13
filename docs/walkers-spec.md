@@ -2857,6 +2857,28 @@ actors) shared with the camps; the price of far actors (OBNG measured
 process every frame, about half of the actors' 5 ms). First step, cheap:
 the candidate count (the script over Oblivion.esm, quest places out).
 
+**Candidate count, 2026-11-13** (`tools/dungeon-candidates.py`, its rules in
+its header): 327 interiors have a door in Tamriel; 213 of them are
+dungeons by their map marker (90 caves, 50 Ayleid ruins, 48 forts, 25
+mines). Out: a quest names something of it (84 - its references, cells,
+the door outside or its map marker, a unique person of a quest, a quest
+item; object scripts that run a quest; MOO's held-back markers add one,
+Fort Irony), fewer than 6 path grid points within 1024 units of the
+arrival (29), an owned cell (5). Left with Oblivion.esm: **107** (38
+caves, 24 ruins, 33 forts, 12 mines); with Oblivion.esm, UOP, the DLCs and
+Knights read for their quests: the same 107; with Nadi's whole Linux load
+order (71 plugins): **83** - Quest of the Week (QOTW0xx, 17 places) and
+Better Cities' quests (BAN..., 6) take the rest. Cells per dungeon: 27 one,
+49 two, 26 three, 5 four; the room at the arrival 6 to 56 points (median
+11). Three dungeons have two doors in.
+Not caught (UESP, read 2026-11-13): Vilverin ("quest-related": selling its
+Ayleid statue starts Umbacano's quest - the statue carries no quest flag)
+and Lost Boy Cavern ("quest-related", a lich boss) are in the pool; quests
+that send people there by their AI packages are not read. So the pool of
+20-40 taken from the 107 is to be checked against UESP's place pages
+(their "quest-related" mark), one page each. A mod's quest in the player's
+own load order (QOTW, Better Cities) the pool cannot know at build time.
+
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
 Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting
