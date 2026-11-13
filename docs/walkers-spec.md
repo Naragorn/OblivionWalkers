@@ -3268,7 +3268,7 @@ Harness `harness/slow-aggression.txt`, 2026-11-08 (Linux, headless):
 Not measured: how guards, sieges and camps feel with calm walkers (the
 guards are sent by StartCombat already, 4.11b); the headset.
 
-### 4.22 Invaders from Oblivion - Daedra instead of, or beside, the walkers (Nadi's idea, 2026-11-13; proposed, not built, nothing decided)
+### 4.22 Invaders from Oblivion - Daedra instead of, or beside, the walkers (Nadi's idea, 2026-11-13; decided the same day - see "Decided" at the section's end; not built)
 
 Nadi, 2026-11-13: swap the zombies for Dremora "and everything that runs
 about the Oblivion world" - as a mod of its own or as a switch in this
@@ -3301,10 +3301,42 @@ the same day):
   most) after "Dagon Shrine", fewer again after "Paradise", all closed
   when the main quest ends; one to four leveled Daedra stand before each.
   A gate is closed by taking its sigil stone.
-- Not read yet: how the game opens a random gate (the script on the gate
-  or its parent, the global that counts the open ones), and how a closed
-  gate reads (the door disabled, its parent, a script variable) - needed
-  before anything is built on "open".
+- How a gate opens and closes (read off Oblivion.esm 2026-11-13: the
+  scripts' text, SCTX, and the quests' stage results):
+  - Each of the 90 doors has an enable parent of its own (90 distinct
+    references of the base 00000034, all initially disabled, XESP flags
+    0): the gate is there when its parent is enabled.
+  - The door's script `OblivionGateRandomScript` (00084B06), in OnLoad:
+    while `MQ00.openGates < MQ00.maxOpenGates` and the door is disabled
+    (or was destroyed and `MQ00.allowGatesToReopen` is 1), it rolls
+    `GetRandomPercent <= MQ00.randomGateChance`, enables its parent
+    (`getParentRef`, `enable`) and adds 1 to `MQ00.openGates`.
+  - The quest `MQ00` (0001E722, script 00023717) holds the numbers:
+    `openGates`, `maxOpenGates`, `randomGateChance`, `destroyedGates`,
+    `maxCreatureCount`, `allowGatesToReopen`, `nearOblivionGate`. They are
+    set by stage results only: MQ03 stage 100 (max 25, chance 25,
+    creatures 1, `openGates` 10), MQ06 stage 100 (50, 50), MQ15 stage 100
+    (20, 25); `MQ16Script` sets max and chance to 0. Before MQ03 ends all
+    are 0 - no random gate opens.
+  - A closed gate reads `GetDestroyed == 1` on the door (the script then
+    adds 1 to `MQ00.destroyedGates`); the door stays enabled. `openGates`
+    is never counted down, so it is "ever opened", not "open now". With
+    MQ16 at stage 100 an open gate closes itself on load
+    (`ForceCloseOblivionGate`).
+  - **Open, for the plugin:** the door is enabled and not destroyed. The
+    engine field behind `GetDestroyed` is not read yet; it has to be,
+    for a direct read (the performance rule: no console line per gate).
+  - An open gate spawns by itself: `mySpawnMarker.placeatme
+    LL1DaedricBeast100` at its parent, one every 10 s up to
+    `MQ00.maxCreatureCount` (1), the count reset on every load of the gate
+    (then after 60 s). It also sets the weather `OblivionStormTamriel`
+    within 4000 units of the player and releases it beyond 5000 - idea 9
+    has the game's own model to follow.
+  - The cities' gates (`MQ11OblivionGateScript`, 00026EAF) spawn the same
+    way and count `MQ11.closedGates`; they are opened by the quest, not by
+    the roll.
+  - Not read: which ten gates MQ03 opens at once, and the gates of MQ13,
+    MQ14, MS48 and MS94 (their own scripts).
 
 **A switch here, or a mod of its own?** Proposed: a switch here, one DLL.
 
@@ -3418,9 +3450,35 @@ unit flows for the kind's rules and the gate bands; harness: a band from
 a forced-open gate to Kvatch or Skingrad, a mixed fight, the timing run
 with 60 Daedra beside the 60 walkers' numbers.
 
-**To decide** (Nadi): a switch here or a second mod (proposed: here); what
-of the walkers' rules the Daedra keep (the table above); the early game
-with Origin=1 (proposed: quiet until gates open); which of the ideas.
+**Decided** (Nadi, 2026-11-13):
+- A switch in Walkers, one DLL: `[Invaders] Kind=0|1|2`, default 0. No mod
+  of its own. (The second Nexus page with other INI defaults is a matter
+  of the release, not decided.)
+- What the Daedra keep of the walkers' rules: the table above as it
+  stands - with Kind 2 those the Daedra kill rise as walkers; "nights are
+  worse" becomes idea 9 (the weather), off by default.
+- The early game with `Origin=1`: nothing comes until gates open (a). The
+  plugin opens no gate itself ((b) is not built). The fallback (c) stays
+  an INI choice, off by default - read this way from Nadi's short answer;
+  if he meant no fallback at all, the key goes.
+- All thirteen ideas, each with the default named in it.
+
+**Build order** (proposed, each step with its tests before the next; not
+started - Nadi's go for each):
+
+| step | what | ideas | cost |
+|---|---|---|---|
+| 1 | The kind's rules as a unit (`KindLogic.h`): which of rise, head rule, grab, slow aggression, disguise, pace apply to a group; `[Invaders]` in the INI and LINK; Kind 1 with Origin 0 through the spawn replacement and the game's Daedra lists | 11 | medium - every "is a walker" test gets its second answer; the lists and categories are there |
+| 2 | War bands: a horde of Daedra, Dremora (NPCs) among them, with a leader; the one budget | 1, 12 | medium to large - packages on NPCs in a horde are new; 12 is the far hordes' option B |
+| 3 | `Origin=1`: the open gates read at run time, a band per open gate, far gates as numbers, a closed gate ends its bands | - | medium - the gates' logic is read (above); the field behind GetDestroyed is not |
+| 4 | Kind 2: the two hostile to each other, `DaedraPercent`, the fallen as fuel | 2 | small to medium - a faction pair in the ESP, the rise is there |
+| 5 | Sieges, gate guards, camps and held dungeons with Daedra pools; the outpost with its boss; banished bodies | 6, 8 | medium to large - new pools in the ESP, 8 needs the summon-end shader read |
+| 6 | The news and rumors name the feeding gate; "close the gate" as a journal quest; after the main quest | 4, 5, 13 | small to medium - 5 waits for the journal frame of 4.20.7 step 4 |
+| 7 | The looks: the siege gate prop, the marching weather, the Daedric disguise, the Legion's answer | 3, 9, 7, 10 | medium each; 3 and 9 touch sky and weather (9 off by default) |
+
+All of it together: huge (seven steps, each with its own harness
+scenarios). The first three give a playable Daedra invasion; the rest
+deepens it.
 
 ## 5. Scenarios - `[Scenario] Preset=`
 
