@@ -98,6 +98,7 @@ constexpr float kTimingReportSeconds = 10.0f;
 TimingState g_timing;
 float g_timingClock = 0.0f;
 UInt32 g_consoleLines = 0;  // console lines this period
+UInt32 g_slowConsoleLogsLeft = 60;
 unsigned long long g_qpcFrequency = 0;
 
 template <typename F>
@@ -1145,13 +1146,30 @@ bool ConsoleOn(UInt32 ref, const char* line) {
 	if (g_console == nullptr) {
 		return false;
 	}
-	bool done = false;
+	if (!g_settings.stepTiming) {
+		return g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
+	}
 	// Every console line timed (StepTiming): each is a script compiled and
-	// run - a part of whichever step sent it.
-	Timed(22, "console", [&done, line, ref] { done = g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true); },
-	      true);
-	if (g_settings.stepTiming) {
-		++g_consoleLines;
+	// run - a part of whichever step sent it; a slow one logged with its text.
+	LARGE_INTEGER a;
+	LARGE_INTEGER b;
+	QueryPerformanceCounter(&a);
+	const bool done = g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
+	QueryPerformanceCounter(&b);
+	const unsigned long long ticks = static_cast<unsigned long long>(b.QuadPart - a.QuadPart);
+	NoteTiming(g_timing, 22, "console", ticks, true);
+	++g_consoleLines;
+	if (g_slowConsoleLogsLeft > 0) {
+		if (g_qpcFrequency == 0) {
+			LARGE_INTEGER f;
+			QueryPerformanceFrequency(&f);
+			g_qpcFrequency = static_cast<unsigned long long>(f.QuadPart);
+		}
+		const double us = TimingMicros(ticks, g_qpcFrequency);
+		if (us >= 300.0) {
+			--g_slowConsoleLogsLeft;
+			g_log("Timing: console line \"%s\" on %08X took %.0f us", line, FormIdOf(ref), us);
+		}
 	}
 	return done;
 }
