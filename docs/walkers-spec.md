@@ -3037,10 +3037,54 @@ their 3D; the farthest 6 units from its spot, the lowest 7 beneath it" -
 put 16 above their path grid points they settle 9 above them, none fell
 through; 47 occupants put back four a frame, the longest frame of it 2.3
 ms (10.4 ms at once before).
-Not built yet: a besieged place's walkers (the siege counts only while the
-player is away), the people waiting outside a place to clear, a walker
-dungeon's walkers, beds, the journal quest, the dialogue, the ways to hear
-of a place. Not measured: that a summoned creature stands on the player's
+**Step 5, the walkers and the place to clear** (0dff48f, a840057;
+flows in tests/DungeonKitLogicTest.cpp and DungeonSiteLogicTest.cpp):
+- **A pool of twelve walkers** in the ESP (0xA54..0xA5F, persistent,
+  initially disabled, the camps' way) for the siege or walker dungeon the
+  player is near. `[Dungeons] WalkersAtOnce=6` (LINK 191, version 35) of
+  the site's walkers are in the place at a time, one put in a frame; a
+  slot never used first, else one lying ended raised. A siege's come in on
+  the four spots nearest the door, its people stand on the far spots; a
+  walker dungeon's first six stand spread over its spots, whoever follows
+  comes in by the door.
+- **Counted off**: a pool walker ended for good (4.17 - Rise.cpp's death
+  path, as the camps') takes one off the site: a siege's last with
+  someone alive - held, defended with the player there, a refuge again; a
+  walker dungeon's last - cleared and taken, new people (PeopleMin..Max).
+  The ended lie where they fell while the player is near; the pool goes
+  back in when he is gone. No horde takes a pool walker; a walker a kit
+  person fells is ended (the camps' rule).
+- **A walker dungeon's cells** lose the game's occupants as a held place's.
+- **A place to clear**: its occupants stay. The kit waits outside - each
+  candidate carries up to twelve spots before its door outside: a fan
+  from where one comes out of it (the door inside's XTEL), away from the
+  door, on the land's height (LAND, within 160 of that point's; 52 of the
+  91 have twelve, 4 none - there they wait out of sight). With the player
+  in one of its cells that cell is read once a second until nobody living
+  is left in it but him, his followers and our own (the walkers risen
+  from its dead count as living); every cell so (a bit each, in the
+  co-save) and it is cleared: taken, those who waited its people.
+- **Moving in**: a kit put into a place with the player inside - he
+  cleared it - comes in by the door (the spots from the door on), not
+  onto its spots out of nowhere.
+- `[Dungeons] TestSiteState=1..4` (INI only): TestSite's state - a
+  refuge, besieged, to clear, a walker dungeon.
+Runs `tools/dungeon-walkers.sh`, 2026-11-13 15:40-15:46 (0dff48f, Fort
+Ash): siege PASS - "the pool to site 0 Fort Ash (besieged; 8 walkers, 6 at
+once)", six "into Fort Ash (... by the door ...)", the console's kills
+counted "7 walkers left" .. "2", two more in, "0 walkers left",
+"defended - now refuge, 8 people"; taken PASS - a walker dungeon's six
+"among its spots", "taken - now refuge, 8 people", the kit in; fight (the
+game's own, a look): the walkers turned on the refugees (slow aggression,
+"its time near 25000A4E ran out"), the eight refugees ended all ten in
+under 110 s, none of them died - "defended". The dungeons' step 1.3-1.5
+us a frame during the fight; a walker put in at most 0.9 ms in its frame.
+Not built yet: beds, the journal quest, the dialogue, the ways to hear of
+a place, the rewards; walkers outside the door (a siege is fought inside
+only). Open: a living thing the player cannot reach (a slaughterfish, a
+rat behind a wall) keeps a place from being cleared - the log names
+nothing yet; the refugees win a siege of ten walkers without the player
+(walkers at 15 % health) - the siege's numbers to tune with Nadi. Not measured: that a summoned creature stands on the player's
 follower list (a companion with a follow package does, by the engine's
 own door travel) - the log names how many followers were left.
 
