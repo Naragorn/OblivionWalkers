@@ -27,8 +27,9 @@ struct TimingState {
 	unsigned long long frameNow = 0;  // the frame being timed
 };
 
-// Step `index` named `name` took `ticks` this frame.
-inline void NoteTiming(TimingState& t, UInt32 index, const char* name, unsigned long long ticks) {
+// Step `index` named `name` took `ticks` this frame. A part of a step timed
+// inside it (`part`) is not added to the frame's sum again.
+inline void NoteTiming(TimingState& t, UInt32 index, const char* name, unsigned long long ticks, bool part = false) {
 	if (index >= kTimingStepsMost) {
 		return;
 	}
@@ -41,7 +42,9 @@ inline void NoteTiming(TimingState& t, UInt32 index, const char* name, unsigned 
 	if (ticks > s.most) {
 		s.most = ticks;
 	}
-	t.frameNow += ticks;
+	if (!part) {
+		t.frameNow += ticks;
+	}
 }
 
 // The frame done: its sum counted.

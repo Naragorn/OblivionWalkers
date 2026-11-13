@@ -91,6 +91,28 @@ constexpr UInt32 kTextEnd = 0x00A27C39;
 
 LogFn g_log = nullptr;
 RiseSettings g_settings;
+
+// [Debug] StepTiming (TimingLogic.h): each step of the Tick timed, the means
+// and the most a frame logged every kTimingReportSeconds.
+constexpr float kTimingReportSeconds = 10.0f;
+TimingState g_timing;
+float g_timingClock = 0.0f;
+unsigned long long g_qpcFrequency = 0;
+
+template <typename F>
+void Timed(UInt32 index, const char* name, F&& step, bool part = false) {
+	if (!g_settings.stepTiming) {
+		step();
+		return;
+	}
+	LARGE_INTEGER a;
+	LARGE_INTEGER b;
+	QueryPerformanceCounter(&a);
+	step();
+	QueryPerformanceCounter(&b);
+	NoteTiming(g_timing, index, name, static_cast<unsigned long long>(b.QuadPart - a.QuadPart), part);
+}
+
 WaitingList g_list;
 obse::EventManagerInterface* g_events = nullptr;
 obse::TasksInterface* g_tasks = nullptr;
@@ -2012,10 +2034,11 @@ void StepWalkers(float dt) {
 	if (logNow) {
 		g_walkLogSeconds = 0.0f;
 	}
-	KeepWalkerRecords();
+	Timed(19, "w.records", [] { KeepWalkerRecords(); }, true);
 	static UInt32 refs[kHordeCandidatesMost];
-	const UInt32 count = CollectAllWalkers(refs, kHordeCandidatesMost);
-	StepSlowAggression(refs, count, dt);
+	UInt32 count = 0;
+	Timed(20, "w.collect", [&count] { count = CollectAllWalkers(refs, kHordeCandidatesMost); }, true);
+	Timed(21, "w.aggression", [count, dt] { StepSlowAggression(refs, count, dt); }, true);
 	// 4.20.1: the disguise begun - the walkers fighting stop (Nadi: "ok").
 	if (TakeDisguiseBegun()) {
 		UInt32 stopped = 0;
@@ -2666,27 +2689,6 @@ void StepSafeguardInGame(float dt) {
 		      FloatAt(ref + kRefPositionOffset + 4), FloatAt(ref + kRefPositionOffset + 8), radius, has3D,
 		      IsDead(ref) ? 1 : 0, sent ? 1 : 0, g_safeguard.count);
 	}
-}
-
-// [Debug] StepTiming (TimingLogic.h): each step of the Tick timed, the means
-// and the most a frame logged every kTimingReportSeconds.
-constexpr float kTimingReportSeconds = 10.0f;
-TimingState g_timing;
-float g_timingClock = 0.0f;
-unsigned long long g_qpcFrequency = 0;
-
-template <typename F>
-void Timed(UInt32 index, const char* name, F&& step) {
-	if (!g_settings.stepTiming) {
-		step();
-		return;
-	}
-	LARGE_INTEGER a;
-	LARGE_INTEGER b;
-	QueryPerformanceCounter(&a);
-	step();
-	QueryPerformanceCounter(&b);
-	NoteTiming(g_timing, index, name, static_cast<unsigned long long>(b.QuadPart - a.QuadPart));
 }
 
 void ReportTiming(float dt) {
