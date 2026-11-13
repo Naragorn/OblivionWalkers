@@ -1,0 +1,25 @@
+# The refugee dungeons' pool (docs/walkers-spec.md 4.20.7, A + B of
+# 2026-11-13): the game starts and loads the harness save; OblivionWalkers.log
+# then holds "Quests: N cells named or holding a named reference",
+# one "Dungeons: X (...) out - ..." line per candidate out and "Dungeons:
+# 107 candidates, N in the pool, ...". tools/dungeon-candidates.py over
+# Nadi's whole Linux load order (2026-11-13) left 83 in: the game's count
+# beside it tells whether a persistent reference's parent cell is set at the
+# main menu. Nothing to do in the world - a look at the log.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 5
+mark end
+wait 1

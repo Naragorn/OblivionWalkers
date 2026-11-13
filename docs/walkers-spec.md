@@ -2866,9 +2866,12 @@ item; object scripts that run a quest; MOO's held-back markers add one,
 Fort Irony), fewer than 6 path grid points within 1024 units of the
 arrival (29), an owned cell (5). Left with Oblivion.esm: **107** (38
 caves, 24 ruins, 33 forts, 12 mines); with Oblivion.esm, UOP, the DLCs and
-Knights read for their quests: the same 107; with Nadi's whole Linux load
-order (71 plugins): **83** - Quest of the Week (QOTW0xx, 17 places) and
-Better Cities' quests (BAN..., 6) take the rest. Cells per dungeon: 27 one,
+Knights read for their quests: the same 107; with Nadi's Windows load
+order (63 plugins - first read as the Linux one: an OBNG run had linked the
+Windows list in at the time): **83** - Quest of the Week (QOTW0xx, 17
+places) and Better Cities' quests (BAN..., 6) take the rest, nearly all
+through a quest's stage result script (SCRO) or target (QSTA). Nadi's own
+Linux list (39 plugins, no QOTW, no Better Cities): 107. Cells per dungeon: 27 one,
 49 two, 26 three, 5 four; the room at the arrival 6 to 56 points (median
 11). Three dungeons have two doors in.
 Not caught (UESP, read 2026-11-13): Vilverin ("quest-related": selling its
@@ -2894,9 +2897,13 @@ Skip names it", "Dungeons: 107 candidates, N in the pool, ...". Flows:
 tests/DungeonLogicTest.cpp. What A does not see (the build-time scan does,
 for Oblivion.esm): dialogue lines' conditions and result scripts (read off
 the file on demand, not in memory), object scripts that run a quest, the
-unique people a quest names by their record. Not measured yet: that a
-persistent reference's parent cell is set at the main menu - the first
-run's count against the build-time 83 of Nadi's Linux load order tells.
+unique people a quest names by their record.
+Run `harness/dungeon-pool.txt` 2026-11-13 11:28 (Linux, Nadi's 39 plugins):
+"Quests: 606 quests read, 12648 names", "718 cells named or holding a
+named reference", "Dungeons: 107 candidates, 107 in the pool, 0 out by a
+loaded quest" - as the build-time scan of that list says (107). That A
+takes one out is not shown yet: that needs the Windows list (83 at build
+time) - Nadi's next Windows start, its "Dungeons:" line.
 
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
