@@ -3031,7 +3031,12 @@ door's loading); putting 43 back at once 10 ms - since then four a frame
 when it happens with the player inside.
 Not seen: the harness's pictures inside the fort are black (also with the
 console's tlb) - that the people stand on the floor is read off the log's
-"the farthest N units from its spot, the lowest M beneath it".
+"the farthest N units from its spot, the lowest M beneath it". Run
+2026-11-13 15:3x (a5e3c0c): after the load "8 shown, 8 enabled, ... 8 with
+their 3D; the farthest 6 units from its spot, the lowest 7 beneath it" -
+put 16 above their path grid points they settle 9 above them, none fell
+through; 47 occupants put back four a frame, the longest frame of it 2.3
+ms (10.4 ms at once before).
 Not built yet: a besieged place's walkers (the siege counts only while the
 player is away), the people waiting outside a place to clear, a walker
 dungeon's walkers, beds, the journal quest, the dialogue, the ways to hear
