@@ -274,19 +274,24 @@ void TestMessenger() {
 	Check(did == MessengerDoes::Go && late.phase == MessengerPhase::Away, "ninety seconds leaving: taken away at last");
 	DungeonMessenger away;
 	Check(walkers::StepMessenger(away, true, 0.0f) == MessengerDoes::Nothing, "none out: nothing");
-	Check(walkers::PaperOpened(0x25000A75, 0, 0x25000A75, 0x25000A76) &&
-	          walkers::PaperOpened(0x25000A76, 0x0006D6F3, 0x25000A75, 0x25000A76),
-	      "the dungeons' edition or the notice opened: read");
-	Check(!walkers::PaperOpened(0x25000A75, 0x25000A75, 0x25000A75, 0x25000A76), "still open: not read again");
-	Check(!walkers::PaperOpened(0x0006D6F3, 0, 0x25000A75, 0x25000A76) && !walkers::PaperOpened(0, 0x25000A75, 0x25000A75, 0x25000A76) &&
-	          !walkers::PaperOpened(0, 0, 0, 0),
+	const UInt32 papers[3] = {0x25000A75, 0x25000A76, 0x25000A84};
+	Check(walkers::PaperOpened(0x25000A75, 0, papers, 3) && walkers::PaperOpened(0x25000A76, 0x0006D6F3, papers, 3) &&
+	          walkers::PaperOpened(0x25000A84, 0, papers, 3),
+	      "the dungeons' edition, the notice at a gate or the one on a board opened: read");
+	Check(!walkers::PaperOpened(0x25000A75, 0x25000A75, papers, 3), "still open: not read again");
+	Check(!walkers::PaperOpened(0x0006D6F3, 0, papers, 3) && !walkers::PaperOpened(0, 0x25000A75, papers, 3) &&
+	          !walkers::PaperOpened(0, 0, papers, 0) && !walkers::PaperOpened(0x25000A75, 0, nullptr, 3),
 	      "another book, the book closed, no book and no papers: nothing");
+	Check(walkers::IsPaper(0x25000A84, papers, 3) && !walkers::IsPaper(0, papers, 3) && !walkers::IsPaper(7, papers, 3),
+	      "a paper of ours is one of the three; no book is none");
 	Check(walkers::kDungeonEditionLocalId == walkers::kDungeonTalkEnd && walkers::kDungeonNoticeLocalId == 0xA76 &&
 	          walkers::kDungeonMessengerLineFirstLocalId + walkers::kDungeonMessengerLineCount <= 0xAA4,
 	      "the edition right after the rumors, the notice, the messenger - before the grab's shock sounds");
-	Check(walkers::kDungeonNoticeRefFirstLocalId == 0xA7C &&
-	          walkers::kDungeonNoticeRefFirstLocalId + walkers::kDungeonNoticeRefCount <= 0xAA4,
-	      "the notice's eight references 0xA7C..0xA83, before the shock sounds too");
+	Check(walkers::kDungeonNoticeRefFirstLocalId == 0xA7C && walkers::kDungeonBoardNoticeLocalId == 0xA84 &&
+	          walkers::kDungeonBoardNoticeRefFirstLocalId == 0xA85 &&
+	          walkers::kDungeonBoardNoticeRefFirstLocalId + walkers::kDungeonNoticeRefCount <= 0xAA4,
+	      "the gates' eight notices 0xA7C..0xA83, the boards' book 0xA84 and its eight 0xA85..0xA8C, before the "
+	      "shock sounds too");
 }
 
 void TestImage() {

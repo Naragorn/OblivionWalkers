@@ -3168,10 +3168,9 @@ Not seen in a run: a rumor said by an NPC (its global is set by the
 console), the lines of the two topics, the stages 5, 10, 55 and 90 in the
 game (their flows are the unit tests'), the journal with `Journal=0`.
 
-**Step 4b, more ways to hear of a place** (2026-11-13; built, the unit
-flows green - tests/DungeonQuestLogicTest.cpp, NewsLogicTest.cpp - **not
-yet run in the game**: the Linux game was OBNG's; `tools/dungeon-walkers.sh
-runner` and `paper` are written for it):
+**Step 4b, more ways to hear of a place** (2026-11-13; the unit flows in
+tests/DungeonQuestLogicTest.cpp, NewsLogicTest.cpp and
+DungeonNoticeLogicTest.cpp; runs below):
 - **A runner for help**: with news of a siege or of a place to clear, the
   player out of doors, one of the refugees ("Refugee Runner", a base of his
   own, his reference in the holding cell) is put on the land 800 units
@@ -3193,13 +3192,15 @@ runner` and `paper` are written for it):
   that edition or the refugees' notice newly opened tells the news as a
   rumor does. Neither paper names the place - the journal does.
 - **The notice** (Nadi, 2026-11-13: option 1 - next to MOO's board, else
-  at the city's gate; `src/DungeonNoticeLogic.h`, flows in
-  tests/DungeonNoticeLogicTest.cpp; **not yet run in the game**,
-  `tools/dungeon-walkers.sh notice` is written for it): "Notice: Help
-  Wanted", a book off Oblivion.esm's StoreHours (000C4284: the poster mesh
-  Clutter\Books\WantedPoster02.NIF, a scroll that cannot be taken - it
-  stays where it hangs and is read there), one reference a city (0xA7C..
-  0xA83, in the holding cell). MOO's boards, read off MOO.esp's scripts:
+  at the city's gate; `src/DungeonNoticeLogic.h`): "Notice: Help Wanted",
+  a scroll that cannot be taken (DATA flags 3, as Oblivion.esm's
+  StoreHours 000C4284) - it stays where it is and is read there. Two books
+  and two references a city: for MOO's boards the model of MOO's own
+  "Wanted" notice (MODL, MODB, MODT off MOO.esp's MOONoticeObjectWanted;
+  0xA84, its references 0xA85..0xA8C) - a vanilla paper has physics and
+  falls off the board (seen with WantedPoster02: it lay in the grass
+  beneath); for the gates the Courier's sheet, lying on the ground (0xA76,
+  0xA7C..0xA83). MOO's boards, read off MOO.esp's scripts:
   MOOPlaceNoticeBoardsFunctionScript places a board a city with PlaceAtMe
   at `MOO.ini_noticeboard_<city>_xpos/_ypos/_zpos` (a new reference each
   game - no form ID to hold on to), a bit a board in
@@ -3213,10 +3214,47 @@ runner` and `paper` are written for it):
   marker MOO's own placer uses; MOO not loaded, its boards off, or no
   board a minute after the load - before the city's first gate
   (CityGates.h), on the ground where one comes out. A notice at its spot
-  already (a save's) costs no console line. Open until the pictures of the
-  run: whether the vanilla poster hangs right with MOO's angles (the
-  scenario turns it five ways before Anvil's board), and whether it covers
-  one of MOO's notices.
+  already (a save's) costs no console line. MOO's variables read 0 until
+  MOO's own start has set them (a second after the load: boards 0,
+  worldspace 0, placed 00 - its INI saying boards on), so "off" is
+  believed only after the minute.
+Runs 2026-11-13 19:36-20:08 (Linux, Nadi's list with MOO; the test site
+alone): **notice** PASS - at 2 s "hung on MOO's board" for all eight
+(placed FF), Anvil's at -190445 -28655 431 turned 90 237.7 180; the eye
+pictures (Debug.EyeDump; the desktop picture of a headless run is black
+but for the menus) show Anvil's board with MOO's "Undead" and "For sale"
+and ours, "Wanted", upright beside them, a sheet's width free between -
+with MOO's angles; upright about z alone it lies flat through the board;
+activated by the console: the book menu, "news - the player reads
+...A84", "stage 5 (heard ...". **runner** PASS - "sent with news of kind 2
+(MoveTo player 255 -758 40 ...; the land there 440, the player at 408)",
+"told to speak to the player (... 1110 units from him, his 3D 1)", he
+came up within some twenty seconds and spoke (the dialogue menu, "Refugee
+Runner"), his greeting's result script set the global: "news - told to
+the player (site 0)", "stage 20 (heard ...", the map marker's flags 0000
+to 0001, "he told his news", the player moved away: "taken away". So a
+line's result script "set <global> to 1" is proven in a spoken line - the
+rumors' and the escort's are the same bytes. **paper** PASS - the gate's
+notice equipped by the console: "the player reads ...A76", "stage 20
+(heard ...", closed: "the book menu now holds 00000000"; "News: on - 37
+editions".
+Found by these runs: (1) the runner said his "took you for someone else"
+line with a siege as news - a topic's lines are not tried in the file's
+order; that line now holds only when the news is neither kind (CTDA not
+equal, 0x20). (2) The scenarios' "set gamehour to 12" set the clock back;
+StepDungeonSite counted the toll's hours negative, as an unsigned count
+some four billion: with kills and losses set the siege ended at once (why
+the first paper run found a refuge), with both 0 the game stood still
+(OBVR's watchdog: the render thread in the toll's loop, 10 s without a
+frame). Fixed (the toll counted from now when the clock is behind;
+DungeonSiteLogicTest's TestClockSetBack, 45 s red before); the camps'
+and the sieges' tolls had the guard already.
+Not seen: the Courier's edition 36 on a broadsheet in an inn; a notice
+before a gate (MOO was loaded); the boards of the other seven cities
+(their log lines only); Better Cities' cities on Windows. Not run again
+after the toll's fix: the siege scenario - SteamVR was closed at 20:11
+(not by me; the run ended with "SteamVR quit ... the game told to quit")
+and the harness starts no game without it.
 
 Not built yet: beds; walkers outside the door (a siege is fought inside
 only).

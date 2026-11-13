@@ -407,7 +407,15 @@ void StepNotices(LogFn log) {
 			continue;
 		}
 		g_noticeDone[c] = true;
-		const UInt32 ref = LookupForm(EspFormId(g_espBase, kDungeonNoticeRefFirstLocalId + c));
+		// The board's notice hangs (MOO's mesh), the gate's lies (a vanilla
+		// sheet): the one not wanted is put away.
+		const UInt32 gateRef = LookupForm(EspFormId(g_espBase, kDungeonNoticeRefFirstLocalId + c));
+		const UInt32 boardRef = LookupForm(EspFormId(g_espBase, kDungeonBoardNoticeRefFirstLocalId + c));
+		const UInt32 ref = at == NoticeAt::Gate ? gateRef : boardRef;
+		const UInt32 other = at == NoticeAt::Gate ? boardRef : gateRef;
+		if (LooksLikeObject(other) && !Disabled(other)) {
+			Say(other, "Disable");
+		}
 		const int gate = NoticeMainGate(c);
 		if (!LooksLikeObject(ref) || gate < 0) {
 			log("Dungeons: notice - %s: its reference is not there", kNoticeBoards[c].key);
@@ -1315,15 +1323,13 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		// A paper of ours newly opened - the Courier's edition on the held
 		// dungeons, the notice - is read: it tells as a rumor does.
 		const UInt32 book = BookOpen();
-		if (g_espBase != kNoEsp &&
-		    PaperOpened(book, g_bookBefore, EspFormId(g_espBase, kDungeonEditionLocalId),
-		                EspFormId(g_espBase, kDungeonNoticeLocalId))) {
+		const UInt32 papers[3] = {EspFormId(g_espBase, kDungeonEditionLocalId), EspFormId(g_espBase, kDungeonNoticeLocalId),
+		                          EspFormId(g_espBase, kDungeonBoardNoticeLocalId)};
+		if (g_espBase != kNoEsp && PaperOpened(book, g_bookBefore, papers, 3)) {
 			SetGlobal(kDungeonHeardGlobalLocalId, 1.0f);
 			log("Dungeons: news - the player reads %08X", book);
 		}
-		if (g_espBase != kNoEsp && book != g_bookBefore &&
-		    (g_bookBefore == EspFormId(g_espBase, kDungeonEditionLocalId) ||
-		     g_bookBefore == EspFormId(g_espBase, kDungeonNoticeLocalId))) {
+		if (g_espBase != kNoEsp && book != g_bookBefore && IsPaper(g_bookBefore, papers, 3)) {
 			log("Dungeons: news - the paper %08X is closed (the book menu now holds %08X)", g_bookBefore, book);
 		}
 		g_bookBefore = book;

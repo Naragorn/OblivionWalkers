@@ -86,25 +86,29 @@ struct MooBoards {
 enum class NoticeAt : UInt8 { Wait, Board, BoardOpen, Gate };
 
 // Where city `city`'s notice goes: on MOO's board once MOO has placed it
-// (`cityOn`: its switch for the city), at the gate without one - MOO not
-// loaded, its boards off, or none placed `waited` seconds after the load.
+// (`cityOn`: its switch for the city), at the gate without one - at once
+// when MOO is not loaded, else when no board of the city is there `waited`
+// seconds after the load: MOO's variables read 0 until its own start has
+// set them (measured 2026-11-13: all 0 a second after the load, its INI
+// saying boards on), so "off" is believed only after the wait.
 inline NoticeAt NoticeWhere(const MooBoards& m, bool cityOn, UInt32 city, float waited) {
-	if (city >= kNoticeCities || !m.loaded || !m.boards || !cityOn) {
+	if (city >= kNoticeCities || !m.loaded) {
 		return NoticeAt::Gate;
+	}
+	const NoticeAt none = waited >= kNoticeWaitSeconds ? NoticeAt::Gate : NoticeAt::Wait;
+	if (!m.boards || !cityOn) {
+		return none;
 	}
 	const UInt32 code = kNoticeBoards[city].code;
 	const bool closed = (m.worldspace & 1) != 0 || code == 32;  // the Imperial City: always closed
 	const bool open = !closed && (m.worldspace & 2) != 0;
-	if (!closed && !open) {
-		return NoticeAt::Gate;
-	}
 	if (closed && (m.placed & code) != 0) {
 		return NoticeAt::Board;
 	}
 	if (open && (m.placedOpen & code) != 0) {
 		return NoticeAt::BoardOpen;
 	}
-	return waited >= kNoticeWaitSeconds ? NoticeAt::Gate : NoticeAt::Wait;
+	return none;
 }
 
 struct NoticeSpot {

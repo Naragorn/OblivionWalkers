@@ -4,7 +4,8 @@
 # doors far from the fort (Tamriel 5,5).
 # - "runner - sent with news of kind 2 (MoveTo player ...)", a second on
 #   "runner - told to speak to the player (StartConversation ...)";
-# - he comes up and speaks (the picture at 'spoken'); his greeting's result
+# - he comes up and speaks (a picture every two seconds, t1..t7 and
+#   'spoken': one of them shows the dialogue); his greeting's result
 #   script sets WalkersDungeonHeard: "news - told to the player (site 0)",
 #   "journal - Fort Ash: stage 20 (heard ...", "runner - he told his news";
 # - closed: the game's boxes closed; away: the player far off (Tamriel
@@ -31,9 +32,23 @@ right pos 0.20 -0.40 -0.30
 left pos -0.20 -0.40 -0.30
 wait 1
 mark ready
-wait 18
+wait 14
+mark t1
+wait 2
+mark t2
+wait 2
+mark t3
+wait 2
+mark t4
+wait 2
+mark t5
+wait 2
+mark t6
+wait 2
+mark t7
+wait 2
 mark spoken
-wait 12
+wait 6
 mark closed
 wait 4
 mark away

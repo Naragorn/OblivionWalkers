@@ -71,10 +71,15 @@ inline constexpr UInt32 kDungeonMessengerBaseLocalId = 0xA77;
 inline constexpr UInt32 kDungeonMessengerRefLocalId = 0xA78;
 inline constexpr UInt32 kDungeonMessengerLineFirstLocalId = 0xA79;
 inline constexpr UInt32 kDungeonMessengerLineCount = 3;
-// The notice's eight references, one a city in CityGates.h's order
-// (DungeonNoticeLogic.h): 0xA7C..0xA83.
+// The notice's references, one a city in CityGates.h's order
+// (DungeonNoticeLogic.h): eight of the notice for the gates (0xA7C..0xA83,
+// the Courier's sheet - it lies on the ground), then the notice for MOO's
+// boards (0xA84: MOO's own notice mesh - a vanilla paper has physics and
+// falls off the board, measured 2026-11-13) and its eight (0xA85..0xA8C).
 inline constexpr UInt32 kDungeonNoticeRefFirstLocalId = kDungeonMessengerLineFirstLocalId + kDungeonMessengerLineCount;
 inline constexpr UInt32 kDungeonNoticeRefCount = 8;
+inline constexpr UInt32 kDungeonBoardNoticeLocalId = kDungeonNoticeRefFirstLocalId + kDungeonNoticeRefCount;
+inline constexpr UInt32 kDungeonBoardNoticeRefFirstLocalId = kDungeonBoardNoticeLocalId + 1;
 
 // The messenger: one of the refugees runs to the player for help - with
 // news of a siege or of a place to clear, MessengerHours apart at the
@@ -134,11 +139,21 @@ inline MessengerDoes StepMessenger(DungeonMessenger& m, bool told, float distanc
 	return MessengerDoes::Nothing;
 }
 
+// One of our papers: the Courier's edition on the dungeons, the notice at a
+// gate, the notice on a board.
+inline bool IsPaper(UInt32 book, const UInt32* papers, UInt32 count) {
+	for (UInt32 k = 0; book != 0 && papers != nullptr && k < count; ++k) {
+		if (papers[k] == book) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // The book the player has open now against a second ago: one of our papers
-// (the Courier's edition on the dungeons, the notice) newly opened is read -
-// it tells the news as a rumor does.
-inline bool PaperOpened(UInt32 bookNow, UInt32 bookBefore, UInt32 edition, UInt32 notice) {
-	return bookNow != 0 && bookNow != bookBefore && (bookNow == edition || bookNow == notice);
+// newly opened is read - it tells the news as a rumor does.
+inline bool PaperOpened(UInt32 bookNow, UInt32 bookBefore, const UInt32* papers, UInt32 count) {
+	return bookNow != bookBefore && IsPaper(bookNow, papers, count);
 }
 
 // What the kit's people say, by the place they stand at: 1 a quiet refuge,

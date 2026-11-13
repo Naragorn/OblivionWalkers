@@ -50,6 +50,10 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
                    ("ActiveMin", "1"), ("ActiveMax", "1"),
                    # a runner for help only in his own run
                    ("MessengerHours", "1" if mode == "runner" else "0"),
+                   # runner, paper: the siege away stays one (the scenario's "set gamehour to 12" jumps the
+                   # clock - measured 2026-11-13: the toll of those hours ended the siege before anyone heard of it)
+                   ("RefugeeKillsPerHour", "0" if mode in ("runner", "paper") else "2"),
+                   ("LossPercentPerHour", "0" if mode in ("runner", "paper") else "25"),
                    # siege: a day on, the refuge is attacked again (the quest opened anew)
                    ("AttackChancePercent", "100" if mode == "siege" else "0")):
     text = put(text, "Dungeons", key, value)
@@ -131,7 +135,10 @@ elif mode == "notice":
           f"with MOO loaded they hang on its boards, Anvil's among them ({len(boards)} on boards, {len(hung) - len(boards)} elsewhere)")
     for l in hung:
         print("        " + l[10:230])
-    print("  look  the pictures a-* and b-*: Anvil's board from both sides, the notice turned five ways")
+    read = [l for l in d if "news - the player reads" in l]
+    check(len(read) == 1 and read[0].endswith("A84"), "the notice on the board, activated, is read in the book menu" + (f" ({read[0][10:]})" if read else ""))
+    journal(5, "heard", 0, True, False, "reading it tells of the refuge: heard of, open")
+    print("  look  the eye pictures a-* and b-*: Anvil's board from both sides, the notice turned five ways")
 elif mode == "runner":
     sent = [l for l in d if "runner - sent with news of kind 2" in l]
     check(len(sent) == 1, "a runner is sent with the siege's news, once" + (f" ({sent[0][19:140]})" if sent else ""))

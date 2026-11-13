@@ -142,6 +142,45 @@ void TestAttack() {
 	Check(q.state == DungeonState::Besieged, "days missed (asleep, away): rolled for, at most one attack");
 }
 
+void TestClockSetBack() {
+	std::printf("A siege away: the clock set back\n");
+	// Measured 2026-11-13 (harness dungeon-runner): the console's "set
+	// gamehour" put the clock behind the toll's time; the hours counted came
+	// out negative, as an unsigned count some four billion - with kills and
+	// losses the siege ended at once, with RefugeeKillsPerHour=0 and
+	// LossPercentPerHour=0 the game stood still.
+	DungeonSiteSettings s;
+	s.refugeeKillsPerHour = 0.0f;
+	s.lossPercentPerHour = 0;
+	DungeonSite d = Refuge(6);
+	d.state = DungeonState::Besieged;
+	d.walkersLeft = 4;
+	d.tollFrom = 2.5f;
+	DungeonEvent ev[16];
+	const UInt32 keep[] = {0};
+	Rolls k{keep, 1};
+	Check(walkers::StepDungeonSite(d, 0, s, 2.25f, false, k, ev, 16) == 0 && d.state == DungeonState::Besieged &&
+	          d.walkersLeft == 4 && d.people == 6 && d.tollFrom == 2.25f,
+	      "the clock six hours behind the toll's time: nothing counted, the toll counted from now");
+	s.refugeeKillsPerHour = 2.0f;
+	s.lossPercentPerHour = 100;
+	d.tollFrom = 2.5f;
+	Check(walkers::StepDungeonSite(d, 0, s, 2.25f, false, k, ev, 16) == 0 && d.walkersLeft == 4 && d.people == 6,
+	      "with kills and losses set too: no toll for hours that never were");
+	Check(walkers::StepDungeonSite(d, 0, s, 2.25f + 1.5f / 24.0f, false, k, ev, 16) >= 1 && d.people == 5 &&
+	          d.walkersLeft == 2,
+	      "an hour on from there: that hour's toll");
+	DungeonSite never = Refuge(6);
+	never.state = DungeonState::Besieged;
+	never.walkersLeft = 4;
+	never.tollFrom = 1.0f;
+	s.refugeeKillsPerHour = 0.0f;
+	s.lossPercentPerHour = 0;
+	Check(walkers::StepDungeonSite(never, 0, s, 400.0f, false, k, ev, 16) == 0 && never.walkersLeft == 4 &&
+	          never.people == 6,
+	      "no kills and no losses set, a year on: the siege stands (a week's hours counted at most, then on)");
+}
+
 void TestSiegeAway() {
 	std::printf("A siege away: the toll\n");
 	DungeonSiteSettings s;
@@ -432,6 +471,7 @@ int main() {
 	TestFill();
 	TestAttack();
 	TestSiegeAway();
+	TestClockSetBack();
 	TestNear();
 	TestCleared();
 	TestLeft();

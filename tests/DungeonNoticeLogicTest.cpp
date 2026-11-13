@@ -70,9 +70,14 @@ void TestWhere() {
 	Check(NoticeWhere(moo, true, anvil, 0.0f) == NoticeAt::Board, "its board placed: on the board");
 	Check(NoticeWhere(moo, true, static_cast<UInt32>(City::Bravil), 0.0f) == NoticeAt::Wait,
 	      "another city's board is not this one's");
-	Check(NoticeWhere(moo, false, anvil, 0.0f) == NoticeAt::Gate, "MOO's board for this city off: at the gate");
+	Check(NoticeWhere(moo, false, anvil, 0.0f) == NoticeAt::Wait &&
+	          NoticeWhere(moo, false, anvil, kNoticeWaitSeconds) == NoticeAt::Gate,
+	      "MOO's board for this city off: at the gate - but only after the minute (right after a load MOO's "
+	      "variables still read 0: measured 2026-11-13, all eight went to the gates a second in)");
 	moo.boards = false;
-	Check(NoticeWhere(moo, true, anvil, 0.0f) == NoticeAt::Gate, "MOO's boards off altogether: at the gate");
+	Check(NoticeWhere(moo, true, anvil, 0.0f) == NoticeAt::Wait &&
+	          NoticeWhere(moo, true, anvil, kNoticeWaitSeconds) == NoticeAt::Gate,
+	      "MOO's boards off altogether: the same");
 	moo.boards = true;
 	moo.worldspace = 2;
 	moo.placed = 0;
@@ -85,7 +90,9 @@ void TestWhere() {
 	moo.placed = 1;
 	Check(NoticeWhere(moo, true, anvil, 0.0f) == NoticeAt::Board, "both closed and open: the closed city's board");
 	moo.worldspace = 0;
-	Check(NoticeWhere(moo, true, anvil, 0.0f) == NoticeAt::Gate, "neither: at the gate");
+	Check(NoticeWhere(moo, true, anvil, 0.0f) == NoticeAt::Wait &&
+	          NoticeWhere(moo, true, anvil, kNoticeWaitSeconds) == NoticeAt::Gate,
+	      "neither: at the gate after the minute");
 	Check(NoticeWhere(moo, true, kNoticeCities, 0.0f) == NoticeAt::Gate, "a city past the list: the gate's answer");
 }
 

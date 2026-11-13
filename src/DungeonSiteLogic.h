@@ -244,11 +244,23 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 			d.tollFrom = now;
 			return n;
 		}
+		if (now < d.tollFrom) {
+			// The clock set back (the console's "set gamehour", a script):
+			// no toll for hours that never were - counted from now. Left
+			// alone the count came out negative, as an unsigned one some
+			// four billion hours (measured 2026-11-13: the game stood still).
+			d.tollFrom = now;
+			return n;
+		}
 		float hours = std::floor((now - d.tollFrom) * 24.0f);
+		if (!(hours >= 1.0f)) {
+			return n;
+		}
 		if (hours > static_cast<float>(kDungeonTollHoursMost)) {
 			hours = static_cast<float>(kDungeonTollHoursMost);
 		}
-		for (UInt32 h = 0; h < static_cast<UInt32>(hours); ++h) {
+		const UInt32 whole = static_cast<UInt32>(hours);
+		for (UInt32 h = 0; h < whole; ++h) {
 			d.tollFrom += 1.0f / 24.0f;
 			if (d.people > 0 && roll() % 100 < s.lossPercentPerHour) {
 				--d.people;

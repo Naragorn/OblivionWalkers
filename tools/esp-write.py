@@ -248,6 +248,7 @@ ESCORT_QUEST_EDID = "WalkersEscortQuest"
 ESCORT_QUEST_PRIORITY = 50
 GET_IS_ID = 72  # the condition function (UESP CS wiki, GetIsID)
 CONDITION_OR = 0x01
+CONDITION_NOT_EQUAL = 0x20  # CTDA's comparison in its type byte's upper bits: 0x00 equal, 0x20 not equal, 0x80 less (NEVER)
 INFO_GOODBYE = 0x01
 # A result script "set <global> to 1", as Oblivion.esm's INFO 000A343E has it
 # (read 2026-11-08: SCHR one reference, 11 bytes compiled; SCDA 'set', the
@@ -310,6 +311,7 @@ DUNGEON_STAGES = [
 # (its quest names it, its map marker is shown).
 DUNGEON_TALK_PRIORITY = 55
 NOTICE_TEMPLATE = 0x000C4284  # StoreHours
+MOO_NOTICE = 0x01227D0C  # MOO.esp's MOONoticeObjectWanted ("Wanted"): its mesh hangs on MOO's boards
 GET_IS_REFERENCE = 136
 DUNGEON_GREETINGS = [
     (1, "You're no walker, so you're welcome here. Keep your voice down, though - the dead have sharp ears."),
@@ -369,6 +371,9 @@ def dungeon_talk_ids() -> dict[str, int]:
                  "kDungeonLineFirstLocalId", "kDungeonNoticeLocalId", "kDungeonMessengerBaseLocalId",
                  "kDungeonMessengerRefLocalId", "kDungeonMessengerLineFirstLocalId"):
         pass
+    if "kDungeonBoardNoticeLocalId = kDungeonNoticeRefFirstLocalId + kDungeonNoticeRefCount;" not in text or \
+            "kDungeonBoardNoticeRefFirstLocalId = kDungeonBoardNoticeLocalId + 1;" not in text:
+        raise SystemExit("DungeonQuestLogic.h's board notice does not follow the gates' notices")
     for name in ("kDungeonTalkQuestLocalId", "kDungeonTalkGlobalLocalId", "kDungeonNewsGlobalLocalId",
                  "kDungeonHeardGlobalLocalId", "kDungeonTopicWhatLocalId", "kDungeonTopicHelpLocalId",
                  "kDungeonLineFirstLocalId", "kDungeonNoticeLocalId", "kDungeonMessengerBaseLocalId",
@@ -384,6 +389,8 @@ def dungeon_talk_ids() -> dict[str, int]:
     if "kDungeonNoticeRefFirstLocalId = kDungeonMessengerLineFirstLocalId + kDungeonMessengerLineCount;" not in text:
         raise SystemExit("DungeonQuestLogic.h's notice references do not follow the runner's lines")
     ids["kDungeonNoticeRefFirstLocalId"] = ids["kDungeonMessengerLineFirstLocalId"] + ids["kDungeonMessengerLineCount"]
+    ids["kDungeonBoardNoticeLocalId"] = ids["kDungeonNoticeRefFirstLocalId"] + ids["kDungeonNoticeRefCount"]
+    ids["kDungeonBoardNoticeRefFirstLocalId"] = ids["kDungeonBoardNoticeLocalId"] + 1
     if "kDungeonEditionLocalId = kDungeonTalkEnd;" not in text or \
             ids["kDungeonRumorFirstLocalId"] + ids["kDungeonRumorCount"] != LOCAL_EDITION_IDS[36]:
         raise SystemExit("DungeonQuestLogic.h's edition does not follow the rumors, or LOCAL_EDITION_IDS[36] is not it")
@@ -1317,12 +1324,16 @@ def main() -> int:
     # The refugees' notices, one a city (DungeonNoticeLogic.h): persistent and
     # initially disabled in the holding cell; the plugin hangs them.
     if runner_ids["kDungeonNoticeRefCount"] != len(CITIES) or \
-            runner_ids["kDungeonNoticeRefFirstLocalId"] + len(CITIES) > SHOCK_FIRST_LOCAL:
+            runner_ids["kDungeonBoardNoticeRefFirstLocalId"] + len(CITIES) > SHOCK_FIRST_LOCAL:
         raise SystemExit("DungeonQuestLogic.h's notice references are not one a city, or reach the shock sounds")
     for c, city in enumerate(CITIES):
         holding += record(b"REFR", index | (runner_ids["kDungeonNoticeRefFirstLocalId"] + c),
                           build_placed(index | runner_ids["kDungeonNoticeLocalId"], c * 64.0, 2048.0, 0.0,
                                        edid=f"WalkersDungeonNotice{city}"),
+                          flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+        holding += record(b"REFR", index | (runner_ids["kDungeonBoardNoticeRefFirstLocalId"] + c),
+                          build_placed(index | runner_ids["kDungeonBoardNoticeLocalId"], c * 64.0, 2304.0, 0.0,
+                                       edid=f"WalkersDungeonBoardNotice{city}"),
                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
     # The held dungeons' pool of walkers (DungeonSiteLogic.h kDungeonPool,
     # right after the kit): a siege's or a walker dungeon's, as the camps'.
@@ -1538,20 +1549,40 @@ def main() -> int:
         conditions = subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, 1.0, GET_IS_ID, runner_form, 0, 0))
         if kind is not None:
             conditions += subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, float(kind), GET_GLOBAL_VALUE, news_global, 0, 0))
+        else:
+            # Only when neither of the others holds (not equal, 0x20): the
+            # lines of a topic are not tried in the file's order (measured
+            # 2026-11-13: without it he said this one with a siege as news).
+            for other, _ in DUNGEON_RUNNER_LINES:
+                if other is not None:
+                    conditions += subrecord(b"CTDA", struct.pack("<B3xfIIII", CONDITION_NOT_EQUAL, float(other),
+                                                                 GET_GLOBAL_VALUE, news_global, 0, 0))
         greetings += record(b"INFO", index | (talk["kDungeonMessengerLineFirstLocalId"] + k),
                             build_line(talk_quest_form, text, conditions, flags=INFO_GOODBYE,
                                        set_global=heard_global if kind is not None else 0,
                                        set_name="WalkersDungeonHeard"))
     notice_edid, notice_title, notice_text = load_editions_module().dungeon_notice()
     notice_form = index | talk["kDungeonNoticeLocalId"]
-    # The notice: off Oblivion.esm's StoreHours (000C4284, read 2026-11-13) - a
-    # poster to hang (Clutter\Books\WantedPoster02.NIF), a scroll that
-    # cannot be taken (DATA flags 3: xOBSE kBook_IsScroll | kBook_CantBeTaken)
-    # - so it stays where it hangs and is read there.
+    # The notices: scrolls that cannot be taken (DATA flags 3: xOBSE
+    # kBook_IsScroll | kBook_CantBeTaken, as Oblivion.esm's StoreHours
+    # 000C4284) - they stay where they are and are read there. The gate's is
+    # the Courier's sheet (it lies on the ground). The board's is StoreHours
+    # with the model of MOO's own "Wanted" notice (MODL, MODB, MODT off
+    # MOO.esp's record): a vanilla paper has physics and falls off the board
+    # (measured 2026-11-13 with WantedPoster02), MOO's hangs. Its mesh is
+    # MOO's file - the record is only shown where MOO has a board.
     poster = find_record(esm, buf, b"BOOK", NOTICE_TEMPLATE)
     if dict(poster)[b"DATA"][0] != 3:
         raise SystemExit("the notice's template is no scroll that cannot be taken")
-    books += record(b"BOOK", notice_form, build_edition(poster, notice_edid, notice_title, notice_text))
+    gate_sheet = [(k, bytes([d[0] | 3]) + d[1:] if k == b"DATA" else d) for k, d in broadsheet]
+    books += record(b"BOOK", notice_form, build_edition(gate_sheet, notice_edid, notice_title, notice_text))
+    moo_notice = dict(find_record(esm, moo_buf, b"BOOK", MOO_NOTICE))
+    if moo_notice[b"MODL"].lower().rstrip(b"\0") != b"moo\\clutter\\quests\\notices\\objectwanted.nif":
+        raise SystemExit(f"MOO's notice {MOO_NOTICE:08X} has another model: {moo_notice[b'MODL']!r}")
+    board_sheet = [(k, moo_notice[k] if k in (b"MODL", b"MODB", b"MODT") and k in moo_notice else d) for k, d in poster]
+    board_notice_form = index | talk["kDungeonBoardNoticeLocalId"]
+    books += record(b"BOOK", board_notice_form,
+                    build_edition(board_sheet, notice_edid + "Board", notice_title, notice_text))
     talk_qsti = subrecord(b"QSTI", struct.pack("<I", talk_quest_form))
     dial_data += talk_qsti
     greeting_data += talk_qsti
@@ -1617,7 +1648,7 @@ def main() -> int:
                + len(dungeon_places)  # and their quests
                + 3 + 1 + 2 + talk["kDungeonLineCount"] + talk["kDungeonRumorCount"]  # their globals, dialogue quest, topics, lines, rumors
                + 1 + 1 + 1 + len(DUNGEON_RUNNER_LINES)  # the notice, the runner's base and reference, his greetings
-               + len(CITIES))  # the notice's references
+               + 2 * len(CITIES) + 1)  # the notices' references, the board's notice
     next_id = max(camp_end + test_pool, LIGHT_LOCAL_LAST + 1)
     if args.esl and next_id - 1 > LIGHT_LOCAL_LAST:
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} does not fit a light plugin")
@@ -1786,8 +1817,14 @@ def main() -> int:
     if (dict(back_runner)[b"FULL"] != zstring("Refugee Runner") or struct.unpack("<I", back_runner_ref[b"NAME"])[0] != runner_form
             or runner_ctda != [(1.0, GET_IS_ID, runner_form), (2.0, GET_GLOBAL_VALUE, news_global)]
             or struct.unpack("<I", dict(back_runner_line)[b"SCRO"])[0] != heard_global
+            or [d[0] for k, d in find_record(esm, plugin, b"INFO", index | (talk["kDungeonMessengerLineFirstLocalId"] + 2))
+                if k == b"CTDA"] != [0x00, CONDITION_NOT_EQUAL, CONDITION_NOT_EQUAL]
             or dict(find_record(esm, plugin, b"BOOK", notice_form))[b"FULL"] != zstring(notice_title)
             or dict(find_record(esm, plugin, b"BOOK", notice_form))[b"DATA"][0] != 3
+            or dict(find_record(esm, plugin, b"BOOK", board_notice_form))[b"DATA"][0] != 3
+            or dict(find_record(esm, plugin, b"BOOK", board_notice_form))[b"MODL"] != moo_notice[b"MODL"]
+            or any(struct.unpack("<I", dict(find_record(esm, plugin, b"REFR", index | (talk["kDungeonBoardNoticeRefFirstLocalId"] + c)))[b"NAME"])[0]
+                   != board_notice_form for c in range(len(CITIES)))
             or any(struct.unpack("<I", dict(find_record(esm, plugin, b"REFR", index | (talk["kDungeonNoticeRefFirstLocalId"] + c)))[b"NAME"])[0]
                    != notice_form for c in range(len(CITIES)))):
         raise SystemExit("the held dungeons' runner or notice reads back wrong")
