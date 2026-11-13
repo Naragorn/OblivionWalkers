@@ -1112,6 +1112,19 @@ def main() -> int:
                           build_placed(camp_base_forms[camp_base_index(0, slot)], slot * 96.0, 1536.0, 0.0,
                                        edid=f"WalkersDungeonKitPerson{slot:02d}", extra=extra),
                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    # The held dungeons' pool of walkers (DungeonSiteLogic.h kDungeonPool,
+    # right after the kit): a siege's or a walker dungeon's, as the camps'.
+    dungeon_pool = int(re.search(r"kDungeonPool = (\d+);",
+                                 (HERE.parent / "src" / "DungeonSiteLogic.h").read_text()).group(1))
+    dungeon_pool_first = dungeon_kit_first + dungeon_kit_slots
+    if "kDungeonPoolFirstLocalId = kDungeonKitFirstLocalId + kDungeonKitSlots;" not in kit_text or \
+            dungeon_pool_first + dungeon_pool > SHOCK_FIRST_LOCAL:
+        raise SystemExit("DungeonKitLogic.h's pool does not follow the kit or overlaps the shock sounds")
+    for n in range(dungeon_pool):
+        holding += record(b"ACRE", index | (dungeon_pool_first + n),
+                          build_pool_ref(achr_template, f"WalkersDungeonPool{n:02d}",
+                                         vanilla_heads[(n * 7 + 1) % len(vanilla_heads)], 160 + n),
+                          flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
     places_module = load_places_module()
     land = places_module.read_land(esm, buf)
 
@@ -1295,7 +1308,7 @@ def main() -> int:
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
                + 1  # the escort's quest
-               + dungeon_kit_slots)  # the held dungeons' kit
+               + dungeon_kit_slots + dungeon_pool)  # the held dungeons' kit and pool
     next_id = camp_end + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")

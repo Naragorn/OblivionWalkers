@@ -1,0 +1,39 @@
+# A siege fought out by the game (docs/walkers-spec.md 4.20.7, step 5): a
+# look, not a test. tools/dungeon-walkers.sh fight sets [Dungeons]
+# TestSite=Fort Ash, TestSiteState=2, AttackWalkersMin/Max=10: eight
+# refugees inside, ten walkers storm it, six at once. The player (tgm)
+# stands inside for 110 s; nobody is told anything (no tdetect): whether
+# the walkers turn on the refugees (the slow aggression: 5 to 10 s near),
+# whether the refugees fight back, who ends whom - "walker ... ended",
+# "one of its people ... died", and "defended" or "overrun" if it comes to
+# an end in time.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -9 19
+console-at inside coc FortAsh01
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 16
+mark outside
+wait 2
+mark inside
+wait 30
+mark t30
+wait 40
+mark t70
+wait 40
+mark end
+wait 1

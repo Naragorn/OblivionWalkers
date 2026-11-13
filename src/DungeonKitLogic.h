@@ -29,17 +29,27 @@ inline constexpr UInt32 kDungeonKitPeopleMost = 12;
 // nearer (two sites near at once: no going back and forth).
 inline constexpr float kDungeonKitKeepUnits = 2000.0f;
 
+// The ESP's pool of walkers for a siege or a walker dungeon (kDungeonPool of
+// them, DungeonSiteLogic.h): right after the kit.
+inline constexpr UInt32 kDungeonPoolFirstLocalId = kDungeonKitFirstLocalId + kDungeonKitSlots;
+// Those coming in stand on the spots nearest the door, this many of them.
+inline constexpr UInt32 kDungeonEntrySpots = 4;
+
+// People live inside.
 inline bool DungeonHeld(DungeonState s) { return s == DungeonState::Refuge || s == DungeonState::Besieged; }
+// The game's own occupants are out: people or walkers have the place.
+inline bool OccupantsOut(DungeonState s) { return DungeonHeld(s) || s == DungeonState::WalkerDungeon; }
 
 // The site the kit should stand at, -1 none. `closeness` a site: -1 the
 // player not near it, 0 inside it, else his distance from its door outside.
-inline int KitSite(const DungeonSitesState& st, const float* closeness, bool enabled, int current) {
+template <typename WantsFn>
+int NearSite(const DungeonSitesState& st, const float* closeness, bool enabled, int current, WantsFn wants) {
 	if (!enabled) {
 		return -1;
 	}
 	int best = -1;
 	for (UInt32 i = 0; i < st.count; ++i) {
-		if (!DungeonHeld(st.sites[i].state) || closeness[i] < 0.0f) {
+		if (!wants(st.sites[i]) || closeness[i] < 0.0f) {
 			continue;
 		}
 		if (best < 0 || closeness[i] < closeness[best]) {
@@ -47,11 +57,22 @@ inline int KitSite(const DungeonSitesState& st, const float* closeness, bool ena
 		}
 	}
 	if (best >= 0 && current >= 0 && static_cast<UInt32>(current) < st.count && current != best &&
-	    DungeonHeld(st.sites[current].state) && closeness[current] > 0.0f && closeness[best] > 0.0f &&
+	    wants(st.sites[current]) && closeness[current] > 0.0f && closeness[best] > 0.0f &&
 	    closeness[current] - closeness[best] < kDungeonKitKeepUnits) {
 		return current;
 	}
 	return best;
+}
+
+inline int KitSite(const DungeonSitesState& st, const float* closeness, bool enabled, int current) {
+	return NearSite(st, closeness, enabled, current, [](const DungeonSite& d) { return DungeonHeld(d.state); });
+}
+
+// The site the pool of walkers should be at, -1 none: the nearest whose
+// siege or walker dungeon has walkers left, by the kit's rules.
+inline int WalkerSite(const DungeonSitesState& st, const float* closeness, bool enabled, int current) {
+	return NearSite(st, closeness, enabled, current,
+	                [](const DungeonSite& d) { return DungeonWalkersOut(d, kDungeonPool) > 0; });
 }
 
 inline bool KitTrader(DungeonState s) { return s == DungeonState::Refuge; }
@@ -79,14 +100,32 @@ inline UInt16 KitWanted(UInt32 people, bool trader, UInt16 dead) {
 
 // Where the kit's `slot` stands, as an offset from the door inside: the
 // candidate's spots in turn; more people than spots share them a step aside.
-inline DungeonSpot KitSpot(const DungeonCandidate& c, UInt32 slot) {
+// `besieged`: from the far end - the spots by the door are the walkers'.
+inline DungeonSpot KitSpot(const DungeonCandidate& c, UInt32 slot, bool besieged = false) {
 	if (c.spotCount == 0) {
 		return DungeonSpot{0, static_cast<short>(70 * (slot + 1)), 0};
 	}
-	DungeonSpot s = c.spots[slot % c.spotCount];
+	const UInt32 at = slot % c.spotCount;
+	DungeonSpot s = c.spots[besieged ? c.spotCount - 1 - at : at];
 	if (slot >= c.spotCount) {
 		s.dx = static_cast<short>(s.dx + (slot % 2 == 0 ? 50 : -50));
 		s.dy = static_cast<short>(s.dy + ((slot / c.spotCount) % 2 == 0 ? -50 : 50));
+	}
+	return s;
+}
+
+// Where the pool's walker `k` stands: `comingIn` (a siege's, and every one
+// raised again) on the kDungeonEntrySpots nearest the door, a step aside
+// when they share one; else (a walker dungeon found so) spread over all.
+inline DungeonSpot WalkerSpot(const DungeonCandidate& c, UInt32 k, bool comingIn) {
+	if (!comingIn || c.spotCount == 0) {
+		return KitSpot(c, k);
+	}
+	const UInt32 entry = c.spotCount < kDungeonEntrySpots ? c.spotCount : kDungeonEntrySpots;
+	DungeonSpot s = c.spots[k % entry];
+	if (k >= entry) {
+		s.dx = static_cast<short>(s.dx + (k % 2 == 0 ? 45 : -45));
+		s.dy = static_cast<short>(s.dy + ((k / entry) % 2 == 0 ? -45 : 45));
 	}
 	return s;
 }
@@ -222,24 +261,31 @@ inline bool CellHeld(const DungeonSitesState& st, const DungeonCandidate* all, U
                      bool enabled) {
 	const int c = enabled ? CandidateOfCell(all, count, cell) : -1;
 	const int site = c >= 0 ? SiteOfCandidate(st, static_cast<UInt32>(c)) : -1;
-	return site >= 0 && DungeonHeld(st.sites[site].state);
+	return site >= 0 && OccupantsOut(st.sites[site].state);
 }
 
-// [Dungeons] TestSite (INI only, a test switch): with no site yet, the
-// candidate named so becomes the first, a refuge of `people`.
+// [Dungeons] TestSite and TestSiteState (INI only, test switches): with no
+// site yet, the candidate named so becomes the first, in `state` - a refuge
+// or a siege of PeopleMax, a siege's or a walker dungeon's AttackWalkersMax,
+// a place to clear with PeopleMax waiting.
 inline bool ForceSite(DungeonSitesState& st, const DungeonCandidate* all, UInt32 count, const bool* inPool,
-                      const char* name, UInt32 people, float now) {
-	if (st.count != 0 || name == nullptr || name[0] == '\0') {
+                      const char* name, DungeonState state, const DungeonSiteSettings& s, float now) {
+	if (st.count != 0 || name == nullptr || name[0] == '\0' || state == DungeonState::Free) {
 		return false;
 	}
+	const UInt32 people = s.peopleMax > kDungeonKitPeopleMost ? kDungeonKitPeopleMost : s.peopleMax;
 	for (UInt32 c = 0; c < count; ++c) {
 		if (!inPool[c] || !SameName(all[c].name, name)) {
 			continue;
 		}
 		DungeonSite d;
 		d.candidate = static_cast<UInt16>(c);
-		d.state = DungeonState::Refuge;
-		d.people = static_cast<UInt8>(people > kDungeonKitPeopleMost ? kDungeonKitPeopleMost : people);
+		d.state = state;
+		d.people = static_cast<UInt8>(DungeonHeld(state) ? people : 0);
+		d.waiting = static_cast<UInt8>(state == DungeonState::ToClear ? people : 0);
+		d.walkersLeft = static_cast<UInt16>(
+		    state == DungeonState::Besieged || state == DungeonState::WalkerDungeon ? s.walkersMax : 0);
+		d.tollFrom = state == DungeonState::Besieged ? now : -1.0f;
 		d.dayFrom = now;
 		d.lastSeen = now;
 		st.sites[0] = d;

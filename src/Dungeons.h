@@ -34,15 +34,25 @@ using DungeonRisenFn = bool (*)(UInt32 refId);
 
 // Once a session: the live settings (LINK writes into them), the dice, the
 // console on a reference, the dead, the rise's list and its walkers, and
-// [Dungeons] TestSite (a candidate's name made a refuge, "" none).
+// [Dungeons] TestSite and TestSiteState (a candidate's name made the first
+// site - 1 a refuge, 2 besieged, 3 to clear, 4 a walker dungeon; "" none).
 void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, DungeonConsoleFn console,
-                       DungeonDeadFn dead, DungeonUnlistFn unlist, DungeonRisenFn risen, const char* testSite);
+                       DungeonDeadFn dead, DungeonUnlistFn unlist, DungeonRisenFn risen, const char* testSite,
+                       UInt32 testState);
 // The ESP's base (RiseLogic.h EspFormId), once it is known.
 void ConfigureDungeonsEsp(UInt32 espBase);
 
 // One of the held dungeons' kit of people (the safeguard leaves them alone:
 // they rise; a walker one of them fells is ended).
 bool IsDungeonPerson(UInt32 refId);
+
+// One of the held dungeons' pool of walkers (no horde takes it).
+bool IsDungeonWalker(UInt32 refId);
+
+// A walker ended for good (4.17, Rise.cpp - from inside the death path, so
+// only noted; counted at the next step): one of the pool out in a place
+// counts off its siege or its walker dungeon. False for any other.
+bool NoteDungeonWalkerEnded(UInt32 refId);
 
 // Every frame (stepped once a game second inside): the active places
 // filled up from the pool, each stepped with the player near it or not -

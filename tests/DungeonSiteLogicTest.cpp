@@ -189,14 +189,17 @@ void TestNear() {
 	d.walkersLeft = 2;
 	d.seen = true;
 	DungeonEvent ev[8];
-	Check(walkers::DungeonWalkerEnded(d, 0, ev, 8) == 0 && d.walkersLeft == 1, "one walker ended: one left");
-	const UInt32 n = walkers::DungeonWalkerEnded(d, 0, ev, 8);
+	DungeonSiteSettings s;
+	const UInt32 r[] = {1};
+	Rolls rolls{r, 1};
+	Check(walkers::DungeonWalkerEnded(d, 0, s, rolls, ev, 8) == 0 && d.walkersLeft == 1, "one walker ended: one left");
+	const UInt32 n = walkers::DungeonWalkerEnded(d, 0, s, rolls, ev, 8);
 	Check(n == 1 && ev[0].kind == walkers::DungeonEventKind::Defended && d.state == DungeonState::Refuge,
 	      "the last ended with the player there: defended");
 	DungeonSite unseen = Refuge(2);
 	unseen.state = DungeonState::Besieged;
 	unseen.walkersLeft = 1;
-	walkers::DungeonWalkerEnded(unseen, 0, ev, 8);
+	walkers::DungeonWalkerEnded(unseen, 0, s, rolls, ev, 8);
 	Check(ev[0].kind == walkers::DungeonEventKind::Held, "the last ended unseen: held, not defended");
 	DungeonSite die = Refuge(2);
 	die.state = DungeonState::Besieged;
@@ -207,7 +210,12 @@ void TestNear() {
 	      "the last died: overrun");
 	Check(walkers::DungeonPersonDied(die, 0, ev, 8) == 0 && die.people == 0, "a walker dungeon: no one to lose");
 	DungeonSite quiet = Refuge(1);
-	Check(walkers::DungeonWalkerEnded(quiet, 0, ev, 8) == 0, "a walker ended at a quiet refuge: nothing");
+	Check(walkers::DungeonWalkerEnded(quiet, 0, s, rolls, ev, 8) == 0, "a walker ended at a quiet refuge: nothing");
+	DungeonSite last = Refuge(0);
+	last.state = DungeonState::Besieged;
+	last.walkersLeft = 1;
+	Check(walkers::DungeonWalkerEnded(last, 0, s, rolls, ev, 8) == 0 && last.state == DungeonState::Besieged,
+	      "the last walker ended with nobody alive: not held (the overrun is the people's side)");
 }
 
 void TestCleared() {
@@ -312,9 +320,29 @@ void TestWalkerDungeonAndCap() {
 	DungeonSite w = Refuge(0);
 	w.state = DungeonState::WalkerDungeon;
 	w.walkersLeft = 2;
-	Check(walkers::DungeonWalkerEnded(w, 0, ev, 8) == 0 && w.walkersLeft == 1 && w.state == DungeonState::WalkerDungeon,
-	      "one ended in a walker dungeon: one fewer, still theirs (cleared by the player only)");
 	DungeonSiteSettings s;
+	const UInt32 one[] = {1};
+	Rolls people{one, 1};
+	Check(walkers::DungeonWalkerEnded(w, 0, s, people, ev, 8) == 0 && w.walkersLeft == 1 &&
+	          w.state == DungeonState::WalkerDungeon,
+	      "one ended in a walker dungeon: one fewer, still theirs");
+	const UInt32 taken = walkers::DungeonWalkerEnded(w, 0, s, people, ev, 8);
+	Check(taken == 1 && ev[0].kind == walkers::DungeonEventKind::Taken && w.state == DungeonState::Refuge &&
+	          w.people == 5 && w.walkersLeft == 0,
+	      "the last one ended: the place is cleared and taken - new people (roll 1 of 4..8: 5), a refuge");
+	Check(walkers::DungeonWalkersOut(w, 6) == 0, "a refuge has no walkers out");
+	DungeonSite many = Refuge(3);
+	many.state = DungeonState::Besieged;
+	many.walkersLeft = 9;
+	Check(walkers::DungeonWalkersOut(many, 6) == 6, "nine storm it, six at once: six out");
+	many.walkersLeft = 2;
+	Check(walkers::DungeonWalkersOut(many, 6) == 2, "two left: two out");
+	many.walkersLeft = 40;
+	Check(walkers::DungeonWalkersOut(many, 99) == walkers::kDungeonPool, "never more than the ESP's pool");
+	many.state = DungeonState::WalkerDungeon;
+	Check(walkers::DungeonWalkersOut(many, 6) == 6, "a walker dungeon's stand there too");
+	many.state = DungeonState::ToClear;
+	Check(walkers::DungeonWalkersOut(many, 6) == 0, "a place to clear has the game's own inside");
 	s.refugeeKillsPerHour = 0.0f;
 	s.lossPercentPerHour = 0;
 	DungeonSite d = Refuge(3);

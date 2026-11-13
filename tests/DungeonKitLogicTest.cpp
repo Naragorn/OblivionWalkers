@@ -64,6 +64,16 @@ void TestKitSite() {
 	      "held: a refuge and a besieged place");
 	const float gone[] = {-1.0f, 2500.0f};
 	Check(walkers::KitSite(st, gone, true, 0) == 1, "the kit's site no longer near: to the other");
+	DungeonSitesState w = Two(DungeonState::WalkerDungeon, DungeonState::Refuge);
+	w.sites[0].walkersLeft = 4;
+	Check(walkers::WalkerSite(w, both, true, -1) == 0, "the walkers' pool: to the walker dungeon near, not the refuge");
+	w.sites[1].state = DungeonState::Besieged;
+	w.sites[1].walkersLeft = 3;
+	Check(walkers::WalkerSite(w, both, true, -1) == 1, "two with walkers near: the nearer");
+	Check(walkers::WalkerSite(w, both, true, 0) == 0, "the pool at the first already, the other 500 nearer: it stays");
+	w.sites[0].walkersLeft = 0;
+	Check(walkers::WalkerSite(w, both, true, 0) == 1, "its walkers all ended: to the other");
+	Check(walkers::WalkerSite(w, both, false, 1) == -1, "[Dungeons] Enabled=0: nowhere");
 }
 
 void TestKitWanted() {
@@ -91,6 +101,14 @@ void TestSpot() {
 	      "the third shares the first spot, a step aside");
 	const walkers::DungeonSpot z = walkers::KitSpot(kAll[1], 5);
 	Check(z.dx == 0 && z.dy != 0, "no spots at all: by the door inside, a step aside each");
+	const walkers::DungeonSpot far = walkers::KitSpot(kAll[0], 0, true);
+	Check(far.dx == 200 && far.dy == 50, "besieged: the people from the far end - the walkers come in by the door");
+	const walkers::DungeonSpot in = walkers::WalkerSpot(kAll[0], 0, true);
+	const walkers::DungeonSpot in2 = walkers::WalkerSpot(kAll[0], 3, true);
+	Check(in.dx == 100 && in.dy == 0, "a walker coming in: the spot nearest the door");
+	Check(in2.dx != 100 || in2.dy != 0, "the fourth coming in: a step aside of a near spot");
+	const walkers::DungeonSpot spread = walkers::WalkerSpot(kAll[0], 1, false);
+	Check(spread.dx == 200 && spread.dy == 50, "a walker dungeon's stand spread over the spots");
 }
 
 void TestOccupant() {
@@ -179,8 +197,15 @@ void TestCells() {
 	Check(walkers::CandidateOfCell(kAll, 2, 0x99) == -1 && walkers::CandidateOfCell(kAll, 2, 0) == -1, "another cell: none");
 	DungeonSitesState st = Two(DungeonState::Refuge, DungeonState::WalkerDungeon);
 	Check(walkers::SiteOfCandidate(st, 1) == 1 && walkers::SiteOfCandidate(st, 7) == -1, "the site of a candidate, or none");
-	Check(walkers::CellHeld(st, kAll, 2, 0x11, true) && !walkers::CellHeld(st, kAll, 2, 0x21, true),
-	      "a refuge's cell is held, a walker dungeon's not");
+	Check(walkers::CellHeld(st, kAll, 2, 0x11, true) && walkers::CellHeld(st, kAll, 2, 0x21, true),
+	      "a refuge's and a walker dungeon's cells: the game's occupants are out");
+	DungeonSitesState clearing = Two(DungeonState::ToClear, DungeonState::Besieged);
+	Check(!walkers::CellHeld(clearing, kAll, 2, 0x11, true) && walkers::CellHeld(clearing, kAll, 2, 0x21, true),
+	      "a place to clear keeps its occupants (the player clears them), a besieged one not");
+	Check(walkers::OccupantsOut(DungeonState::Refuge) && walkers::OccupantsOut(DungeonState::Besieged) &&
+	          walkers::OccupantsOut(DungeonState::WalkerDungeon) && !walkers::OccupantsOut(DungeonState::ToClear) &&
+	          !walkers::OccupantsOut(DungeonState::Free),
+	      "occupants out: refuge, besieged, walker dungeon");
 	Check(!walkers::CellHeld(st, kAll, 2, 0x11, false), "[Dungeons] Enabled=0: nothing is held");
 	Check(!walkers::CellHeld(st, kAll, 2, 0x99, true), "no candidate's cell: not held");
 }
@@ -189,16 +214,33 @@ void TestForce() {
 	std::printf("The test switch's site\n");
 	const bool inPool[2] = {true, true};
 	DungeonSitesState st;
-	Check(walkers::ForceSite(st, kAll, 2, inPool, "b", 6, 2.5f) && st.count == 1 && st.sites[0].candidate == 1 &&
-	          st.sites[0].state == DungeonState::Refuge && st.sites[0].people == 6 && st.sites[0].dayFrom == 2.5f &&
-	          st.sites[0].lastSeen == 2.5f,
-	      "TestSite=b: the first site, a refuge with its people (the name without regard to case)");
-	Check(!walkers::ForceSite(st, kAll, 2, inPool, "A", 6, 3.0f) && st.count == 1, "sites there already: nothing");
+	const walkers::DungeonSiteSettings fs;
+	Check(walkers::ForceSite(st, kAll, 2, inPool, "b", DungeonState::Refuge, fs, 2.5f) && st.count == 1 && st.sites[0].candidate == 1 &&
+	          st.sites[0].state == DungeonState::Refuge && st.sites[0].people == 8 && st.sites[0].dayFrom == 2.5f &&
+	          st.sites[0].lastSeen == 2.5f && st.sites[0].walkersLeft == 0,
+	      "TestSite=b: the first site, a refuge with PeopleMax (the name without regard to case)");
+	Check(!walkers::ForceSite(st, kAll, 2, inPool, "A", DungeonState::Refuge, fs, 3.0f) && st.count == 1,
+	      "sites there already: nothing");
 	DungeonSitesState none;
-	Check(!walkers::ForceSite(none, kAll, 2, inPool, "Nowhere", 6, 1.0f) && none.count == 0, "no such candidate: nothing");
+	Check(!walkers::ForceSite(none, kAll, 2, inPool, "Nowhere", DungeonState::Refuge, fs, 1.0f) && none.count == 0,
+	      "no such candidate: nothing");
 	const bool out[2] = {false, true};
-	Check(!walkers::ForceSite(none, kAll, 2, out, "A", 6, 1.0f), "the candidate out of the pool: nothing");
-	Check(!walkers::ForceSite(none, kAll, 2, inPool, "", 6, 1.0f), "no name: nothing");
+	Check(!walkers::ForceSite(none, kAll, 2, out, "A", DungeonState::Refuge, fs, 1.0f), "the candidate out of the pool: nothing");
+	Check(!walkers::ForceSite(none, kAll, 2, inPool, "", DungeonState::Refuge, fs, 1.0f), "no name: nothing");
+	DungeonSitesState siege;
+	Check(walkers::ForceSite(siege, kAll, 2, inPool, "A", DungeonState::Besieged, fs, 1.0f) &&
+	          siege.sites[0].people == 8 && siege.sites[0].walkersLeft == 16 && siege.sites[0].tollFrom == 1.0f,
+	      "TestSiteState besieged: PeopleMax inside, AttackWalkersMax storming");
+	DungeonSitesState dead;
+	Check(walkers::ForceSite(dead, kAll, 2, inPool, "A", DungeonState::WalkerDungeon, fs, 1.0f) &&
+	          dead.sites[0].people == 0 && dead.sites[0].walkersLeft == 16,
+	      "a walker dungeon: its walkers, nobody");
+	DungeonSitesState clear;
+	Check(walkers::ForceSite(clear, kAll, 2, inPool, "A", DungeonState::ToClear, fs, 1.0f) &&
+	          clear.sites[0].people == 0 && clear.sites[0].waiting == 8 && clear.sites[0].walkersLeft == 0,
+	      "to clear: the people waiting outside");
+	DungeonSitesState free;
+	Check(!walkers::ForceSite(free, kAll, 2, inPool, "A", DungeonState::Free, fs, 1.0f), "no state: nothing");
 }
 
 }  // namespace

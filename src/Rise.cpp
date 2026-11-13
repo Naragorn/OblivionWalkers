@@ -724,6 +724,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	if (walker && !swapKill && !walkerUp) {
 		NoteSiegeWalkerEnded(fallen.refId);
 		NoteCampWalkerEnded(fallen.refId);
+		NoteDungeonWalkerEnded(fallen.refId);
 	}
 	victim.campPerson = IsCampPerson(fallen.refId) || IsDungeonPerson(fallen.refId);
 	if (g_settings.safeguard.testVictim != 0 && fallen.refId == g_settings.safeguard.testVictim) {
@@ -2551,7 +2552,8 @@ UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 		// A camp's attacker (4.20.6) keeps to its camp: no horde takes it.
 		// One getting up neither: a package given now breaks its get-up off
 		// (Nadi, 2026-11-10: risen walkers lay, made sounds and turned).
-		c.busy = (g_swap.active && ids[i] == g_swap.zombieId) || IsCampWalker(ids[i]) || (c.alive && GettingUpNow(ref));
+		c.busy = (g_swap.active && ids[i] == g_swap.zombieId) || IsCampWalker(ids[i]) || IsDungeonWalker(ids[i]) ||
+		         (c.alive && GettingUpNow(ref));
 	}
 	return count;
 }
@@ -3250,7 +3252,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
 	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
-	                  g_settings.dungeonsTestSite);
+	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }

@@ -48,7 +48,11 @@ struct DungeonSiteSettings {
 	float refugeeKillsPerHour = 2.0f;    // RefugeeKillsPerHour: a siege away
 	UInt32 lossPercentPerHour = 25;      // LossPercentPerHour: a siege away, one lost an hour by this
 	float leaveAfterDays = 7.0f;         // LeaveAfterDays: unseen this long - given up; 0 never
+	UInt32 walkersAtOnce = 6;            // WalkersAtOnce: of a siege's or a walker dungeon's, in the place at a time
 };
+
+// The ESP's pool of walkers for the place the player is at (DungeonKitLogic.h).
+inline constexpr UInt32 kDungeonPool = 12;
 
 enum class DungeonState : UInt8 { Free, Refuge, Besieged, ToClear, WalkerDungeon };
 
@@ -266,23 +270,6 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 	return n;
 }
 
-// A walker of site `i`'s ended (4.17's end): one off the siege - the last,
-// someone alive, holds it (defended when the player was near) - or one off
-// a walker dungeon's.
-inline UInt32 DungeonWalkerEnded(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 most) {
-	if (d.walkersLeft == 0) {
-		return 0;
-	}
-	if (d.state == DungeonState::Besieged) {
-		--d.walkersLeft;
-		return d.walkersLeft == 0 && d.people > 0 ? dungeon_detail::Held(d, i, d.lastSeen, out, 0, most) : 0;
-	}
-	if (d.state == DungeonState::WalkerDungeon) {
-		--d.walkersLeft;
-	}
-	return 0;
-}
-
 // One of site `i`'s people found dead in the game; the last overruns it
 // (the rise raises them - the siege's walkers left stay).
 inline UInt32 DungeonPersonDied(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 most) {
@@ -311,6 +298,37 @@ UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, Ro
 	d.dayFrom = d.lastSeen;
 	d.state = DungeonState::Refuge;
 	return dungeon_detail::Put(out, 0, most, DungeonEventKind::Taken, i);
+}
+
+// A walker of site `i`'s ended (4.17's end): one off the siege - the last,
+// someone alive, holds it (defended when the player was near) - or one off
+// a walker dungeon's: the last, and the place is cleared and taken.
+template <typename RollFn>
+UInt32 DungeonWalkerEnded(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, RollFn& roll, DungeonEvent* out,
+                          UInt32 most) {
+	if (d.walkersLeft == 0) {
+		return 0;
+	}
+	if (d.state == DungeonState::Besieged) {
+		--d.walkersLeft;
+		return d.walkersLeft == 0 && d.people > 0 ? dungeon_detail::Held(d, i, d.lastSeen, out, 0, most) : 0;
+	}
+	if (d.state == DungeonState::WalkerDungeon) {
+		--d.walkersLeft;
+		return d.walkersLeft == 0 ? DungeonCleared(d, i, s, roll, out, most) : 0;
+	}
+	return 0;
+}
+
+// The pool walkers a site wants in the place now: of a siege's or a walker
+// dungeon's, WalkersAtOnce at a time, never more than the pool.
+inline UInt32 DungeonWalkersOut(const DungeonSite& d, UInt32 atOnce) {
+	if (d.state != DungeonState::Besieged && d.state != DungeonState::WalkerDungeon) {
+		return 0;
+	}
+	UInt32 n = d.walkersLeft;
+	n = n > atOnce ? atOnce : n;
+	return n > kDungeonPool ? kDungeonPool : n;
 }
 
 // The sites given up taken off the list, the rest in their order.
