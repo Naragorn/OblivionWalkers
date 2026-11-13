@@ -12,6 +12,10 @@
 namespace walkers {
 namespace {
 
+constexpr UInt32 kAvHealth = 8;    // xOBSE kActorVal_Health
+constexpr UInt32 kAvFatigue = 10;  // xOBSE kActorVal_Fatigue
+
+
 using namespace engine;
 
 // Engine facts of Oblivion 1.2.416 the grab uses (docs/walkers-spec.md 4.19):
@@ -326,16 +330,16 @@ float g_lastShock = -1.0f;
 // The shock sound at a grab (ShockSound, GrabLogic.h ShockSoundDue): the
 // ESP's SOUN played at the player - a 2D sound, as the UI's it was copied
 // from.
-void PlayShock(UInt32 player) {
+void PlayShock(UInt32 /*player*/) {
 	const int sound = ShockSoundDue(g_settings->shockSound, g_shockClock, g_lastShock);
 	if (sound < 0 || g_espBase == kNoEsp) {
 		return;
 	}
 	const UInt32 form = EspFormId(g_espBase, kGrabShockFirstLocalId + static_cast<UInt32>(sound));
-	char line[48];
-	std::snprintf(line, sizeof(line), "PlaySound %08X", form);
-	const bool played = g_services.console(player, line);
-	g_services.log("Grab: shock sound %d (%s answered %d)", sound + 1, line, played ? 1 : 0);
+	// The engine's PlaySound directly (2026-11-13: the console line was
+	// 0.9-3 ms).
+	const bool played = engine::DirectPlaySound(form);
+	g_services.log("Grab: shock sound %d (PlaySound %08X, made %d)", sound + 1, form, played ? 1 : 0);
 }
 
 // The lunge begun: `by` units toward the forearm, on the ground.
@@ -431,9 +435,8 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 		const float taken = g_lastHealth > now ? g_lastHealth - now : 0.0f;
 		bool givenBack = false;
 		if (taken >= 1.0f && now > 0.0f) {
-			char line[48];
-			std::snprintf(line, sizeof(line), "ModAV2 Health %d", static_cast<int>(taken + 0.5f));
-			givenBack = g_services.console(player, line);
+			engine::DirectModAV2(player, kAvHealth, static_cast<int>(taken + 0.5f));
+			givenBack = true;
 		}
 		const bool played = PlayIdle(hit.attacker, kHold);
 		PlayShock(player);
@@ -485,8 +488,10 @@ void Bite(const GrabEvent& ev, UInt32 player) {
 		std::snprintf(line, sizeof(line), "Kill %08X", ev.refId);
 		done = g_services.console(player, line);
 	} else if (take >= 1.0f) {
+		// The engine's call, not a console line (2026-11-13, ~170 us each).
 		std::snprintf(line, sizeof(line), "ModAV2 Health -%d", static_cast<int>(take));
-		done = g_services.console(player, line);
+		engine::DirectModAV2(player, kAvHealth, -static_cast<int>(take));
+		done = true;
 	}
 	g_services.log("Grab: walker %08X bites the player's %s arm - bite %u of %u%s; health %.1f of %.0f, %s%s (\"%s\" "
 	               "handed to xOBSE: %d)",
@@ -599,10 +604,8 @@ void StepShakes(UInt32 player, float dt) {
 		const bool freed = StepShake(g_shake[side], *g_settings, g_shakeNeeded, strokes, dt, refId != 0);
 		if (strokes > 0 && refId != 0 && g_settings->shakeStrokes > 0) {
 			if (g_settings->shakeFatigue >= 1.0f) {
-				char line[48];
-				std::snprintf(line, sizeof(line), "ModAV2 Fatigue -%d",
-				              static_cast<int>(g_settings->shakeFatigue * static_cast<float>(strokes)));
-				g_services.console(player, line);
+				engine::DirectModAV2(player, kAvFatigue,
+				                     -static_cast<int>(g_settings->shakeFatigue * static_cast<float>(strokes)));
 			}
 			g_services.log("Grab: the player shakes the %s arm (%u stroke(s), %u of %u - %u walkers near, fatigue %.0f "
 			               "of %.0f)%s",
@@ -753,9 +756,7 @@ void StepGrabInGame(float dt) {
 		SendState();
 	}
 	if (pressed && g_settings->struggleFatigue >= 1.0f) {
-		char line[48];
-		std::snprintf(line, sizeof(line), "ModAV2 Fatigue -%d", static_cast<int>(g_settings->struggleFatigue));
-		g_services.console(player, line);
+		engine::DirectModAV2(player, kAvFatigue, -static_cast<int>(g_settings->struggleFatigue));
 		g_services.log("Grab: the player struggles (control %u pressed, %u of %u - %u walkers near, fatigue %.0f of %.0f)%s",
 		               g_settings->struggleControl, g_struggle.bar, g_needed, g_walkersNear,
 		               ValueOf(player, kActorValueFatigue), BaseValueOf(player, kActorValueFatigue),

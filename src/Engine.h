@@ -123,5 +123,40 @@ inline void DirectSetAngleZ(UInt32 ref, float radians) {
 	}
 }
 
+// The engine's PlaySound (its handler 0x00509490, objdump 2026-11-13): the
+// audio manager at *(*0x00B33398 + 0x24); thiscall 0x006AE0A0(audio,
+// sound form ID, 0x101, 0; ret 0Ch) makes the sound, thiscall
+// 0x006B7190(sound, 0; ret 4) and 0x006B73E0(sound) start it, cdecl
+// 0x00401F20(sound) lets go of the handle. False: no audio, or no sound.
+inline bool DirectPlaySound(UInt32 soundFormId) {
+	const UInt32 holder = Read(0x00B33398);
+	const UInt32 audio = LooksLikeObject(holder) ? Read(holder + 0x24) : 0;
+	if (!LooksLikeObject(audio)) {
+		return false;
+	}
+	using MakeFn = void*(__fastcall*)(void* self, void* edx, UInt32 formId, UInt32 flags, UInt32 unk);
+	void* const sound = reinterpret_cast<MakeFn>(0x006AE0A0)(reinterpret_cast<void*>(audio), nullptr, soundFormId,
+	                                                          0x101, 0);
+	if (sound == nullptr) {
+		return false;
+	}
+	using ArgFn = void(__fastcall*)(void* self, void* edx, UInt32 arg);
+	reinterpret_cast<ArgFn>(0x006B7190)(sound, nullptr, 0);
+	using PlayFn = void(__fastcall*)(void* self, void* edx);
+	reinterpret_cast<PlayFn>(0x006B73E0)(sound, nullptr);
+	using FreeFn = void(__cdecl*)(void* sound);
+	reinterpret_cast<FreeFn>(0x00401F20)(sound);
+	return true;
+}
+
+// xOBSE's ModAV2 (Commands_Actor.cpp Cmd_ModActorValue2_Execute): the
+// actor's DamageAV(av, amount, 0) - Actor vtable slot 0xAA (GameObjects.h,
+// counted from Unk_AD), so +0x2A8; the amount whole, negative harms.
+inline void DirectModAV2(UInt32 actor, UInt32 av, int amount) {
+	using DamageFn = void(__fastcall*)(void* self, void* edx, UInt32 av, UInt32 amount, UInt32 unk);
+	reinterpret_cast<DamageFn>(Read(Read(actor) + 0x2A8))(reinterpret_cast<void*>(actor), nullptr, av,
+	                                                       static_cast<UInt32>(amount), 0);
+}
+
 }  // namespace engine
 }  // namespace walkers
