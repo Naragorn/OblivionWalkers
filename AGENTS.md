@@ -1,5 +1,13 @@
 # Repository instructions
 
+## Performance
+
+- Build everything extremely performant, and make what already exists faster too - whatever can be optimized is optimized, new code and old (Nadi, 2026-11-13). The game runs in VR: a frame has about 11 ms for everything, and a single long frame is a stutter in the headset.
+- Cost first: before writing a feature, decide what must run every frame, what once a second and what only on an event. Per frame only what has to be: no allocation, no file I/O, no console line, no lookup that can be kept, no loop over n x m.
+- Measure, never guess: every optimization carries a number from before and one from after, taken under the same load; the mean and the worst frame both count. An instrument's own cost is measured too.
+- Here: `[Debug] StepTiming=1` times every step of the tick and every console line by its verb (`src/TimingLogic.h`); `tools/walkers-timing.sh` runs it with 60 walkers placed about the player. Results go into `docs/walkers-spec.md`, section Performance.
+- Write each measured result where the project keeps its findings (the spec or the knowledge files), with the commit, so the next change can be compared against it.
+
 ## Findings for OBNG
 
 - OBNG (Oblivion Next Generation) is the planned community modernisation of Oblivion.exe 1.2.416: reverse engineering the engine and rebuilding it in modern form. Its knowledge lives outside this repo, in `../OBNG/knowledge/` (`/run/media/nadi/Games/Modding/OBNG/knowledge/`).
