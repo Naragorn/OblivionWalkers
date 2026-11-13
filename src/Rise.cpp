@@ -1103,7 +1103,14 @@ UInt32 FindNewWalker(const Swap& swap) {
 
 // Every walker of every one of the ESP's bases on the process lists, in one
 // walk of them (RiseLogic.h KeepWalkers).
-UInt32 CollectAllWalkers(UInt32* out, UInt32 most) {
+UInt32 CollectWalkersOn(UInt32* out, UInt32 most, UInt32 levels);
+
+UInt32 CollectAllWalkers(UInt32* out, UInt32 most) { return CollectWalkersOn(out, most, 4); }
+
+// The walkers on the first `levels` process lists (1: the high process list
+// only - the one the per-frame walk rule and slow aggression act on;
+// 4: all of them).
+UInt32 CollectWalkersOn(UInt32* out, UInt32 most, UInt32 levels) {
 	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
 	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
 	struct Node {
@@ -1113,7 +1120,7 @@ UInt32 CollectAllWalkers(UInt32* out, UInt32 most) {
 	static UInt32 ids[kKeepWalkersMost];
 	static UInt32 bases[kKeepWalkersMost];
 	UInt32 n = 0;
-	for (UInt32 level = 0; level < 4 && n < kKeepWalkersMost; ++level) {
+	for (UInt32 level = 0; level < levels && level < 4 && n < kKeepWalkersMost; ++level) {
 		auto* node = static_cast<Node*>(reinterpret_cast<ListFn>(kActorListByLevel)(manager, nullptr, level));
 		for (UInt32 visited = 0; node != nullptr && visited < 1024 && n < kKeepWalkersMost; ++visited) {
 			if (!LooksLikeObject(reinterpret_cast<UInt32>(node))) {
@@ -1656,6 +1663,11 @@ std::unordered_set<UInt32> g_banished;
 
 // A live walker made in a chapel: disabled, as the swap hides a corpse.
 bool StepChapel(UInt32 actor, UInt32 refId) {
+	// Once met outside it can never count as made in a chapel
+	// (SpawnedInChapel): no cell read again (2026-11-13, StepTiming).
+	if (g_seenOutside.count(refId) != 0) {
+		return false;
+	}
 	const char* cellId = nullptr;
 	UInt32 owner = 0;
 	CellFacts(actor, &cellId, &owner);
@@ -2044,9 +2056,30 @@ void StepWalkers(float dt) {
 		g_walkLogSeconds = 0.0f;
 	}
 	Timed(19, "w.records", [] { KeepWalkerRecords(); }, true);
+	// 2026-11-13 (StepTiming at the farm, 61 walkers: collecting all four
+	// process lists every frame was 87-137 us of the step's 124-235, its
+	// spikes 1.8-2.5 ms): every frame only the high process list - the walk
+	// rule and the slow aggression act on high-process walkers only; once a
+	// second all four, for the chapel check of the far ones and the count.
 	static UInt32 refs[kHordeCandidatesMost];
+	static UInt32 farRefs[kHordeCandidatesMost];
+	static UInt32 allCount = 0;
+	static float allClock = 1.0f;
 	UInt32 count = 0;
-	Timed(20, "w.collect", [&count] { count = CollectAllWalkers(refs, kHordeCandidatesMost); }, true);
+	Timed(20, "w.collect", [&count, dt] {
+		count = CollectWalkersOn(refs, kHordeCandidatesMost, 1);
+		allClock += dt;
+		if (allClock >= 1.0f) {
+			allClock = 0.0f;
+			allCount = CollectWalkersOn(farRefs, kHordeCandidatesMost, 4);
+			for (UInt32 i = 0; i < allCount; ++i) {
+				const UInt32 actor = LookupForm(farRefs[i]);
+				if (LooksLikeObject(actor) && IsActor(actor) && !IsDead(actor) && HighProcessOf(actor) == 0) {
+					StepChapel(actor, farRefs[i]);
+				}
+			}
+		}
+	}, true);
 	Timed(21, "w.aggression", [count, dt] { StepSlowAggression(refs, count, dt); }, true);
 	// 4.20.1: the disguise begun - the walkers fighting stop (Nadi: "ok").
 	if (TakeDisguiseBegun()) {
@@ -2130,7 +2163,7 @@ void StepWalkers(float dt) {
 		--g_walkSummariesLeft;
 		g_log("Walk: %u walkers on the process lists, %u of them in high process kept walking; %u runs turned to "
 		      "walks in the last 2 s, all walkers",
-		      count, high, g_walkTurned);
+		      allCount, high, g_walkTurned);
 		g_walkTurned = 0;
 	}
 }
