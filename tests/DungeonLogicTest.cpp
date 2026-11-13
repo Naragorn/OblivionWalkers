@@ -25,8 +25,11 @@ using walkers::DungeonKind;
 using walkers::DungeonOut;
 using walkers::DungeonSkips;
 
-constexpr DungeonCandidate kFort = {"Fort Aurus", DungeonKind::Fort, {0x00001111, 0x00001112, 0, 0}, 2};
-constexpr DungeonCandidate kCave = {"Lost Boy Cavern", DungeonKind::Cave, {0x00002221, 0, 0, 0}, 1};
+constexpr DungeonCandidate kFort = {"Fort Aurus", DungeonKind::Fort, {0x00001111, 0x00001112, 0, 0}, 2, 0x0000A001,
+                                    0x0000B001};
+constexpr DungeonCandidate kCave = {"Lost Boy Cavern", DungeonKind::Cave, {0x00002221, 0, 0, 0}, 1, 0x0000A002,
+                                    0x0000B002};
+const walkers::DungeonQuestNames kNoNames = {nullptr, 0, nullptr, 0};
 
 void TestSkipList() {
 	std::printf("The INI's skip list\n");
@@ -54,24 +57,35 @@ void TestOut() {
 	std::printf("Out of the pool or in it\n");
 	DungeonSkips none;
 	const UInt32 questCells[] = {0x00009999, 0x00001112};
-	Check(DungeonOut(kFort, questCells, 2, none) == walkers::DungeonVerdict::Quest,
+	Check(DungeonOut(kFort, {questCells, 2, nullptr, 0}, none) == walkers::DungeonVerdict::Quest,
 	      "a quest names a reference in its second cell: out (A)");
-	Check(DungeonOut(kCave, questCells, 2, none) == walkers::DungeonVerdict::In, "no quest's cell: in");
-	Check(DungeonOut(kCave, nullptr, 0, none) == walkers::DungeonVerdict::In, "no quest cells at all: in");
+	Check(DungeonOut(kCave, {questCells, 2, nullptr, 0}, none) == walkers::DungeonVerdict::In, "no quest's cell: in");
+	Check(DungeonOut(kCave, kNoNames, none) == walkers::DungeonVerdict::In, "no quest cells at all: in");
 	DungeonSkips byName;
 	walkers::ParseDungeonSkips("lost boy cavern", byName);
-	Check(DungeonOut(kCave, nullptr, 0, byName) == walkers::DungeonVerdict::Skipped, "named in the INI: out (B)");
+	Check(DungeonOut(kCave, kNoNames, byName) == walkers::DungeonVerdict::Skipped, "named in the INI: out (B)");
 	DungeonSkips byCell;
 	walkers::ParseDungeonSkips("00001112", byCell);
-	Check(DungeonOut(kFort, nullptr, 0, byCell) == walkers::DungeonVerdict::Skipped,
+	Check(DungeonOut(kFort, kNoNames, byCell) == walkers::DungeonVerdict::Skipped,
 	      "one of its cells in the INI: out (B)");
-	Check(DungeonOut(kFort, questCells, 2, byCell) == walkers::DungeonVerdict::Quest,
+	Check(DungeonOut(kFort, {questCells, 2, nullptr, 0}, byCell) == walkers::DungeonVerdict::Quest,
 	      "both: the quest is the reason logged");
-	const DungeonCandidate noCells = {"Nowhere", DungeonKind::Mine, {0, 0, 0, 0}, 0};
-	Check(DungeonOut(noCells, questCells, 2, none) == walkers::DungeonVerdict::In,
+	const UInt32 questRefs[] = {0x0000B001};
+	Check(DungeonOut(kFort, {nullptr, 0, questRefs, 1}, none) == walkers::DungeonVerdict::Quest,
+	      "a quest names its map marker (ShowMap, a target - Better Cities, QOTW): out (A)");
+	const UInt32 doorRefs[] = {0x0000A002};
+	Check(DungeonOut(kCave, {nullptr, 0, doorRefs, 1}, none) == walkers::DungeonVerdict::Quest,
+	      "a quest names the door outside: out (A)");
+	Check(DungeonOut(kCave, {nullptr, 0, questRefs, 1}, none) == walkers::DungeonVerdict::In,
+	      "another dungeon's marker named: in");
+	const DungeonCandidate noCells = {"Nowhere", DungeonKind::Mine, {0, 0, 0, 0}, 0, 0, 0};
+	const UInt32 zeroRef[] = {0};
+	Check(DungeonOut(noCells, {nullptr, 0, zeroRef, 1}, none) == walkers::DungeonVerdict::In,
+	      "no door and no marker (0): a named 0 matches nothing");
+	Check(DungeonOut(noCells, {questCells, 2, nullptr, 0}, none) == walkers::DungeonVerdict::In,
 	      "a candidate without cells is never a quest's (cell 0 matches nothing)");
 	const UInt32 zero[] = {0};
-	Check(DungeonOut(noCells, zero, 1, none) == walkers::DungeonVerdict::In, "a quest cell 0 matches nothing");
+	Check(DungeonOut(noCells, {zero, 1, nullptr, 0}, none) == walkers::DungeonVerdict::In, "a quest cell 0 matches nothing");
 }
 
 void TestPool() {
@@ -81,11 +95,11 @@ void TestPool() {
 	walkers::ParseDungeonSkips("Lost Boy Cavern", skips);
 	const UInt32 questCells[] = {0x00001111};
 	bool in[2] = {true, true};
-	walkers::DungeonPoolCount count = walkers::MarkDungeonPool(all, 2, questCells, 1, skips, in);
+	walkers::DungeonPoolCount count = walkers::MarkDungeonPool(all, 2, {questCells, 1, nullptr, 0}, skips, in);
 	Check(!in[0] && !in[1], "the fort a quest's, the cave skipped: both out");
 	Check(count.quest == 1 && count.skipped == 1 && count.in == 0, "counted by reason");
 	walkers::DungeonSkips none;
-	count = walkers::MarkDungeonPool(all, 2, nullptr, 0, none, in);
+	count = walkers::MarkDungeonPool(all, 2, kNoNames, none, in);
 	Check(in[0] && in[1] && count.in == 2, "nothing named: both in");
 }
 

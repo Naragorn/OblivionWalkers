@@ -383,7 +383,8 @@ def main() -> int:
              "// tools/dungeon-candidates.py --header. Do not edit: run it again.",
              f"// Read: {', '.join(order)}.",
              f"// {len(pool)} of {len(dungeons)} dungeons with a door in Tamriel; the cells are",
-             "// Oblivion.esm form IDs, the first the one the door outside leads into.", "",
+             "// Oblivion.esm form IDs, the first the one the door outside leads into; then",
+             "// the door outside and the map marker.", "",
              '#include "DungeonLogic.h"', "", "namespace walkers {", "",
              "inline constexpr DungeonCandidate kDungeonCandidates[] = {"]
         for r in sorted(pool, key=lambda r: r["name"]):
@@ -392,7 +393,8 @@ def main() -> int:
                 raise SystemExit(f"{r['name']}: {len(r['group'])} cells, more than DungeonLogic.h holds")
             name = r["name"].replace("\\", "\\\\").replace('"', '\\"')
             h.append(f'\t{{"{name}", DungeonKind::{enum[r["kind"]]}, {{'
-                     + ", ".join(f"0x{c:08X}" for c in cells) + f"}}, {len(r['group'])}}},")
+                     + ", ".join(f"0x{c:08X}" for c in cells)
+                     + f"}}, {len(r['group'])}, 0x{r['door']:08X}, 0x{r['marker']:08X}}},")
         h += ["};", "", "inline constexpr UInt32 kDungeonCandidateCount =",
               "    static_cast<UInt32>(sizeof kDungeonCandidates / sizeof kDungeonCandidates[0]);", "",
               "}  // namespace walkers", ""]

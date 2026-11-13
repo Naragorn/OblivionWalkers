@@ -22,6 +22,9 @@ void SelectDungeonPool(const char* iniPath, LogFn log) {
 	g_selected = true;
 	CollectQuestNames(log);
 	const std::vector<UInt32> questCells = QuestCellIds();
+	const std::vector<UInt32> questRefs = QuestRefIds();
+	const DungeonQuestNames quests = {questCells.data(), static_cast<UInt32>(questCells.size()), questRefs.data(),
+	                                  static_cast<UInt32>(questRefs.size())};
 	char text[kDungeonSkipMost * kDungeonNameMost] = {};
 	if (iniPath != nullptr && iniPath[0] != '\0') {
 		GetPrivateProfileStringA("Dungeons", "Skip", "", text, sizeof text, iniPath);
@@ -29,11 +32,9 @@ void SelectDungeonPool(const char* iniPath, LogFn log) {
 	DungeonSkips skips;
 	ParseDungeonSkips(text, skips);
 	const DungeonPoolCount n =
-	    MarkDungeonPool(kDungeonCandidates, kDungeonCandidateCount, questCells.data(),
-	                    static_cast<UInt32>(questCells.size()), skips, g_inPool);
+	    MarkDungeonPool(kDungeonCandidates, kDungeonCandidateCount, quests, skips, g_inPool);
 	for (UInt32 i = 0; i < kDungeonCandidateCount; ++i) {
-		const DungeonVerdict v =
-		    DungeonOut(kDungeonCandidates[i], questCells.data(), static_cast<UInt32>(questCells.size()), skips);
+		const DungeonVerdict v = DungeonOut(kDungeonCandidates[i], quests, skips);
 		if (v != DungeonVerdict::In) {
 			log("Dungeons: %s (%s, cell %08X) out - %s", kDungeonCandidates[i].name,
 			    DungeonKindName(kDungeonCandidates[i].kind), kDungeonCandidates[i].cells[0],

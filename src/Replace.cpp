@@ -82,6 +82,8 @@ std::unordered_set<UInt32> g_questBases;
 // The cells a quest names, or holding a reference a quest names, by form ID
 // (the refugee dungeons' A, docs/walkers-spec.md 4.20.7).
 std::unordered_set<UInt32> g_questCells;
+// The references a quest names, by form ID (a dungeon's map marker, its door).
+std::unordered_set<UInt32> g_questRefs;
 // The lists that got their extra walker entries this session (4.13).
 std::unordered_set<UInt32> g_extraDone;
 // The engine's own heap, as xOBSE's TESLeveledList::CreateData and
@@ -423,6 +425,7 @@ void NoteQuestName(UInt32 form, QuestNames& seen) {
 	if (type == kFormTypeCell) {
 		g_questCells.insert(FormIdOf(form));
 	} else if (reference) {
+		g_questRefs.insert(FormIdOf(form));
 		const UInt32 cell = Read(form + kRefParentCellOffset);
 		if (LooksLikeObject(cell) && Read8(cell + kFormTypeOffset) == kFormTypeCell) {
 			g_questCells.insert(FormIdOf(cell));
@@ -507,7 +510,8 @@ void CollectQuestNames(LogFn log) {
 	    "themselves), %u creatures and people named",
 	    seen.quests, seen.names, static_cast<UInt32>(g_questLists.size()), seen.placed, seen.direct,
 	    static_cast<UInt32>(g_questBases.size()));
-	log("Quests: %u cells named or holding a named reference", static_cast<UInt32>(g_questCells.size()));
+	log("Quests: %u cells named or holding a named reference, %u references named",
+	    static_cast<UInt32>(g_questCells.size()), static_cast<UInt32>(g_questRefs.size()));
 	UInt32 shown = 0;
 	for (const UInt32 list : g_questLists) {
 		if (shown++ < 64) {
@@ -517,6 +521,8 @@ void CollectQuestNames(LogFn log) {
 }
 
 std::vector<UInt32> QuestCellIds() { return std::vector<UInt32>(g_questCells.begin(), g_questCells.end()); }
+
+std::vector<UInt32> QuestRefIds() { return std::vector<UInt32>(g_questRefs.begin(), g_questRefs.end()); }
 
 void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt32 nightPercent, LogFn log) {
 	if (espBase == kNoEsp) {

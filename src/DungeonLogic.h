@@ -7,7 +7,8 @@
 // load order is read too (Nadi, 2026-11-13: "passt A + B"):
 //   A  a candidate one of whose cells holds something a loaded quest names
 //      (its script, a stage's result script, a target - Replace.cpp
-//      CollectQuestNames), or whose cell a quest names itself, is out;
+//      CollectQuestNames), whose cell a quest names itself, or whose door
+//      outside or map marker a quest names, is out;
 //   B  one the INI's [Dungeons] Skip names - by its name or by one of its
 //      cells' form IDs in hex - is out, for what A cannot see (a quest that
 //      sends people there by their AI package, a dialogue line's script).
@@ -45,6 +46,19 @@ struct DungeonCandidate {
 	DungeonKind kind;
 	UInt32 cells[kDungeonCellsMost];  // Oblivion.esm form IDs, the first the one the door outside leads into
 	UInt8 cellCount;
+	UInt32 door;    // the door outside, in Tamriel
+	UInt32 marker;  // its map marker
+};
+
+// What the loaded quests name (Replace.cpp CollectQuestNames): the cells
+// named or holding a named reference, and the named references themselves -
+// a quest that shows a dungeon's map marker or targets it (Better Cities,
+// Quest of the Week: measured 2026-11-13) names no cell of it.
+struct DungeonQuestNames {
+	const UInt32* cells;
+	UInt32 cellCount;
+	const UInt32* refs;
+	UInt32 refCount;
 };
 
 inline constexpr UInt32 kDungeonSkipMost = 32;
@@ -121,14 +135,24 @@ enum class DungeonVerdict : UInt8 { In, Quest, Skipped };
 
 // The quest is the reason given when both hold: it is the one the player
 // did not choose.
-inline DungeonVerdict DungeonOut(const DungeonCandidate& d, const UInt32* questCells, UInt32 questCellCount,
+inline bool NamedIn(const UInt32* list, UInt32 count, UInt32 form) {
+	for (UInt32 i = 0; form != 0 && i < count; ++i) {
+		if (list[i] == form) {
+			return true;
+		}
+	}
+	return false;
+}
+
+inline DungeonVerdict DungeonOut(const DungeonCandidate& d, const DungeonQuestNames& quests,
                                  const DungeonSkips& skips) {
 	for (UInt32 c = 0; c < d.cellCount && c < kDungeonCellsMost; ++c) {
-		for (UInt32 q = 0; d.cells[c] != 0 && q < questCellCount; ++q) {
-			if (questCells[q] == d.cells[c]) {
-				return DungeonVerdict::Quest;
-			}
+		if (NamedIn(quests.cells, quests.cellCount, d.cells[c])) {
+			return DungeonVerdict::Quest;
 		}
+	}
+	if (NamedIn(quests.refs, quests.refCount, d.door) || NamedIn(quests.refs, quests.refCount, d.marker)) {
+		return DungeonVerdict::Quest;
 	}
 	if (SkipsName(skips, d.name)) {
 		return DungeonVerdict::Skipped;
@@ -147,11 +171,11 @@ struct DungeonPoolCount {
 	UInt32 skipped = 0;
 };
 
-inline DungeonPoolCount MarkDungeonPool(const DungeonCandidate* all, UInt32 count, const UInt32* questCells,
-                                        UInt32 questCellCount, const DungeonSkips& skips, bool* in) {
+inline DungeonPoolCount MarkDungeonPool(const DungeonCandidate* all, UInt32 count, const DungeonQuestNames& quests,
+                                        const DungeonSkips& skips, bool* in) {
 	DungeonPoolCount n;
 	for (UInt32 i = 0; i < count; ++i) {
-		const DungeonVerdict v = DungeonOut(all[i], questCells, questCellCount, skips);
+		const DungeonVerdict v = DungeonOut(all[i], quests, skips);
 		in[i] = v == DungeonVerdict::In;
 		n.in += v == DungeonVerdict::In ? 1 : 0;
 		n.quest += v == DungeonVerdict::Quest ? 1 : 0;

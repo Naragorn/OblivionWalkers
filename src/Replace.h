@@ -27,6 +27,8 @@ void CollectQuestNames(LogFn log);
 // The cells a quest names, or that hold a reference a quest names - after
 // CollectQuestNames (the refugee dungeons' A, docs/walkers-spec.md 4.20.7).
 std::vector<UInt32> QuestCellIds();
+// The references a quest names, by form ID - after CollectQuestNames.
+std::vector<UInt32> QuestRefIds();
 
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log);

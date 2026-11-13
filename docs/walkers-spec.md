@@ -2901,9 +2901,20 @@ unique people a quest names by their record.
 Run `harness/dungeon-pool.txt` 2026-11-13 11:28 (Linux, Nadi's 39 plugins):
 "Quests: 606 quests read, 12648 names", "718 cells named or holding a
 named reference", "Dungeons: 107 candidates, 107 in the pool, 0 out by a
-loaded quest" - as the build-time scan of that list says (107). That A
-takes one out is not shown yet: that needs the Windows list (83 at build
-time) - Nadi's next Windows start, its "Dungeons:" line.
+loaded quest" - as the build-time scan of that list says (107).
+With the Windows list (OBNG tools/run-with-windows-mods.py, 12:02): "107
+candidates, 86 in the pool, 21 out" - Culotte, Charcoal Cave and Fort
+Empire missed: Quest of the Week and Better Cities name their MAP MARKERS
+(QOTW048 CulotteMapMarker, AqueductQuest CharcoalCaveMapMarker,
+BANGHCGoldHorseRanks FortEmpireMapMarker - in Tamriel's persistent cell,
+no cell of the dungeon). Since then a candidate carries its door outside
+and its map marker, and a quest naming either takes it out. Run 2 (12:04):
+"1243 cells named ..., 4322 references named", "107 candidates, 83 in the
+pool, 24 out" - the build-time 83. Not the same 24: Ondo is out at build
+time only (an object script that runs a quest, DMDungeon06Tafel - A does
+not read object scripts; [Dungeons] Skip is for it), Haunted Mine in the
+game only (a mod's quest names a reference a mod placed in it - the
+build-time scan reads Oblivion.esm's references only).
 
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
