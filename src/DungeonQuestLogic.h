@@ -80,6 +80,30 @@ inline constexpr UInt32 kDungeonNoticeRefFirstLocalId = kDungeonMessengerLineFir
 inline constexpr UInt32 kDungeonNoticeRefCount = 8;
 inline constexpr UInt32 kDungeonBoardNoticeLocalId = kDungeonNoticeRefFirstLocalId + kDungeonNoticeRefCount;
 inline constexpr UInt32 kDungeonBoardNoticeRefFirstLocalId = kDungeonBoardNoticeLocalId + 1;
+// Then the refuge's rest: the topic "A place to rest" and its line, and four
+// bedrolls (persistent, in the holding cell) the plugin lays out in the
+// place the kit stands in.
+inline constexpr UInt32 kDungeonRestTopicLocalId = kDungeonBoardNoticeRefFirstLocalId + kDungeonNoticeRefCount;  // 0xA8D
+inline constexpr UInt32 kDungeonRestLineLocalId = kDungeonRestTopicLocalId + 1;
+inline constexpr UInt32 kDungeonBedFirstLocalId = kDungeonRestLineLocalId + 1;  // 0xA8F
+inline constexpr UInt32 kDungeonBeds = 4;
+inline constexpr short kDungeonBedLift = 8;  // a bed lies this far above its path grid point
+
+// Bed `bed` of `beds` (Beds) lies on this spot of the candidate's, -1 none:
+// from the far end of the spots, the last one left free (the trader's
+// stand), the two by the door too.
+inline int BedSpotIndex(const DungeonCandidate& c, UInt32 bed, UInt32 beds) {
+	if (bed >= beds || bed >= kDungeonBeds) {
+		return -1;
+	}
+	const int index = static_cast<int>(c.spotCount) - 2 - static_cast<int>(bed);
+	return index >= 2 ? index : -1;
+}
+
+// The candidate the beds lie in, -1 none: where the kit stands inside.
+inline int BedsCandidate(int kitCandidate, bool kitOutside, UInt32 beds) {
+	return kitCandidate >= 0 && !kitOutside && beds > 0 ? kitCandidate : -1;
+}
 
 // The messenger: one of the refugees runs to the player for help - with
 // news of a siege or of a place to clear, MessengerHours apart at the
@@ -98,6 +122,14 @@ struct DungeonMessenger {
 	float lastSentDay = -1000.0f;
 	float seconds = 0.0f;  // in this phase
 };
+
+// Before he is sent: alive he goes; dead he is raised and dressed again
+// (the kit's way - with the rise as a creature his body lies put away);
+// risen as a walker himself (the rise without a creature) he is lost.
+enum class RunnerFit : UInt8 { Fit, Raise, Lost };
+inline RunnerFit MessengerFit(bool dead, bool risen) {
+	return risen ? RunnerFit::Lost : (dead ? RunnerFit::Raise : RunnerFit::Fit);
+}
 
 inline bool MessengerSends(const DungeonMessenger& m, UInt8 newsKind, float hours, float now, bool outdoors) {
 	return m.phase == MessengerPhase::Away && hours > 0.0f && outdoors && (newsKind == 2 || newsKind == 3) &&

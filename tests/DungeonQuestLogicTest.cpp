@@ -274,6 +274,12 @@ void TestMessenger() {
 	Check(did == MessengerDoes::Go && late.phase == MessengerPhase::Away, "ninety seconds leaving: taken away at last");
 	DungeonMessenger away;
 	Check(walkers::StepMessenger(away, true, 0.0f) == MessengerDoes::Nothing, "none out: nothing");
+	using walkers::MessengerFit;
+	using walkers::RunnerFit;
+	Check(MessengerFit(false, false) == RunnerFit::Fit, "the runner alive: he goes");
+	Check(MessengerFit(true, false) == RunnerFit::Raise, "the runner dead: raised and dressed again, then he goes");
+	Check(MessengerFit(false, true) == RunnerFit::Lost && MessengerFit(true, true) == RunnerFit::Lost,
+	      "the runner risen as a walker himself (the rise without a creature): nobody comes");
 	const UInt32 papers[3] = {0x25000A75, 0x25000A76, 0x25000A84};
 	Check(walkers::PaperOpened(0x25000A75, 0, papers, 3) && walkers::PaperOpened(0x25000A76, 0x0006D6F3, papers, 3) &&
 	          walkers::PaperOpened(0x25000A84, 0, papers, 3),
@@ -292,6 +298,29 @@ void TestMessenger() {
 	          walkers::kDungeonBoardNoticeRefFirstLocalId + walkers::kDungeonNoticeRefCount <= 0xAA4,
 	      "the gates' eight notices 0xA7C..0xA83, the boards' book 0xA84 and its eight 0xA85..0xA8C, before the "
 	      "shock sounds too");
+}
+
+void TestBeds() {
+	std::printf("the beds of a refuge\n");
+	walkers::DungeonCandidate c{};
+	c.spotCount = 13;
+	Check(walkers::BedSpotIndex(c, 0, 3) == 11 && walkers::BedSpotIndex(c, 1, 3) == 10 && walkers::BedSpotIndex(c, 2, 3) == 9,
+	      "three beds on thirteen spots: from the far end, the last spot left to the trader");
+	Check(walkers::BedSpotIndex(c, 3, 3) == -1 && walkers::BedSpotIndex(c, 3, 4) == 8 &&
+	          walkers::BedSpotIndex(c, 4, 9) == -1,
+	      "no more beds than Beds says, nor than the ESP holds (four)");
+	c.spotCount = 5;
+	Check(walkers::BedSpotIndex(c, 0, 4) == 3 && walkers::BedSpotIndex(c, 1, 4) == 2 && walkers::BedSpotIndex(c, 2, 4) == -1,
+	      "few spots: the two by the door stay free of beds");
+	c.spotCount = 2;
+	Check(walkers::BedSpotIndex(c, 0, 4) == -1, "two spots or fewer: no bed");
+	Check(walkers::BedsCandidate(7, false, 3) == 7, "the kit inside a place: its beds there");
+	Check(walkers::BedsCandidate(7, true, 3) == -1, "the kit waiting outside (a place to clear): no beds");
+	Check(walkers::BedsCandidate(-1, false, 3) == -1, "no kit out: no beds");
+	Check(walkers::BedsCandidate(7, false, 0) == -1, "Beds=0: none");
+	Check(walkers::kDungeonBedFirstLocalId == 0xA8F && walkers::kDungeonBedFirstLocalId + walkers::kDungeonBeds <= 0xAA4 &&
+	          walkers::kDungeonRestTopicLocalId == 0xA8D && walkers::kDungeonRestLineLocalId == 0xA8E,
+	      "the rest topic 0xA8D, its line 0xA8E, the four beds 0xA8F..0xA92 - before the shock sounds");
 }
 
 void TestImage() {
@@ -329,6 +358,7 @@ int main() {
 	TestTelling();
 	TestTalk();
 	TestMessenger();
+	TestBeds();
 	TestImage();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

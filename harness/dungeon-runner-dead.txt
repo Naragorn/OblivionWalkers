@@ -1,0 +1,50 @@
+# A dead runner is replaced (docs/walkers-spec.md 4.20.7).
+# tools/dungeon-walkers.sh runner-dead sets two besieged places (TestSite
+# Fort Ash and one more: ActiveMin=ActiveMax=2, only WeightBesieged),
+# MessengerHours=1, no toll.
+# - the first runner comes and speaks (dungeon-runner.txt); closed1: the
+#   game's boxes closed; kill: the console kills him; away1: the player far
+#   off - "runner - taken away";
+# - fast: three seconds at timescale 3000 - two and a half game hours;
+# - the second errand: "runner - he was dead: raised and dressed again (1)",
+#   "sent with news of kind 2", "told to speak ... his 3D 1", "he told his
+#   news" (the second place's quest).
+# Run through tools/dungeon-walkers.sh runner-dead.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready cow Tamriel 5 5
+console-at closed1 CloseAllMenus
+console-at kill "{form:OblivionWalkers.esp:A78}".kill
+console-at away1 cow Tamriel 20 20
+console-at fast set timescale to 3000
+console-at slow set timescale to 0
+console-at closed2 CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 34
+mark closed1
+wait 2
+mark kill
+wait 3
+mark away1
+wait 8
+mark fast
+wait 3
+mark slow
+wait 36
+mark closed2
+wait 3
+mark end
+wait 1

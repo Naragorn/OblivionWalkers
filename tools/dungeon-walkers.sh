@@ -20,10 +20,13 @@ case "$mode" in
 	runner) state=2; walkers=8; behead=0; scenario=dungeon-runner; site="Fort Ash" ;;
 	paper) state=2; walkers=8; behead=0; scenario=dungeon-paper; site="Fort Ash" ;;
 	notice) state=1; walkers=8; behead=0; scenario=dungeon-notice; site="Fort Ash" ;;
-	*) echo "mode: siege | taken | fight | clear | talk | runner | paper | notice" >&2; exit 2 ;;
+	runner-dead) state=2; walkers=8; behead=0; scenario=dungeon-runner-dead; site="Fort Ash" ;;
+	beds) state=1; walkers=8; behead=0; scenario=dungeon-beds; site="Fort Ash" ;;
+	*) echo "mode: siege | taken | fight | clear | talk | runner | runner-dead | paper | notice | beds" >&2; exit 2 ;;
 esac
 # fight only: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
 people="${2:-8}"
+if [[ "$mode" == "beds" ]]; then people=5; fi
 if [[ "$mode" == "fight" && -n "${3:-}" ]]; then walkers="$3"; fi
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -50,13 +53,17 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
                    ("AttackWalkersMin", walkers), ("AttackWalkersMax", walkers), ("WalkersAtOnce", "6"),
                    ("PeopleMin", people), ("PeopleMax", people), ("Journal", "1"), ("Rumors", "1"),
                    # the test site alone: it is the news, and its quest the one told
-                   ("ActiveMin", "1"), ("ActiveMax", "1"),
-                   # a runner for help only in his own run
-                   ("MessengerHours", "1" if mode == "runner" else "0"),
+                   # (runner-dead: a second place, besieged too - news for a second runner)
+                   ("ActiveMin", "2" if mode == "runner-dead" else "1"), ("ActiveMax", "2" if mode == "runner-dead" else "1"),
+                   ("WeightRefuge", "0" if mode == "runner-dead" else "25"), ("WeightBesieged", "100" if mode == "runner-dead" else "25"),
+                   ("WeightToClear", "0" if mode == "runner-dead" else "25"),
+                   ("WeightWalkerDungeon", "0" if mode == "runner-dead" else "25"),
+                   # a runner for help only in his own runs
+                   ("MessengerHours", "1" if mode in ("runner", "runner-dead") else "0"), ("Beds", "3"),
                    # runner, paper: the siege away stays one (the scenario's "set gamehour to 12" jumps the
                    # clock - measured 2026-11-13: the toll of those hours ended the siege before anyone heard of it)
-                   ("RefugeeKillsPerHour", "0" if mode in ("runner", "paper") else "2"),
-                   ("LossPercentPerHour", "0" if mode in ("runner", "paper") else "25"),
+                   ("RefugeeKillsPerHour", "0" if mode in ("runner", "runner-dead", "paper") else "2"),
+                   ("LossPercentPerHour", "0" if mode in ("runner", "runner-dead", "paper") else "25"),
                    # siege: a day on, the refuge is attacked again (the quest opened anew)
                    ("AttackChancePercent", "100" if mode == "siege" else "0")):
     text = put(text, "Dungeons", key, value)
@@ -83,7 +90,7 @@ def check(ok, what):
 
 d = [l for l in lines if l.startswith("Dungeons: ")]
 place = "Echo Mine" if mode in ("clear", "talk") else "Fort Ash"
-if mode in ("runner", "paper", "notice"):
+if mode in ("runner", "runner-dead", "paper", "notice", "beds"):
     again = len(d)
 told = [m for l in d for m in [re.search(
     r"journal - " + place + r": stage (\d+) \((\w[\w ]*); told (\d+) before\)(, taken off completed first)? - SetStage "
@@ -102,12 +109,12 @@ def journal(stage, why, before, reopened, completed, what, nth=0):
     check(ok, what + (f" ({hits[nth].group(0)[10:]})" if len(hits) > nth else f" (told: {[m.group(1, 2, 3) for m in told]})"))
 
 shown = [m for l in d for m in [re.search(r"map marker \w+ shown: flags (\w+), (\w+) before", l)] if m]
-if mode != "notice":
+if mode not in ("notice", "runner-dead"):
     check(len(shown) == 1 and int(shown[0].group(1), 16) & 1 == 1 and shown[0].group(1) != "FFFF",
           "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
 rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
 link = [l for l in lines if "variables" in l and "LINK" in l]
-check(any("195 of 195" in l for l in link), "LINK holds the 195 variables" + (f" ({link[-1][:90]})" if link else ""))
+check(any("196 of 196" in l for l in link), "LINK holds the 196 variables" + (f" ({link[-1][:90]})" if link else ""))
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
 again = next((k for k, l in enumerate(d) if "site 0 Fort Ash (fort) attacked" in l), len(d))
 into = [l for l in d[:again] if re.search(r"walker \w+ into Fort Ash", l)]
@@ -142,6 +149,31 @@ elif mode == "notice":
     check(len(read) == 1 and read[0].endswith("A84"), "the notice on the board, activated, is read in the book menu" + (f" ({read[0][10:]})" if read else ""))
     journal(5, "heard", 0, True, False, "reading it tells of the refuge: heard of, open")
     print("  look  the eye pictures a-* and b-*: Anvil's board from both sides, the notice turned five ways")
+elif mode == "runner-dead":
+    sent = [k for k, l in enumerate(d) if "runner - sent with news of kind 2" in l]
+    told = [k for k, l in enumerate(d) if "runner - he told his news" in l]
+    raised = [k for k, l in enumerate(d) if "runner - he was dead: raised and dressed again (1)" in l]
+    gone = [k for k, l in enumerate(d) if "runner - taken away" in l]
+    check(len(sent) == 2, f"a runner is sent twice ({len(sent)})")
+    check(len(told) == 2, f"and tells his news both times ({len(told)})")
+    check(len(raised) == 1 and len(sent) == 2 and len(gone) >= 1 and gone[0] < raised[0] < sent[1],
+          "killed by the console and taken away, he is raised and dressed before the second errand")
+    spoke = [l for l in d[sent[1]:] if "runner - told to speak to the player" in l] if len(sent) == 2 else []
+    check(len(spoke) >= 1 and "his 3D 1" in spoke[0], "the raised runner stands there with his 3D" + (f" ({spoke[0][19:120]})" if spoke else ""))
+    for l in [l for l in d if "runner - " in l or "news - told" in l or "journal - " in l][:16]:
+        print("        " + l[10:190])
+elif mode == "beds":
+    laid = [l for l in d if "beds - bed" in l and "laid in Fort Ash" in l]
+    spots = [m.group(1) for l in laid for m in [re.search(r"on spot (\d+)", l)] if m]
+    check(len(laid) == 3 and all("answered 1" in l for l in laid) and spots == ["11", "10", "9"],
+          f"three beds laid in Fort Ash, one a second, on its far spots ({spots})")
+    obvr = open(sys.argv[1].replace("OblivionWalkers.log", "OBVR.log"), encoding="latin-1").read()
+    check("menu SleepWait" in obvr, "a bed activated for the player opens the game's sleep menu")
+    away = [l for l in d if "beds - " in l and "taken away" in l]
+    check(any("3 taken away" in l for l in away), "the kit gone (the dungeons turned off), the beds are taken away" + (f" ({away[-1][10:]})" if away else ""))
+    for l in [l for l in d if "beds - " in l][:8]:
+        print("        " + l[10:170])
+    print("  look  the eye pictures bed0, bed1: a bedroll on the floor of Fort Ash")
 elif mode == "runner":
     sent = [l for l in d if "runner - sent with news of kind 2" in l]
     check(len(sent) == 1, "a runner is sent with the siege's news, once" + (f" ({sent[0][19:140]})" if sent else ""))

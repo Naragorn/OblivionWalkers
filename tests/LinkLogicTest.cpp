@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 195,
-	      "195 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors and MessengerHours - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 196,
+	      "196 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours and Beds - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -382,7 +382,11 @@ void TestValues() {
 		const int runner = IndexOf("ini_dungeons_messenger_hours");
 		Check(runner == 194 && walkers::LinkValue(rise, replace, runner) == 24.0 &&
 		          walkers::SetLinkValue(rise, replace, runner, 48.0) && rise.dungeons.messengerHours == 48.0f,
-		      "MessengerHours last, 194: a day, set from the menu");
+		      "MessengerHours, 194: a day, set from the menu");
+		const int beds = IndexOf("ini_dungeons_beds");
+		Check(beds == 195 && walkers::LinkValue(rise, replace, beds) == 3.0 && kLinkSettings[beds].max == 4 &&
+		          walkers::SetLinkValue(rise, replace, beds, 1.0) && rise.dungeons.beds == 1,
+		      "Beds last, 195: three, four at most, set from the menu");
 		Check(!rise.dungeons.enabled && rise.dungeons.activeMin == 2 && rise.dungeons.activeMax == 6 &&
 		          rise.dungeons.spacingUnits == 20000.0f && rise.dungeons.refugeeKillsPerHour == 3.5f &&
 		          rise.dungeons.leaveAfterDays == 14.0f,

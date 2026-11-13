@@ -175,6 +175,12 @@ int g_thankedCandidate = -1;
 // The runner for help, whether the save may hold him enabled, and the book
 // the player had open a second ago.
 DungeonMessenger g_messenger;
+// The beds: the candidate they lie in (-1 none), those still to be laid
+// (one a second), and whether a save may hold them out.
+int g_bedsCandidate = -1;
+UInt8 g_bedsToPlace = 0;
+bool g_bedsUnknown = true;
+
 // The notices: MOO's quest (0 not loaded) once the load order is read, each
 // city's notice seen to since the load, and the seconds waited for MOO's
 // boards.
@@ -295,6 +301,7 @@ UInt32 BookOpen() {
 }
 
 bool Disabled(UInt32 ref);
+bool Raise(UInt32 ref, UInt32 slot);
 
 // The runner for help (DungeonQuestLogic.h): put out behind the player on
 // the land, told to speak to him, taken away when he has walked on.
@@ -318,12 +325,20 @@ void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, Lo
 	const UInt32 cell = Read(player + kRefParentCellOffset);
 	const bool outdoors = LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0;
 	if (MessengerSends(g_messenger, newsKind, g_siteSettings->messengerHours, now, outdoors)) {
-		if (g_dead != nullptr && g_dead(ref)) {
+		// A dead runner is raised and dressed again (his base is the
+		// camps' first man's: slot 0's outfit); one who rose as a walker
+		// himself is lost.
+		const RunnerFit fit = MessengerFit(g_dead != nullptr && g_dead(ref), g_risen != nullptr && g_risen(FormIdOf(ref)));
+		if (fit == RunnerFit::Lost) {
 			if (!g_messengerDeadLogged) {
-				log("Dungeons: runner - he is dead; nobody comes");
+				log("Dungeons: runner - he walks with the dead (risen as himself); nobody comes");
 				g_messengerDeadLogged = true;
 			}
 			return;
+		}
+		if (fit == RunnerFit::Raise) {
+			const bool raised = Raise(ref, 0);
+			log("Dungeons: runner - he was dead: raised and dressed again (%d)", raised ? 1 : 0);
 		}
 		// Behind the player (the engine's heading: 0 north, clockwise), on the land.
 		const float heading = FloatAt(player + kRefRotZOffset);
@@ -365,6 +380,62 @@ void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, Lo
 		Say(ref, "Disable");
 		log("Dungeons: runner - taken away (%.0f units from the player)", distance);
 	}
+}
+
+// Once a second: the bedrolls lie where the kit stands inside a place
+// (DungeonQuestLogic.h) - taken away first when it stands elsewhere now (a
+// console Disable takes hold after the frame, so a second lies between), then
+// laid one a second on the candidate's far spots.
+void StepBeds(LogFn log) {
+	if (g_espBase == kNoEsp || g_siteSettings == nullptr) {
+		return;
+	}
+	const UInt32 beds = g_siteSettings->beds < kDungeonBeds ? g_siteSettings->beds : kDungeonBeds;
+	const int want = BedsCandidate(g_siteSettings->enabled ? g_kitCandidate : -1, g_kitMode == KitMode::Outside, beds);
+	if (g_bedsUnknown || want != g_bedsCandidate) {
+		UInt32 away = 0;
+		for (UInt32 b = 0; (g_bedsUnknown || g_bedsCandidate >= 0) && b < kDungeonBeds; ++b) {
+			const UInt32 ref = LookupForm(EspFormId(g_espBase, kDungeonBedFirstLocalId + b));
+			if (LooksLikeObject(ref) && !Disabled(ref)) {
+				Say(ref, "Disable");
+				++away;
+			}
+		}
+		if (away > 0 || g_bedsCandidate >= 0) {
+			log("Dungeons: beds - %u taken away%s", away, g_bedsUnknown ? " (wherever the save held them)" : "");
+		}
+		const bool wait = away > 0;
+		g_bedsUnknown = false;
+		g_bedsCandidate = -1;
+		g_bedsToPlace = 0;
+		if (wait || want < 0) {
+			return;
+		}
+		g_bedsCandidate = want;
+		g_bedsToPlace = static_cast<UInt8>((1u << beds) - 1u);
+	}
+	if (g_bedsToPlace == 0 || g_bedsCandidate < 0) {
+		return;
+	}
+	UInt32 bed = 0;
+	while ((g_bedsToPlace & (1u << bed)) == 0) {
+		++bed;
+	}
+	g_bedsToPlace = static_cast<UInt8>(g_bedsToPlace & ~(1u << bed));
+	const DungeonCandidate& c = kDungeonCandidates[g_bedsCandidate];
+	const int spot = BedSpotIndex(c, bed, beds);
+	const UInt32 ref = LookupForm(EspFormId(g_espBase, kDungeonBedFirstLocalId + bed));
+	if (spot < 0 || !LooksLikeObject(ref)) {
+		return;
+	}
+	char line[64];
+	std::snprintf(line, sizeof(line), "MoveTo %08X %d %d %d", c.insideDoor, c.spots[spot].dx, c.spots[spot].dy,
+	              c.spots[spot].dz + kDungeonBedLift);
+	const bool moved = Say(ref, line);
+	if (Disabled(ref)) {
+		Say(ref, "Enable");
+	}
+	log("Dungeons: beds - bed %u laid in %s on spot %d (%s answered %d)", bed, c.name, spot, line, moved ? 1 : 0);
 }
 
 // One of MOO's quest variables, 0 when it is not there.
@@ -1213,6 +1284,9 @@ void ResetDungeonsInGame() {
 		g_noticeDone[c] = false;
 	}
 	g_noticeWaited = 0.0f;
+	g_bedsCandidate = -1;
+	g_bedsToPlace = 0;
+	g_bedsUnknown = true;
 }
 
 void StepDungeonsInGame(float dt, LogFn log) {
@@ -1351,6 +1425,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		}
 		NoteRefugesInNews(kind != 0);
 		StepNotices(log);
+		StepBeds(log);
 		StepMessengerInGame(kind, told, player, now, log);
 	}
 	// The player's cell held now and not before, or the other way (the place

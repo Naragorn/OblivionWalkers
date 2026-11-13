@@ -52,6 +52,7 @@ struct DungeonSiteSettings {
 	bool journal = true;                 // Journal: each place's quest in the journal (DungeonQuestLogic.h)
 	bool rumors = true;                  // Rumors: people tell of the places (it needs the journal)
 	float messengerHours = 24.0f;        // MessengerHours: a runner for help this far apart at the soonest; 0 never
+	UInt32 beds = 3;                     // Beds: bedrolls laid out in a held place (4 at most); 0 none
 };
 
 // The ESP's pool of walkers for the place the player is at (DungeonKitLogic.h).

@@ -335,6 +335,8 @@ DUNGEON_HELP = [
            "door behind us."),
     ((4,), "You've done enough. Rest, trade, stay as long as you like."),
 ]
+DUNGEON_REST = ((1, 4), "There's a bedroll at the back for you, if you don't mind a hard floor. Sleep easy - "
+                        "one of us is always awake and watching the door.")
 DUNGEON_RUMORS = [
     (1, "Folk who fled the walkers have holed up in an old place out in the wilds, they say. Here, I'll mark it on "
         "your map. Might be they'd welcome a friendly face."),
@@ -371,6 +373,11 @@ def dungeon_talk_ids() -> dict[str, int]:
                  "kDungeonLineFirstLocalId", "kDungeonNoticeLocalId", "kDungeonMessengerBaseLocalId",
                  "kDungeonMessengerRefLocalId", "kDungeonMessengerLineFirstLocalId"):
         pass
+    if ("kDungeonRestTopicLocalId = kDungeonBoardNoticeRefFirstLocalId + kDungeonNoticeRefCount;" not in text
+            or "kDungeonRestLineLocalId = kDungeonRestTopicLocalId + 1;" not in text
+            or "kDungeonBedFirstLocalId = kDungeonRestLineLocalId + 1;" not in text):
+        raise SystemExit("DungeonQuestLogic.h's rest topic and beds do not follow the boards' notices")
+    ids["kDungeonBeds"] = int(re.search(r"kDungeonBeds = (\d+);", text).group(1))
     if "kDungeonBoardNoticeLocalId = kDungeonNoticeRefFirstLocalId + kDungeonNoticeRefCount;" not in text or \
             "kDungeonBoardNoticeRefFirstLocalId = kDungeonBoardNoticeLocalId + 1;" not in text:
         raise SystemExit("DungeonQuestLogic.h's board notice does not follow the gates' notices")
@@ -391,6 +398,9 @@ def dungeon_talk_ids() -> dict[str, int]:
     ids["kDungeonNoticeRefFirstLocalId"] = ids["kDungeonMessengerLineFirstLocalId"] + ids["kDungeonMessengerLineCount"]
     ids["kDungeonBoardNoticeLocalId"] = ids["kDungeonNoticeRefFirstLocalId"] + ids["kDungeonNoticeRefCount"]
     ids["kDungeonBoardNoticeRefFirstLocalId"] = ids["kDungeonBoardNoticeLocalId"] + 1
+    ids["kDungeonRestTopicLocalId"] = ids["kDungeonBoardNoticeRefFirstLocalId"] + ids["kDungeonNoticeRefCount"]
+    ids["kDungeonRestLineLocalId"] = ids["kDungeonRestTopicLocalId"] + 1
+    ids["kDungeonBedFirstLocalId"] = ids["kDungeonRestLineLocalId"] + 1
     if "kDungeonEditionLocalId = kDungeonTalkEnd;" not in text or \
             ids["kDungeonRumorFirstLocalId"] + ids["kDungeonRumorCount"] != LOCAL_EDITION_IDS[36]:
         raise SystemExit("DungeonQuestLogic.h's edition does not follow the rumors, or LOCAL_EDITION_IDS[36] is not it")
@@ -1335,6 +1345,15 @@ def main() -> int:
                           build_placed(index | runner_ids["kDungeonBoardNoticeLocalId"], c * 64.0, 2304.0, 0.0,
                                        edid=f"WalkersDungeonBoardNotice{city}"),
                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    # The refuge's bedrolls (DungeonQuestLogic.h kDungeonBedFirstLocalId): the
+    # camps' BedrollSideEntry, persistent and initially disabled in the
+    # holding cell; the plugin lays them out where the kit stands inside.
+    if runner_ids["kDungeonBedFirstLocalId"] + runner_ids["kDungeonBeds"] > SHOCK_FIRST_LOCAL:
+        raise SystemExit("DungeonQuestLogic.h's beds reach the shock sounds")
+    for b in range(runner_ids["kDungeonBeds"]):
+        holding += record(b"REFR", index | (runner_ids["kDungeonBedFirstLocalId"] + b),
+                          build_placed(CAMP_BEDROLL, b * 128.0, 2560.0, 0.0, edid=f"WalkersDungeonBed{b}"),
+                          flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
     # The held dungeons' pool of walkers (DungeonSiteLogic.h kDungeonPool,
     # right after the kit): a siege's or a walker dungeon's, as the camps'.
     dungeon_pool = int(re.search(r"kDungeonPool = (\d+);",
@@ -1517,10 +1536,14 @@ def main() -> int:
     help_form = index | talk["kDungeonTopicHelpLocalId"]
     kit_refs = [index | (dungeon_kit_first + slot) for slot in range(dungeon_kit_slots)]
     line_form = index | talk["kDungeonLineFirstLocalId"]
+    rest_form = index | talk["kDungeonRestTopicLocalId"]
     for state, text in DUNGEON_GREETINGS:
+        topics = (what_form, help_form) + ((rest_form,) if state in DUNGEON_REST[0] else ())
         greetings += record(b"INFO", line_form, build_line(talk_quest_form, text, kit_conditions(kit_refs, talk_global, (state,)),
-                                                          add_topics=(what_form, help_form)))
+                                                          add_topics=topics))
         line_form += 1
+    rest_line = record(b"INFO", index | talk["kDungeonRestLineLocalId"],
+                       build_line(talk_quest_form, DUNGEON_REST[1], kit_conditions(kit_refs, talk_global, DUNGEON_REST[0])))
     what_lines = b""
     for states, text in DUNGEON_WHAT:
         what_lines += record(b"INFO", line_form, build_line(talk_quest_form, text, kit_conditions(kit_refs, talk_global, states)))
@@ -1590,6 +1613,8 @@ def main() -> int:
                  + subrecord(b"FULL", zstring("What happened?")) + subrecord(b"DATA", bytes([0])))
     help_data = (subrecord(b"EDID", zstring("WalkersDungeonHelp")) + talk_qsti
                  + subrecord(b"FULL", zstring("How can I help?")) + subrecord(b"DATA", bytes([0])))
+    rest_data = (subrecord(b"EDID", zstring("WalkersDungeonRest")) + talk_qsti
+                 + subrecord(b"FULL", zstring("A place to rest")) + subrecord(b"DATA", bytes([0])))
     globals_group = group(b"GLOB", globals_records
                           + record(b"GLOB", talk_global, build_global("WalkersDungeonTalk"))
                           + record(b"GLOB", news_global, build_global("WalkersDungeonNews"))
@@ -1598,7 +1623,8 @@ def main() -> int:
                        + record(b"DIAL", GREETING_TOPIC, greeting_data) + topic_group(GREETING_TOPIC, greetings)
                        + record(b"DIAL", topic_form, topic_data) + topic_group(topic_form, yes)
                        + record(b"DIAL", what_form, what_data) + topic_group(what_form, what_lines)
-                       + record(b"DIAL", help_form, help_data) + topic_group(help_form, help_lines))
+                       + record(b"DIAL", help_form, help_data) + topic_group(help_form, help_lines)
+                       + record(b"DIAL", rest_form, rest_data) + topic_group(rest_form, rest_line))
     # The grab's shock sounds (GrabLogic.h kGrabShockFirstLocalId): copies of
     # UIQuestUpdate (00185DD3, a 2D sound) but EDID and FNAM, the WAVs of
     # tools/grab-shock-sounds.py under Data\Sound\fx\OblivionWalkers.
@@ -1635,7 +1661,7 @@ def main() -> int:
                     + dungeon_quests)
             + group(b"PACK", packages) + group(b"IDLE", idles))
     groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + 1 + exterior_groups_count  # + the SPEL group  # + the escort's two topic groups
-    groups += 2  # the held dungeons' two topics' groups
+    groups += 3  # the held dungeons' three topics' groups
     records = (1 + len(edition_forms) + len(guard_forms) + len(walker_forms) + 1 + 1 + len(marker_forms)
                + len(pool_forms) + SIEGE_POOL + test_pool + len(travel_forms) + len(follow_forms) + 1 + 2 + len(idle_forms)
                + len(siege_globals) + 1 + len(CITIES) + 2
@@ -1648,7 +1674,8 @@ def main() -> int:
                + len(dungeon_places)  # and their quests
                + 3 + 1 + 2 + talk["kDungeonLineCount"] + talk["kDungeonRumorCount"]  # their globals, dialogue quest, topics, lines, rumors
                + 1 + 1 + 1 + len(DUNGEON_RUNNER_LINES)  # the notice, the runner's base and reference, his greetings
-               + 2 * len(CITIES) + 1)  # the notices' references, the board's notice
+               + 2 * len(CITIES) + 1  # the notices' references, the board's notice
+               + 2 + talk["kDungeonBeds"])  # the rest topic and its line, the beds
     next_id = max(camp_end + test_pool, LIGHT_LOCAL_LAST + 1)
     if args.esl and next_id - 1 > LIGHT_LOCAL_LAST:
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} does not fit a light plugin")
@@ -1832,7 +1859,9 @@ def main() -> int:
     greeting_ctda = [struct.unpack_from("<B3xfIIII", d, 0) for k, d in back_greeting if k == b"CTDA"]
     if ([c[3] for c in greeting_ctda[:-1]] != kit_refs or any(c[2] != GET_IS_REFERENCE for c in greeting_ctda[:-1])
             or greeting_ctda[-2][0] != 0 or greeting_ctda[-1][1:4] != (1.0, GET_GLOBAL_VALUE, talk_global)
-            or [struct.unpack("<I", d)[0] for k, d in back_greeting if k == b"NAME"] != [what_form, help_form]
+            or [struct.unpack("<I", d)[0] for k, d in back_greeting if k == b"NAME"] != [what_form, help_form, rest_form]
+            or any(struct.unpack("<I", dict(find_record(esm, plugin, b"REFR", index | (talk["kDungeonBedFirstLocalId"] + b)))[b"NAME"])[0]
+                   != CAMP_BEDROLL for b in range(talk["kDungeonBeds"]))
             or struct.unpack("<I", dict(back_greeting)[b"QSTI"])[0] != talk_quest_form):
         raise SystemExit("the held dungeons' first greeting reads back wrong")
     for k, (kind, text) in enumerate(DUNGEON_RUMORS):
