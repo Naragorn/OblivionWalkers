@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 33.0;  // 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 34.0;  // 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -384,6 +384,54 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_dungeons_only_chosen", "Only the chosen dungeons",
 	 "Refugees hold only the chosen dungeons - roomy, few cells, spread over the map - not any free one.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_enabled", "Refugees hold dungeons",
+	 "Refugees hole up in dungeons; walkers try to get in.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_active_min", "Dungeons held at least",
+	 "The fewest dungeons active at once.",
+	 LinkKind::Slider, 1, 8, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_active_max", "Dungeons held at most",
+	 "The most dungeons active at once.",
+	 LinkKind::Slider, 1, 8, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_weight_refuge", "Dungeons: refuge",
+	 "How often a place is a quiet refuge (weight against the other three).",
+	 LinkKind::Slider, 0, 100, 5, 0, false, LinkEffect::Live},
+	{"ini_dungeons_weight_besieged", "Dungeons: besieged",
+	 "How often a place is besieged by walkers (weight).",
+	 LinkKind::Slider, 0, 100, 5, 0, false, LinkEffect::Live},
+	{"ini_dungeons_weight_to_clear", "Dungeons: to clear",
+	 "How often you must clear a place first, the refugees waiting outside (weight).",
+	 LinkKind::Slider, 0, 100, 5, 0, false, LinkEffect::Live},
+	{"ini_dungeons_weight_walker", "Dungeons: walker dungeon",
+	 "How often a place is already overrun by walkers (weight).",
+	 LinkKind::Slider, 0, 100, 5, 0, false, LinkEffect::Live},
+	{"ini_dungeons_spacing", "Dungeons apart",
+	 "The active dungeons' doors at least this far apart (units).",
+	 LinkKind::Slider, 0, 60000, 1000, 0, false, LinkEffect::Live},
+	{"ini_dungeons_people_min", "Refugees at least",
+	 "The fewest refugees in a held dungeon.",
+	 LinkKind::Slider, 1, 12, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_people_max", "Refugees at most",
+	 "The most refugees in a held dungeon.",
+	 LinkKind::Slider, 1, 12, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_attack_chance", "Dungeons: attack chance",
+	 "The chance each game day that walkers attack a quiet refuge.",
+	 LinkKind::Slider, 0, 100, 1, 0, true, LinkEffect::Live},
+	{"ini_dungeons_walkers_min", "Dungeon attack: walkers at least",
+	 "The fewest walkers in an attack on a dungeon.",
+	 LinkKind::Slider, 1, 60, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_walkers_max", "Dungeon attack: walkers at most",
+	 "The most walkers in an attack on a dungeon.",
+	 LinkKind::Slider, 1, 60, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_kills", "Dungeons: refugees' kills",
+	 "Walkers the refugees cut down each game hour of a siege while you are away.",
+	 LinkKind::Slider, 0, 10, 0.5f, 1, false, LinkEffect::Live},
+	{"ini_dungeons_loss", "Dungeons: refugees lost",
+	 "The chance each game hour of a siege that a refugee dies while you are away.",
+	 LinkKind::Slider, 0, 100, 1, 0, true, LinkEffect::Live},
+	{"ini_dungeons_leave_days", "Dungeons: given up after",
+	 "Game days a dungeon you never came near stays held; then the refugees move on and another is chosen. 0: never.",
+	 LinkKind::Slider, 0, 30, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -524,6 +572,22 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 172: return rise.horde.loadedGrid;
 		case 173: return rise.slowAggression.calmSeconds;
 		case 174: return rise.dungeonsOnlyChosen ? 1.0 : 0.0;
+		case 175: return rise.dungeons.enabled ? 1.0 : 0.0;
+		case 176: return rise.dungeons.activeMin;
+		case 177: return rise.dungeons.activeMax;
+		case 178: return rise.dungeons.weightRefuge;
+		case 179: return rise.dungeons.weightBesieged;
+		case 180: return rise.dungeons.weightToClear;
+		case 181: return rise.dungeons.weightWalkerDungeon;
+		case 182: return rise.dungeons.spacingUnits;
+		case 183: return rise.dungeons.peopleMin;
+		case 184: return rise.dungeons.peopleMax;
+		case 185: return rise.dungeons.attackChancePercent;
+		case 186: return rise.dungeons.walkersMin;
+		case 187: return rise.dungeons.walkersMax;
+		case 188: return rise.dungeons.refugeeKillsPerHour;
+		case 189: return rise.dungeons.lossPercentPerHour;
+		case 190: return rise.dungeons.leaveAfterDays;
 		default: return 0.0;
 	}
 }
@@ -685,6 +749,22 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 172: rise.horde.loadedGrid = whole; break;
 		case 173: rise.slowAggression.calmSeconds = static_cast<float>(whole); break;
 		case 174: rise.dungeonsOnlyChosen = on; break;
+		case 175: rise.dungeons.enabled = on; break;
+		case 176: rise.dungeons.activeMin = whole; break;
+		case 177: rise.dungeons.activeMax = whole; break;
+		case 178: rise.dungeons.weightRefuge = whole; break;
+		case 179: rise.dungeons.weightBesieged = whole; break;
+		case 180: rise.dungeons.weightToClear = whole; break;
+		case 181: rise.dungeons.weightWalkerDungeon = whole; break;
+		case 182: rise.dungeons.spacingUnits = static_cast<float>(whole); break;
+		case 183: rise.dungeons.peopleMin = whole; break;
+		case 184: rise.dungeons.peopleMax = whole; break;
+		case 185: rise.dungeons.attackChancePercent = whole; break;
+		case 186: rise.dungeons.walkersMin = whole; break;
+		case 187: rise.dungeons.walkersMax = whole; break;
+		case 188: rise.dungeons.refugeeKillsPerHour = fraction; break;
+		case 189: rise.dungeons.lossPercentPerHour = whole; break;
+		case 190: rise.dungeons.leaveAfterDays = static_cast<float>(whole); break;
 		default: return false;
 	}
 	return true;

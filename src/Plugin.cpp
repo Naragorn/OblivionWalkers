@@ -166,6 +166,22 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.slowAggression.units = IniFloat("Zombies", "SlowAggressionUnits", 1000.0f, path);
 	rise.slowAggression.calmSeconds = IniFloat("Zombies", "SlowAggressionCalmSeconds", 10.0f, path);
 	rise.dungeonsOnlyChosen = GetPrivateProfileIntA("Dungeons", "OnlyChosen", 0, path) != 0;
+	rise.dungeons.enabled = GetPrivateProfileIntA("Dungeons", "Enabled", 1, path) != 0;
+	rise.dungeons.activeMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "ActiveMin", 3, path));
+	rise.dungeons.activeMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "ActiveMax", 5, path));
+	rise.dungeons.weightRefuge = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightRefuge", 25, path));
+	rise.dungeons.weightBesieged = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightBesieged", 25, path));
+	rise.dungeons.weightToClear = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightToClear", 25, path));
+	rise.dungeons.weightWalkerDungeon = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightWalkerDungeon", 25, path));
+	rise.dungeons.spacingUnits = IniFloat("Dungeons", "SpacingUnits", 15000.0f, path);
+	rise.dungeons.peopleMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMin", 4, path));
+	rise.dungeons.peopleMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMax", 8, path));
+	rise.dungeons.attackChancePercent = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackChancePercent", 15, path));
+	rise.dungeons.walkersMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackWalkersMin", 8, path));
+	rise.dungeons.walkersMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackWalkersMax", 16, path));
+	rise.dungeons.refugeeKillsPerHour = IniFloat("Dungeons", "RefugeeKillsPerHour", 2.0f, path);
+	rise.dungeons.lossPercentPerHour = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "LossPercentPerHour", 25, path));
+	rise.dungeons.leaveAfterDays = IniFloat("Dungeons", "LeaveAfterDays", 7.0f, path);
 	if (rise.slowAggression.units < 100.0f) {
 		rise.slowAggression.units = 100.0f;
 	}

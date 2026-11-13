@@ -12,6 +12,7 @@
 #include "Bytes.h"
 #include "CampLogic.h"
 #include "DisguiseLogic.h"
+#include "DungeonSiteLogic.h"
 #include "EndLogic.h"
 #include "GrabLogic.h"
 #include "GuardLogic.h"
@@ -185,6 +186,8 @@ struct RiseSettings {
 	// [Dungeons] OnlyChosen (4.20.7; Nadi, 2026-11-13: the player chooses,
 	// all candidates the default): 1 keeps the chosen dungeons only.
 	bool dungeonsOnlyChosen = false;
+	// [Dungeons] the held places' situation (4.20.7, DungeonSiteLogic.h).
+	DungeonSiteSettings dungeons;
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

@@ -2959,7 +2959,13 @@ dungeon, the lost rising there. ToClear and WalkerDungeon wait for the
 player to clear them, then they are a refuge (those waiting move in, or
 new people come). A place unseen for LeaveAfterDays 7 is given up (never
 during a siege) and another is rolled. The defaults are mine, taken from
-the camps' where they had one - to be set with Nadi.
+the camps' where they had one; Nadi (2026-11-13): every value settable,
+in the INI and LINK, mine as the defaults - `[Dungeons]` Enabled, ActiveMin,
+ActiveMax, WeightRefuge, WeightBesieged, WeightToClear,
+WeightWalkerDungeon, SpacingUnits, PeopleMin, PeopleMax,
+AttackChancePercent, AttackWalkersMin, AttackWalkersMax,
+RefugeeKillsPerHour, LossPercentPerHour, LeaveAfterDays (LINK 175..190,
+version 34).
 
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
