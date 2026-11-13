@@ -3258,8 +3258,33 @@ scenario after the toll's fix: the run of 20:10 ended with "SteamVR quit
 ... the game told to quit" (SteamVR had run out of memory - Nadi), run
 again 20:42 PASS, every check (20261113-204259).
 
-Not built yet: beds; walkers outside the door (a siege is fought inside
-only).
+**Step 4c, the beds and the runner's replacement** (Nadi, 2026-11-13: "Go
+toten boten und betten"; then: no more harness runs, he tests on Windows):
+- **A dead runner** is raised and dressed again before his next errand
+  (`MessengerFit`: the kit's Raise - off the rise's list, Resurrect, the
+  camps' first outfit); one who rose as a walker himself (the rise without
+  a creature, not the default) is lost and nobody comes. Unit flows only;
+  `tools/dungeon-walkers.sh runner-dead` is written and was not run.
+- **Beds**: four bedrolls in the ESP (the camps' BedrollSideEntry,
+  0xA8F..0xA92, in the holding cell), `[Dungeons] Beds=3` of them (0 to 4;
+  LINK 195) laid one a second where the kit stands inside a place - on the
+  candidate's spots from the far end, the last left to the trader -, taken
+  away when the kit stands elsewhere; the topic "A place to rest" for a
+  refuge (states 1 and 4). **Not working in the one run made**
+  (`tools/dungeon-walkers.sh beds`, 20261113-211250): the log has "beds -
+  bed 0 laid in Fort Ash on spot 11 (MoveTo 0009DCB2 1123 20 -118 answered
+  1)", bed 1 on 10, bed 2 on 9, and "3 taken away" at the end - but the eye
+  pictures 110 units before bed 0 and bed 1 show the floor without a
+  bedroll, and the bed activated for the player opened no sleep menu. Cause
+  not found: the kit's people moved the same way stand there (actors); the
+  notices moved so in an exterior show; a piece of furniture moved into an
+  interior cell before the player enters it is the case not seen to work.
+  Open bug - see 7a.
+- The people's default 3 to 6 (above), LINK version 38.
+
+Not built yet: walkers outside the door (a siege is fought inside only).
+Not measured: a siege's fight with three to six people (the fight look
+takes its counts now: `tools/dungeon-walkers.sh fight 5 12`).
 Open: a living thing the player cannot reach (a slaughterfish, a
 rat behind a wall) keeps a place from being cleared - the log names
 nothing yet; the refugees win a siege of ten walkers without the player
@@ -3745,6 +3770,14 @@ roster line's counts.
    path.
 
 ## 7a. Open bugs
+
+- **The held dungeons' beds do not show** (2026-11-13, harness dungeon-beds
+  20261113-211250, Linux): laid by the log, not in the eye pictures, no
+  sleep menu on activation (4.20.7, step 4c). To find first: whether the
+  bed's reference is in the cell and has its 3D (log its parent cell and
+  node three seconds after it is laid, as the kit's "stands" line), then
+  whether laying it with the player already inside, or a Disable and an
+  Enable a second apart after the move, shows it.
 
 - **FIX BUILT 2026-11-10, Windows open - no refugee ever asked to be led** (Nadi, 2026-11-10:
   found a camp, could start the escort nowhere). Cause, read: the escort's greeting,
