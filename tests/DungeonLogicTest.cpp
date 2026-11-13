@@ -26,9 +26,9 @@ using walkers::DungeonOut;
 using walkers::DungeonSkips;
 
 constexpr DungeonCandidate kFort = {"Fort Aurus", DungeonKind::Fort, {0x00001111, 0x00001112, 0, 0}, 2, 0x0000A001,
-                                    0x0000B001, true};
+                                    0x0000B001, true, 0.0f, 0.0f};
 constexpr DungeonCandidate kCave = {"Lost Boy Cavern", DungeonKind::Cave, {0x00002221, 0, 0, 0}, 1, 0x0000A002,
-                                    0x0000B002, false};
+                                    0x0000B002, false, 20000.0f, 0.0f};
 const walkers::DungeonQuestNames kNoNames = {nullptr, 0, nullptr, 0};
 
 void TestSkipList() {
@@ -78,7 +78,7 @@ void TestOut() {
 	      "a quest names the door outside: out (A)");
 	Check(DungeonOut(kCave, {nullptr, 0, questRefs, 1}, none) == walkers::DungeonVerdict::In,
 	      "another dungeon's marker named: in");
-	const DungeonCandidate noCells = {"Nowhere", DungeonKind::Mine, {0, 0, 0, 0}, 0, 0, 0, false};
+	const DungeonCandidate noCells = {"Nowhere", DungeonKind::Mine, {0, 0, 0, 0}, 0, 0, 0, false, 0.0f, 0.0f};
 	const UInt32 zeroRef[] = {0};
 	Check(DungeonOut(noCells, {nullptr, 0, zeroRef, 1}, none) == walkers::DungeonVerdict::In,
 	      "no door and no marker (0): a named 0 matches nothing");

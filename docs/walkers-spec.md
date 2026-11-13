@@ -2934,6 +2934,26 @@ most, doors 12000 units apart, the roomiest first, shares of 9 caves, 8
 ruins, 9 forts, 6 mines (`--chosen-*`). OnlyChosen changes the pool at
 once (StepDungeonPool, the log line "Dungeons: ... (OnlyChosen=N) ...").
 
+**Step 2, the situation - built 2026-11-13 as logic only**
+(`src/DungeonSiteLogic.h`, flows in tests/DungeonSiteLogicTest.cpp; not
+in the game, no INI or LINK keys yet - they come with step 3). ActiveMin
+3 to ActiveMax 5 places active (rolled once), their doors SpacingUnits
+15000 apart, each a variant by its weight (25 each): Refuge (PeopleMin 4
+to PeopleMax 8 inside), Besieged (people and AttackWalkersMin 8 to
+AttackWalkersMax 16 walkers), ToClear (the people waiting outside),
+WalkerDungeon (walkers, nobody). A refuge is attacked by
+AttackChancePercent 15 a game day (days missed rolled for, one attack at
+most). A siege away is counted off as the camps' (RefugeeKillsPerHour 2,
+LossPercentPerHour 25 - one lost first, then the kills; seven days at
+most at a time); near, the game fights it out: each walker ended counts
+off, the last with someone alive holds it - Defended if the player was
+near, else Held - and the last person dead overruns it into a walker
+dungeon, the lost rising there. ToClear and WalkerDungeon wait for the
+player to clear them, then they are a refuge (those waiting move in, or
+new people come). A place unseen for LeaveAfterDays 7 is given up (never
+during a siege) and another is rolled. The defaults are mine, taken from
+the camps' where they had one - to be set with Nadi.
+
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
 Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting

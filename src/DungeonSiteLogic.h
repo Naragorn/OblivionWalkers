@@ -1,0 +1,324 @@
+#pragma once
+
+// The held dungeons' situation, process-free (docs/walkers-spec.md 4.20.7,
+// Nadi's vision of 2026-11-11; step 2). From the pool (DungeonLogic.h)
+// ActiveMin..ActiveMax places are active at once, DungeonSpacingUnits apart,
+// each in a variant rolled by its weight:
+//   Refuge         held and quiet - attacked by AttackChancePercent a game day
+//   Besieged       held, walkers storm it - fought out by the game with the
+//                  player near, else counted off hour by hour (the camps'
+//                  toll, CampLogic.h StepCamp): the walkers all ended with
+//                  someone alive - held (defended when the player saw it),
+//                  a refuge again; everyone dead - overrun
+//   ToClear        bandits or creatures inside, the refugees wait outside;
+//                  cleared by the player, they move in - a refuge
+//   WalkerDungeon  overrun - the dead risen; cleared, taken again - a refuge
+// A place the player has not come near for LeaveAfterDays is given up (a
+// siege is fought out first) and another rolled: the situation changes
+// over time, the places stay those of the pool.
+
+#include <cmath>
+
+#include "DungeonLogic.h"
+#include "Types.h"
+
+namespace walkers {
+
+inline constexpr UInt32 kDungeonActiveMost = 8;
+inline constexpr UInt16 kDungeonNoCandidate = 0xFFFF;
+inline constexpr UInt32 kDungeonTollHoursMost = 24 * 7;
+
+struct DungeonSiteSettings {
+	bool enabled = true;
+	UInt32 activeMin = 3;                // ActiveMin
+	UInt32 activeMax = 5;                // ActiveMax
+	UInt32 weightRefuge = 25;            // WeightRefuge
+	UInt32 weightBesieged = 25;          // WeightBesieged
+	UInt32 weightToClear = 25;           // WeightToClear
+	UInt32 weightWalkerDungeon = 25;     // WeightWalkerDungeon
+	float spacingUnits = 15000.0f;       // SpacingUnits: the active places' doors at least this far apart
+	UInt32 peopleMin = 4;                // PeopleMin
+	UInt32 peopleMax = 8;                // PeopleMax
+	UInt32 attackChancePercent = 15;     // AttackChancePercent: a refuge and game day
+	UInt32 walkersMin = 8;               // AttackWalkersMin
+	UInt32 walkersMax = 16;              // AttackWalkersMax
+	float refugeeKillsPerHour = 2.0f;    // RefugeeKillsPerHour: a siege away
+	UInt32 lossPercentPerHour = 25;      // LossPercentPerHour: a siege away, one lost an hour by this
+	float leaveAfterDays = 7.0f;         // LeaveAfterDays: unseen this long - given up; 0 never
+};
+
+enum class DungeonState : UInt8 { Free, Refuge, Besieged, ToClear, WalkerDungeon };
+
+struct DungeonSite {
+	UInt16 candidate = kDungeonNoCandidate;  // DungeonCandidates.h's index
+	DungeonState state = DungeonState::Free;
+	UInt8 people = 0;        // alive inside
+	UInt8 waiting = 0;       // ToClear: waiting outside
+	UInt8 lost = 0;          // lost in this siege
+	UInt16 walkersLeft = 0;  // Besieged: storming it; WalkerDungeon: in it
+	float dayFrom = 0.0f;    // Refuge: the attack rolled for every whole day since
+	float lastSeen = 0.0f;   // the player last near
+	float tollFrom = -1.0f;  // Besieged away: the toll counted since
+	float carry = 0.0f;      // the part of a kill short of one
+	bool seen = false;       // the player near during this siege
+};
+
+struct DungeonSitesState {
+	DungeonSite sites[kDungeonActiveMost];
+	UInt32 count = 0;
+	UInt32 target = 0;  // the active count rolled, 0 not yet
+};
+
+enum class DungeonEventKind : UInt8 { Rolled, Attacked, PersonLost, Held, Defended, Overrun, Taken, Left };
+
+struct DungeonEvent {
+	DungeonEventKind kind;
+	UInt32 site;
+};
+
+namespace dungeon_detail {
+
+inline UInt32 Put(DungeonEvent* out, UInt32 n, UInt32 most, DungeonEventKind kind, UInt32 site) {
+	if (out != nullptr && n < most) {
+		out[n] = {kind, site};
+	}
+	return n + 1;
+}
+
+inline UInt32 Between(UInt32 least, UInt32 most, UInt32 roll) {
+	return most <= least ? least : least + roll % (most - least + 1);
+}
+
+inline UInt32 Overrun(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 n, UInt32 most) {
+	d.walkersLeft = static_cast<UInt16>(d.walkersLeft + d.lost);  // the lost rise there
+	d.people = 0;
+	d.lost = 0;
+	d.state = DungeonState::WalkerDungeon;
+	return Put(out, n, most, DungeonEventKind::Overrun, i);
+}
+
+inline UInt32 Held(DungeonSite& d, UInt32 i, float now, DungeonEvent* out, UInt32 n, UInt32 most) {
+	const bool defended = d.seen;
+	d.walkersLeft = 0;
+	d.lost = 0;
+	d.seen = false;
+	d.tollFrom = -1.0f;
+	d.dayFrom = now;
+	d.state = DungeonState::Refuge;
+	return Put(out, n, most, defended ? DungeonEventKind::Defended : DungeonEventKind::Held, i);
+}
+
+}  // namespace dungeon_detail
+
+inline DungeonState RollVariant(const DungeonSiteSettings& s, UInt32 roll) {
+	const UInt32 w[4] = {s.weightRefuge, s.weightBesieged, s.weightToClear, s.weightWalkerDungeon};
+	const UInt32 total = w[0] + w[1] + w[2] + w[3];
+	if (total == 0) {
+		return DungeonState::Refuge;
+	}
+	UInt32 r = roll % total;
+	const DungeonState states[4] = {DungeonState::Refuge, DungeonState::Besieged, DungeonState::ToClear,
+	                                DungeonState::WalkerDungeon};
+	for (UInt32 k = 0; k < 4; ++k) {
+		if (r < w[k]) {
+			return states[k];
+		}
+		r -= w[k];
+	}
+	return DungeonState::Refuge;
+}
+
+inline UInt32 ActiveTarget(const DungeonSiteSettings& s, UInt32 roll) {
+	const UInt32 n = dungeon_detail::Between(s.activeMin, s.activeMax, roll);
+	return n > kDungeonActiveMost ? kDungeonActiveMost : n;
+}
+
+// Rolls new places until the target count is active: each from the pool,
+// not active already, SpacingUnits from every active one; its variant, its
+// people and walkers rolled. Returns the events (Rolled).
+template <typename RollFn>
+UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const DungeonCandidate* all, UInt32 count,
+                    const bool* inPool, float now, RollFn& roll, DungeonEvent* out, UInt32 most) {
+	if (!s.enabled) {
+		return 0;
+	}
+	if (st.target == 0) {
+		st.target = ActiveTarget(s, roll());
+	}
+	UInt32 n = 0;
+	while (st.count < st.target) {
+		UInt32 open = 0;
+		UInt32 pick = kDungeonNoCandidate;
+		for (UInt32 pass = 0; pass < 2; ++pass) {
+			const UInt32 chosen = pass == 1 && open > 0 ? roll() % open : 0;
+			UInt32 seen = 0;
+			for (UInt32 c = 0; c < count && c < kDungeonNoCandidate; ++c) {
+				bool free = inPool[c];
+				for (UInt32 k = 0; free && k < st.count; ++k) {
+					const DungeonCandidate& a = all[st.sites[k].candidate];
+					free = st.sites[k].candidate != c &&
+					       std::hypot(a.x - all[c].x, a.y - all[c].y) >= s.spacingUnits;
+				}
+				if (!free) {
+					continue;
+				}
+				if (pass == 1 && seen == chosen) {
+					pick = c;
+					break;
+				}
+				++seen;
+			}
+			if (pass == 0) {
+				open = seen;
+				if (open == 0) {
+					break;
+				}
+			}
+		}
+		if (pick == kDungeonNoCandidate) {
+			break;
+		}
+		DungeonSite d;
+		d.candidate = static_cast<UInt16>(pick);
+		d.state = RollVariant(s, roll());
+		const UInt32 people = dungeon_detail::Between(s.peopleMin, s.peopleMax, roll());
+		const UInt32 walkers = dungeon_detail::Between(s.walkersMin, s.walkersMax, roll());
+		d.people = static_cast<UInt8>(d.state == DungeonState::Refuge || d.state == DungeonState::Besieged ? people : 0);
+		d.waiting = static_cast<UInt8>(d.state == DungeonState::ToClear ? people : 0);
+		d.walkersLeft = static_cast<UInt16>(
+		    d.state == DungeonState::Besieged || d.state == DungeonState::WalkerDungeon ? walkers : 0);
+		d.dayFrom = now;
+		d.lastSeen = now;
+		d.tollFrom = d.state == DungeonState::Besieged ? now : -1.0f;
+		st.sites[st.count] = d;
+		n = dungeon_detail::Put(out, n, most, DungeonEventKind::Rolled, st.count);
+		++st.count;
+	}
+	return n;
+}
+
+// Once a second for site `i` at game day `now`, the player `near` it or not.
+template <typename RollFn>
+UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, float now, bool near, RollFn& roll,
+                       DungeonEvent* out, UInt32 most) {
+	if (d.state == DungeonState::Free || now < 0.0f) {
+		return 0;
+	}
+	UInt32 n = 0;
+	if (near) {
+		d.lastSeen = now;
+	}
+	if (d.state == DungeonState::Refuge) {
+		const float days = std::floor(now - d.dayFrom);
+		if (days >= 1.0f) {
+			d.dayFrom += days;
+			for (UInt32 k = 0; k < static_cast<UInt32>(days) && k < 30; ++k) {
+				if (roll() % 100 < s.attackChancePercent) {
+					d.state = DungeonState::Besieged;
+					d.walkersLeft = static_cast<UInt16>(dungeon_detail::Between(s.walkersMin, s.walkersMax, roll()));
+					d.tollFrom = now;
+					d.seen = near;
+					d.carry = 0.0f;
+					d.lost = 0;
+					n = dungeon_detail::Put(out, n, most, DungeonEventKind::Attacked, i);
+					break;
+				}
+			}
+		}
+	}
+	if (d.state == DungeonState::Besieged) {
+		if (near || d.tollFrom < 0.0f) {
+			d.seen = d.seen || near;
+			d.tollFrom = now;
+			return n;
+		}
+		float hours = std::floor((now - d.tollFrom) * 24.0f);
+		if (hours > static_cast<float>(kDungeonTollHoursMost)) {
+			hours = static_cast<float>(kDungeonTollHoursMost);
+		}
+		for (UInt32 h = 0; h < static_cast<UInt32>(hours); ++h) {
+			d.tollFrom += 1.0f / 24.0f;
+			if (d.people > 0 && roll() % 100 < s.lossPercentPerHour) {
+				--d.people;
+				++d.lost;
+				n = dungeon_detail::Put(out, n, most, DungeonEventKind::PersonLost, i);
+			}
+			if (d.people == 0) {
+				return dungeon_detail::Overrun(d, i, out, n, most);
+			}
+			d.carry += s.refugeeKillsPerHour > 0.0f ? s.refugeeKillsPerHour : 0.0f;
+			const UInt32 kills = static_cast<UInt32>(d.carry);
+			d.carry -= static_cast<float>(kills);
+			d.walkersLeft = static_cast<UInt16>(kills >= d.walkersLeft ? 0 : d.walkersLeft - kills);
+			if (d.walkersLeft == 0) {
+				return dungeon_detail::Held(d, i, now, out, n, most);
+			}
+		}
+		return n;
+	}
+	if (s.leaveAfterDays > 0.0f && !near && now - d.lastSeen >= s.leaveAfterDays) {
+		d = DungeonSite();
+		n = dungeon_detail::Put(out, n, most, DungeonEventKind::Left, i);
+	}
+	return n;
+}
+
+// A walker of site `i`'s ended (4.17's end): one off the siege - the last,
+// someone alive, holds it (defended when the player was near) - or one off
+// a walker dungeon's.
+inline UInt32 DungeonWalkerEnded(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 most) {
+	if (d.walkersLeft == 0) {
+		return 0;
+	}
+	if (d.state == DungeonState::Besieged) {
+		--d.walkersLeft;
+		return d.walkersLeft == 0 && d.people > 0 ? dungeon_detail::Held(d, i, d.lastSeen, out, 0, most) : 0;
+	}
+	if (d.state == DungeonState::WalkerDungeon) {
+		--d.walkersLeft;
+	}
+	return 0;
+}
+
+// One of site `i`'s people found dead in the game; the last overruns it
+// (the rise raises them - the siege's walkers left stay).
+inline UInt32 DungeonPersonDied(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 most) {
+	if (d.people == 0 || d.state == DungeonState::Free || d.state == DungeonState::WalkerDungeon) {
+		return 0;
+	}
+	--d.people;
+	return d.people == 0 ? dungeon_detail::Overrun(d, i, out, 0, most) : 0;
+}
+
+// Site `i` cleared by the player: to clear - those waiting move in; a
+// walker dungeon - taken again, new people come. A refuge again.
+template <typename RollFn>
+UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, RollFn& roll, DungeonEvent* out,
+                      UInt32 most) {
+	if (d.state != DungeonState::ToClear && d.state != DungeonState::WalkerDungeon) {
+		return 0;
+	}
+	const UInt32 people = d.state == DungeonState::ToClear && d.waiting > 0
+	                          ? d.waiting
+	                          : dungeon_detail::Between(s.peopleMin, s.peopleMax, roll());
+	d.people = static_cast<UInt8>(people);
+	d.waiting = 0;
+	d.walkersLeft = 0;
+	d.lost = 0;
+	d.dayFrom = d.lastSeen;
+	d.state = DungeonState::Refuge;
+	return dungeon_detail::Put(out, 0, most, DungeonEventKind::Taken, i);
+}
+
+// The sites given up taken off the list, the rest in their order.
+inline void DropFreeSites(DungeonSitesState& st) {
+	UInt32 kept = 0;
+	for (UInt32 k = 0; k < st.count; ++k) {
+		if (st.sites[k].state != DungeonState::Free) {
+			st.sites[kept++] = st.sites[k];
+		}
+	}
+	st.count = kept;
+}
+
+}  // namespace walkers

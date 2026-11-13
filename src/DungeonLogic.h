@@ -49,6 +49,8 @@ struct DungeonCandidate {
 	UInt32 door;    // the door outside, in Tamriel
 	UInt32 marker;  // its map marker
 	bool chosen;    // one of the chosen (roomy, few cells, spread - tools/dungeon-candidates.py)
+	float x;        // the door outside, in Tamriel
+	float y;
 };
 
 // What the loaded quests name (Replace.cpp CollectQuestNames): the cells

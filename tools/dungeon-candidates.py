@@ -428,7 +428,7 @@ def main() -> int:
             h.append(f'\t{{"{name}", DungeonKind::{enum[r["kind"]]}, {{'
                      + ", ".join(f"0x{c:08X}" for c in cells)
                      + f"}}, {len(r['group'])}, 0x{r['door']:08X}, 0x{r['marker']:08X}, "
-                     + ("true" if r["chosen"] else "false") + "},")
+                     + ("true" if r["chosen"] else "false") + f", {r['x']:.0f}.0f, {r['y']:.0f}.0f}},")
         h += ["};", "", "inline constexpr UInt32 kDungeonCandidateCount =",
               "    static_cast<UInt32>(sizeof kDungeonCandidates / sizeof kDungeonCandidates[0]);", "",
               "}  // namespace walkers", ""]
