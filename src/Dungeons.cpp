@@ -11,9 +11,11 @@
 #include "Camps.h"
 #include "DungeonCandidates.h"
 #include "DungeonKitLogic.h"
+#include "DungeonNoticeLogic.h"
 #include "Engine.h"
 #include "Horde.h"
 #include "News.h"
+#include "QuestVars.h"
 #include "Replace.h"
 #include "RiseLogic.h"
 
@@ -173,6 +175,13 @@ int g_thankedCandidate = -1;
 // The runner for help, whether the save may hold him enabled, and the book
 // the player had open a second ago.
 DungeonMessenger g_messenger;
+// The notices: MOO's quest (0 not loaded) once the load order is read, each
+// city's notice seen to since the load, and the seconds waited for MOO's
+// boards.
+UInt32 g_mooQuest = 0;
+bool g_mooKnown = false;
+bool g_noticeDone[kNoticeCities] = {};
+float g_noticeWaited = 0.0f;
 bool g_messengerUnknown = true;
 bool g_messengerDeadLogged = false;
 UInt32 g_bookBefore = 0;
@@ -355,6 +364,98 @@ void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, Lo
 	} else if (does == MessengerDoes::Go) {
 		Say(ref, "Disable");
 		log("Dungeons: runner - taken away (%.0f units from the player)", distance);
+	}
+}
+
+// One of MOO's quest variables, 0 when it is not there.
+float MooValue(const char* name) {
+	const double* value = g_mooQuest != 0 ? QuestVariable(g_mooQuest, name) : nullptr;
+	return value != nullptr ? static_cast<float>(*value) : 0.0f;
+}
+
+// Once a second until every city's notice is seen to (DungeonNoticeLogic.h):
+// on MOO's board where MOO has placed one, else before the city's gate. A
+// notice at its spot already (a save's) is left alone - no console line.
+void StepNotices(LogFn log) {
+	if (!g_mooKnown || g_espBase == kNoEsp) {
+		return;
+	}
+	bool open = false;
+	for (UInt32 c = 0; c < kNoticeCities; ++c) {
+		open = open || !g_noticeDone[c];
+	}
+	if (!open) {
+		return;
+	}
+	g_noticeWaited += kStepSeconds;
+	MooBoards moo;
+	moo.loaded = g_mooQuest != 0 && QuestVariable(g_mooQuest, "ini_add_noticeboards") != nullptr;
+	if (moo.loaded) {
+		moo.boards = MooValue("ini_add_noticeboards") != 0.0f;
+		moo.worldspace = static_cast<UInt32>(MooValue("ini_noticeboard_worldspace"));
+		moo.placed = static_cast<UInt32>(MooValue("placednoticeboards"));
+		moo.placedOpen = static_cast<UInt32>(MooValue("placednoticeboardsopen"));
+	}
+	for (UInt32 c = 0; c < kNoticeCities; ++c) {
+		if (g_noticeDone[c]) {
+			continue;
+		}
+		char name[48];
+		const bool cityOn = moo.loaded && MooBoardSwitch(name, sizeof(name), c) && MooValue(name) != 0.0f;
+		const NoticeAt at = NoticeWhere(moo, cityOn, c, g_noticeWaited);
+		if (at == NoticeAt::Wait) {
+			continue;
+		}
+		g_noticeDone[c] = true;
+		const UInt32 ref = LookupForm(EspFormId(g_espBase, kDungeonNoticeRefFirstLocalId + c));
+		const int gate = NoticeMainGate(c);
+		if (!LooksLikeObject(ref) || gate < 0) {
+			log("Dungeons: notice - %s: its reference is not there", kNoticeBoards[c].key);
+			continue;
+		}
+		NoticeSpot spot = NoticeAtGate(kCityGates[gate]);
+		if (at != NoticeAt::Gate) {
+			float b[3] = {};
+			const char axes[3] = {'x', 'y', 'z'};
+			for (UInt32 k = 0; k < 3; ++k) {
+				b[k] = MooBoardVariable(name, sizeof(name), c, axes[k]) ? MooValue(name) : 0.0f;
+			}
+			spot = NoticeOnBoard(c, at == NoticeAt::BoardOpen, b[0], b[1], b[2]);
+		}
+		const char* where = at == NoticeAt::Gate ? "before the gate" : (at == NoticeAt::Board ? "on MOO's board" : "on MOO's board (open cities)");
+		const UInt32 anchor = LookupForm(spot.anchor);
+		if (!LooksLikeObject(anchor)) {
+			log("Dungeons: notice - %s: %s - the anchor %08X is not there", kNoticeBoards[c].key, where, spot.anchor);
+			continue;
+		}
+		if (!NoticeNeedsMove(spot, FloatAt(ref + kRefPositionOffset), FloatAt(ref + kRefPositionOffset + 4),
+		                     FloatAt(ref + kRefPositionOffset + 8), Disabled(ref))) {
+			log("Dungeons: notice - %s: %s at %.0f %.0f %.0f already", kNoticeBoards[c].key, where, spot.x, spot.y,
+			    spot.z);
+			continue;
+		}
+		float dx = 0.0f;
+		float dy = 0.0f;
+		float dz = 0.0f;
+		NoticeOffset(spot, FloatAt(anchor + kRefPositionOffset), FloatAt(anchor + kRefPositionOffset + 4),
+		             FloatAt(anchor + kRefPositionOffset + 8), dx, dy, dz);
+		char line[80];
+		std::snprintf(line, sizeof(line), "MoveTo %08X %.1f %.1f %.1f", spot.anchor, dx, dy, dz);
+		const bool moved = Say(ref, line);
+		const float angles[3] = {spot.ax, spot.ay, spot.az};
+		const char axes[3] = {'x', 'y', 'z'};
+		for (UInt32 k = 0; k < 3; ++k) {
+			char turn[40];
+			std::snprintf(turn, sizeof(turn), "SetAngle %c %.1f", axes[k], angles[k]);
+			Say(ref, turn);
+		}
+		if (Disabled(ref)) {
+			Say(ref, "Enable");
+		}
+		log("Dungeons: notice - %s: hung %s at %.0f %.0f %.0f, turned %.1f %.1f %.1f (%s answered %d; MOO loaded %d, "
+		    "boards %d, worldspace %u, placed %02X / %02X; waited %.0f s)",
+		    kNoticeBoards[c].key, where, spot.x, spot.y, spot.z, spot.ax, spot.ay, spot.az, line, moved ? 1 : 0,
+		    moo.loaded ? 1 : 0, moo.boards ? 1 : 0, moo.worldspace, moo.placed, moo.placedOpen, g_noticeWaited);
 	}
 }
 
@@ -1030,6 +1131,11 @@ void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, 
 
 void ConfigureDungeonsEsp(UInt32 espBase) { g_espBase = espBase; }
 
+void ConfigureDungeonsMoo(UInt32 mooQuestFormId) {
+	g_mooQuest = mooQuestFormId;
+	g_mooKnown = true;
+}
+
 bool IsDungeonPerson(UInt32 refId) {
 	if (g_espBase == kNoEsp) {
 		return false;
@@ -1095,6 +1201,10 @@ void ResetDungeonsInGame() {
 	g_messengerUnknown = true;
 	g_messengerDeadLogged = false;
 	g_bookBefore = 0;
+	for (UInt32 c = 0; c < kNoticeCities; ++c) {
+		g_noticeDone[c] = false;
+	}
+	g_noticeWaited = 0.0f;
 }
 
 void StepDungeonsInGame(float dt, LogFn log) {
@@ -1234,6 +1344,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			    news >= 0 ? ": " : "", news >= 0 ? kDungeonCandidates[g_sites.sites[news].candidate].name : "");
 		}
 		NoteRefugesInNews(kind != 0);
+		StepNotices(log);
 		StepMessengerInGame(kind, told, player, now, log);
 	}
 	// The player's cell held now and not before, or the other way (the place

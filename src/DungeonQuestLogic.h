@@ -71,6 +71,10 @@ inline constexpr UInt32 kDungeonMessengerBaseLocalId = 0xA77;
 inline constexpr UInt32 kDungeonMessengerRefLocalId = 0xA78;
 inline constexpr UInt32 kDungeonMessengerLineFirstLocalId = 0xA79;
 inline constexpr UInt32 kDungeonMessengerLineCount = 3;
+// The notice's eight references, one a city in CityGates.h's order
+// (DungeonNoticeLogic.h): 0xA7C..0xA83.
+inline constexpr UInt32 kDungeonNoticeRefFirstLocalId = kDungeonMessengerLineFirstLocalId + kDungeonMessengerLineCount;
+inline constexpr UInt32 kDungeonNoticeRefCount = 8;
 
 // The messenger: one of the refugees runs to the player for help - with
 // news of a siege or of a place to clear, MessengerHours apart at the

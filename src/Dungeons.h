@@ -7,6 +7,7 @@
 
 #include "DungeonKitLogic.h"
 #include "DungeonLogic.h"
+#include "DungeonNoticeLogic.h"
 #include "DungeonQuestLogic.h"
 #include "DungeonSiteLogic.h"
 #include "Rise.h"
@@ -42,6 +43,9 @@ void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, 
                        UInt32 testState);
 // The ESP's base (RiseLogic.h EspFormId), once it is known.
 void ConfigureDungeonsEsp(UInt32 espBase);
+// MOO's quest "MOO" once the load order is read, 0 when MOO is not loaded:
+// the refugees' notices hang at its notice boards (DungeonNoticeLogic.h).
+void ConfigureDungeonsMoo(UInt32 mooQuestFormId);
 
 // One of the held dungeons' kit of people (the safeguard leaves them alone:
 // they rise; a walker one of them fells is ended).

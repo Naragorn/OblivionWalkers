@@ -1,0 +1,98 @@
+# Where the refugees' notice hangs (docs/walkers-spec.md 4.20.7; Nadi,
+# 2026-11-13: next to MOO's notice board, else at the city's gate).
+# tools/dungeon-walkers.sh notice. The log: eight "notice - <city>: hung on
+# MOO's board | before the gate at ...". Then a look at Anvil's: the player
+# moved 150 units before and behind the board (its notices hang along 30,51 -
+# the two sides are +-(51,-30)), the notice turned five ways in turn - MOO's
+# own angles for its notices (90, 237.7, 180), and upright at 121, 211, 301
+# and 31 degrees about z (the board stands at 121) - a picture from each
+# side of each: which way the vanilla poster (WantedPoster02) has to hang.
+# Written by the generator in the commit that added it; edit by hand.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at hung player.moveto {form:OblivionWalkers.esp:A7C} 129 -76 0
+console-at hung player.setangle z 300.5
+console-at hung player.setangle x 12
+console-at a-moo player.moveto {form:OblivionWalkers.esp:A7C} -129 76 0
+console-at a-moo player.setangle z 120.5
+console-at a-moo player.setangle x 12
+console-at b-moo "{form:OblivionWalkers.esp:A7C}".setangle x 0
+console-at b-moo "{form:OblivionWalkers.esp:A7C}".setangle y 0
+console-at b-moo "{form:OblivionWalkers.esp:A7C}".setangle z 121
+console-at b-moo player.moveto {form:OblivionWalkers.esp:A7C} 129 -76 0
+console-at b-moo player.setangle z 300.5
+console-at b-moo player.setangle x 12
+console-at a-z121 player.moveto {form:OblivionWalkers.esp:A7C} -129 76 0
+console-at a-z121 player.setangle z 120.5
+console-at a-z121 player.setangle x 12
+console-at b-z121 "{form:OblivionWalkers.esp:A7C}".setangle x 0
+console-at b-z121 "{form:OblivionWalkers.esp:A7C}".setangle y 0
+console-at b-z121 "{form:OblivionWalkers.esp:A7C}".setangle z 211
+console-at b-z121 player.moveto {form:OblivionWalkers.esp:A7C} 129 -76 0
+console-at b-z121 player.setangle z 300.5
+console-at b-z121 player.setangle x 12
+console-at a-z211 player.moveto {form:OblivionWalkers.esp:A7C} -129 76 0
+console-at a-z211 player.setangle z 120.5
+console-at a-z211 player.setangle x 12
+console-at b-z211 "{form:OblivionWalkers.esp:A7C}".setangle x 0
+console-at b-z211 "{form:OblivionWalkers.esp:A7C}".setangle y 0
+console-at b-z211 "{form:OblivionWalkers.esp:A7C}".setangle z 301
+console-at b-z211 player.moveto {form:OblivionWalkers.esp:A7C} 129 -76 0
+console-at b-z211 player.setangle z 300.5
+console-at b-z211 player.setangle x 12
+console-at a-z301 player.moveto {form:OblivionWalkers.esp:A7C} -129 76 0
+console-at a-z301 player.setangle z 120.5
+console-at a-z301 player.setangle x 12
+console-at b-z301 "{form:OblivionWalkers.esp:A7C}".setangle x 0
+console-at b-z301 "{form:OblivionWalkers.esp:A7C}".setangle y 0
+console-at b-z301 "{form:OblivionWalkers.esp:A7C}".setangle z 31
+console-at b-z301 player.moveto {form:OblivionWalkers.esp:A7C} 129 -76 0
+console-at b-z301 player.setangle z 300.5
+console-at b-z301 player.setangle x 12
+console-at a-z31 player.moveto {form:OblivionWalkers.esp:A7C} -129 76 0
+console-at a-z31 player.setangle z 120.5
+console-at a-z31 player.setangle x 12
+console-at b-z31 "{form:OblivionWalkers.esp:A7C}".setangle x 90
+console-at b-z31 "{form:OblivionWalkers.esp:A7C}".setangle y 237.7
+console-at b-z31 "{form:OblivionWalkers.esp:A7C}".setangle z 180
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark hung
+wait 6
+mark a-moo
+wait 4
+mark b-moo
+wait 4
+mark a-z121
+wait 4
+mark b-z121
+wait 4
+mark a-z211
+wait 4
+mark b-z211
+wait 4
+mark a-z301
+wait 4
+mark b-z301
+wait 4
+mark a-z31
+wait 4
+mark b-z31
+wait 4
+mark end
+wait 1

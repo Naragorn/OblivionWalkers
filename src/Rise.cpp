@@ -1066,9 +1066,11 @@ void FindMoo() {
 	      g_settings.noLevelingXp ? 1 : 0);
 	if (index > 0xFF) {
 		g_log("MOO: %s is not loaded - nothing to keep off the walkers, the walkers' MOO looks unused", kMooEsp);
+		ConfigureDungeonsMoo(0);
 		return;
 	}
 	g_mooLoaded = true;
+	ConfigureDungeonsMoo(MooFormId(index, kMooQuestLocalId));
 	const UInt32 token = LookupForm(MooFormId(index, kMooTokenZombieLocalId));
 	const UInt32 brain = LookupForm(MooFormId(index, kMooZombieBrainLocalId));
 	const UInt32 tokenType = LooksLikeObject(token) ? Read8(token + kFormTypeOffset) : 0;

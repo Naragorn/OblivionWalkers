@@ -19,7 +19,8 @@ case "$mode" in
 	talk) state=3; walkers=8; behead=0; scenario=dungeon-talk; site="Echo Mine" ;;
 	runner) state=2; walkers=8; behead=0; scenario=dungeon-runner; site="Fort Ash" ;;
 	paper) state=2; walkers=8; behead=0; scenario=dungeon-paper; site="Fort Ash" ;;
-	*) echo "mode: siege | taken | fight | clear | talk | runner | paper" >&2; exit 2 ;;
+	notice) state=1; walkers=8; behead=0; scenario=dungeon-notice; site="Fort Ash" ;;
+	*) echo "mode: siege | taken | fight | clear | talk | runner | paper | notice" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -75,7 +76,7 @@ def check(ok, what):
 
 d = [l for l in lines if l.startswith("Dungeons: ")]
 place = "Echo Mine" if mode in ("clear", "talk") else "Fort Ash"
-if mode in ("runner", "paper"):
+if mode in ("runner", "paper", "notice"):
     again = len(d)
 told = [m for l in d for m in [re.search(
     r"journal - " + place + r": stage (\d+) \((\w[\w ]*); told (\d+) before\)(, taken off completed first)? - SetStage "
@@ -94,8 +95,9 @@ def journal(stage, why, before, reopened, completed, what, nth=0):
     check(ok, what + (f" ({hits[nth].group(0)[10:]})" if len(hits) > nth else f" (told: {[m.group(1, 2, 3) for m in told]})"))
 
 shown = [m for l in d for m in [re.search(r"map marker \w+ shown: flags (\w+), (\w+) before", l)] if m]
-check(len(shown) == 1 and int(shown[0].group(1), 16) & 1 == 1 and shown[0].group(1) != "FFFF",
-      "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
+if mode != "notice":
+    check(len(shown) == 1 and int(shown[0].group(1), 16) & 1 == 1 and shown[0].group(1) != "FFFF",
+          "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
 rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
 link = [l for l in lines if "variables" in l and "LINK" in l]
 check(any("195 of 195" in l for l in link), "LINK holds the 195 variables" + (f" ({link[-1][:90]})" if link else ""))
@@ -120,6 +122,16 @@ if mode == "clear":
     journal(30, "seen", 0, True, False, "met before the door: the quest says to clear it, open")
     journal(60, "taken", 30, False, True, "cleared: the quest says taken, completed")
     check(len(rewards) == 1 and "Echo Mine is cleared - refugees move in" in rewards[0], "the reward once" + (f" ({rewards[0][19:]})" if rewards else ""))
+elif mode == "notice":
+    hung = [l for l in d if l.startswith("Dungeons: notice - ")]
+    cities = {l.split(" - ")[1].split(":")[0] for l in hung if ": hung " in l or " already" in l}
+    check(len(cities) == 8, f"each of the eight cities' notices is seen to ({sorted(cities)})")
+    boards = [l for l in hung if "on MOO's board" in l]
+    check(len(boards) >= 1 and any(l.startswith("Dungeons: notice - anvil") for l in boards),
+          f"with MOO loaded they hang on its boards, Anvil's among them ({len(boards)} on boards, {len(hung) - len(boards)} elsewhere)")
+    for l in hung:
+        print("        " + l[10:230])
+    print("  look  the pictures a-* and b-*: Anvil's board from both sides, the notice turned five ways")
 elif mode == "runner":
     sent = [l for l in d if "runner - sent with news of kind 2" in l]
     check(len(sent) == 1, "a runner is sent with the siege's news, once" + (f" ({sent[0][19:140]})" if sent else ""))

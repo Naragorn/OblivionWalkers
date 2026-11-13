@@ -284,6 +284,9 @@ void TestMessenger() {
 	Check(walkers::kDungeonEditionLocalId == walkers::kDungeonTalkEnd && walkers::kDungeonNoticeLocalId == 0xA76 &&
 	          walkers::kDungeonMessengerLineFirstLocalId + walkers::kDungeonMessengerLineCount <= 0xAA4,
 	      "the edition right after the rumors, the notice, the messenger - before the grab's shock sounds");
+	Check(walkers::kDungeonNoticeRefFirstLocalId == 0xA7C &&
+	          walkers::kDungeonNoticeRefFirstLocalId + walkers::kDungeonNoticeRefCount <= 0xAA4,
+	      "the notice's eight references 0xA7C..0xA83, before the shock sounds too");
 }
 
 void TestImage() {

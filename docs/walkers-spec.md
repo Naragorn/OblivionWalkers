@@ -3192,12 +3192,34 @@ runner` and `paper` are written for it):
   (xOBSE GetMenuByType's table 0x00B13970, a BookMenu's book at +0x34);
   that edition or the refugees' notice newly opened tells the news as a
   rumor does. Neither paper names the place - the journal does.
-- **The notice**: the book is in the ESP ("Notice: Help Wanted", local ID
-  0xA76) and reading it tells; it hangs nowhere yet. MOO's board offers no
-  way in (above); where ours hangs is Nadi's to decide.
+- **The notice** (Nadi, 2026-11-13: option 1 - next to MOO's board, else
+  at the city's gate; `src/DungeonNoticeLogic.h`, flows in
+  tests/DungeonNoticeLogicTest.cpp; **not yet run in the game**,
+  `tools/dungeon-walkers.sh notice` is written for it): "Notice: Help
+  Wanted", a book off Oblivion.esm's StoreHours (000C4284: the poster mesh
+  Clutter\Books\WantedPoster02.NIF, a scroll that cannot be taken - it
+  stays where it hangs and is read there), one reference a city (0xA7C..
+  0xA83, in the holding cell). MOO's boards, read off MOO.esp's scripts:
+  MOOPlaceNoticeBoardsFunctionScript places a board a city with PlaceAtMe
+  at `MOO.ini_noticeboard_<city>_xpos/_ypos/_zpos` (a new reference each
+  game - no form ID to hold on to), a bit a board in
+  `MOO.placednoticeboards` (closed cities) or `placednoticeboardsopen`;
+  its three notices hang at the board's place less an offset a notice,
+  25 to 50 above the board, turned 90 / an angle of the city's / 175-185
+  (MOOPlaceNoticeToMarkerFunctionScript). The plugin reads those variables
+  once a second until each city's notice is seen to: MOO's board placed -
+  ours between the board's middle notice and the one beside it, at the
+  middle of that height, moved there by the console's MoveTo from the
+  marker MOO's own placer uses; MOO not loaded, its boards off, or no
+  board a minute after the load - before the city's first gate
+  (CityGates.h), on the ground where one comes out. A notice at its spot
+  already (a save's) costs no console line. Open until the pictures of the
+  run: whether the vanilla poster hangs right with MOO's angles (the
+  scenario turns it five ways before Anvil's board), and whether it covers
+  one of MOO's notices.
 
-Not built yet: beds; where the notice hangs; walkers outside the door (a
-siege is fought inside only).
+Not built yet: beds; walkers outside the door (a siege is fought inside
+only).
 Open: a living thing the player cannot reach (a slaughterfish, a
 rat behind a wall) keeps a place from being cleared - the log names
 nothing yet; the refugees win a siege of ten walkers without the player
