@@ -268,6 +268,12 @@ inline UInt32 KeepWalkers(const UInt32* ids, const UInt32* baseIds, UInt32 n, co
 	return kept;
 }
 
+// Whether `baseId` is one of the walker bases, `sorted` ascending (a binary
+// search: every actor of the high process list asks each frame).
+inline bool IsWalkerBase(const UInt32* sorted, UInt32 count, UInt32 baseId) {
+	return std::binary_search(sorted, sorted + count, baseId);
+}
+
 inline void NoteKnownWalkers(Swap& swap, const UInt32* refs, UInt32 count) {
 	swap.knownCount = 0;
 	for (UInt32 i = 0; i < count && swap.knownCount < kSwapKnownMost; ++i) {

@@ -136,6 +136,7 @@ UInt32 g_apartWalker = 0;
 UInt32 g_getUpSound = 0;
 UInt32 g_apartRefusedFor = 0;
 UInt32 g_walkers[kWalkerCount] = {};
+UInt32 g_walkersSorted[kWalkerCount] = {};  // ascending, for IsWalkerBase
 LookFamily g_walkerFamilies[kWalkerCount] = {};
 bool g_walkerHeadless[kWalkerCount] = {};
 UInt32 g_walkerCount = 0;
@@ -302,13 +303,7 @@ bool IsWalkerRef(UInt32 ref) {
 	if (!LooksLikeObject(ref) || Read(ref) != kVtblCreature) {
 		return false;
 	}
-	const UInt32 baseId = FormIdOf(Read(ref + kRefBaseFormOffset));
-	for (UInt32 w = 0; w < g_walkerCount; ++w) {
-		if (g_walkers[w] == baseId) {
-			return true;
-		}
-	}
-	return false;
+	return IsWalkerBase(g_walkersSorted, g_walkerCount, FormIdOf(Read(ref + kRefBaseFormOffset)));
 }
 
 // A camp kit's person raised before it rose (Camps.cpp): off the list.
@@ -981,6 +976,8 @@ void FindWalkers() {
 			g_log("Walkers: %08X is no creature (%s)", formId, LooksLikeObject(form) ? "another type" : "no form");
 		}
 	}
+	std::copy(g_walkers, g_walkers + g_walkerCount, g_walkersSorted);
+	std::sort(g_walkersSorted, g_walkersSorted + g_walkerCount);
 	g_log("Walkers: %s is at %08X (%s), %u walker creatures found", kPluginEsp, base,
 	      (base >> 24) == 0xFE ? "a light plugin, OblivionESL" : "a regular plugin", g_walkerCount);
 	ConfigureHorde(g_settings.horde, base, g_log);
@@ -1105,6 +1102,36 @@ UInt32 FindNewWalker(const Swap& swap) {
 // Every walker of every one of the ESP's bases on the process lists, in one
 // walk of them (RiseLogic.h KeepWalkers).
 UInt32 CollectWalkersOn(UInt32* out, UInt32 most, UInt32 levels);
+
+// The walkers on the high process list, their IDs and their actors (valid
+// this frame): no LookupForm after, the base found by binary search.
+UInt32 CollectHighWalkers(UInt32* ids, UInt32* actors, UInt32 most) {
+	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
+	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
+	struct Node {
+		void* data;
+		Node* next;
+	};
+	UInt32 n = 0;
+	auto* node = static_cast<Node*>(reinterpret_cast<ListFn>(kActorListByLevel)(manager, nullptr, 0));
+	for (UInt32 visited = 0; node != nullptr && visited < 1024 && n < most; ++visited) {
+		if (!LooksLikeObject(reinterpret_cast<UInt32>(node))) {
+			break;
+		}
+		const UInt32 actor = reinterpret_cast<UInt32>(node->data);
+		node = node->next;
+		if (!LooksLikeObject(actor) || Read(actor) != kVtblCreature) {
+			continue;
+		}
+		const UInt32 base = Read(actor + kRefBaseFormOffset);
+		if (!LooksLikeObject(base) || !IsWalkerBase(g_walkersSorted, g_walkerCount, FormIdOf(base))) {
+			continue;
+		}
+		ids[n] = Read(actor + kFormIdOffset);
+		actors[n++] = actor;
+	}
+	return n;
+}
 
 UInt32 CollectAllWalkers(UInt32* out, UInt32 most) { return CollectWalkersOn(out, most, 4); }
 
@@ -2080,12 +2107,13 @@ void StepWalkers(float dt) {
 	// rule and the slow aggression act on high-process walkers only; once a
 	// second all four, for the chapel check of the far ones and the count.
 	static UInt32 refs[kHordeCandidatesMost];
+	static UInt32 actors[kHordeCandidatesMost];
 	static UInt32 farRefs[kHordeCandidatesMost];
 	static UInt32 allCount = 0;
 	static float allClock = 1.0f;
 	UInt32 count = 0;
 	Timed(20, "w.collect", [&count, dt] {
-		count = CollectWalkersOn(refs, kHordeCandidatesMost, 1);
+		count = CollectHighWalkers(refs, actors, kHordeCandidatesMost);
 		allClock += dt;
 		if (allClock >= 1.0f) {
 			allClock = 0.0f;
@@ -2113,8 +2141,8 @@ void StepWalkers(float dt) {
 	}
 	UInt32 high = 0;
 	for (UInt32 i = 0; i < count; ++i) {
-		const UInt32 actor = LookupForm(refs[i]);
-		if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
+		const UInt32 actor = actors[i];  // off the high process list this frame
+		if (IsDead(actor)) {
 			continue;
 		}
 		if (StepChapel(actor, refs[i])) {

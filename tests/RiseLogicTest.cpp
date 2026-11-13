@@ -949,7 +949,19 @@ void TestKnockedTrail() {
 	      "the walk rule: on and the walker not getting up - while it gets up its flags are left alone");
 }
 
+void TestWalkerBase() {
+	std::printf("A walker base by binary search\n");
+	const UInt32 sorted[] = {0x25000801, 0x25000804, 0x2500090E, 0x25000949};
+	Check(walkers::IsWalkerBase(sorted, 4, 0x25000801) && walkers::IsWalkerBase(sorted, 4, 0x25000949),
+	      "the first and the last found");
+	Check(walkers::IsWalkerBase(sorted, 4, 0x2500090E), "one in between found");
+	Check(!walkers::IsWalkerBase(sorted, 4, 0x25000802) && !walkers::IsWalkerBase(sorted, 4, 0x00000014),
+	      "others not");
+	Check(!walkers::IsWalkerBase(sorted, 0, 0x25000801), "no walkers: none");
+}
+
 int main() {
+	TestWalkerBase();
 	TestVerdicts();
 	TestTick();
 	TestPresenceAt();
