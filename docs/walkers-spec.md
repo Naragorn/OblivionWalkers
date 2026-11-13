@@ -2932,7 +2932,14 @@ reads. Candidates now **91** (34 caves, 19 ruins, 26 forts, 12 mines); the
 chosen **32**: at least 10 path grid points at the arrival, three cells at
 most, doors 12000 units apart, the roomiest first, shares of 9 caves, 8
 ruins, 9 forts, 6 mines (`--chosen-*`). OnlyChosen changes the pool at
-once (StepDungeonPool, the log line "Dungeons: ... (OnlyChosen=N) ...").
+once (StepDungeonPool, the log line "Dungeons: ... (OnlyChosen=N) ..."). Runs 2026-11-13
+13:0x (Linux, Nadi's list): "91 candidates, 91 in the pool (OnlyChosen=0)",
+LINK "175 of 175 variables"; with OnlyChosen=1 and Skip=Fort Ash, 0001ABCD
+in the live INI (put back after): "Fort Ash ... out - [Dungeons] Skip names
+it", "91 candidates, 31 in the pool (OnlyChosen=1), ... 1 by [Dungeons] Skip
+(2 entries), 59 not chosen". Lesson: a new LINK variable needs the ESP
+written anew (tools/esp-write.py) - build-linux.sh --deploy only copies it;
+the first deploy showed "174 of 175 variables".
 
 **Step 2, the situation - built 2026-11-13 as logic only**
 (`src/DungeonSiteLogic.h`, flows in tests/DungeonSiteLogicTest.cpp; not
