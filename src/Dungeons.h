@@ -5,6 +5,7 @@
 // (DungeonCandidates.h), with the loaded quests' cells (Replace.cpp) and the
 // INI's [Dungeons] Skip.
 
+#include "DungeonKitLogic.h"
 #include "DungeonLogic.h"
 #include "DungeonSiteLogic.h"
 #include "Rise.h"
@@ -24,9 +25,24 @@ void StepDungeonPool(bool onlyChosen, LogFn log);
 bool DungeonInPool(UInt32 index);
 
 using DungeonRollFn = UInt32 (*)();
+using DungeonConsoleFn = bool (*)(UInt32 ref, const char* line);
+using DungeonDeadFn = bool (*)(UInt32 actor);
+// Takes a reference off the rise's waiting list (a kit person raised again).
+using DungeonUnlistFn = bool (*)(UInt32 refId);
+// A walker the rise made (it stays in a held place: one of its people's).
+using DungeonRisenFn = bool (*)(UInt32 refId);
 
-// Once a session: the live settings (LINK writes into them) and the dice.
-void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll);
+// Once a session: the live settings (LINK writes into them), the dice, the
+// console on a reference, the dead, the rise's list and its walkers, and
+// [Dungeons] TestSite (a candidate's name made a refuge, "" none).
+void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, DungeonConsoleFn console,
+                       DungeonDeadFn dead, DungeonUnlistFn unlist, DungeonRisenFn risen, const char* testSite);
+// The ESP's base (RiseLogic.h EspFormId), once it is known.
+void ConfigureDungeonsEsp(UInt32 espBase);
+
+// One of the held dungeons' kit of people (the safeguard leaves them alone:
+// they rise; a walker one of them fells is ended).
+bool IsDungeonPerson(UInt32 refId);
 
 // Every frame (stepped once a game second inside): the active places
 // filled up from the pool, each stepped with the player near it or not -
@@ -36,6 +52,8 @@ void StepDungeonsInGame(float dt, LogFn log);
 
 // The sites as they stand, for the co-save.
 DungeonSitesState& CurrentDungeons();
+// The occupants taken out of the held places, for the co-save.
+DungeonOccupants& CurrentDungeonOccupants();
 // At a load and a new game: the sites emptied (the co-save fills them again).
 void ResetDungeonsInGame();
 // The candidates' count of this build (a co-save's site past it is dropped).

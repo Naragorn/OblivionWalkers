@@ -332,6 +332,9 @@ bool IsWalkerRef(UInt32 ref) {
 	return IsWalkerBase(g_walkersSorted, g_walkerCount, FormIdOf(Read(ref + kRefBaseFormOffset)));
 }
 
+// A walker the rise made (the held dungeons leave it in its place).
+bool IsRisenWalker(UInt32 refId) { return IsRisen(g_risenSet, refId); }
+
 // A camp kit's person raised before it rose (Camps.cpp): off the list.
 bool UnlistRising(UInt32 refId) {
 	const bool listed = Unlist(g_list, refId);
@@ -640,7 +643,8 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		facts.headless = headless;
 		facts.headNoted = HeadNoted(g_heads, fallen.refId);
 		facts.cutterOn = g_headCutter;
-		facts.killedByRefugee = IsCampPerson(FormIdOf(reinterpret_cast<UInt32>(arg1)));
+		facts.killedByRefugee = IsCampPerson(FormIdOf(reinterpret_cast<UInt32>(arg1))) ||
+		                        IsDungeonPerson(FormIdOf(reinterpret_cast<UInt32>(arg1)));
 		// Someone else than the player, a refugee or a walker felled it: they
 		// cannot cut a head (OthersEndPercent; Nadi, 2026-11-09: "B").
 		const UInt32 killer = reinterpret_cast<UInt32>(arg1);
@@ -721,7 +725,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		NoteSiegeWalkerEnded(fallen.refId);
 		NoteCampWalkerEnded(fallen.refId);
 	}
-	victim.campPerson = IsCampPerson(fallen.refId);
+	victim.campPerson = IsCampPerson(fallen.refId) || IsDungeonPerson(fallen.refId);
 	if (g_settings.safeguard.testVictim != 0 && fallen.refId == g_settings.safeguard.testVictim) {
 		victim.killedByWalker = true;
 		g_log("Safeguard: test - TestVictim %08X died, taken as the walkers' doing", fallen.refId);
@@ -1012,6 +1016,7 @@ void FindWalkers() {
 	ConfigureNews(g_settings.news, base, g_log);
 	ConfigureSiegeEsp(base);
 	ConfigureCampsEsp(base);
+	ConfigureDungeonsEsp(base);
 	ConfigureDisguiseEsp(base);
 	ConfigureGrabIdles(base);
 	ReadWalkerRecords();
@@ -2957,7 +2962,14 @@ void OnSave(void*) {
 	const UInt32 dungeonsLength = DungeonImage(CurrentDungeons(), dungeons, sizeof(dungeons));
 	const bool dungeonsWritten = g_serialization->OpenRecord(kDungeonRecordType, kDungeonRecordVersion) &&
 	                             g_serialization->WriteRecordData(dungeons, dungeonsLength);
-	g_log("Co-save: %u held dungeons %s", CurrentDungeons().count, dungeonsWritten ? "written" : "could not be written");
+	static UInt8 occupants[kDungeonOccupantImageMost];
+	const UInt32 occupantsLength = OccupantImage(CurrentDungeonOccupants(), occupants, sizeof(occupants));
+	const bool occupantsWritten =
+	    g_serialization->OpenRecord(kDungeonOccupantRecordType, kDungeonOccupantRecordVersion) &&
+	    g_serialization->WriteRecordData(occupants, occupantsLength);
+	g_log("Co-save: %u held dungeons %s, %u occupants taken out of them %s", CurrentDungeons().count,
+	      dungeonsWritten ? "written" : "could not be written", CurrentDungeonOccupants().count,
+	      occupantsWritten ? "written" : "could not be written");
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -3056,6 +3068,16 @@ void OnLoad(void*) {
 			}
 			g_log("Co-save: the camps read - %u attacked, %u overrun (version %u)%s", attacked, overrun, version,
 			      whole ? "" : " (version or length off: all living)");
+			continue;
+		}
+		if (type == kDungeonOccupantRecordType) {
+			static UInt8 occupants[kDungeonOccupantImageMost];
+			const UInt32 read = version == kDungeonOccupantRecordVersion && length <= sizeof(occupants)
+			                        ? g_serialization->ReadRecordData(occupants, length)
+			                        : 0;
+			const bool whole = ReadOccupantImage(CurrentDungeonOccupants(), occupants, read, &ResolveSaved);
+			g_log("Co-save: %u occupants taken out of held dungeons read (version %u)%s",
+			      CurrentDungeonOccupants().count, version, whole ? "" : " (version or length off: none)");
 			continue;
 		}
 		if (type == kDungeonRecordType) {
@@ -3227,7 +3249,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
-	ConfigureDungeons(&g_settings.dungeons, &NextRandom);
+	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
+	                  g_settings.dungeonsTestSite);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }

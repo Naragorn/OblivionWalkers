@@ -40,6 +40,11 @@ inline const char* DungeonKindName(DungeonKind kind) {
 }
 
 inline constexpr UInt32 kDungeonCellsMost = 4;
+inline constexpr UInt32 kDungeonSpotsMost = 13;
+
+struct DungeonSpot {
+	short dx, dy, dz;
+};
 
 struct DungeonCandidate {
 	const char* name;  // the map marker's
@@ -51,6 +56,9 @@ struct DungeonCandidate {
 	bool chosen;    // one of the chosen (roomy, few cells, spread - tools/dungeon-candidates.py)
 	float x;        // the door outside, in Tamriel
 	float y;
+	UInt32 insideDoor = 0;  // the door inside the first cell (persistent): the people are moved by it
+	UInt8 spotCount = 0;
+	DungeonSpot spots[kDungeonSpotsMost] = {};  // where its people stand, as offsets from the door inside
 };
 
 // What the loaded quests name (Replace.cpp CollectQuestNames): the cells

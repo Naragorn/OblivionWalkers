@@ -1095,6 +1095,23 @@ def main() -> int:
                           build_pool_ref(achr_template, f"WalkersCampPool{n:02d}",
                                          vanilla_heads[(n * 5 + 3) % len(vanilla_heads)], 120 + n),
                           flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
+    # The held dungeons' kit (4.20.7, src/DungeonKitLogic.h): thirteen people
+    # of the camps' bases - CampBaseIndex(0, slot): six men, six women, a
+    # trader with the camps' chest - in the holding cell, persistent and
+    # initially disabled; the plugin moves them into the held dungeon the
+    # player is near.
+    kit_text = (HERE.parent / "src" / "DungeonKitLogic.h").read_text()
+    dungeon_kit_first = int(re.search(r"kDungeonKitFirstLocalId = (0x[0-9A-Fa-f]+);", kit_text).group(1), 16)
+    dungeon_kit_slots = int(re.search(r"kDungeonKitSlots = (\d+);", kit_text).group(1))
+    if dungeon_kit_slots != 13 or dungeon_kit_first <= ESCORT_QUEST_LOCAL or \
+            dungeon_kit_first + dungeon_kit_slots > SHOCK_FIRST_LOCAL:
+        raise SystemExit("DungeonKitLogic.h's kit does not fit between the escort's quest and the shock sounds")
+    for slot in range(dungeon_kit_slots):
+        extra = subrecord(b"XMRC", struct.pack("<I", chest_form)) if slot == 12 else b""
+        holding += record(b"ACHR", index | (dungeon_kit_first + slot),
+                          build_placed(camp_base_forms[camp_base_index(0, slot)], slot * 96.0, 1536.0, 0.0,
+                                       edid=f"WalkersDungeonKitPerson{slot:02d}", extra=extra),
+                          flags=RECORD_PERSISTENT | RECORD_INITIALLY_DISABLED)
     places_module = load_places_module()
     land = places_module.read_land(esm, buf)
 
@@ -1277,7 +1294,8 @@ def main() -> int:
                + camp_records + 2 + len(shock_forms)
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
-               + 1)  # the escort's quest
+               + 1  # the escort's quest
+               + dungeon_kit_slots)  # the held dungeons' kit
     next_id = camp_end + test_pool
     if args.esl and (next_id - 1 > LIGHT_LOCAL_LAST or records > LIGHT_RECORDS_MOST):
         raise SystemExit(f"--esl: the last local ID {next_id - 1:03X} or {records} records do not fit a light plugin")
@@ -1434,6 +1452,11 @@ def main() -> int:
                     or (b"XMRC" in back) != (slot == 12):
                 raise SystemExit(f"kit {k}'s person {slot} reads back wrong")
             people += 1
+    for slot in range(dungeon_kit_slots):
+        back = dict(find_record(esm, plugin, b"ACHR", index | (dungeon_kit_first + slot)))
+        if struct.unpack("<I", back[b"NAME"])[0] != camp_base_forms[camp_base_index(0, slot)] \
+                or (b"XMRC" in back) != (slot == 12):
+            raise SystemExit(f"the dungeon kit's person {slot} reads back wrong")
     if struct.unpack_from("<I", plugin, 8)[0] != (ESL_FLAG if args.esl else 0):
         raise SystemExit("the header's flags read back wrong")
     print(f"{out}: {len(plugin)} bytes{' (ESL-flagged)' if args.esl else ''} - RACE {race_form:08X} {RACE_EDID}, CREA "

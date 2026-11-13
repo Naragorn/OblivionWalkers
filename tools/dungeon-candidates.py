@@ -27,6 +27,9 @@ none, and it is no dungeon of ours. Out of the pool when:
   owned     a cell of it is owned (XOWN) - someone lives there
   room      fewer than --room-points path grid points (PGRD) within
             --room-units of the arrival point in its first cell
+  spots     fewer than --spots-least path grid points of the first cell for
+            its people to stand on, or the door inside is no persistent
+            reference (the plugin moves them by it)
   several   more than one door from Tamriel leads into it - kept, marked
             (a refuge with two ways in), not out
 
@@ -145,6 +148,10 @@ def main() -> int:
                    "points at the arrival")
     p.add_argument("--chosen-cells", type=int, default=3, help="the chosen ones: at most this many cells")
     p.add_argument("--chosen-apart", type=float, default=12000.0, help="the chosen ones: doors this far apart")
+    p.add_argument("--spot-least", type=float, default=160.0, help="its people's spots: this far from the arrival")
+    p.add_argument("--spot-most", type=float, default=2048.0)
+    p.add_argument("--spot-apart", type=float, default=110.0)
+    p.add_argument("--spots-least", type=int, default=5, help="fewer spots than this: out")
     p.add_argument("--header", help="also write src/DungeonCandidates.h here: the pool's dungeons, their cells")
     p.add_argument("--moo-quests", help="MOO's \"Maskar's Oblivion Overhaul for quests.ini\": the map markers "
                    "it holds back until a quest is done count as quest places")
@@ -234,6 +241,7 @@ def main() -> int:
                 grids[cell] = [struct.unpack_from("<fff", pgrp, k * 16) for k in range(len(pgrp) // 16)]
             elif typ in (b"REFR", b"ACHR", b"ACRE"):
                 r = {"form": form, "type": typ, "cell": cell, "world": world, "base": 0, "pos": None,
+                     "persistent": bool(flags & 0x400),
                      "tel": None, "marker": None, "name": "", "parent": 0, "edid": ""}
                 for t, d in subrecords(data_of(flags, raw)):
                     if t == b"NAME":
@@ -356,6 +364,26 @@ def main() -> int:
                    if math.dist((x, y, z), arrival) <= args.room_units)
         if room < args.room_points:
             why.append(f"room ({room} points)")
+        # Where its people stand (the kit's 13): path grid points of the first
+        # cell, the nearest to the arrival first - off the door's way
+        # (--spot-least from the arrival), no farther than --spot-most, each
+        # --spot-apart from the others; as offsets from the door inside
+        # (the plugin's MoveTo names that door).
+        inside = refs.get(door["tel"][0])
+        spots = []
+        for x, y, z in sorted(points, key=lambda q: math.dist(q, arrival)):
+            d = math.dist((x, y, z), arrival)
+            if d < args.spot_least or d > args.spot_most:
+                continue
+            if any(math.dist((x, y, z), q) < args.spot_apart for q in spots):
+                continue
+            spots.append((x, y, z))
+            if len(spots) == 13:
+                break
+        if not inside or not inside["persistent"] or inside["cell"] != first or not inside["pos"]:
+            why.append("the door inside is no persistent reference of the first cell")
+        elif len(spots) < args.spots_least:
+            why.append(f"spots ({len(spots)} for its people)")
         spawns = sum(1 for c in group for r in by_cell.get(c, ()) if r["base"] in lists)
         placed = sum(1 for c in group for r in by_cell.get(c, ()) if r["base"] in actors)
         name = (near[1]["name"] if near else "") or cells[first]["name"]
@@ -363,7 +391,10 @@ def main() -> int:
             "first": first, "edid": cells[first]["edid"], "name": name, "kind": kind or marker_kind,
             "cells": len(group), "doors_in": len(outside), "door": door["form"], "x": door["pos"][0],
             "y": door["pos"][1], "arrival": arrival, "room": room, "spawns": spawns, "placed": placed,
-            "marker": near[1]["form"] if near else 0, "why": "; ".join(why), "group": group})
+            "marker": near[1]["form"] if near else 0, "why": "; ".join(why), "group": group,
+            "inside": inside["form"] if inside else 0,
+            "spots": [(x - inside["pos"][0], y - inside["pos"][1], z - inside["pos"][2]) for x, y, z in spots]
+            if inside and inside["pos"] else []})
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -415,7 +446,9 @@ def main() -> int:
              f"// Read: {', '.join(order)}.",
              f"// {len(pool)} of {len(dungeons)} dungeons with a door in Tamriel; the cells are",
              "// Oblivion.esm form IDs, the first the one the door outside leads into; then",
-             "// the door outside, the map marker, and whether it is one of the chosen",
+             "// the door outside, the map marker, whether it is one of the chosen, the door",
+             "// outside's x and y, the door inside and its people's spots as offsets from",
+             "// that door (path grid points near the arrival).",
              f"// ({len(chosen)}: at least {args.chosen_room} path grid points at the arrival, at most "
              f"{args.chosen_cells} cells, doors {args.chosen_apart:.0f} apart).", "",
              '#include "DungeonLogic.h"', "", "namespace walkers {", "",
@@ -428,7 +461,9 @@ def main() -> int:
             h.append(f'\t{{"{name}", DungeonKind::{enum[r["kind"]]}, {{'
                      + ", ".join(f"0x{c:08X}" for c in cells)
                      + f"}}, {len(r['group'])}, 0x{r['door']:08X}, 0x{r['marker']:08X}, "
-                     + ("true" if r["chosen"] else "false") + f", {r['x']:.0f}.0f, {r['y']:.0f}.0f}},")
+                     + ("true" if r["chosen"] else "false") + f", {r['x']:.0f}.0f, {r['y']:.0f}.0f, "
+                     + f"0x{r['inside']:08X}, {len(r['spots'])}, {{"
+                     + ", ".join(f"{{{x:.0f}, {y:.0f}, {z:.0f}}}" for x, y, z in r["spots"]) + "}},")
         h += ["};", "", "inline constexpr UInt32 kDungeonCandidateCount =",
               "    static_cast<UInt32>(sizeof kDungeonCandidates / sizeof kDungeonCandidates[0]);", "",
               "}  // namespace walkers", ""]

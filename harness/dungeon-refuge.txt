@@ -1,0 +1,61 @@
+# Refugees hold a dungeon, in the game (docs/walkers-spec.md 4.20.7, step 3b).
+# [Dungeons] TestSite=Fort Ash (set by tools/dungeon-refuge.sh, put back
+# after) makes Fort Ash the first site, a refuge of PeopleMax (8).
+# - outside: the player by Fort Ash's door (Tamriel -9,19; the door at
+#   -35012, 79987): "Dungeons: the kit to site 0 Fort Ash (fort; refuge, 8
+#   people and the trader)" - its nine moved by the door inside, one a frame;
+# - inside (coc FortAsh01): "Fort Ash (cell 00015E2A, N references) is held -
+#   K occupants taken out" (Oblivion.esm: 14 spawn points and 4 placed actors
+#   in its two cells), the pictures show the refugees;
+# - killed: the kit's first man killed by the console - "one of its people
+#   ... died; 7 people left";
+# - saved, reload: "Co-save: N held dungeons read", "K occupants taken out of
+#   held dungeons read", the kit put there again (7 and the trader);
+# - off: "set Walkers.ini_dungeons_enabled to 0" (LINK's variable) - "the kit
+#   off Fort Ash", "is held no more - K of K occupants put back".
+# tgm and tdetect: nobody fights; time stands (no attack rolled); weather
+# fixed. Run through tools/dungeon-refuge.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -9 19
+console-at inside coc FortAsh01
+console-at killed {form:OblivionWalkers.esp:A47}.kill
+console-at saved save WalkersDungeonTest
+console-at reload load WalkersDungeonTest
+console-at off set Walkers.ini_dungeons_enabled to 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 14
+mark outside
+wait 2
+mark inside
+wait 10
+mark seen
+wait 2
+mark killed
+wait 6
+mark saved
+wait 6
+mark reload
+wait 16
+mark reloaded
+wait 2
+mark off
+wait 10
+mark end
+wait 1

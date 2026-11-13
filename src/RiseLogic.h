@@ -188,6 +188,9 @@ struct RiseSettings {
 	bool dungeonsOnlyChosen = false;
 	// [Dungeons] the held places' situation (4.20.7, DungeonSiteLogic.h).
 	DungeonSiteSettings dungeons;
+	// [Dungeons] TestSite (INI only, a test switch; harness/dungeon-refuge.txt):
+	// the candidate named so is the first site, a refuge of PeopleMax.
+	char dungeonsTestSite[48] = {};
 	// [Debug] StepTiming (INI only, a test switch; TimingLogic.h): each step
 	// of the tick timed, the means logged every 10 s.
 	bool stepTiming = false;
