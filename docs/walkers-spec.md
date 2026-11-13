@@ -3251,10 +3251,10 @@ DungeonSiteLogicTest's TestClockSetBack, 45 s red before); the camps'
 and the sieges' tolls had the guard already.
 Not seen: the Courier's edition 36 on a broadsheet in an inn; a notice
 before a gate (MOO was loaded); the boards of the other seven cities
-(their log lines only); Better Cities' cities on Windows. Not run again
-after the toll's fix: the siege scenario - SteamVR was closed at 20:11
-(not by me; the run ended with "SteamVR quit ... the game told to quit")
-and the harness starts no game without it.
+(their log lines only); Better Cities' cities on Windows. The siege
+scenario after the toll's fix: the run of 20:10 ended with "SteamVR quit
+... the game told to quit" (SteamVR had run out of memory - Nadi), run
+again 20:42 PASS, every check (20261113-204259).
 
 Not built yet: beds; walkers outside the door (a siege is fought inside
 only).
