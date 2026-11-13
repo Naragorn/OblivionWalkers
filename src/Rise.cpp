@@ -11,6 +11,7 @@
 #include "Pose.h"
 #include "QuestVars.h"
 #include "SkillLogic.h"
+#include "Dungeons.h"
 #include "Replace.h"
 #include "Siege.h"
 #include "Camps.h"
@@ -2179,6 +2180,7 @@ void StepSpawns(float dt) {
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
+		SelectDungeonPool(g_iniPath, g_log);
 		if (g_replace.enabled) {
 			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
 		}

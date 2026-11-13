@@ -4,6 +4,8 @@
 // walkers' health (4.5). The decisions are ReplaceLogic.h's; this file only
 // reads and writes the engine's records and the INI.
 
+#include <vector>
+
 #include "ReplaceLogic.h"
 #include "Rise.h"
 
@@ -18,6 +20,14 @@ namespace walkers {
 // variant list's counts are written from MinCount/MaxCount at the first run.
 // Run again - after a load, at a change in LINK - it points every entry as the
 // settings say now. Returns the entries pointed at the walkers by this run.
+// Every quest's names, read once (the first call; ReplaceSpawns calls it
+// too): its script, its stages' result scripts, its targets.
+void CollectQuestNames(LogFn log);
+
+// The cells a quest names, or that hold a reference a quest names - after
+// CollectQuestNames (the refugee dungeons' A, docs/walkers-spec.md 4.20.7).
+std::vector<UInt32> QuestCellIds();
+
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
                      LogFn log);
 

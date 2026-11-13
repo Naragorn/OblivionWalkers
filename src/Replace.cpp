@@ -79,6 +79,9 @@ std::unordered_map<UInt32, UInt32> g_original;
 // The leveled lists and the bases the quests name (CollectQuestNames).
 std::unordered_set<UInt32> g_questLists;
 std::unordered_set<UInt32> g_questBases;
+// The cells a quest names, or holding a reference a quest names, by form ID
+// (the refugee dungeons' A, docs/walkers-spec.md 4.20.7).
+std::unordered_set<UInt32> g_questCells;
 // The lists that got their extra walker entries this session (4.13).
 std::unordered_set<UInt32> g_extraDone;
 // The engine's own heap, as xOBSE's TESLeveledList::CreateData and
@@ -400,6 +403,7 @@ constexpr UInt32 kTargetRefOffset = 0x0C;
 constexpr UInt32 kScriptNamesOffset = 0x40;
 constexpr UInt32 kNameFormOffset = 0x08;
 constexpr UInt32 kRefBaseOffset = 0x1C;
+constexpr UInt32 kRefParentCellOffset = 0x40;  // TESObjectREFR::parentCell (Siege.cpp, Camps.cpp)
 
 struct QuestNames {
 	UInt32 quests = 0;
@@ -416,6 +420,14 @@ void NoteQuestName(UInt32 form, QuestNames& seen) {
 	const UInt8 type = Read8(form + kFormTypeOffset);
 	const bool reference = type >= 0x31 && type <= 0x33;
 	const UInt32 base = reference ? Read(form + kRefBaseOffset) : 0;
+	if (type == kFormTypeCell) {
+		g_questCells.insert(FormIdOf(form));
+	} else if (reference) {
+		const UInt32 cell = Read(form + kRefParentCellOffset);
+		if (LooksLikeObject(cell) && Read8(cell + kFormTypeOffset) == kFormTypeCell) {
+			g_questCells.insert(FormIdOf(cell));
+		}
+	}
 	const UInt8 baseType = LooksLikeObject(base) ? Read8(base + kFormTypeOffset) : 0;
 	switch (QuestNameOf(type, baseType)) {
 		case QuestName::List:
@@ -442,6 +454,8 @@ void NoteScriptNames(UInt32 script, QuestNames& seen) {
 		}
 	}
 }
+
+}  // namespace
 
 // Once, at the first pass (the main menu): every quest's names.
 void CollectQuestNames(LogFn log) {
@@ -493,6 +507,7 @@ void CollectQuestNames(LogFn log) {
 	    "themselves), %u creatures and people named",
 	    seen.quests, seen.names, static_cast<UInt32>(g_questLists.size()), seen.placed, seen.direct,
 	    static_cast<UInt32>(g_questBases.size()));
+	log("Quests: %u cells named or holding a named reference", static_cast<UInt32>(g_questCells.size()));
 	UInt32 shown = 0;
 	for (const UInt32 list : g_questLists) {
 		if (shown++ < 64) {
@@ -501,7 +516,7 @@ void CollectQuestNames(LogFn log) {
 	}
 }
 
-}  // namespace
+std::vector<UInt32> QuestCellIds() { return std::vector<UInt32>(g_questCells.begin(), g_questCells.end()); }
 
 void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt32 nightPercent, LogFn log) {
 	if (espBase == kNoEsp) {

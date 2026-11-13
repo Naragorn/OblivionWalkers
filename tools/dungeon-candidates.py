@@ -138,6 +138,7 @@ def main() -> int:
     p.add_argument("--marker-units", type=float, default=2500.0)
     p.add_argument("--room-units", type=float, default=1024.0)
     p.add_argument("--room-points", type=int, default=6)
+    p.add_argument("--header", help="also write src/DungeonCandidates.h here: the pool's dungeons, their cells")
     p.add_argument("--moo-quests", help="MOO's \"Maskar's Oblivion Overhaul for quests.ini\": the map markers "
                    "it holds back until a quest is done count as quest places")
     args = p.parse_args()
@@ -346,7 +347,7 @@ def main() -> int:
             "first": first, "edid": cells[first]["edid"], "name": name, "kind": kind or marker_kind,
             "cells": len(group), "doors_in": len(outside), "door": door["form"], "x": door["pos"][0],
             "y": door["pos"][1], "arrival": arrival, "room": room, "spawns": spawns, "placed": placed,
-            "marker": near[1]["form"] if near else 0, "why": "; ".join(why)})
+            "marker": near[1]["form"] if near else 0, "why": "; ".join(why), "group": group})
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -375,6 +376,27 @@ def main() -> int:
     lines += ["", "Out because (a dungeon may have several):", ""]
     lines += [f"- {w}: {n}" for w, n in sorted(reasons.items(), key=lambda kv: -kv[1])]
     lines += ["", f"Several doors in (kept): {sum(1 for r in pool if r['doors_in'] > 1)}", ""]
+    if args.header:
+        enum = {"cave": "Cave", "ayleid": "Ayleid", "fort": "Fort", "mine": "Mine"}
+        h = ["#pragma once", "",
+             "// The refugee dungeons' candidates (docs/walkers-spec.md 4.20.7), printed by",
+             "// tools/dungeon-candidates.py --header. Do not edit: run it again.",
+             f"// Read: {', '.join(order)}.",
+             f"// {len(pool)} of {len(dungeons)} dungeons with a door in Tamriel; the cells are",
+             "// Oblivion.esm form IDs, the first the one the door outside leads into.", "",
+             '#include "DungeonLogic.h"', "", "namespace walkers {", "",
+             "inline constexpr DungeonCandidate kDungeonCandidates[] = {"]
+        for r in sorted(pool, key=lambda r: r["name"]):
+            cells = r["group"][:4] + [0] * (4 - min(4, len(r["group"])))
+            if len(r["group"]) > 4:
+                raise SystemExit(f"{r['name']}: {len(r['group'])} cells, more than DungeonLogic.h holds")
+            name = r["name"].replace("\\", "\\\\").replace('"', '\\"')
+            h.append(f'\t{{"{name}", DungeonKind::{enum[r["kind"]]}, {{'
+                     + ", ".join(f"0x{c:08X}" for c in cells) + f"}}, {len(r['group'])}}},")
+        h += ["};", "", "inline constexpr UInt32 kDungeonCandidateCount =",
+              "    static_cast<UInt32>(sizeof kDungeonCandidates / sizeof kDungeonCandidates[0]);", "",
+              "}  // namespace walkers", ""]
+        Path(args.header).write_text("\n".join(h), encoding="utf-8")
     (out / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     return 0

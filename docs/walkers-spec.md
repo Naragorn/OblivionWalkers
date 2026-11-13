@@ -2879,6 +2879,25 @@ that send people there by their AI packages are not read. So the pool of
 (their "quest-related" mark), one page each. A mod's quest in the player's
 own load order (QOTW, Better Cities) the pool cannot know at build time.
 
+**The pool in the game, built 2026-11-13** (Nadi: "passt A + B"): the 107
+go into `src/DungeonCandidates.h` (`tools/dungeon-candidates.py --header`,
+read with Oblivion.esm, UOP, the DLCs and Knights), each with its cells.
+At the first tick `Dungeons.cpp` takes out
+- A: one whose cell a loaded quest names, or holds a reference a loaded
+  quest names - its script, its stages' result scripts, its targets, the
+  names Replace.cpp's CollectQuestNames reads anyway (KeepQuestLists, 7a),
+  now also each named reference's parent cell (+0x40);
+- B: one the INI's `[Dungeons] Skip` names, by its name or a cell's form ID
+  in hex (a list: INI only, not LINK).
+Log: "Dungeons: X out - a loaded quest names something in it | [Dungeons]
+Skip names it", "Dungeons: 107 candidates, N in the pool, ...". Flows:
+tests/DungeonLogicTest.cpp. What A does not see (the build-time scan does,
+for Oblivion.esm): dialogue lines' conditions and result scripts (read off
+the file on demand, not in memory), object scripts that run a quest, the
+unique people a quest names by their record. Not measured yet: that a
+persistent reference's parent cell is set at the main menu - the first
+run's count against the build-time 83 of Nadi's Linux load order tells.
+
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
 Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting
