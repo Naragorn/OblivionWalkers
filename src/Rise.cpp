@@ -2180,7 +2180,7 @@ void StepSpawns(float dt) {
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
-		SelectDungeonPool(g_iniPath, g_log);
+		SelectDungeonPool(g_iniPath, g_settings.dungeonsOnlyChosen, g_log);
 		if (g_replace.enabled) {
 			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
 		}
@@ -2680,6 +2680,7 @@ void Tick() {
 		StepLink(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
+		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
 		StepNight(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
 		StepGrabInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);

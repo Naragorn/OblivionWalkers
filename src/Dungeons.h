@@ -12,7 +12,11 @@ namespace walkers {
 
 // Once, at the first tick (the main menu - every quest loaded): which
 // candidates are in the pool, logged with the reason for each one out.
-void SelectDungeonPool(const char* iniPath, LogFn log);
+void SelectDungeonPool(const char* iniPath, bool onlyChosen, LogFn log);
+
+// Every frame: [Dungeons] OnlyChosen as it is now (LINK may change it) - the
+// pool marked anew when it changed.
+void StepDungeonPool(bool onlyChosen, LogFn log);
 
 // After SelectDungeonPool: whether candidate `index` (DungeonCandidates.h's
 // order) is in the pool.

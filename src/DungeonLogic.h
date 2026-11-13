@@ -48,6 +48,7 @@ struct DungeonCandidate {
 	UInt8 cellCount;
 	UInt32 door;    // the door outside, in Tamriel
 	UInt32 marker;  // its map marker
+	bool chosen;    // one of the chosen (roomy, few cells, spread - tools/dungeon-candidates.py)
 };
 
 // What the loaded quests name (Replace.cpp CollectQuestNames): the cells
@@ -131,7 +132,7 @@ inline bool SkipsCell(const DungeonSkips& s, UInt32 cell) {
 	return false;
 }
 
-enum class DungeonVerdict : UInt8 { In, Quest, Skipped };
+enum class DungeonVerdict : UInt8 { In, Quest, Skipped, NotChosen };
 
 // The quest is the reason given when both hold: it is the one the player
 // did not choose.
@@ -169,13 +170,23 @@ struct DungeonPoolCount {
 	UInt32 in = 0;
 	UInt32 quest = 0;
 	UInt32 skipped = 0;
+	UInt32 notChosen = 0;
 };
 
+// [Dungeons] OnlyChosen (Nadi, 2026-11-13: the player chooses, all of them
+// the default): 1 keeps the chosen ones only.
+inline DungeonVerdict DungeonInPoolVerdict(const DungeonCandidate& d, const DungeonQuestNames& quests,
+                                           const DungeonSkips& skips, bool onlyChosen) {
+	const DungeonVerdict v = DungeonOut(d, quests, skips);
+	return v == DungeonVerdict::In && onlyChosen && !d.chosen ? DungeonVerdict::NotChosen : v;
+}
+
 inline DungeonPoolCount MarkDungeonPool(const DungeonCandidate* all, UInt32 count, const DungeonQuestNames& quests,
-                                        const DungeonSkips& skips, bool* in) {
+                                        const DungeonSkips& skips, bool onlyChosen, bool* in) {
 	DungeonPoolCount n;
 	for (UInt32 i = 0; i < count; ++i) {
-		const DungeonVerdict v = DungeonOut(all[i], quests, skips);
+		const DungeonVerdict v = DungeonInPoolVerdict(all[i], quests, skips, onlyChosen);
+		n.notChosen += v == DungeonVerdict::NotChosen ? 1 : 0;
 		in[i] = v == DungeonVerdict::In;
 		n.in += v == DungeonVerdict::In ? 1 : 0;
 		n.quest += v == DungeonVerdict::Quest ? 1 : 0;

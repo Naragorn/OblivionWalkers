@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 32.0;  // 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 33.0;  // 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -92,6 +92,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 54, "Walker blood as a disguise"},
 	{68 + kReplaceCategoryCount + 57, "Hordes - waiting out of sight"},
 	{68 + kReplaceCategoryCount + 60, "Walkers - slow aggression, calm again"},
+	{68 + kReplaceCategoryCount + 61, "Refugee dungeons"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -380,6 +381,9 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_slow_aggression_calm_seconds", "Slow aggression: calm again after",
 	 "A walker that turned on someone fights as any undead until nobody living has been near it this many seconds.",
 	 LinkKind::Slider, 2, 60, 1, 0, false, LinkEffect::Live},
+	{"ini_dungeons_only_chosen", "Only the chosen dungeons",
+	 "Refugees hold only the chosen dungeons - roomy, few cells, spread over the map - not any free one.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -519,6 +523,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 171: return rise.horde.gateNearUnits;
 		case 172: return rise.horde.loadedGrid;
 		case 173: return rise.slowAggression.calmSeconds;
+		case 174: return rise.dungeonsOnlyChosen ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -679,6 +684,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 171: rise.horde.gateNearUnits = static_cast<float>(whole); break;
 		case 172: rise.horde.loadedGrid = whole; break;
 		case 173: rise.slowAggression.calmSeconds = static_cast<float>(whole); break;
+		case 174: rise.dungeonsOnlyChosen = on; break;
 		default: return false;
 	}
 	return true;

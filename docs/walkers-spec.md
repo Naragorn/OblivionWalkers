@@ -2916,6 +2916,24 @@ not read object scripts; [Dungeons] Skip is for it), Haunted Mine in the
 game only (a mod's quest names a reference a mod placed in it - the
 build-time scan reads Oblivion.esm's references only).
 
+**The pool's size, 2026-11-13** (Nadi: the 20-40 are no backup - the
+situation is dynamic either way; "user können wechseln: A oder B. A ist
+default"): `[Dungeons] OnlyChosen` (LINK 174, version 33), 0 the default -
+every candidate free of quests may be held; 1 - only the chosen ones.
+UESP checked for every candidate (`tools/dungeon-uesp.py` ->
+`tools/dungeon-uesp.tsv`, each place page's "Related Quests" and its
+"quest-related" mark, 2026-11-13): 16 more are a quest's - A Venerable
+Vintage's six forts (Aurus, Carmala, Dirich, Magia, Scinia, Vlastarus),
+The Collector's four ruins (Culotte, Vilverin, Welke, Wendir), Black Bow
+Bandits (Rockmilk, Undertow), Beldaburo (A Wound In Time), Fort Coldcorn
+(The Unbeaten Path), Lost Boy Cavern (its lich), Mingo Cave (The Crimson
+Cave) - their quests use dialogue, books and items, not what the scan
+reads. Candidates now **91** (34 caves, 19 ruins, 26 forts, 12 mines); the
+chosen **32**: at least 10 path grid points at the arrival, three cells at
+most, doors 12000 units apart, the roomiest first, shares of 9 caves, 8
+ruins, 9 forts, 6 mines (`--chosen-*`). OnlyChosen changes the pool at
+once (StepDungeonPool, the log line "Dungeons: ... (OnlyChosen=N) ...").
+
 #### 4.20 Designed with Nadi, 2026-11-05 (decided, not built)
 
 Order of building, proposed: 4.20.5, 4.20.1, 4.20.2, 4.20.6. Every setting

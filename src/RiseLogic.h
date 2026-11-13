@@ -182,6 +182,9 @@ struct RiseSettings {
 	SlowAggressionSettings slowAggression;
 	// 4.20.1 walker blood as a disguise.
 	DisguiseSettings disguise;
+	// [Dungeons] OnlyChosen (4.20.7; Nadi, 2026-11-13: the player chooses,
+	// all candidates the default): 1 keeps the chosen dungeons only.
+	bool dungeonsOnlyChosen = false;
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

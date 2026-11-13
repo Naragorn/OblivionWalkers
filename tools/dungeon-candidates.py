@@ -22,7 +22,8 @@ none, and it is no dungeon of ours. Out of the pool when:
             there, or a quest item (flag 0x400) lies in it, or one of its references hangs on an enable parent
             so named; the door outside and its map marker count too
             ... or MOO holds its map marker back until a quest is done
-            (--moo-quests)
+            (--moo-quests), or UESP's place page names a related quest or
+            says "quest-related" (--uesp, tools/dungeon-uesp.py)
   owned     a cell of it is owned (XOWN) - someone lives there
   room      fewer than --room-points path grid points (PGRD) within
             --room-units of the arrival point in its first cell
@@ -138,12 +139,24 @@ def main() -> int:
     p.add_argument("--marker-units", type=float, default=2500.0)
     p.add_argument("--room-units", type=float, default=1024.0)
     p.add_argument("--room-points", type=int, default=6)
+    p.add_argument("--uesp", help="tools/dungeon-uesp.py's TSV: a dungeon with a related quest or the "
+                   "\"quest-related\" mark on its UESP page is out")
+    p.add_argument("--chosen-room", type=int, default=10, help="the chosen ones: at least this many path grid "
+                   "points at the arrival")
+    p.add_argument("--chosen-cells", type=int, default=3, help="the chosen ones: at most this many cells")
+    p.add_argument("--chosen-apart", type=float, default=12000.0, help="the chosen ones: doors this far apart")
     p.add_argument("--header", help="also write src/DungeonCandidates.h here: the pool's dungeons, their cells")
     p.add_argument("--moo-quests", help="MOO's \"Maskar's Oblivion Overhaul for quests.ini\": the map markers "
                    "it holds back until a quest is done count as quest places")
     args = p.parse_args()
     order = [Path(f).name.lower() for f in args.files]
     moo_held: dict[int, str] = {}
+    uesp: dict[str, str] = {}
+    if args.uesp:
+        for line in Path(args.uesp).read_text(encoding="utf-8").splitlines()[1:]:
+            f = line.split("\t")
+            if len(f) >= 3 and (f[1] or f[2]):
+                uesp[f[0]] = f[1] or "quest-related"
     if args.moo_quests:
         block: list[str] = []
         for line in Path(args.moo_quests).read_text(encoding="latin-1").splitlines() + [""]:
@@ -328,6 +341,9 @@ def main() -> int:
                     quests |= {f"{w} (enable parent)" for w in quest_names(r["parent"])}
         for r in outside + ([near[1]] if near else []):
             quests |= quest_names(r["form"])
+        name0 = (near[1]["name"] if near else "") or cells[first]["name"]
+        if name0 in uesp:
+            quests.add(f"UESP: {uesp[name0]}")
         if near and near[1]["form"] in moo_held:
             quests.add(f"MOO holds it back ({moo_held[near[1]['form']]})")
         if quests:
@@ -362,6 +378,20 @@ def main() -> int:
 
     dungeons = [r for r in rows if r["kind"] in KINDS.values()]
     pool = [r for r in dungeons if not r["why"]]
+    # The chosen ones (the INI's [Dungeons] OnlyChosen): room at the arrival,
+    # few cells, spread over the map - the roomiest first, each kind its share.
+    share = {"cave": 9, "ayleid": 8, "fort": 9, "mine": 6}
+    chosen: list[dict] = []
+    for r in sorted(pool, key=lambda r: (-r["room"], r["name"])):
+        if r["room"] < args.chosen_room or r["cells"] > args.chosen_cells:
+            continue
+        if sum(1 for c in chosen if c["kind"] == r["kind"]) >= share[r["kind"]]:
+            continue
+        if any(math.hypot(r["x"] - c["x"], r["y"] - c["y"]) < args.chosen_apart for c in chosen):
+            continue
+        chosen.append(r)
+    for r in pool:
+        r["chosen"] = any(c is r for c in chosen)
     reasons = defaultdict(int)
     for r in dungeons:
         for w in r["why"].split("; ") if r["why"] else []:
@@ -375,6 +405,7 @@ def main() -> int:
                      f"{sum(1 for r in pool if r['kind'] == k)} |")
     lines += ["", "Out because (a dungeon may have several):", ""]
     lines += [f"- {w}: {n}" for w, n in sorted(reasons.items(), key=lambda kv: -kv[1])]
+    lines += ["", f"Chosen: {len(chosen)} - " + ", ".join(sorted(r["name"] for r in chosen))]
     lines += ["", f"Several doors in (kept): {sum(1 for r in pool if r['doors_in'] > 1)}", ""]
     if args.header:
         enum = {"cave": "Cave", "ayleid": "Ayleid", "fort": "Fort", "mine": "Mine"}
@@ -384,7 +415,9 @@ def main() -> int:
              f"// Read: {', '.join(order)}.",
              f"// {len(pool)} of {len(dungeons)} dungeons with a door in Tamriel; the cells are",
              "// Oblivion.esm form IDs, the first the one the door outside leads into; then",
-             "// the door outside and the map marker.", "",
+             "// the door outside, the map marker, and whether it is one of the chosen",
+             f"// ({len(chosen)}: at least {args.chosen_room} path grid points at the arrival, at most "
+             f"{args.chosen_cells} cells, doors {args.chosen_apart:.0f} apart).", "",
              '#include "DungeonLogic.h"', "", "namespace walkers {", "",
              "inline constexpr DungeonCandidate kDungeonCandidates[] = {"]
         for r in sorted(pool, key=lambda r: r["name"]):
@@ -394,7 +427,8 @@ def main() -> int:
             name = r["name"].replace("\\", "\\\\").replace('"', '\\"')
             h.append(f'\t{{"{name}", DungeonKind::{enum[r["kind"]]}, {{'
                      + ", ".join(f"0x{c:08X}" for c in cells)
-                     + f"}}, {len(r['group'])}, 0x{r['door']:08X}, 0x{r['marker']:08X}}},")
+                     + f"}}, {len(r['group'])}, 0x{r['door']:08X}, 0x{r['marker']:08X}, "
+                     + ("true" if r["chosen"] else "false") + "},")
         h += ["};", "", "inline constexpr UInt32 kDungeonCandidateCount =",
               "    static_cast<UInt32>(sizeof kDungeonCandidates / sizeof kDungeonCandidates[0]);", "",
               "}  // namespace walkers", ""]

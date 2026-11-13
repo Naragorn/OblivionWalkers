@@ -45,9 +45,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 174,
-	      "174 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 175,
+	      "175 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -339,7 +339,13 @@ void TestValues() {
 	Check(calmTime == 173 && walkers::LinkValue(rise, replace, calmTime) == 10.0 &&
 	          kLinkSettings[calmTime].effect == walkers::LinkEffect::Live &&
 	          walkers::SetLinkValue(rise, replace, calmTime, 30.0) && rise.slowAggression.calmSeconds == 30.0f,
-	      "the slow aggression's calm time last, 173 (2026-11-11): 10 s, live, set from the menu");
+	      "the slow aggression's calm time, 173 (2026-11-11): 10 s, live, set from the menu");
+	const int onlyChosen = IndexOf("ini_dungeons_only_chosen");
+	Check(onlyChosen == 174 && walkers::LinkValue(rise, replace, onlyChosen) == 0.0 &&
+	          kLinkSettings[onlyChosen].kind == walkers::LinkKind::Toggle &&
+	          kLinkSettings[onlyChosen].effect == walkers::LinkEffect::Live &&
+	          walkers::SetLinkValue(rise, replace, onlyChosen, 1.0) && rise.dungeonsOnlyChosen,
+	      "the dungeons' OnlyChosen last, 174 (2026-11-13): off (all candidates), live, set from the menu");
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
@@ -462,7 +468,7 @@ void TestFiles() {
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 32\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 33\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

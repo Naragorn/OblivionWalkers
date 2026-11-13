@@ -165,6 +165,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	}
 	rise.slowAggression.units = IniFloat("Zombies", "SlowAggressionUnits", 1000.0f, path);
 	rise.slowAggression.calmSeconds = IniFloat("Zombies", "SlowAggressionCalmSeconds", 10.0f, path);
+	rise.dungeonsOnlyChosen = GetPrivateProfileIntA("Dungeons", "OnlyChosen", 0, path) != 0;
 	if (rise.slowAggression.units < 100.0f) {
 		rise.slowAggression.units = 100.0f;
 	}

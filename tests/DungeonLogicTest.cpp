@@ -26,9 +26,9 @@ using walkers::DungeonOut;
 using walkers::DungeonSkips;
 
 constexpr DungeonCandidate kFort = {"Fort Aurus", DungeonKind::Fort, {0x00001111, 0x00001112, 0, 0}, 2, 0x0000A001,
-                                    0x0000B001};
+                                    0x0000B001, true};
 constexpr DungeonCandidate kCave = {"Lost Boy Cavern", DungeonKind::Cave, {0x00002221, 0, 0, 0}, 1, 0x0000A002,
-                                    0x0000B002};
+                                    0x0000B002, false};
 const walkers::DungeonQuestNames kNoNames = {nullptr, 0, nullptr, 0};
 
 void TestSkipList() {
@@ -78,7 +78,7 @@ void TestOut() {
 	      "a quest names the door outside: out (A)");
 	Check(DungeonOut(kCave, {nullptr, 0, questRefs, 1}, none) == walkers::DungeonVerdict::In,
 	      "another dungeon's marker named: in");
-	const DungeonCandidate noCells = {"Nowhere", DungeonKind::Mine, {0, 0, 0, 0}, 0, 0, 0};
+	const DungeonCandidate noCells = {"Nowhere", DungeonKind::Mine, {0, 0, 0, 0}, 0, 0, 0, false};
 	const UInt32 zeroRef[] = {0};
 	Check(DungeonOut(noCells, {nullptr, 0, zeroRef, 1}, none) == walkers::DungeonVerdict::In,
 	      "no door and no marker (0): a named 0 matches nothing");
@@ -95,12 +95,17 @@ void TestPool() {
 	walkers::ParseDungeonSkips("Lost Boy Cavern", skips);
 	const UInt32 questCells[] = {0x00001111};
 	bool in[2] = {true, true};
-	walkers::DungeonPoolCount count = walkers::MarkDungeonPool(all, 2, {questCells, 1, nullptr, 0}, skips, in);
+	walkers::DungeonPoolCount count = walkers::MarkDungeonPool(all, 2, {questCells, 1, nullptr, 0}, skips, false, in);
 	Check(!in[0] && !in[1], "the fort a quest's, the cave skipped: both out");
 	Check(count.quest == 1 && count.skipped == 1 && count.in == 0, "counted by reason");
 	walkers::DungeonSkips none;
-	count = walkers::MarkDungeonPool(all, 2, kNoNames, none, in);
-	Check(in[0] && in[1] && count.in == 2, "nothing named: both in");
+	count = walkers::MarkDungeonPool(all, 2, kNoNames, none, false, in);
+	Check(in[0] && in[1] && count.in == 2, "nothing named: both in (all candidates, the default)");
+	count = walkers::MarkDungeonPool(all, 2, kNoNames, none, true, in);
+	Check(in[0] && !in[1], "OnlyChosen=1: the chosen fort in, the cave not chosen out");
+	Check(count.in == 1 && count.notChosen == 1 && count.quest == 0, "counted as not chosen");
+	count = walkers::MarkDungeonPool(all, 2, {questCells, 1, nullptr, 0}, none, true, in);
+	Check(!in[0] && count.quest == 1 && count.notChosen == 1, "OnlyChosen=1 and the chosen one a quest's: out, the quest the reason");
 }
 
 void TestKindNames() {
