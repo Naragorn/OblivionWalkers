@@ -97,6 +97,7 @@ RiseSettings g_settings;
 constexpr float kTimingReportSeconds = 10.0f;
 TimingState g_timing;
 float g_timingClock = 0.0f;
+UInt32 g_consoleLines = 0;  // console lines this period
 unsigned long long g_qpcFrequency = 0;
 
 template <typename F>
@@ -1137,7 +1138,15 @@ bool ConsoleOn(UInt32 ref, const char* line) {
 	if (g_console == nullptr) {
 		return false;
 	}
-	return g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
+	bool done = false;
+	// Every console line timed (StepTiming): each is a script compiled and
+	// run - a part of whichever step sent it.
+	Timed(22, "console", [&done, line, ref] { done = g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true); },
+	      true);
+	if (g_settings.stepTiming) {
+		++g_consoleLines;
+	}
+	return done;
 }
 
 }  // namespace
@@ -2705,9 +2714,10 @@ void ReportTiming(float dt) {
 		QueryPerformanceFrequency(&f);
 		g_qpcFrequency = static_cast<unsigned long long>(f.QuadPart);
 	}
-	g_log("Timing: %u frames - Walkers' tick %.1f us a frame on average, %.1f us the most", g_timing.frames,
-	      TimingMicros(g_timing.frameTotal, g_qpcFrequency) / g_timing.frames,
-	      TimingMicros(g_timing.frameMost, g_qpcFrequency));
+	g_log("Timing: %u frames - Walkers' tick %.1f us a frame on average, %.1f us the most; %u console lines",
+	      g_timing.frames, TimingMicros(g_timing.frameTotal, g_qpcFrequency) / g_timing.frames,
+	      TimingMicros(g_timing.frameMost, g_qpcFrequency), g_consoleLines);
+	g_consoleLines = 0;
 	for (UInt32 i = 0; i < g_timing.count; ++i) {
 		if (g_timing.steps[i].name != nullptr && g_timing.steps[i].total > 0) {
 			g_log("Timing:   %-14s %8.2f us mean, %8.1f us most", g_timing.steps[i].name,
