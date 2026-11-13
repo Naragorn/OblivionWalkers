@@ -99,6 +99,31 @@ TimingState g_timing;
 float g_timingClock = 0.0f;
 UInt32 g_consoleLines = 0;  // console lines this period
 UInt32 g_slowConsoleLogsLeft = 60;
+// The console lines by their first word this period: how many, how long.
+struct ConsoleVerb {
+	char word[24] = {};
+	UInt32 count = 0;
+	unsigned long long ticks = 0;
+};
+ConsoleVerb g_consoleVerbs[16];
+
+void NoteConsoleVerb(const char* line, unsigned long long ticks) {
+	char word[24] = {};
+	UInt32 n = 0;
+	for (; line[n] != '\0' && line[n] != ' ' && n < sizeof(word) - 1; ++n) {
+		word[n] = line[n];
+	}
+	for (ConsoleVerb& v : g_consoleVerbs) {
+		if (v.count == 0 || std::strcmp(v.word, word) == 0) {
+			if (v.count == 0) {
+				std::memcpy(v.word, word, sizeof(word));
+			}
+			++v.count;
+			v.ticks += ticks;
+			return;
+		}
+	}
+}
 unsigned long long g_qpcFrequency = 0;
 
 template <typename F>
@@ -1187,6 +1212,7 @@ bool ConsoleOn(UInt32 ref, const char* line) {
 	QueryPerformanceCounter(&b);
 	const unsigned long long ticks = static_cast<unsigned long long>(b.QuadPart - a.QuadPart);
 	NoteTiming(g_timing, 22, "console", ticks, true);
+	NoteConsoleVerb(line, ticks);
 	++g_consoleLines;
 	if (g_slowConsoleLogsLeft > 0) {
 		if (g_qpcFrequency == 0) {
@@ -1703,6 +1729,9 @@ float g_walkLogSeconds = 0.0f;
 // summaries still to log this session.
 UInt32 g_walkTurned = 0;
 UInt32 g_walkSummariesLeft = 300;
+// The per-walker lines: some for a look, then none (2026-11-13: 60 walkers
+// wrote 30 lines a second for as long as the game ran).
+UInt32 g_walkLinesLeft = 200;
 // The walkers met outside a chapel this session, and those taken out of
 // one (AvoidChapels, SpawnedInChapel).
 std::unordered_set<UInt32> g_seenOutside;
@@ -2207,7 +2236,8 @@ void StepWalkers(float dt) {
 		seen->x = x;
 		seen->y = y;
 		seen->have = true;
-		if (logNow) {
+		if (logNow && g_walkLinesLeft > 0) {
+			--g_walkLinesLeft;
 			g_log("Walk: walker %08X flags %04X, %.0f units/s, %u runs turned to walks", refs[i], *flags,
 			      seen->speed, seen->turned);
 		}
@@ -2809,6 +2839,13 @@ void ReportTiming(float dt) {
 			g_log("Timing:   %-14s %8.2f us mean, %8.1f us most", g_timing.steps[i].name,
 			      TimingMean(g_timing, i, g_qpcFrequency), TimingMicros(g_timing.steps[i].most, g_qpcFrequency));
 		}
+	}
+	for (ConsoleVerb& v : g_consoleVerbs) {
+		if (v.count > 0) {
+			g_log("Timing:   console %-16s %4u lines, %8.1f us in all", v.word, v.count,
+			      TimingMicros(v.ticks, g_qpcFrequency));
+		}
+		v = ConsoleVerb{};
 	}
 	ResetTimingPeriod(g_timing);
 	g_timingClock = 0.0f;

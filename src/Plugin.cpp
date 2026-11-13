@@ -20,12 +20,21 @@ constexpr const char* kIniFile = "OblivionWalkers.ini";
 HMODULE g_module = nullptr;
 SRWLOCK g_logLock = SRWLOCK_INIT;
 
+// The log kept open for the session (2026-11-13, StepTiming: a line was an
+// open, a write and a close of the file - each a few hundred microseconds
+// under Wine); each line flushed, so the OS holds it even if the game
+// crashes.
+FILE* g_logFile = nullptr;
+
 void AppendLine(const char* format, va_list args) {
 	AcquireSRWLockExclusive(&g_logLock);
-	if (FILE* file = std::fopen(kLogFile, "a")) {
-		std::vfprintf(file, format, args);
-		std::fputc('\n', file);
-		std::fclose(file);
+	if (g_logFile == nullptr) {
+		g_logFile = std::fopen(kLogFile, "a");
+	}
+	if (g_logFile != nullptr) {
+		std::vfprintf(g_logFile, format, args);
+		std::fputc('\n', g_logFile);
+		std::fflush(g_logFile);
 	}
 	ReleaseSRWLockExclusive(&g_logLock);
 }
@@ -90,11 +99,13 @@ void KeepLog() {
 // the last kKeptLogs in OblivionWalkers-logs.
 void ResetLog() {
 	AcquireSRWLockExclusive(&g_logLock);
+	if (g_logFile != nullptr) {
+		std::fclose(g_logFile);
+		g_logFile = nullptr;
+	}
 	KeepLog();
 	MoveFileExA(kLogFile, "OblivionWalkers.log.prev", MOVEFILE_REPLACE_EXISTING);
-	if (FILE* file = std::fopen(kLogFile, "w")) {
-		std::fclose(file);
-	}
+	g_logFile = std::fopen(kLogFile, "w");
 	ReleaseSRWLockExclusive(&g_logLock);
 }
 
