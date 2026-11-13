@@ -3679,3 +3679,27 @@ decapitation kann") - not even the power-attack rule before it.
   CalcItemForContainer 0x0046CDE0, ResurrectActor 0x00B0DEA0 / 0x00510150 /
   vtable+0x20C.
 - `tools/esm-spawns.py` over Oblivion.esm: `artifacts/esm/`.
+
+
+### Performance (Nadi, 2026-11-13: "baust du walkers extrem performant")
+
+Measured with `[Debug] StepTiming=1` (TimingLogic.h: each step of the tick
+timed by the QueryPerformanceCounter, every console line by its verb) and
+`tools/walkers-timing.sh` (60 walkers placed about the player, the spawn
+replacement off - the same load every run; Linux, headless). Means a
+frame, the most of a 10 s period in brackets:
+
+| change | before | after |
+|---|---|---|
+| the high process list only each frame, all four once a second (a9607b8) | collecting 87-137 us | 8-10 us |
+| actors off the list, bases by binary search, records looked up once (298539c, d046f84) | - | (load changed, see below) |
+| the log file kept open, the per-walker walk lines bounded (3d73866) | walkers 50-85 us (5.6 ms), horde 30-70 us (5.8 ms), frame most 5-6.7 ms | walkers 17-21 us (0.26 ms), horde 5-8 us (0.5 ms), frame most 1.8 ms |
+| the grab's lunge by the engine's SetPos/SetAngle calls, not console lines (d2070a2) | grab 104 us, console 96 us (57 MoveTo + 53 SetAngle in 10 s), tick 148 us | grab 35 us, console 10-16 us (1-2 MoveTo), tick 95 us |
+
+The first runs at the farm's hordes (61 walkers once, 10 the next) were
+not comparable - the fixed 60 since 2026-11-13 14:0x. Spikes of 1-4 ms in
+steps that do almost nothing (the dungeons' once a second) look like the
+thread being preempted under Wine - not shown, not chased. Left: a console
+PlaySound (the grab's shock sound) 0.9-3 ms once a grab, ModAV2 (the bites)
+~170 us each, the horde markers' MoveTo (they change cell - SetPos would
+not) ~400 us each a few times a minute.
