@@ -3210,6 +3210,160 @@ Harness `harness/slow-aggression.txt`, 2026-11-08 (Linux, headless):
 Not measured: how guards, sieges and camps feel with calm walkers (the
 guards are sent by StartCombat already, 4.11b); the headset.
 
+### 4.22 Invaders from Oblivion - Daedra instead of, or beside, the walkers (Nadi's idea, 2026-11-13; proposed, not built, nothing decided)
+
+Nadi, 2026-11-13: swap the zombies for Dremora "and everything that runs
+about the Oblivion world" - as a mod of its own or as a switch in this
+one: 0 zombies, 1 Dremora, 2 both; and a new option for all of them: they
+come only out of Oblivion gates and wander to the cities.
+
+**What the game has** (read off Oblivion.esm 2026-11-13, tools/esm-spawns.py
+and a look at Tamriel's references; UESP "Oblivion:Oblivion Gates", read
+the same day):
+- The Daedra: Dremora are NPCs of the race Dremora (0003E9A6; 96 NPC_
+  records with "Dremora" in their editor ID), in seven ranks - Churl,
+  Caitiff, Kynval, Kynreeve, Kynmarcher, Markynaz, Valkynaz - each as
+  melee, archer and mage, and leveled lists of them
+  (`LL0Dremora0Churl100` .. `LL0Dremora6Valkynaz100`, `LL1Dremora100`, the
+  `...NOSUMMON` twins without the summoning spells). The beasts are
+  creatures: scamps, clannfears, daedroths, flame, frost and storm
+  atronachs, spider daedra, xivilai, with lists that rise with the
+  player's level (`LL1DaedricBeast100`, `LL1Daedra100`, `LL1DaedraLvl100`,
+  `LL1DaedricBeastOlivionGate100` - the ones that stand before a gate).
+  The plugin knows all of them already, as replacement categories
+  (CategoryLogic.h: Atronachs, Clannfears, Daedroths, Scamps, SpiderDaedra,
+  Xivilai, Dremora).
+- The gates: 99 map markers of the type Oblivion gate in Tamriel; 90
+  doors of the base `OblivionGatetoOblivion` (88 enabled in the file, 2
+  initially disabled), every one hanging on an enable parent (XESP), and
+  the quests' own (MQ11's before the cities, MQ13's, MS94's). UESP: 100
+  places, at most 60 open in one playthrough; one gate (Kvatch) at the
+  start, 10 fixed ones after "Find the Heir" and each random gate by 25 %
+  on entering its cell (25 at most), 7 more before cities and 50 % (50 at
+  most) after "Dagon Shrine", fewer again after "Paradise", all closed
+  when the main quest ends; one to four leveled Daedra stand before each.
+  A gate is closed by taking its sigil stone.
+- Not read yet: how the game opens a random gate (the script on the gate
+  or its parent, the global that counts the open ones), and how a closed
+  gate reads (the door disabled, its parent, a script variable) - needed
+  before anything is built on "open".
+
+**A switch here, or a mod of its own?** Proposed: a switch here, one DLL.
+
+| | a switch in Walkers | a mod of its own |
+|---|---|---|
+| reuse | hordes, gate guards, sieges, camps, dungeons, news, LINK, the co-save, the harness - all there | all of it copied or shared as a library first |
+| "both" (2) | one budget, one horde logic, the two kinds told apart inside | two plugins rewriting the same leveled lists and marching on the same gates - they must be taught about each other |
+| cost | medium to large (below) | large, and every later fix twice |
+| against | the name "Walkers"; the opcode range and the ESP grow | - |
+
+A second Nexus page with its own INI defaults (the same DLL and ESP,
+`Kind=1`) would give the Daedra variant a face of its own at no code cost.
+
+**The switch**, proposed `[Invaders] Kind=0|1|2` (LINK): 0 the walkers as
+now, 1 Daedra in their place, 2 both. What each kind takes from the
+walkers' rules:
+
+| rule | walkers | Daedra |
+|---|---|---|
+| where they come from | the spawn replacement, the rise of the fallen | the spawn replacement with the game's Daedra lists, or the gates only (below) |
+| the fallen rise (4.1) | yes | no - proposed; with 2: those the Daedra kill rise as walkers (the two plagues feed each other) |
+| only a lost head ends one (4.17) | yes | no - they die as the game's |
+| the grab and the bites (4.19) | yes | no; the Dremora fight with the game's weapons and spells |
+| slow aggression (4.21), the disguise (4.20.1) | yes | no; a disguise of their own is an idea (below) |
+| walk only, their own pace (4.4) | yes | no - they run and charge as the game's |
+| hordes to the cities, gate guards, sieges, news, camps, dungeons | yes | yes - war bands in place of hordes |
+| nights are worse (4.20.5) | yes | open: by the weather instead (below) |
+| strength | HealthPercent, the level-free walker | the game's own leveling (the Lvl lists), a cap by INI |
+
+Kind 2, proposed: `DaedraPercent=50` of the budget, the two hostile to each
+other (factions: the walkers' creature faction against the Daedra's - a
+three-way fight where a band meets a horde), each from its own origin.
+
+**The new option for all kinds**, proposed `[Invaders] Origin=0|1` (LINK):
+0 everywhere, as now (the leveled lists rewritten); 1 only out of open
+Oblivion gates: the spawn replacement off (the world keeps the game's
+spawns), a band forms at an open gate and walks to the nearest city
+(HordeLogic's heading and CityPull, the gate hold and the siege as they
+are). Per open gate `BandEveryHours` (say 12 game hours) and `BandSize`
+(say 4-9), the bands of the gates far from the player counted as numbers
+only until he is near (as the held dungeons' sites; the rule of 4.11c and
+of the performance section: no actor far away). Closing a gate ends its
+bands - the game's own gate closing gets a purpose: every gate closed is
+one source less for the city behind it.
+Before the main quest opens gates there is one gate (Kvatch). Options:
+(a) nothing comes until gates open - true to the story, a quiet early
+game; (b) `OpenGatesEarly=N`: the plugin opens N random gates itself -
+what that does to the main quest's own count is not read, risk; (c) with
+Origin=1 and no gate open, fall back to Origin=0. Recommended (a) with
+(c) as an INI choice; (b) only after the gate script is read.
+With walkers and Origin=1 the picture is odd (the dead out of a gate to
+Oblivion) but allowed, as Nadi said "for all".
+
+**Further ideas** (each to decide; cost in brackets):
+1. War bands with a leader: a band is led by a Dremora two ranks above its
+   men (the game's seven ranks); the leader down, the rest fall back to
+   their gate or break up. [small on the horde's leader logic]
+2. The fallen as fuel (Kind 2): whoever the Daedra kill rises as a walker;
+   a band leaves a trail of walkers on its road. [cheap - the rise is there]
+3. A siege gate: during a Daedra siege a small Oblivion gate burns before
+   the city gate (a prop of the ESP at each of the 21 gates, disabled
+   until then - the camps' props show how); no way in, only the look and
+   the red sky. [medium; the sky and the music near it not read]
+4. Gate pressure in the news and the rumors: the Courier and the guards
+   name the gate that feeds a city's attacks ("the gate south of Skingrad")
+   - the player learns which gate to close. [small - News and rumors exist]
+5. "Close the gate" as a journal quest with the camps' reward, on the held
+   dungeons' quest frame (4.20.7, step 4). [small once that frame is built]
+6. Refugees flee the Daedra, not only the dead: camps and held dungeons
+   are attacked by bands when Kind is 1 or 2; an overrun dungeon becomes
+   a Daedra outpost with a boss instead of a walker dungeon. [small in
+   logic, medium in the game - a boss, his loot]
+7. A disguise of their own: in a full set of Daedric armor the Dremora
+   take the player for one of theirs until he strikes or comes within a
+   few steps. [small on the disguise's logic; the worn set to read]
+8. Banished, not buried: a Daedra's body goes back to Oblivion some
+   seconds after death (the game's summon-end shader), its loot left in a
+   small pile - fewer bodies in the scene, cheaper frames after a big
+   fight. [small to medium; also a help for performance]
+9. The weather tells: a band on the march carries the gates' red sky a
+   little way with it - the player sees an attack coming over the hill.
+   [medium; forcing weather fights the other weather mods - off by default]
+10. Legion patrols answer: where bands walk the roads, the Legion riders
+    are doubled and ride toward the gate under attack (the gate guards'
+    pool). [medium]
+11. The summoners held back: spider daedra, the Dremora mages and
+    xivilai multiply the actors with their summons - the `NOSUMMON` lists
+    by default, `Summons=1` for those with the frames to spare.
+    [cheap; a performance rule from the start]
+12. One budget for everything alive: `InvadersMost=N` actors of either
+    kind in the loaded area, the bands and hordes beyond it numbers - the
+    cap Nadi's VR frame needs whatever the kind. [medium; it is the far
+    hordes' option B of 4.11c, due anyway]
+13. After the main quest: the gates are shut for good and the Daedra
+    stop - the walkers remain (Kind 2 becomes Kind 0), or
+    `AfterMainQuest=keep` lets a few gates reopen. [small; the reopening
+    not read]
+
+**Cost of the core** (Kind and Origin, without the ideas): medium to
+large. Reused: categories, the spawn replacement, the horde, sieges,
+guards, camps, dungeons, LINK, the co-save. New: the kind of each group
+and what rules apply to it (every "is a walker" test in Rise.cpp, Horde.cpp,
+Siege.cpp, Camps.cpp gets a second answer), bands formed at a gate, the
+open gates read at run time, Daedra pools in the ESP beside the walker
+pools (sieges, camps, dungeons), the faction between the two. Risks: the
+gates' scripts (not read), NPC Dremora in a horde (the horde leads
+creatures so far; packages on NPCs are the camps' experience), spell
+casters in numbers (frame time - to measure with StepTiming before any
+default is set), mods that change the Daedra (MOO adds its own). Tests:
+unit flows for the kind's rules and the gate bands; harness: a band from
+a forced-open gate to Kvatch or Skingrad, a mixed fight, the timing run
+with 60 Daedra beside the 60 walkers' numbers.
+
+**To decide** (Nadi): a switch here or a second mod (proposed: here); what
+of the walkers' rules the Daedra keep (the table above); the early game
+with Origin=1 (proposed: quiet until gates open); which of the ideas.
+
 ## 5. Scenarios - `[Scenario] Preset=`
 
 All of 28 Days' plus one. A preset sets the switches above and the
