@@ -137,6 +137,7 @@ UInt32 g_getUpSound = 0;
 UInt32 g_apartRefusedFor = 0;
 UInt32 g_walkers[kWalkerCount] = {};
 UInt32 g_walkersSorted[kWalkerCount] = {};  // ascending, for IsWalkerBase
+UInt32 g_walkerBases[kWalkerCount] = {};    // the records, looked up once (KeepWalkerRecords)
 LookFamily g_walkerFamilies[kWalkerCount] = {};
 bool g_walkerHeadless[kWalkerCount] = {};
 UInt32 g_walkerCount = 0;
@@ -960,6 +961,7 @@ void FindWalkers() {
 	}
 	g_walkersLooked = true;
 	g_walkerCount = 0;
+	std::fill(g_walkerBases, g_walkerBases + kWalkerCount, 0u);
 	const UInt32 base = FindEspBase();
 	if (base == kNoEsp) {
 		g_log("Walkers: no ESP, the fallen get up as themselves");
@@ -1784,7 +1786,12 @@ void KeepWalkerRecords() {
 	}
 	const bool slow = g_settings.slowAggression.enabled;
 	for (UInt32 w = 0; w < g_walkerCount; ++w) {
-		const UInt32 base = LookupForm(g_walkers[w]);
+		// The records live as long as the session: looked up once, not 64
+		// times a frame (2026-11-13).
+		if (g_walkerBases[w] == 0) {
+			g_walkerBases[w] = LookupForm(g_walkers[w]);
+		}
+		const UInt32 base = g_walkerBases[w];
 		if (!LooksLikeObject(base) || Read8(base + kFormTypeOffset) != kFormTypeCreature) {
 			continue;
 		}
