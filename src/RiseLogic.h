@@ -188,6 +188,9 @@ struct RiseSettings {
 	bool dungeonsOnlyChosen = false;
 	// [Dungeons] the held places' situation (4.20.7, DungeonSiteLogic.h).
 	DungeonSiteSettings dungeons;
+	// [Debug] StepTiming (INI only, a test switch; TimingLogic.h): each step
+	// of the tick timed, the means logged every 10 s.
+	bool stepTiming = false;
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

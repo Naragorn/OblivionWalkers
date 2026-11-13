@@ -11,6 +11,7 @@
 #include "Pose.h"
 #include "QuestVars.h"
 #include "SkillLogic.h"
+#include "TimingLogic.h"
 #include "Dungeons.h"
 #include "Replace.h"
 #include "Siege.h"
@@ -2667,54 +2668,112 @@ void StepSafeguardInGame(float dt) {
 	}
 }
 
+// [Debug] StepTiming (TimingLogic.h): each step of the Tick timed, the means
+// and the most a frame logged every kTimingReportSeconds.
+constexpr float kTimingReportSeconds = 10.0f;
+TimingState g_timing;
+float g_timingClock = 0.0f;
+unsigned long long g_qpcFrequency = 0;
+
+template <typename F>
+void Timed(UInt32 index, const char* name, F&& step) {
+	if (!g_settings.stepTiming) {
+		step();
+		return;
+	}
+	LARGE_INTEGER a;
+	LARGE_INTEGER b;
+	QueryPerformanceCounter(&a);
+	step();
+	QueryPerformanceCounter(&b);
+	NoteTiming(g_timing, index, name, static_cast<unsigned long long>(b.QuadPart - a.QuadPart));
+}
+
+void ReportTiming(float dt) {
+	if (!g_settings.stepTiming) {
+		return;
+	}
+	EndTimingFrame(g_timing);
+	g_timingClock += dt;
+	if (g_timingClock < kTimingReportSeconds || g_timing.frames == 0) {
+		return;
+	}
+	if (g_qpcFrequency == 0) {
+		LARGE_INTEGER f;
+		QueryPerformanceFrequency(&f);
+		g_qpcFrequency = static_cast<unsigned long long>(f.QuadPart);
+	}
+	g_log("Timing: %u frames - Walkers' tick %.1f us a frame on average, %.1f us the most", g_timing.frames,
+	      TimingMicros(g_timing.frameTotal, g_qpcFrequency) / g_timing.frames,
+	      TimingMicros(g_timing.frameMost, g_qpcFrequency));
+	for (UInt32 i = 0; i < g_timing.count; ++i) {
+		if (g_timing.steps[i].name != nullptr && g_timing.steps[i].total > 0) {
+			g_log("Timing:   %-14s %8.2f us mean, %8.1f us most", g_timing.steps[i].name,
+			      TimingMean(g_timing, i, g_qpcFrequency), TimingMicros(g_timing.steps[i].most, g_qpcFrequency));
+		}
+	}
+	ResetTimingPeriod(g_timing);
+	g_timingClock = 0.0f;
+}
+
 void Tick() {
 	++g_frame;
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
 	}
-	{
-		const float frame = *reinterpret_cast<const float*>(kFrameSeconds);
-		FindWalkers();
-		FindMoo();
-		StepLevelingChecks(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepLink(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepMooStripping(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepSpawns(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
-		StepDungeonsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, g_log);
-		StepNight(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepWalkers(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepGrabInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepHordeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
-		StepSafeguardInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepNewsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f, HordeHeadingCity(), g_log);
-		StepSiegeInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepCampsInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepDisguiseInGame(frame > 0.0f && frame < 1.0f ? frame : 0.0f);
-		StepHeads();
-		SendCuts();
-		StepLootless();
-		StepFame();
-	}
-	if (g_risenWatching) {
-		StepRisenWatch();
-	}
 	float dt = *reinterpret_cast<const float*>(kFrameSeconds);
 	if (!(dt > 0.0f && dt < 1.0f)) {
 		dt = 0.0f;
 	}
-	StepStandWatch(dt);
-	if (g_swap.active) {
-		StepSwapInFlight(dt);
-	}
-	if (g_list.count == 0) {
-		return;
-	}
-	UInt32 due[kWaitingMost];
-	const UInt32 dueCount = TickWaiting(g_list, dt, &PresenceOf, due, kWaitingMost, GameDaysNow());
-	for (UInt32 i = 0; i < dueCount; ++i) {
-		Raise(due[i]);
-	}
+	Timed(0, "find", [] {
+		FindWalkers();
+		FindMoo();
+	});
+	Timed(1, "leveling", [dt] { StepLevelingChecks(dt); });
+	Timed(2, "link", [dt] { StepLink(dt); });
+	Timed(3, "moo", [dt] { StepMooStripping(dt); });
+	Timed(4, "spawns", [dt] { StepSpawns(dt); });
+	Timed(5, "dungeons", [dt] {
+		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
+		StepDungeonsInGame(dt, g_log);
+	});
+	Timed(6, "night", [dt] { StepNight(dt); });
+	Timed(7, "walkers", [dt] { StepWalkers(dt); });
+	Timed(8, "grab", [dt] { StepGrabInGame(dt); });
+	Timed(9, "horde", [dt] { StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log); });
+	Timed(10, "safeguard", [dt] { StepSafeguardInGame(dt); });
+	Timed(11, "news", [dt] { StepNewsInGame(dt, HordeHeadingCity(), g_log); });
+	Timed(12, "siege", [dt] { StepSiegeInGame(dt); });
+	Timed(13, "camps", [dt] { StepCampsInGame(dt); });
+	Timed(14, "disguise", [dt] { StepDisguiseInGame(dt); });
+	Timed(15, "heads", [] {
+		StepHeads();
+		SendCuts();
+		StepLootless();
+		StepFame();
+	});
+	Timed(16, "risen", [] {
+		if (g_risenWatching) {
+			StepRisenWatch();
+		}
+	});
+	Timed(17, "stand", [dt] {
+		StepStandWatch(dt);
+		if (g_swap.active) {
+			StepSwapInFlight(dt);
+		}
+	});
+	Timed(18, "waiting", [dt] {
+		if (g_list.count == 0) {
+			return;
+		}
+		UInt32 due[kWaitingMost];
+		const UInt32 dueCount = TickWaiting(g_list, dt, &PresenceOf, due, kWaitingMost, GameDaysNow());
+		for (UInt32 i = 0; i < dueCount; ++i) {
+			Raise(due[i]);
+		}
+	});
+	ReportTiming(dt);
 }
 
 void OnSave(void*) {

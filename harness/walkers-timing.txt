@@ -1,0 +1,37 @@
+# Walkers' own cost per frame (Nadi, 2026-11-13: "baust du walkers extrem
+# performant" - measured before and after every optimization). [Debug]
+# StepTiming=1 (set by tools/walkers-timing.sh, put back after): every 10 s
+# "Timing: N frames - Walkers' tick X us a frame on average, Y us the most"
+# and one line a step. The place: by Whitmond Farm (Tamriel -47,-6), where
+# the harness save's hordes stand (horde-stuck-farm.txt: four or five
+# groups of nine) - the heavy case; tdetect, so they do not come for the
+# player; weather and time fixed.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -47 -6
+console-at placed player.setpos x -191100
+console-at placed player.setpos y -20200
+console-at placed player.setpos z 1700
+console-at placed player.setangle z 180
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark placed
+wait 65
+mark end
+wait 1
