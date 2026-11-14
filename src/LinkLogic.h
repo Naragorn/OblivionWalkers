@@ -805,6 +805,32 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 	return true;
 }
 
+// [Debug] TestLinkPage=N (INI only, a test switch; harness/link-page.txt):
+// N seconds after a load's first look LINK's page of the plugin is shown as
+// LINK's own list shows it, kLinkPageOpenSeconds later it is left by its
+// Return button's script - what a player does who opens the page and changes
+// nothing. The two are scripts of LINK.esp, called through xOBSE's script
+// interface (the console knows no script by its editor ID): of the LINK++
+// build in Nadi's installs (LINK.esp of 273485 bytes, read 2026-11-14)
+// LppApiShowModConfigMenu 000832, taking the plugin's file name and a
+// callback (none), and LINKOnClickGenericModsConfigMenuReturnFunctionScript
+// 012DA0. Another LINK.esp may hold other forms there: the caller asks xOBSE
+// whether each is a function script and leaves it when not.
+inline constexpr UInt32 kLinkShowPageLocalId = 0x000832;
+inline constexpr UInt32 kLinkPageReturnLocalId = 0x012DA0;
+inline constexpr float kLinkPageOpenSeconds = 5.0f;
+enum class LinkPageDoes : UInt8 { Nothing, Show, Return };
+inline LinkPageDoes LinkPageTest(float after, float before, float now) {
+	if (!(after > 0.0f)) {
+		return LinkPageDoes::Nothing;
+	}
+	if (before < after && now >= after) {
+		return LinkPageDoes::Show;
+	}
+	const float back = after + kLinkPageOpenSeconds;
+	return before < back && now >= back ? LinkPageDoes::Return : LinkPageDoes::Nothing;
+}
+
 enum class LinkStart : UInt8 {
 	WriteIni,  // the plugin INI's values into the variables, and the version
 	ReadLink,  // the variables' values into the settings

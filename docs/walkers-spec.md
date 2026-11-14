@@ -1849,7 +1849,7 @@ every position of every slider and every default both ways through LINK's
 two formulas, at 24 and at 53 bits. Version 39: a save's values are replaced
 by the plugin INI's once. Not covered: a value in the plugin INI that is no
 position of its slider (a siege of 42) is still cut by LINK when its page
-opens. Not seen in the game yet.
+opens. Seen in the game: harness link-page 20261114-081926, PASS (7a).
 
 ### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=66`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=1000`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
 
@@ -3835,8 +3835,8 @@ roster line's counts.
   twenty seconds; tools/camp-harness.sh turns the held dungeons off for its
   runs since.
 
-- **FIX BUILT 2026-11-14, Windows open - LINK's menu moved four settings
-  off their defaults** (Windows session 2026-11-13, OblivionWalkers.log:
+- **FIXED 2026-11-14, harness PASS, Windows open - LINK's menu moved four
+  settings off their defaults** (Windows session 2026-11-13, OblivionWalkers.log:
   "LINK: ini_grab_chance now 65", "ini_siege_min now 36", "ini_siege_max now
   116", "ini_night_speed now 1.25" in one step). Cause, read off LINK.esp's
   slider scripts: a slider keeps a position, cut off, and writes that
@@ -3849,7 +3849,18 @@ roster line's counts.
   argument ... will be treated as string"), `Call (GetFormFromMod ...)`
   ("Expected user function."), `DispatchEvent "LppShowModConfigMenuRequest"`
   (run, no menu; with an eventSender longer than the 96 characters OBVR's
-  console lines take). The page stays Nadi's to look at.
+  console lines take). Then through the plugin: `[Debug] TestLinkPage=N`
+  (INI only; `LinkPageTest`, LinkLogicTest) shows the plugin's page N
+  seconds after a load and leaves it five seconds on, by LINK's own two
+  scripts called through xOBSE's script interface (CallFunction; LINK.esp
+  000832 LppApiShowModConfigMenu, 012DA0 the Return button's). Harness
+  `tools/link-page.sh` (harness/link-page.txt), 20261114-081926 **PASS**
+  with the values that went wrong on Windows (grab 66, sieges 40 to 120,
+  night pace 1.30 as LINK's 130): the page shown (the picture: LINK's
+  "OblivionWalkers" page) and left; the one value the console had set
+  between two positions, 4.3 of a slider by 0.5, came back as 4.0 - the
+  page does write its positions back - and no other "LINK: ini_... now"
+  line. Not covered by it: a slider dragged by hand, and the page in VR.
 
 - **FIX BUILT 2026-11-14, Windows open - the runner did not reach a player
   who stood in a city** (Windows session 2026-11-13: sent the second the

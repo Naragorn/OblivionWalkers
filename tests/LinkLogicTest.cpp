@@ -619,6 +619,23 @@ void TestSliders() {
 	      "the grab's 66 stays 66; a value between two positions is cut to the lower one (LINK's own way)");
 }
 
+void TestPageTest() {
+	std::printf("The test switch that opens LINK's page\n");
+	using walkers::LinkPageDoes;
+	using walkers::LinkPageTest;
+	Check(LinkPageTest(0.0f, 0.0f, 100.0f) == LinkPageDoes::Nothing && LinkPageTest(-1.0f, 0.0f, 100.0f) == LinkPageDoes::Nothing,
+	      "TestLinkPage 0 (the default): never");
+	Check(LinkPageTest(20.0f, 18.0f, 19.0f) == LinkPageDoes::Nothing, "before its second: nothing");
+	Check(LinkPageTest(20.0f, 19.0f, 20.0f) == LinkPageDoes::Show, "at its second: the page is shown");
+	Check(LinkPageTest(20.0f, 20.0f, 21.0f) == LinkPageDoes::Nothing, "shown once");
+	Check(LinkPageTest(20.0f, 24.0f, 20.0f + walkers::kLinkPageOpenSeconds) == LinkPageDoes::Return,
+	      "five seconds on: its Return button's script");
+	Check(LinkPageTest(20.0f, 25.0f, 26.0f) == LinkPageDoes::Nothing && LinkPageTest(20.0f, 100.0f, 101.0f) == LinkPageDoes::Nothing,
+	      "then nothing more");
+	Check(walkers::kLinkShowPageLocalId == 0x000832 && walkers::kLinkPageReturnLocalId == 0x012DA0,
+	      "the two scripts of LINK.esp by their IDs (LINK++ as installed, read 2026-11-14)");
+}
+
 }  // namespace
 
 int main() {
@@ -629,6 +646,7 @@ int main() {
 	TestEmpty();
 	TestFiles();
 	TestSliders();
+	TestPageTest();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

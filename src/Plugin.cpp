@@ -184,6 +184,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.dungeons.beds = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "Beds", 3, path));
 	rise.dungeonsTestSiteState = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "TestSiteState", 1, path));
 	rise.stepTiming = GetPrivateProfileIntA("Debug", "StepTiming", 0, path) != 0;
+	rise.testLinkPage = static_cast<float>(GetPrivateProfileIntA("Debug", "TestLinkPage", 0, path));
 	GetPrivateProfileStringA("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);
 	rise.dungeons.enabled = GetPrivateProfileIntA("Dungeons", "Enabled", 1, path) != 0;
 	rise.dungeons.activeMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "ActiveMin", 3, path));

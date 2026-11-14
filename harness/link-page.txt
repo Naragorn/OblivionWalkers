@@ -1,0 +1,42 @@
+# LINK's page keeps the plugin's values (docs/walkers-spec.md 4.18, "The
+# sliders hold whole numbers only"; Nadi's Windows log of 2026-11-13: the
+# page opened and four values were others). tools/link-page.sh sets [Debug]
+# TestLinkPage=24 in the live plugin INI: 24 s after the load's first look
+# the plugin shows its page as LINK's list does ("LINK: test - the plugin's
+# page shown ..."), five seconds on it leaves it by the Return button's
+# script ("LINK: test - the page left ...").
+# - offgrid: before that the console sets one value between two positions of
+#   its slider, "set Walkers.ini_grab_bite_seconds to 4.3" (1 to 10 by 0.5)
+#   - "LINK: ini_grab_bite_seconds now 4.3"; it is the proof that the page
+#   writes its positions back: after the Return "LINK: ini_grab_bite_seconds
+#   now 4.0";
+# - page: a picture of the page while it is open;
+# - no other "LINK: ini_... now" line: the page changed nothing else.
+# Run through tools/link-page.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at offgrid set Walkers.ini_grab_bite_seconds to 4.3
+console-at closed CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark offgrid
+wait 8
+mark page
+wait 14
+mark closed
+wait 4
+mark end
+wait 1

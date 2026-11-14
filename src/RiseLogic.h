@@ -196,6 +196,9 @@ struct RiseSettings {
 	// [Debug] StepTiming (INI only, a test switch; TimingLogic.h): each step
 	// of the tick timed, the means logged every 10 s.
 	bool stepTiming = false;
+	// [Debug] TestLinkPage (INI only, a test switch; LinkLogic.h LinkPageTest):
+	// seconds after a load at which LINK's page of the plugin is shown, 0 never.
+	float testLinkPage = 0.0f;
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

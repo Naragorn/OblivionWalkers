@@ -77,6 +77,23 @@ struct ConsoleInterface {
 	bool (*RunScriptLine2)(const char* text, void* thisObj, bool silent);
 };
 
+// OBSEScriptInterface (PluginAPI.h, read 2026-11-14): CallFunction runs a
+// user-defined function script - "up to 5 arguments can be passed in, of
+// type int, float, or char*"; the result comes back as an OBSEArrayElement
+// (a union of a double and three pointers, then a type byte; 0 invalid -
+// the script returned nothing).
+struct ScriptResult {
+	double value = 0.0;
+	UInt8 type = 0;
+};
+struct ScriptInterface {
+	bool (*CallFunction)(void* funcScript, void* callingObj, void* container, ScriptResult* result, UInt8 numArgs, ...);
+	UInt32 (*GetFunctionParams)(void* funcScript, UInt8* paramTypesOut);
+	void* ExtractArgsEx;
+	void* ExtractFormatStringArgs;
+	bool (*IsUserFunction)(void* scriptObj);
+};
+
 // OBSETasksInterface: a task enqueued here runs once every main-loop pass
 // (xOBSE's TaskManager::Run keeps it until RemoveTask) - the plugin's frame
 // tick, with no byte of the engine patched.

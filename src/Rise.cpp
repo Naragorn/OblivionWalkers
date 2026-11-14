@@ -145,6 +145,7 @@ obse::EventManagerInterface* g_events = nullptr;
 obse::TasksInterface* g_tasks = nullptr;
 obse::SerializationInterface* g_serialization = nullptr;
 obse::ConsoleInterface* g_console = nullptr;
+obse::ScriptInterface* g_script = nullptr;
 UInt32 g_random = 0;
 bool g_deathWatchOn = false;
 UInt32 g_registerTries = 0;
@@ -195,6 +196,8 @@ UInt32 g_levelingIndex = 0x100;
 // LINK (LinkLogic.h): loaded, the variables brought in line with the
 // settings since the game's load, and the second's clock.
 bool g_linkLoaded = false;
+UInt32 g_linkIndex = 0x100;      // LINK.esp's place in the load order
+float g_linkPageClock = 0.0f;    // seconds since this load's first look ([Debug] TestLinkPage)
 bool g_linkSynced = false;
 UInt32 g_linkLoadFrame = 0;  // g_frame at the last load or new game
 float g_linkClock = 0.0f;
@@ -1052,6 +1055,7 @@ void FindMoo() {
 		}
 		if (name != nullptr && SameModName(name, kLinkEsp)) {
 			g_linkLoaded = true;
+			g_linkIndex = i;
 		}
 		if (name != nullptr && SameModName(name, kLevelingEsp)) {
 			g_levelingLoaded = true;
@@ -2412,6 +2416,36 @@ void ApplyLinkEffect(LinkEffect effect) {
 // settings - at once, not a second on: a slider moved in LINK's menu within
 // that second was written over (OBVR's LINK test, 2026-11-11). After that,
 // once a second, with LINK, what the menu changed is applied.
+// [Debug] TestLinkPage (LinkLogic.h LinkPageTest): LINK's page of the plugin
+// shown and left again, by LINK's own two scripts.
+void StepLinkPageTest(float dt) {
+	if (!(g_settings.testLinkPage > 0.0f) || !g_linkLoaded || !g_linkSynced) {
+		return;
+	}
+	const float before = g_linkPageClock;
+	g_linkPageClock += dt;
+	const LinkPageDoes does = LinkPageTest(g_settings.testLinkPage, before, g_linkPageClock);
+	if (does == LinkPageDoes::Nothing) {
+		return;
+	}
+	const bool show = does == LinkPageDoes::Show;
+	const UInt32 id = (g_linkIndex << 24) | (show ? kLinkShowPageLocalId : kLinkPageReturnLocalId);
+	const UInt32 script = LookupForm(id);
+	if (g_script == nullptr || g_script->CallFunction == nullptr || g_script->IsUserFunction == nullptr ||
+	    !LooksLikeObject(script) || !g_script->IsUserFunction(reinterpret_cast<void*>(script))) {
+		g_log("LINK: test - %08X is no function script here (or xOBSE gives no script interface): the page's %s not "
+		      "asked", id, show ? "show" : "Return");
+		return;
+	}
+	obse::ScriptResult result;
+	const bool called = show ? g_script->CallFunction(reinterpret_cast<void*>(script), nullptr, nullptr, &result, 2,
+	                                                   kPluginEsp, 0)
+	                         : g_script->CallFunction(reinterpret_cast<void*>(script), nullptr, nullptr, &result, 0);
+	g_log("LINK: test - %s (script %08X called: %d)",
+	      show ? "the plugin's page shown as LINK's list shows it" : "the page left by its Return button's script", id,
+	      called ? 1 : 0);
+}
+
 void StepLink(float dt) {
 	g_linkClock += dt;
 	if ((g_linkSynced && g_linkClock < 1.0f) || g_walkerCount == 0) {
@@ -2871,7 +2905,10 @@ void Tick() {
 		FindMoo();
 	});
 	Timed(1, "leveling", [dt] { StepLevelingChecks(dt); });
-	Timed(2, "link", [dt] { StepLink(dt); });
+	Timed(2, "link", [dt] {
+		StepLink(dt);
+		StepLinkPageTest(dt);
+	});
 	Timed(3, "moo", [dt] { StepMooStripping(dt); });
 	Timed(4, "spawns", [dt] { StepSpawns(dt); });
 	Timed(5, "dungeons", [dt] {
@@ -2984,6 +3021,7 @@ bool ResolveSaved(UInt32 savedId, UInt32& loadedId) {
 void OnLoad(void*) {
 	g_linkSynced = false;
 	g_linkLoadFrame = g_frame;
+	g_linkPageClock = 0.0f;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
 	g_stand = StandWatch{};
@@ -3133,6 +3171,7 @@ void OnLoad(void*) {
 void OnNewGame(void*) {
 	g_linkSynced = false;
 	g_linkLoadFrame = g_frame;
+	g_linkPageClock = 0.0f;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
 	g_stand = StandWatch{};
@@ -3188,6 +3227,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_mooStrip = MooStrip{};
 	g_linkSynced = false;
 	g_linkLoadFrame = g_frame;
+	g_linkPageClock = 0.0f;
 	WriteLinkFiles();
 	if (xse.QueryInterface == nullptr) {
 		log("xOBSE offers no QueryInterface: no death watch");
@@ -3197,6 +3237,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_tasks = static_cast<obse::TasksInterface*>(xse.QueryInterface(obse::kInterface_Tasks));
 	g_serialization = static_cast<obse::SerializationInterface*>(xse.QueryInterface(obse::kInterface_Serialization));
 	g_console = static_cast<obse::ConsoleInterface*>(xse.QueryInterface(obse::kInterface_Console));
+	g_script = static_cast<obse::ScriptInterface*>(xse.QueryInterface(obse::kInterface_Script));
 	g_messaging = static_cast<obse::MessagingInterface*>(xse.QueryInterface(obse::kInterface_Messaging));
 	if (g_console != nullptr && (g_console->version < 2 || g_console->RunScriptLine2 == nullptr)) {
 		log("xOBSE's console interface is version %u without RunScriptLine2: the risen keep their old look",
