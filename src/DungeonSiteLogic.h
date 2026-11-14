@@ -49,6 +49,7 @@ struct DungeonSiteSettings {
 	UInt32 lossPercentPerHour = 25;      // LossPercentPerHour: a siege away, one lost an hour by this
 	float leaveAfterDays = 7.0f;         // LeaveAfterDays: unseen this long - given up; 0 never
 	UInt32 walkersAtOnce = 6;            // WalkersAtOnce: of a siege's or a walker dungeon's, in the place at a time
+	UInt32 walkersOutsidePercent = 50;   // WalkersOutsidePercent: of a siege's walkers, those before the door; 0 none
 	bool journal = true;                 // Journal: each place's quest in the journal (DungeonQuestLogic.h)
 	bool rumors = true;                  // Rumors: people tell of the places (it needs the journal)
 	float messengerHours = 24.0f;        // MessengerHours: a runner for help this far apart at the soonest; 0 never
@@ -67,6 +68,7 @@ struct DungeonSite {
 	UInt8 waiting = 0;       // ToClear: waiting outside
 	UInt8 lost = 0;          // lost in this siege
 	UInt16 walkersLeft = 0;  // Besieged: storming it; WalkerDungeon: in it
+	UInt8 before = 0;        // Besieged: of walkersLeft, those before the door outside (the rest are inside)
 	float dayFrom = 0.0f;    // Refuge: the attack rolled for every whole day since
 	float lastSeen = 0.0f;   // the player last near
 	float tollFrom = -1.0f;  // Besieged away: the toll counted since
@@ -81,6 +83,15 @@ struct DungeonSitesState {
 	UInt32 count = 0;
 	UInt32 target = 0;  // the active count rolled, 0 not yet
 };
+
+// Of a siege's `walkers` those that stand before the door, by
+// WalkersOutsidePercent (Nadi, 2026-11-14: walkers before the door at a
+// siege) - rounded down, so a siege always has someone inside to go in for
+// unless the percent says all.
+inline UInt8 WalkersBefore(UInt32 walkers, UInt32 percent) {
+	const UInt32 n = walkers * (percent > 100 ? 100 : percent) / 100;
+	return static_cast<UInt8>(n > 255 ? 255 : n);
+}
 
 enum class DungeonEventKind : UInt8 { Rolled, Attacked, PersonLost, Held, Defended, Overrun, Taken, Left };
 
@@ -102,8 +113,22 @@ inline UInt32 Between(UInt32 least, UInt32 most, UInt32 roll) {
 	return most <= least ? least : least + roll % (most - least + 1);
 }
 
+// A siege begins with `walkers`: its share of them before the door.
+inline void Storm(DungeonSite& d, UInt32 walkers, const DungeonSiteSettings& s) {
+	d.walkersLeft = static_cast<UInt16>(walkers);
+	d.before = WalkersBefore(walkers, s.walkersOutsidePercent);
+}
+
+// Never more before the door than walkers left.
+inline void HoldBefore(DungeonSite& d) {
+	if (d.before > d.walkersLeft) {
+		d.before = static_cast<UInt8>(d.walkersLeft);
+	}
+}
+
 inline UInt32 Overrun(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 n, UInt32 most) {
 	d.walkersLeft = static_cast<UInt16>(d.walkersLeft + d.lost);  // the lost rise there
+	d.before = 0;  // the place is theirs: all of them in it
 	d.people = 0;
 	d.lost = 0;
 	d.state = DungeonState::WalkerDungeon;
@@ -113,6 +138,7 @@ inline UInt32 Overrun(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 n, UIn
 inline UInt32 Held(DungeonSite& d, UInt32 i, float now, DungeonEvent* out, UInt32 n, UInt32 most) {
 	const bool defended = d.seen;
 	d.walkersLeft = 0;
+	d.before = 0;
 	d.lost = 0;
 	d.seen = false;
 	d.tollFrom = -1.0f;
@@ -198,8 +224,10 @@ UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const D
 		const UInt32 walkers = dungeon_detail::Between(s.walkersMin, s.walkersMax, roll());
 		d.people = static_cast<UInt8>(d.state == DungeonState::Refuge || d.state == DungeonState::Besieged ? people : 0);
 		d.waiting = static_cast<UInt8>(d.state == DungeonState::ToClear ? people : 0);
-		d.walkersLeft = static_cast<UInt16>(
-		    d.state == DungeonState::Besieged || d.state == DungeonState::WalkerDungeon ? walkers : 0);
+		d.walkersLeft = static_cast<UInt16>(d.state == DungeonState::WalkerDungeon ? walkers : 0);
+		if (d.state == DungeonState::Besieged) {
+			dungeon_detail::Storm(d, walkers, s);
+		}
 		d.dayFrom = now;
 		d.lastSeen = now;
 		d.tollFrom = d.state == DungeonState::Besieged ? now : -1.0f;
@@ -228,7 +256,7 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 			for (UInt32 k = 0; k < static_cast<UInt32>(days) && k < 30; ++k) {
 				if (roll() % 100 < s.attackChancePercent) {
 					d.state = DungeonState::Besieged;
-					d.walkersLeft = static_cast<UInt16>(dungeon_detail::Between(s.walkersMin, s.walkersMax, roll()));
+					dungeon_detail::Storm(d, dungeon_detail::Between(s.walkersMin, s.walkersMax, roll()), s);
 					d.tollFrom = now;
 					d.seen = playerClose;
 					d.carry = 0.0f;
@@ -275,6 +303,7 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 			const UInt32 kills = static_cast<UInt32>(d.carry);
 			d.carry -= static_cast<float>(kills);
 			d.walkersLeft = static_cast<UInt16>(kills >= d.walkersLeft ? 0 : d.walkersLeft - kills);
+			dungeon_detail::HoldBefore(d);  // the people's kills take those inside first
 			if (d.walkersLeft == 0) {
 				return dungeon_detail::Held(d, i, now, out, n, most);
 			}
@@ -312,6 +341,7 @@ UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, Ro
 	d.people = static_cast<UInt8>(people);
 	d.waiting = 0;
 	d.walkersLeft = 0;
+	d.before = 0;
 	d.lost = 0;
 	d.cleared = 0;
 	d.dayFrom = d.lastSeen;
@@ -322,14 +352,19 @@ UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, Ro
 // A walker of site `i`'s ended (4.17's end): one off the siege - the last,
 // someone alive, holds it (defended when the player was near) - or one off
 // a walker dungeon's: the last, and the place is cleared and taken.
+// `beforeDoor`: it stood before the door - one off those outside too.
 template <typename RollFn>
 UInt32 DungeonWalkerEnded(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, RollFn& roll, DungeonEvent* out,
-                          UInt32 most) {
+                          UInt32 most, bool beforeDoor = false) {
 	if (d.walkersLeft == 0) {
 		return 0;
 	}
 	if (d.state == DungeonState::Besieged) {
 		--d.walkersLeft;
+		if (beforeDoor && d.before > 0) {
+			--d.before;
+		}
+		dungeon_detail::HoldBefore(d);
 		return d.walkersLeft == 0 && d.people > 0 ? dungeon_detail::Held(d, i, d.lastSeen, out, 0, most) : 0;
 	}
 	if (d.state == DungeonState::WalkerDungeon) {
@@ -348,6 +383,73 @@ inline UInt32 DungeonWalkersOut(const DungeonSite& d, UInt32 atOnce) {
 	UInt32 n = d.walkersLeft;
 	n = n > atOnce ? atOnce : n;
 	return n > kDungeonPool ? kDungeonPool : n;
+}
+
+// Where the pool of walkers stands at a site: in the place, or before its
+// door outside.
+enum class PoolPlace : UInt8 { Inside, Outside };
+
+// Where the pool goes for the player at `closeness` (0 inside, else his
+// distance from the door outside): before the door while he is outside and
+// a siege has walkers there - if the place has spots before its door
+// (`outsideSpots`; 4 of the 91 candidates have none) - else inside.
+inline PoolPlace PoolPlaceFor(const DungeonSite& d, float closeness, bool outsideSpots) {
+	return d.state == DungeonState::Besieged && outsideSpots && d.before > 0 && closeness > 0.0f ? PoolPlace::Outside
+	                                                                                              : PoolPlace::Inside;
+}
+
+// The pool walkers a site wants at `place` now, WalkersAtOnce at a time: a
+// siege's before the door outside, the others inside. A walker dungeon's
+// are all inside. A place without spots before its door has all of a
+// siege's inside.
+inline UInt32 DungeonWalkersAt(const DungeonSite& d, UInt32 atOnce, PoolPlace place, bool outsideSpots) {
+	if (d.state != DungeonState::Besieged) {
+		return place == PoolPlace::Inside ? DungeonWalkersOut(d, atOnce) : 0;
+	}
+	const UInt32 before = outsideSpots ? (d.before < d.walkersLeft ? d.before : d.walkersLeft) : 0;
+	UInt32 n = place == PoolPlace::Inside ? d.walkersLeft - before : before;
+	n = n > atOnce ? atOnce : n;
+	return n > kDungeonPool ? kDungeonPool : n;
+}
+
+// The player inside a besieged place with nobody left inside and walkers
+// still before its door (he walked past them, or ended those inside
+// first): they break in after him - from now they are inside. True when
+// that happened.
+inline bool DungeonBreakIn(DungeonSite& d, bool playerInside) {
+	if (d.state != DungeonState::Besieged || !playerInside || d.before == 0 || d.before < d.walkersLeft) {
+		return false;
+	}
+	d.before = 0;
+	return true;
+}
+
+// With the player before the door and everyone wanted there out
+// (`pendingThere` 0): how many of those inside are put in ahead of him, so
+// they stand there when he comes in - into slots not in use only
+// (`freeSlots`), nobody raised or moved for it.
+inline UInt32 PoolAhead(PoolPlace filling, PoolPlace playerAt, UInt32 pendingThere, UInt32 wantedInside,
+                        UInt32 outInside, UInt32 freeSlots) {
+	if (filling != PoolPlace::Outside || playerAt != PoolPlace::Outside || pendingThere > 0 ||
+	    wantedInside <= outInside) {
+		return 0;
+	}
+	const UInt32 n = wantedInside - outInside;
+	return n < freeSlots ? n : freeSlots;
+}
+
+// Which slot of the pool the next walker for `placing` takes, the lowest
+// first: 0 one not in use; 1 one lying ended where the player is not
+// (raised again unseen); 2 one alive at the other place, where the player
+// is not either (moved - the site's count is by number); 3 one lying ended
+// where he is (a siege with more walkers than the pool holds). Below 0:
+// never - one alive at the place being filled, or alive where he stands.
+// A slot is `at` the place it was put last.
+inline int PoolSlotOrder(bool out, bool corpse, PoolPlace at, PoolPlace placing, PoolPlace playerAt) {
+	if (out) {
+		return at != placing && at != playerAt ? 2 : -1;
+	}
+	return !corpse ? 0 : (at != playerAt ? 1 : 3);
 }
 
 // A place to clear: its cell `index` (of `cellCount`) found empty of living
@@ -381,8 +483,9 @@ inline void DropFreeSites(DungeonSitesState& st) {
 // The co-save record: type "DNGN", version 1 - the target and the count,
 // then per site of kDungeonActiveMost: the candidate (16 bits), the state,
 // seen, people, waiting, lost, the cells cleared, the walkers left (16 bits),
-// the journal's stage told last (a byte, 0 in a save of before it; a byte
-// unused), and dayFrom, lastSeen, tollFrom, carry as their bits.
+// the journal's stage told last (a byte, 0 in a save of before it), those of
+// a siege's walkers before the door (a byte, 0 in a save of before it), and
+// dayFrom, lastSeen, tollFrom, carry as their bits.
 inline constexpr UInt32 kDungeonRecordType = 0x444E474E;  // 'DNGN'
 inline constexpr UInt32 kDungeonRecordVersion = 1;
 inline constexpr UInt32 kDungeonSiteBytes = 28;
@@ -424,6 +527,7 @@ inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capac
 		at[7] = d.cleared;
 		Put32(at + 8, d.walkersLeft);
 		at[10] = d.journal;
+		at[11] = d.before;
 		Put32(at + 12, dungeon_detail::Bits(d.dayFrom));
 		Put32(at + 16, dungeon_detail::Bits(d.lastSeen));
 		Put32(at + 20, dungeon_detail::Bits(d.tollFrom));
@@ -460,6 +564,8 @@ inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 leng
 		d.cleared = at[7];
 		d.walkersLeft = static_cast<UInt16>(Get32(at + 8));
 		d.journal = at[10];
+		d.before = at[11];
+		dungeon_detail::HoldBefore(d);
 		d.dayFrom = dungeon_detail::Float(Get32(at + 12));
 		d.lastSeen = dungeon_detail::Float(Get32(at + 16));
 		d.tollFrom = dungeon_detail::Float(Get32(at + 20));

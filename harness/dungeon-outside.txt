@@ -1,0 +1,67 @@
+# A siege's walkers before the door (docs/walkers-spec.md 4.20.7, step 6;
+# Nadi, 2026-11-14). tools/dungeon-walkers.sh siege-outside sets [Dungeons]
+# TestSite=Fort Ash, TestSiteState=2 (besieged), AttackWalkersMin/Max=8,
+# WalkersAtOnce=6, WalkersOutsidePercent=50 and [Zombies] DieOnlyBeheaded=0
+# (the console's kill ends a walker).
+# - ready (Tamriel -9,19, Fort Ash's door): "the pool to site 0 Fort Ash
+#   (besieged; 8 walkers, 4 of them before the door, 4 at once - before the
+#   door)", four "walker ... before Fort Ash (..., before the door; MoveTo
+#   00066266 ...)", then the four inside put in ahead of him: four "walker
+#   ... into Fort Ash (..., by the door ...)";
+# - near: the player 900 units south of the door, looking at it; look: the
+#   eye picture - walkers on the ground before the door; then the console
+#   kills the four outside: four "ended before the door", "4 walkers left, 0
+#   of them before the door", "the pool at Fort Ash fills the place now";
+#   lying: the eye picture - they lie where they fell;
+# - inside: the four inside stand there; seen: the journal's box closed;
+#   kill2: they are killed - "0 walkers left", "defended - now refuge".
+# tgm and tdetect: nobody fights, the count is the console's; time stands.
+# Run through tools/dungeon-walkers.sh siege-outside.
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Debug EyeDump=1
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -9 19
+console-at near player.moveto 00066266 -40 -900 0
+console-at near player.setangle z 0
+console-at look "{form:OblivionWalkers.esp:A54}".kill
+console-at look "{form:OblivionWalkers.esp:A55}".kill
+console-at look "{form:OblivionWalkers.esp:A56}".kill
+console-at look "{form:OblivionWalkers.esp:A57}".kill
+console-at inside coc FortAsh01
+console-at seen CloseAllMenus
+console-at kill2 "{form:OblivionWalkers.esp:A58}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A59}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A5A}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A5B}".kill
+console-at close2 CloseAllMenus
+expect HandScript: finished
+reject HandScript: WARNING
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 14
+mark near
+wait 4
+mark look
+wait 6
+mark lying
+wait 3
+mark inside
+wait 9
+mark seen
+wait 2
+mark kill2
+wait 7
+mark close2
+wait 3
+mark end
+wait 1

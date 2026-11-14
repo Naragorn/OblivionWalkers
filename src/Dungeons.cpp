@@ -162,10 +162,15 @@ KitMode g_kitMode = KitMode::Spots;
 int g_poolCandidate = -1;
 bool g_poolOut[kDungeonPool] = {};
 bool g_poolCorpse[kDungeonPool] = {};
+PoolPlace g_poolAt[kDungeonPool] = {};       // where each slot out or lying was put
+PoolPlace g_poolPlace = PoolPlace::Inside;   // where the pool stands now: in the place or before its door
+PoolPlace g_poolPlayerAt = PoolPlace::Inside;  // where the player is at its site, as of the last second
+PoolPlace g_poolFill = PoolPlace::Inside;      // the place the pending ones go to (g_poolPlace, or inside ahead of him)
+bool g_poolFreeOnly = false;                   // ... into slots not in use only (DungeonSiteLogic.h PoolAhead)
+UInt32 g_poolPlacedAt[2] = {};                 // the spots given out at each place, in turn
 UInt32 g_poolEnded[32] = {};
 UInt32 g_poolEndedCount = 0;
 UInt32 g_poolPending = 0;
-UInt32 g_poolPlaced = 0;
 bool g_poolSpread = false;  // a walker dungeon's first filling: over all the spots
 int g_poolWait = 0;
 bool g_poolUnknown = true;  // after a load: whatever the save left enabled goes back in
@@ -963,9 +968,9 @@ void PlacePoolWalker(LogFn log) {
 		return;
 	}
 	--g_poolPending;
-	for (UInt32 pass = 0; pass < 2; ++pass) {
+	for (int pass = 0; pass < (g_poolFreeOnly ? 1 : 4); ++pass) {
 		for (UInt32 slot = 0; slot < kDungeonPool; ++slot) {
-			if (g_poolOut[slot] || (pass == 0 && g_poolCorpse[slot]) || (pass == 1 && !g_poolCorpse[slot])) {
+			if (PoolSlotOrder(g_poolOut[slot], g_poolCorpse[slot], g_poolAt[slot], g_poolFill, g_poolPlayerAt) != pass) {
 				continue;
 			}
 			const UInt32 ref = PoolRef(slot);
@@ -978,19 +983,26 @@ void PlacePoolWalker(LogFn log) {
 				Say(ref, "Resurrect");
 			}
 			const DungeonCandidate& c = kDungeonCandidates[g_poolCandidate];
-			const DungeonSpot at = WalkerSpot(c, g_poolPlaced++, !g_poolSpread);
+			const bool outside = g_poolFill == PoolPlace::Outside;
+			// Before the door: the spots the kit waits on at a place to clear,
+			// on the land (no lift); inside: by the door or among the spots.
+			UInt32& placed = g_poolPlacedAt[outside ? 1 : 0];
+			const DungeonSpot at = outside ? OutsideSpot(c, placed++) : WalkerSpot(c, placed++, !g_poolSpread);
 			char line[64];
-			std::snprintf(line, sizeof(line), "MoveTo %08X %d %d %d", c.insideDoor, at.dx, at.dy, at.dz + kSpotLift);
+			std::snprintf(line, sizeof(line), "MoveTo %08X %d %d %d", outside ? c.door : c.insideDoor, at.dx, at.dy,
+			              at.dz + (outside ? 0 : kSpotLift));
 			const bool moved = Say(ref, line);
 			if (Disabled(ref)) {
 				Say(ref, "Enable");
 			}
 			g_poolOut[slot] = true;
 			g_poolCorpse[slot] = false;
+			g_poolAt[slot] = g_poolFill;
 			if (g_poolLogsLeft > 0) {
 				--g_poolLogsLeft;
-				log("Dungeons: walker %08X into %s (slot %u%s, %s; %s answered %d)", FormIdOf(ref), c.name, slot,
-				    raised ? ", raised" : "", g_poolSpread ? "among its spots" : "by the door", line, moved ? 1 : 0);
+				log("Dungeons: walker %08X %s %s (slot %u%s, %s; %s answered %d)", FormIdOf(ref),
+				    outside ? "before" : "into", c.name, slot, raised ? ", raised" : "",
+				    outside ? "before the door" : (g_poolSpread ? "among its spots" : "by the door"), line, moved ? 1 : 0);
 			}
 			return;
 		}
@@ -1016,9 +1028,12 @@ void StepPool(const float* closeness, LogFn log) {
 		}
 		DungeonSite& d = g_sites.sites[siteBefore];
 		DungeonEvent ev[4];
-		const UInt32 n = DungeonWalkerEnded(d, static_cast<UInt32>(siteBefore), *g_siteSettings, roll, ev, 4);
-		log("Dungeons: %s - walker %08X ended; %u walkers left, now %s", kDungeonCandidates[g_poolCandidate].name,
-		    g_poolEnded[k], d.walkersLeft, StateName(d.state));
+		const bool beforeDoor = g_poolAt[slot] == PoolPlace::Outside;
+		const UInt32 n =
+		    DungeonWalkerEnded(d, static_cast<UInt32>(siteBefore), *g_siteSettings, roll, ev, 4, beforeDoor);
+		log("Dungeons: %s - walker %08X ended%s; %u walkers left, %u of them before the door, now %s",
+		    kDungeonCandidates[g_poolCandidate].name, g_poolEnded[k], beforeDoor ? " before the door" : "", d.walkersLeft,
+		    d.before, StateName(d.state));
 		LogEvents(ev, n, d, log);
 		Carry(ev, n, d, d, log);
 	}
@@ -1037,27 +1052,77 @@ void StepPool(const float* closeness, LogFn log) {
 		g_poolPending = 0;
 		return;
 	}
+	const bool outsideSpots = want >= 0 && kDungeonCandidates[wantCandidate].outsideCount > 0;
+	const PoolPlace place =
+	    want >= 0 ? PoolPlaceFor(g_sites.sites[want], closeness[want], outsideSpots) : PoolPlace::Inside;
+	if (want >= 0) {
+		g_poolPlayerAt = closeness[want] == 0.0f ? PoolPlace::Inside : PoolPlace::Outside;
+	}
 	if (wantCandidate != g_poolCandidate) {
 		HidePool(log);
 		g_poolCandidate = wantCandidate;
-		g_poolPlaced = 0;
+		g_poolPlace = place;
+		g_poolPlacedAt[0] = 0;
+		g_poolPlacedAt[1] = 0;
 		g_poolSpread = want >= 0 && g_sites.sites[want].state == DungeonState::WalkerDungeon;
 		if (want >= 0) {
 			const DungeonSite& d = g_sites.sites[want];
-			log("Dungeons: the pool to site %d %s (%s; %u walkers, %u at once)", want,
-			    kDungeonCandidates[wantCandidate].name, StateName(d.state), d.walkersLeft,
-			    DungeonWalkersOut(d, g_siteSettings->walkersAtOnce));
+			log("Dungeons: the pool to site %d %s (%s; %u walkers, %u of them before the door, %u at once - %s)", want,
+			    kDungeonCandidates[wantCandidate].name, StateName(d.state), d.walkersLeft, outsideSpots ? d.before : 0,
+			    DungeonWalkersAt(d, g_siteSettings->walkersAtOnce, place, outsideSpots),
+			    place == PoolPlace::Outside ? "before the door" : "inside");
 		}
+	} else if (want >= 0 && place != g_poolPlace) {
+		// The player went in or came out, or the last one before the door
+		// ended: the pool fills the other place now. Whoever lives or lies
+		// at the one left stays there (he may come back).
+		g_poolPlace = place;
+		g_poolSpread = false;
+		g_poolPending = 0;
+		const DungeonSite& d = g_sites.sites[want];
+		log("Dungeons: the pool at %s fills %s now (%u walkers left, %u of them before the door)",
+		    kDungeonCandidates[wantCandidate].name, place == PoolPlace::Outside ? "the ground before the door" : "the place",
+		    d.walkersLeft, d.before);
+	}
+	if (want >= 0 && DungeonBreakIn(g_sites.sites[want], g_poolPlayerAt == PoolPlace::Inside)) {
+		// Those before the door come in after him: the living outside go
+		// back in the pool (unseen - he is inside) and come in by the door.
+		UInt32 taken = 0;
+		for (UInt32 slot = 0; slot < kDungeonPool; ++slot) {
+			if (g_poolOut[slot] && g_poolAt[slot] == PoolPlace::Outside) {
+				taken += Say(PoolRef(slot), "Disable") ? 1u : 0u;
+				g_poolOut[slot] = false;
+			}
+		}
+		g_poolWait = taken > 0 ? 2 : g_poolWait;  // a Disable takes hold after the frame
+		log("Dungeons: %s - nobody left inside: the %u before the door break in (%u living taken off the ground "
+		    "outside)", kDungeonCandidates[wantCandidate].name, g_sites.sites[want].walkersLeft, taken);
 	}
 	if (want < 0) {
 		return;
 	}
 	UInt32 out = 0;
+	UInt32 outInside = 0;
+	UInt32 freeSlots = 0;
 	for (UInt32 slot = 0; slot < kDungeonPool; ++slot) {
-		out += g_poolOut[slot] ? 1u : 0u;
+		out += g_poolOut[slot] && g_poolAt[slot] == g_poolPlace ? 1u : 0u;
+		outInside += g_poolOut[slot] && g_poolAt[slot] == PoolPlace::Inside ? 1u : 0u;
+		freeSlots += !g_poolOut[slot] && !g_poolCorpse[slot] ? 1u : 0u;
 	}
-	const UInt32 wanted = DungeonWalkersOut(g_sites.sites[want], g_siteSettings->walkersAtOnce);
+	const DungeonSite& site = g_sites.sites[want];
+	const UInt32 atOnce = g_siteSettings->walkersAtOnce;
+	const UInt32 wanted = DungeonWalkersAt(site, atOnce, place, outsideSpots);
+	g_poolFill = g_poolPlace;
+	g_poolFreeOnly = false;
 	g_poolPending = wanted > out ? wanted - out : 0;
+	const UInt32 ahead = PoolAhead(g_poolPlace, g_poolPlayerAt, g_poolPending,
+	                               DungeonWalkersAt(site, atOnce, PoolPlace::Inside, outsideSpots), outInside, freeSlots);
+	if (ahead > 0) {
+		// He stands before the door: those inside wait there already.
+		g_poolFill = PoolPlace::Inside;
+		g_poolFreeOnly = true;
+		g_poolPending = ahead;
+	}
 	if (g_poolPending == 0) {
 		g_poolSpread = false;  // filled: whoever comes later comes in by the door
 	}

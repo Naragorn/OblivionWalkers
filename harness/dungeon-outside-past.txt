@@ -1,0 +1,54 @@
+# A siege's walkers before the door, walked past (docs/walkers-spec.md
+# 4.20.7, step 6). tools/dungeon-walkers.sh siege-past sets the same as
+# siege-outside (harness/dungeon-outside.txt): eight walkers, four of them
+# before the door.
+# - ready (Tamriel -9,19): four before the door, four inside ahead of him;
+# - inside: he goes straight in - "the pool at Fort Ash fills the place
+#   now"; seen: the journal's box closed;
+# - kill1: the four inside killed by the console - "4 walkers left, 4 of
+#   them before the door", then "nobody left inside: the 4 before the door
+#   break in (4 living taken off the ground outside)" and four more "walker
+#   ... into Fort Ash (..., by the door ...)";
+# - kill2: those four killed - "0 walkers left", "defended - now refuge".
+# Run through tools/dungeon-walkers.sh siege-past.
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -9 19
+console-at inside coc FortAsh01
+console-at seen CloseAllMenus
+console-at kill1 "{form:OblivionWalkers.esp:A58}".kill
+console-at kill1 "{form:OblivionWalkers.esp:A59}".kill
+console-at kill1 "{form:OblivionWalkers.esp:A5A}".kill
+console-at kill1 "{form:OblivionWalkers.esp:A5B}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A5C}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A5D}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A5E}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A5F}".kill
+console-at close2 CloseAllMenus
+expect HandScript: finished
+reject HandScript: WARNING
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 14
+mark inside
+wait 9
+mark seen
+wait 2
+mark kill1
+wait 9
+mark kill2
+wait 7
+mark close2
+wait 3
+mark end
+wait 1

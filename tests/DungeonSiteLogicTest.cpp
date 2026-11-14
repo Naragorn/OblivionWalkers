@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace {
 
@@ -362,16 +363,16 @@ void TestRolledKinds() {
 				ok = ok && d.people == 4 && d.waiting == 0 && d.walkersLeft == 0 && d.tollFrom < 0.0f;
 				break;
 			case DungeonState::Besieged:
-				ok = ok && d.people == 4 && d.walkersLeft == 10 && d.tollFrom == 3.0f;
+				ok = ok && d.people == 4 && d.walkersLeft == 10 && d.before == 5 && d.tollFrom == 3.0f;
 				break;
 			case DungeonState::ToClear:
 				ok = ok && d.people == 0 && d.waiting == 4 && d.walkersLeft == 0;
 				break;
 			default:
-				ok = ok && d.people == 0 && d.waiting == 0 && d.walkersLeft == 10;
+				ok = ok && d.people == 0 && d.waiting == 0 && d.walkersLeft == 10 && d.before == 0;
 				break;
 		}
-		static const char* what[4] = {"refuge: people inside, no walkers", "besieged: people and walkers, the toll from now",
+		static const char* what[4] = {"refuge: people inside, no walkers", "besieged: people and walkers, half of them before the door, the toll from now",
 		                              "to clear: people waiting outside", "walker dungeon: walkers, nobody"};
 		Check(ok, what[k]);
 	}
@@ -419,6 +420,151 @@ void TestWalkerDungeonAndCap() {
 	      "thirty days away, nobody killed: the toll counts at most seven days at a time");
 }
 
+// A siege's walkers before the door (Nadi, 2026-11-14: "go Walker vor der
+// Tür bei einer Dungeon-Belagerung").
+void TestBeforeTheDoor() {
+	std::printf("A siege's walkers before the door\n");
+	using walkers::PoolPlace;
+	Check(walkers::WalkersBefore(8, 50) == 4 && walkers::WalkersBefore(9, 50) == 4 && walkers::WalkersBefore(1, 50) == 0,
+	      "WalkersOutsidePercent 50: half of them, rounded down");
+	Check(walkers::WalkersBefore(8, 0) == 0 && walkers::WalkersBefore(8, 100) == 8 && walkers::WalkersBefore(8, 250) == 8,
+	      "0: none; 100 and more: all");
+	Check(walkers::WalkersBefore(1000, 100) == 255, "never more than the count holds");
+	DungeonSiteSettings s;
+	s.attackChancePercent = 100;
+	s.walkersOutsidePercent = 25;
+	DungeonSite d = Refuge(6);
+	DungeonEvent ev[8];
+	const UInt32 hit[] = {0, 4};  // attacked; walkers 8 + 4
+	Rolls h{hit, 2};
+	walkers::StepDungeonSite(d, 0, s, 1.0f, false, h, ev, 8);
+	Check(d.state == DungeonState::Besieged && d.walkersLeft == 12 && d.before == 3,
+	      "a refuge attacked: a quarter of its twelve before the door");
+
+	DungeonSite siege = Refuge(4);
+	siege.state = DungeonState::Besieged;
+	siege.walkersLeft = 10;
+	siege.before = 4;
+	siege.tollFrom = 0.0f;
+	Check(walkers::PoolPlaceFor(siege, 800.0f, true) == PoolPlace::Outside,
+	      "the player before the door, walkers there: the pool outside");
+	Check(walkers::PoolPlaceFor(siege, 0.0f, true) == PoolPlace::Inside, "the player inside: the pool inside");
+	Check(walkers::PoolPlaceFor(siege, 800.0f, false) == PoolPlace::Inside,
+	      "a place without spots before its door: inside, all of them");
+	Check(walkers::DungeonWalkersAt(siege, 6, PoolPlace::Outside, true) == 4, "outside: the four before the door");
+	Check(walkers::DungeonWalkersAt(siege, 3, PoolPlace::Outside, true) == 3, "never more than WalkersAtOnce");
+	Check(walkers::DungeonWalkersAt(siege, 6, PoolPlace::Inside, true) == 6 &&
+	          walkers::DungeonWalkersAt(siege, 12, PoolPlace::Inside, true) == 6,
+	      "inside: the six who are in");
+	Check(walkers::DungeonWalkersAt(siege, 12, PoolPlace::Inside, false) == 10 &&
+	          walkers::DungeonWalkersAt(siege, 12, PoolPlace::Outside, false) == 0,
+	      "no spots before the door: all ten inside, none outside");
+
+	const UInt32 none[] = {0};
+	Rolls r{none, 1};
+	Check(walkers::DungeonWalkerEnded(siege, 0, s, r, ev, 8, true) == 0 && siege.walkersLeft == 9 && siege.before == 3,
+	      "one ended before the door: one off the siege and off those outside");
+	Check(walkers::DungeonWalkerEnded(siege, 0, s, r, ev, 8, false) == 0 && siege.walkersLeft == 8 && siege.before == 3,
+	      "one ended inside: those outside stay");
+	for (UInt32 k = 0; k < 3; ++k) {
+		walkers::DungeonWalkerEnded(siege, 0, s, r, ev, 8, true);
+	}
+	Check(siege.walkersLeft == 5 && siege.before == 0 && siege.state == DungeonState::Besieged &&
+	          walkers::PoolPlaceFor(siege, 800.0f, true) == PoolPlace::Inside,
+	      "the last one outside ended: the siege goes on inside - the pool inside though he stands outside");
+
+	DungeonSite skipped = Refuge(4);
+	skipped.state = DungeonState::Besieged;
+	skipped.walkersLeft = 3;
+	skipped.before = 3;
+	Check(walkers::DungeonWalkersAt(skipped, 6, PoolPlace::Inside, true) == 0 &&
+	          !walkers::DungeonBreakIn(skipped, false) && skipped.before == 3,
+	      "all of them before the door, the player outside: nobody inside, they stay where they are");
+	Check(walkers::DungeonBreakIn(skipped, true) && skipped.before == 0 && skipped.walkersLeft == 3 &&
+	          walkers::DungeonWalkersAt(skipped, 6, PoolPlace::Inside, true) == 3 &&
+	          walkers::DungeonWalkersAt(skipped, 6, PoolPlace::Outside, true) == 0,
+	      "the player inside and nobody left inside: those before the door break in after him");
+	Check(!walkers::DungeonBreakIn(skipped, true), "once");
+	{
+		DungeonSite both = skipped;
+		both.walkersLeft = 5;
+		both.before = 3;
+		DungeonSite quietOne = Refuge(3);
+		quietOne.before = 0;
+		Check(!walkers::DungeonBreakIn(both, true) && both.before == 3 && !walkers::DungeonBreakIn(quietOne, true),
+		      "someone still inside, or no siege: nobody breaks in");
+	}
+	Check(walkers::DungeonWalkerEnded(skipped, 0, s, r, ev, 8, false) == 0 && skipped.walkersLeft == 2 &&
+	          walkers::DungeonWalkersAt(skipped, 6, PoolPlace::Inside, true) == 2,
+	      "one of them ended inside: two left");
+	{
+		DungeonSite over = Refuge(4);
+		over.state = DungeonState::Besieged;
+		over.walkersLeft = 3;
+		over.before = 3;
+		Check(walkers::DungeonWalkerEnded(over, 0, s, r, ev, 8, false) == 0 && over.walkersLeft == 2 && over.before == 2,
+		      "never more before the door than walkers left");
+	}
+	walkers::DungeonWalkerEnded(skipped, 0, s, r, ev, 8, false);
+	const UInt32 n = walkers::DungeonWalkerEnded(skipped, 0, s, r, ev, 8, false);
+	Check(n == 1 && skipped.state == DungeonState::Refuge && skipped.before == 0 && skipped.walkersLeft == 0,
+	      "the last ended: held, nobody before the door");
+
+	DungeonSite away = Refuge(6);
+	away.state = DungeonState::Besieged;
+	away.walkersLeft = 6;
+	away.before = 5;
+	away.tollFrom = 0.0f;
+	DungeonSiteSettings toll;
+	toll.refugeeKillsPerHour = 2.0f;
+	toll.lossPercentPerHour = 0;
+	const UInt32 keep[] = {99};
+	Rolls k{keep, 1};
+	walkers::StepDungeonSite(away, 0, toll, 1.0f / 24.0f + 0.001f, false, k, ev, 8);
+	Check(away.walkersLeft == 4 && away.before == 4,
+	      "the toll away: the people's kills take those inside first, then those before the door");
+
+	DungeonSite lost = Refuge(1);
+	lost.state = DungeonState::Besieged;
+	lost.walkersLeft = 8;
+	lost.before = 4;
+	Check(walkers::DungeonPersonDied(lost, 0, ev, 8) == 1 && lost.state == DungeonState::WalkerDungeon && lost.before == 0 &&
+	          walkers::PoolPlaceFor(lost, 800.0f, true) == PoolPlace::Inside &&
+	          walkers::DungeonWalkersAt(lost, 6, PoolPlace::Inside, true) == 6 &&
+	          walkers::DungeonWalkersAt(lost, 6, PoolPlace::Outside, true) == 0,
+	      "overrun: a walker dungeon - all of them in it, nobody before the door");
+	DungeonSite quiet = Refuge(5);
+	Check(walkers::PoolPlaceFor(quiet, 800.0f, true) == PoolPlace::Inside &&
+	          walkers::DungeonWalkersAt(quiet, 6, PoolPlace::Outside, true) == 0 &&
+	          walkers::DungeonWalkersAt(quiet, 6, PoolPlace::Inside, true) == 0,
+	      "a quiet refuge: no walkers anywhere");
+	const PoolPlace in = PoolPlace::Inside;
+	const PoolPlace door = PoolPlace::Outside;
+	Check(walkers::PoolAhead(door, door, 0, 4, 0, 8) == 4,
+	      "the player before the door, those outside all out: those inside are put in ahead of him");
+	Check(walkers::PoolAhead(door, door, 0, 6, 2, 3) == 3 && walkers::PoolAhead(door, door, 0, 6, 2, 0) == 0,
+	      "into slots not in use only, as many as there are");
+	Check(walkers::PoolAhead(door, door, 2, 4, 0, 8) == 0, "those outside first");
+	Check(walkers::PoolAhead(door, door, 0, 4, 4, 8) == 0 && walkers::PoolAhead(door, door, 0, 0, 0, 8) == 0,
+	      "everyone inside there already, or nobody inside at all: none");
+	Check(walkers::PoolAhead(in, in, 0, 4, 0, 8) == 0 && walkers::PoolAhead(in, door, 0, 4, 0, 8) == 0,
+	      "the place itself being filled: nothing ahead");
+	Check(walkers::PoolSlotOrder(false, false, in, door, door) == 0 && walkers::PoolSlotOrder(false, false, door, in, in) == 0,
+	      "the next walker takes a slot of the pool not in use first");
+	Check(walkers::PoolSlotOrder(false, true, door, in, in) == 1 && walkers::PoolSlotOrder(false, true, in, door, door) == 1,
+	      "then one lying ended where the player is not, raised again");
+	Check(walkers::PoolSlotOrder(true, false, door, in, in) == 2 && walkers::PoolSlotOrder(true, false, in, door, door) == 2,
+	      "then one alive at the other place (out of his sight; it counts on) - a WalkersAtOnce the pool cannot "
+	      "hold twice");
+	Check(walkers::PoolSlotOrder(false, true, door, door, door) == 3 && walkers::PoolSlotOrder(false, true, in, in, in) == 3,
+	      "and only last one lying where he is (more walkers than the pool holds)");
+	Check(walkers::PoolSlotOrder(true, false, in, in, in) < 0 && walkers::PoolSlotOrder(true, false, door, door, door) < 0,
+	      "one alive at the place being filled: never");
+	Check(walkers::PoolSlotOrder(false, true, door, in, door) == 3 && walkers::PoolSlotOrder(true, false, door, in, door) < 0,
+	      "the place filled inside while he stands before the door (the last one outside ended): those lying before "
+	      "him last, nobody alive taken from before his eyes");
+}
+
 void TestImage() {
 	std::printf("The co-save image\n");
 	DungeonSitesState st;
@@ -434,6 +580,8 @@ void TestImage() {
 	st.sites[1].waiting = 0;
 	st.sites[1].lost = 3;
 	st.sites[1].walkersLeft = 300;
+	st.sites[1].before = 150;
+	st.sites[1].journal = 20;
 	st.sites[1].tollFrom = 13.0f;
 	st.sites[1].carry = 0.5f;
 	st.sites[1].seen = true;
@@ -453,6 +601,21 @@ void TestImage() {
 	Check(b.candidate == 3 && b.state == DungeonState::Besieged && b.people == 2 && b.lost == 3 &&
 	          b.walkersLeft == 300 && b.tollFrom == 13.0f && b.carry == 0.5f && b.seen && b.cleared == 0x5,
 	      "a siege as it was");
+	Check(b.before == 150 && b.journal == 20 && a.before == 0, "those before its door and its journal's stage with it");
+	{
+		UInt8 old[walkers::kDungeonImageBytes];
+		std::memcpy(old, image, sizeof old);
+		old[8 + walkers::kDungeonSiteBytes + 11] = 0;  // a save of before: the byte unused
+		DungeonSitesState before;
+		Check(walkers::ReadDungeonImage(before, old, n, 100) && before.sites[1].before == 0 &&
+		          before.sites[1].walkersLeft == 300,
+		      "a save of before: nobody before the door - its siege stays inside");
+		old[8 + walkers::kDungeonSiteBytes + 8] = 3;  // 3 walkers left
+		old[8 + walkers::kDungeonSiteBytes + 9] = 0;
+		old[8 + walkers::kDungeonSiteBytes + 11] = 9;
+		Check(walkers::ReadDungeonImage(before, old, n, 100) && before.sites[1].before == 3,
+		      "more before the door than walkers left (a damaged save): held to those left");
+	}
 	Check(!walkers::ReadDungeonImage(back, image, n - 1, 100) && back.count == 0, "cut short: empty, rolled anew");
 	Check(walkers::ReadDungeonImage(back, image, n, 10) && back.count == 1 && back.sites[0].candidate == 3,
 	      "a candidate past the ones there now (another build): that site dropped");
@@ -465,6 +628,7 @@ void TestImage() {
 
 int main() {
 	TestImage();
+	TestBeforeTheDoor();
 	TestRolledKinds();
 	TestWalkerDungeonAndCap();
 	TestVariant();

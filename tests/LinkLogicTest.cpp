@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 196,
-	      "196 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours and Beds - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 197,
+	      "197 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent - every INI setting but Name, CampSpacingUnits, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -401,6 +401,11 @@ void TestValues() {
 		Check(beds == 195 && walkers::LinkValue(rise, replace, beds) == 3.0 && kLinkSettings[beds].max == 4 &&
 		          walkers::SetLinkValue(rise, replace, beds, 1.0) && rise.dungeons.beds == 1,
 		      "Beds last, 195: three, four at most, set from the menu");
+		const int outside = IndexOf("ini_dungeons_outside");
+		Check(outside == 196 && walkers::LinkValue(rise, replace, outside) == 50.0 &&
+		          walkers::SetLinkValue(rise, replace, outside, 0.0) && rise.dungeons.walkersOutsidePercent == 0 &&
+		          walkers::SetLinkValue(rise, replace, outside, 250.0) && rise.dungeons.walkersOutsidePercent == 100,
+		      "a siege's walkers before the door last: 50 percent by default, 0 from the menu, held to 100");
 		Check(!rise.dungeons.enabled && rise.dungeons.activeMin == 2 && rise.dungeons.activeMax == 6 &&
 		          rise.dungeons.spacingUnits == 20000.0f && rise.dungeons.refugeeKillsPerHour == 3.5f &&
 		          rise.dungeons.leaveAfterDays == 14.0f,
@@ -529,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 39\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 40\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=

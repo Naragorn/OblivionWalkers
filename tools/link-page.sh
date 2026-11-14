@@ -44,7 +44,7 @@ def check(ok, what):
 link = [l for l in lines if l.startswith("LINK: ")]
 last = max((k for k, l in enumerate(link) if "first look" in l), default=-1)
 link = link[last:] if last >= 0 else link
-check(last >= 0 and "196 of 196 variables" in link[0], "LINK is loaded, the 196 variables there" + (f" ({link[0][:110]})" if link else ""))
+check(last >= 0 and "197 of 197 variables" in link[0], "LINK is loaded, the 197 variables there" + (f" ({link[0][:110]})" if link else ""))
 shown = [k for k, l in enumerate(link) if "test - the plugin's page shown" in l and "called: 1" in l]
 left = [k for k, l in enumerate(link) if "test - the page left by its Return" in l and "called: 1" in l]
 check(len(shown) == 1 and len(left) == 1 and shown[0] < left[0], "the page is shown and left, each by LINK's own script")

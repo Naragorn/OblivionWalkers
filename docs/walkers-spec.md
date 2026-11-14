@@ -3321,7 +3321,43 @@ toten boten und betten"; then: no more harness runs, he tests on Windows):
   Open bug - see 7a.
 - The people's default 3 to 6 (above), LINK version 38.
 
-Not built yet: walkers outside the door (a siege is fought inside only).
+**Step 6, a siege's walkers before the door** (Nadi, 2026-11-14: "go
+Walker vor der Tür bei einer Dungeon-Belagerung"; flows in
+tests/DungeonSiteLogicTest.cpp, TestBeforeTheDoor):
+- **The share**: `[Dungeons] WalkersOutsidePercent=50` (LINK 196
+  "Dungeons: walkers before the door", 0 to 100 by 10; LINK version 40) of
+  a siege's walkers stand before the place's door, rounded down
+  (`WalkersBefore`); the others are inside. 0: all inside, as before. Set
+  when the siege begins (a place rolled besieged, a refuge attacked);
+  `DungeonSite::before`, a byte of the co-save's site image that was unused
+  (a save of before reads 0: its sieges stay inside). A walker dungeon's
+  are all inside; a place overrun has nobody before the door.
+- **Where**: on the spots before the door the kit waits on at a place to
+  clear (`OutsideSpot`, a fan from where one comes out, on the land), moved
+  by the door outside. A place without such spots (4 of the 91) has all of
+  them inside (`PoolPlaceFor`, `DungeonWalkersAt`).
+- **The pool** (the twelve) serves both: with the player before the door
+  those outside come out first, WalkersAtOnce at a time, then those inside
+  are put in ahead of him into slots not in use (`PoolAhead`) - they stand
+  there when he comes in, nobody appears by the door before his eyes. With
+  him inside the pool fills the place; whoever lives or lies outside stays
+  there (he may come out again). A slot for the next walker (`PoolSlotOrder`):
+  one not in use, else one lying ended where the player is not, else one
+  alive at the other place (unseen; the count is by number), and only last
+  one lying where he is.
+- **Counted off**: one ended before the door takes one off the siege and
+  one off those outside; the people's kills away (the toll) take those
+  inside first. Never more before the door than walkers left.
+- **Walked past**: with the player inside and nobody left inside, those
+  before the door break in after him (`DungeonBreakIn`) - the living
+  outside go back in the pool unseen and come in by the door.
+- **The last one outside ended** with him still outside: the pool fills
+  the place (they are there already); the ended lie where they fell.
+- Not changed: the journal tells of a siege on entering or hearing of it,
+  not at the sight of the walkers before the door (the quest's box would
+  open in the fight - Nadi's open point); the toll away; the reward.
+Harness `tools/dungeon-walkers.sh siege-outside | siege-past`
+(harness/dungeon-outside.txt, dungeon-outside-past.txt): not run yet.
 Not measured: a siege's fight with three to six people (the fight look
 takes its counts now: `tools/dungeon-walkers.sh fight 5 12`).
 Open: a living thing the player cannot reach (a slaughterfish, a

@@ -13,6 +13,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 case "$mode" in
 	siege) state=2; walkers=8; behead=0; scenario=dungeon-walkers; site="Fort Ash" ;;
+	siege-outside) state=2; walkers=8; behead=0; scenario=dungeon-outside; site="Fort Ash" ;;
+	siege-past) state=2; walkers=8; behead=0; scenario=dungeon-outside-past; site="Fort Ash" ;;
 	taken) state=4; walkers=8; behead=0; scenario=dungeon-walkers; site="Fort Ash" ;;
 	fight) state=2; walkers=10; behead=1; scenario=dungeon-fight; site="Fort Ash" ;;
 	clear) state=3; walkers=8; behead=0; scenario=dungeon-clear; site="Echo Mine" ;;
@@ -23,7 +25,7 @@ case "$mode" in
 	notice) state=1; walkers=8; behead=0; scenario=dungeon-notice; site="Fort Ash" ;;
 	runner-dead) state=2; walkers=8; behead=0; scenario=dungeon-runner-dead; site="Fort Ash" ;;
 	beds) state=1; walkers=8; behead=0; scenario=dungeon-beds; site="Fort Ash" ;;
-	*) echo "mode: siege | taken | fight | clear | talk | runner | runner-city | runner-dead | paper | notice | beds" >&2; exit 2 ;;
+	*) echo "mode: siege | siege-outside | siege-past | taken | fight | clear | talk | runner | runner-city | runner-dead | paper | notice | beds" >&2; exit 2 ;;
 esac
 # fight only: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
 people="${2:-8}"
@@ -52,6 +54,8 @@ def put(text, section, key, value):
 
 for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"),
                    ("AttackWalkersMin", walkers), ("AttackWalkersMax", walkers), ("WalkersAtOnce", "6"),
+                   # a siege's walkers before the door only in their own runs
+                   ("WalkersOutsidePercent", "50" if mode in ("siege-outside", "siege-past") else "0"),
                    ("PeopleMin", people), ("PeopleMax", people), ("Journal", "1"), ("Rumors", "1"),
                    # the test site alone: it is the news, and its quest the one told
                    # (runner-dead: a second place, besieged too - news for a second runner)
@@ -115,7 +119,7 @@ if mode not in ("notice", "runner-dead"):
           "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
 rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
 link = [l for l in lines if "variables" in l and "LINK" in l]
-check(any("196 of 196" in l for l in link), "LINK holds the 196 variables" + (f" ({link[-1][:90]})" if link else ""))
+check(any("197 of 197" in l for l in link), "LINK holds the 197 variables" + (f" ({link[-1][:90]})" if link else ""))
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
 again = next((k for k, l in enumerate(d) if "site 0 Fort Ash (fort) attacked" in l), len(d))
 into = [l for l in d[:again] if re.search(r"walker \w+ into Fort Ash", l)]
@@ -178,6 +182,42 @@ elif mode == "beds":
     for l in [l for l in d if "beds - " in l][:12]:
         print("        " + l[10:170])
     print("  look  the eye pictures bed0, bed1: a bedroll on the floor of Fort Ash")
+elif mode in ("siege-outside", "siege-past"):
+    before = [l for l in d if re.search(r"walker \w+ before Fort Ash \(slot \d+, before the door; MoveTo 00066266 ", l)]
+    check(len(pool) >= 1 and "(besieged; 8 walkers, 4 of them before the door, 4 at once - before the door)" in pool[0],
+          "the pool goes to Fort Ash: eight walkers, four of them before the door" + (f" ({pool[0][10:130]})" if pool else ""))
+    check(len(before) == 4 and all("answered 1" in l and "raised" not in l for l in before),
+          f"four walkers are put on the ground before the door ({len(before)})")
+    first_in = next((k for k, l in enumerate(d) if re.search(r"walker \w+ into Fort Ash", l)), len(d))
+    last_before = max((k for k, l in enumerate(d) if l in before), default=-1)
+    check(len(into) >= 4 and 0 <= last_before < first_in and all("by the door" in l for l in into[:4]),
+          f"then the four inside are put in ahead of him, by the door ({len(into)} in all)")
+    fills = [k for k, l in enumerate(d) if "the pool at Fort Ash fills the place now" in l]
+    out_ended = [l for l in d if "Fort Ash - walker" in l and "ended before the door" in l]
+    in_ended = [l for l in d if "Fort Ash - walker" in l and "ended;" in l]
+    broke = [l for l in d if "nobody left inside: the 4 before the door break in" in l]
+    if mode == "siege-outside":
+        check(len(out_ended) == 4 and "4 walkers left, 0 of them before the door" in out_ended[-1],
+              "the four outside killed: four left, none before the door" + (f" ({out_ended[-1][10:140]})" if out_ended else ""))
+        check(len(fills) == 1 and "(4 walkers left, 0 of them before the door)" in d[fills[0]],
+              "the pool fills the place then - he still stands outside")
+        check(len(into) == 4 and not broke, "nobody more comes in: the four inside were there (no break-in)")
+        check(len(in_ended) == 4 and "0 walkers left" in in_ended[-1], "inside the four are killed: none left")
+        print("  look  the eye pictures look (walkers before the door) and lying (they lie where they fell)")
+    else:
+        check(len(fills) == 1 and "(8 walkers left, 4 of them before the door)" in d[fills[0]],
+              "he goes straight in: the pool fills the place, the four outside stay where they are")
+        check(len(broke) == 1 and "(4 living taken off the ground outside)" in broke[0],
+              "the four inside killed: those before the door break in" + (f" ({broke[0][10:150]})" if broke else ""))
+        check(len(into) == 8 and all("by the door" in l for l in into[4:]) and not any("raised" in l for l in into),
+              f"four more come in by the door, nobody raised for it ({len(into)} in all)")
+        check(len(in_ended) == 8 and not out_ended and "0 walkers left" in in_ended[-1], "all eight ended inside")
+    check(any("site 0 Fort Ash (fort) defended - now refuge, 8 people" in l for l in d), "the siege is defended: a refuge again")
+    journal(20, "seen", 0, True, False, "seen inside: the quest says besieged, open")
+    journal(50, "defended", 20, False, True, "defended: the quest says so, completed")
+    check(len(rewards) == 1, "the reward once" + (f" ({rewards[0][19:110]})" if rewards else ""))
+    for l in [l for l in d if "the pool" in l or "break in" in l or " ended" in l][:14]:
+        print("        " + l[10:200])
 elif mode == "runner":
     sent = [l for l in d if "runner - sent with news of kind 2" in l]
     check(len(sent) == 1, "a runner is sent with the siege's news, once" + (f" ({sent[0][19:140]})" if sent else ""))
@@ -230,7 +270,7 @@ elif mode == "fight":
         print("  look  " + l[:200])
 else:
     name = "besieged" if mode == "siege" else "walker dungeon"
-    check(len(pool) >= 1 and f"({name}; 8 walkers, 6 at once)" in pool[0], f"the pool goes to Fort Ash, a {name} of 8, six at once")
+    check(len(pool) >= 1 and f"({name}; 8 walkers, 0 of them before the door, 6 at once - inside)" in pool[0], f"the pool goes to Fort Ash, a {name} of 8, six at once")
     first = into[:6]
     where = "by the door" if mode == "siege" else "among its spots"
     check(len(first) == 6 and all(where in l and "answered 1" in l for l in first), f"six come into the place {where}")

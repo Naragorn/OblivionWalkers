@@ -182,6 +182,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.dungeons.rumors = GetPrivateProfileIntA("Dungeons", "Rumors", 1, path) != 0;
 	rise.dungeons.messengerHours = IniFloat("Dungeons", "MessengerHours", 24.0f, path);
 	rise.dungeons.beds = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "Beds", 3, path));
+	rise.dungeons.walkersOutsidePercent =
+	    static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WalkersOutsidePercent", 50, path));
 	rise.dungeonsTestSiteState = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "TestSiteState", 1, path));
 	rise.stepTiming = GetPrivateProfileIntA("Debug", "StepTiming", 0, path) != 0;
 	rise.testLinkPage = static_cast<float>(GetPrivateProfileIntA("Debug", "TestLinkPage", 0, path));
