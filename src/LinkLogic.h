@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 38.0;  // 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 39.0;  // 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -115,8 +115,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_walk", "Walkers only walk", "Walkers never run.", LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_health_percent", "Walker health", "A walker's health, in percent of a zombie's.", LinkKind::Slider, 1, 100, 1,
 	 0, true, LinkEffect::WalkerRecords},
-	{"ini_speed_multiplier", "Walker pace", "How fast the walkers move, 1 is a zombie's pace.", LinkKind::Slider, 0.2f,
-	 2.0f, 0.05f, 2, false, LinkEffect::WalkerRecords},
+	{"ini_speed_multiplier", "Walker pace", "How fast the walkers move, 100 is a zombie's pace.", LinkKind::Slider, 20,
+	 200, 5, 0, true, LinkEffect::WalkerRecords},
 	{"ini_speed_random", "Pace spread", "How much the walkers' paces differ, in percent.", LinkKind::Slider, 0, 100, 5,
 	 0, true, LinkEffect::WalkerRecords},
 	{"ini_no_loot", "No loot on walkers", "Dead walkers cannot be searched (the risen keep what they carried).",
@@ -153,14 +153,14 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_enabled", "Walkers grab", "A walker's hit may grab an arm and hold you where you stand; it bites.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_grab_chance", "Chance to grab", "How often a walker's hit grabs an arm.", LinkKind::Slider, 0, 100, 5, 0, true,
+	{"ini_grab_chance", "Chance to grab", "How often a walker's hit grabs an arm.", LinkKind::Slider, 0, 100, 1, 0, true,
 	 LinkEffect::Live},
 	{"ini_grab_bites", "Bites you take", "The last of these bites kills. Strike a holder twice to break free.",
 	 LinkKind::Slider, 1, 10, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_struggle_presses", "Presses to break free", "Block presses to wrench one walker off, fresh, 0 off.",
 	 LinkKind::Slider, 0, 10, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_struggle_crowd", "Harder per walker", "Each walker around you beyond the first adds this much.",
-	 LinkKind::Slider, 0, 1, 0.1f, 1, false, LinkEffect::Live},
+	 LinkKind::Slider, 0, 100, 10, 0, true, LinkEffect::Live},
 	{"ini_grab_struggle_fatigue", "Fatigue per press", "What each press costs; tired, you need up to twice the presses.",
 	 LinkKind::Slider, 0, 20, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_messages", "Grab messages", "A line on the screen when a walker grabs or bites you.", LinkKind::Toggle, 0,
@@ -181,7 +181,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_horde_stale_seconds", "Seconds before a new heading", "A leader no nearer its marker this long gets a new one.", LinkKind::Slider, 5, 120, 5, 0, false, LinkEffect::Horde},
 	{"ini_horde_turn_degrees", "Turn per heading", "The most a new heading turns from the last (degrees).", LinkKind::Slider, 0, 180, 5, 0, false, LinkEffect::Horde},
 	{"ini_horde_group_most", "Walkers per leader", "The most followers one leader takes.", LinkKind::Slider, 2, 16, 1, 0, false, LinkEffect::Horde},
-	{"ini_horde_city_pull", "Pull toward a city", "How far each heading leans toward the nearest city gate, 0 none, 1 straight there.", LinkKind::Slider, 0, 1, 0.05f, 2, false, LinkEffect::Horde},
+	{"ini_horde_city_pull", "Pull toward a city", "How far each heading leans toward the nearest city gate, 0 none, 100 straight there.", LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Horde},
 	{"ini_horde_city_range", "City range", "A horde heads for a city gate this near (units).", LinkKind::Slider, 5000, 100000, 5000, 0, false, LinkEffect::Horde},
 	{"ini_horde_gate_hold", "Hold before the gate", "A horde at a city holds this far before the gate (units).", LinkKind::Slider, 200, 3000, 100, 0, false, LinkEffect::Horde},
 	{"ini_guards_radius", "Gate radius", "Walkers this near a gate count for its guards (units).", LinkKind::Slider, 1000, 10000, 500, 0, false, LinkEffect::Horde},
@@ -197,7 +197,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_grab_bite_reset", "Seconds until bites are forgotten", "Free this long, the bites you took are forgotten.", LinkKind::Slider, 0, 120, 5, 0, false, LinkEffect::Live},
 	{"ini_grab_crowd_most", "Crowd: most", "The crowd makes breaking free at most this many times harder.", LinkKind::Slider, 1, 5, 0.5f, 1, false, LinkEffect::Live},
 	{"ini_grab_crowd_radius", "Crowd: radius", "Walkers this near count for the crowd (units).", LinkKind::Slider, 100, 1000, 50, 0, false, LinkEffect::Live},
-	{"ini_grab_struggle_gap", "Seconds between presses", "A longer pause between Block presses starts the count again.", LinkKind::Slider, 0.2f, 2, 0.1f, 1, false, LinkEffect::Live},
+	{"ini_grab_struggle_gap", "Milliseconds between presses", "A longer pause between Block presses starts the count again.", LinkKind::Slider, 200, 2000, 100, 0, false, LinkEffect::Live},
 	// The VR shake (2026-10-28), last so the indices stay.
 	{"ini_grab_shake_strokes", "VR: swings to shake free", "In VR, swings of the held hand that shake one walker off, fresh, 0 off.", LinkKind::Slider, 0, 20, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_shake_fatigue", "VR: fatigue per swing", "What each swing of the held hand costs.", LinkKind::Slider, 0, 10, 1, 0, false, LinkEffect::Live},
@@ -260,9 +260,9 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 12, 100, 1, 0, false, LinkEffect::Live},
 	{"ini_siege_chance", "Siege chance per day", "Each city's chance a game day to be besieged.", LinkKind::Slider, 0,
 	 100, 1, 0, true, LinkEffect::Live},
-	{"ini_siege_min", "Walkers in a siege, fewest", "The fewest walkers a siege brings.", LinkKind::Slider, 1, 300, 5,
+	{"ini_siege_min", "Walkers in a siege, fewest", "The fewest walkers a siege brings.", LinkKind::Slider, 5, 300, 5,
 	 0, false, LinkEffect::Live},
-	{"ini_siege_max", "Walkers in a siege, most", "The most walkers a siege brings.", LinkKind::Slider, 1, 300, 5, 0,
+	{"ini_siege_max", "Walkers in a siege, most", "The most walkers a siege brings.", LinkKind::Slider, 5, 300, 5, 0,
 	 false, LinkEffect::Live},
 	{"ini_siege_pause", "Days between sieges", "Game days a city has after a siege before the next.",
 	 LinkKind::Slider, 0, 30, 0.5f, 1, false, LinkEffect::Live},
@@ -272,7 +272,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Slider, 10, 80, 1, 0, false, LinkEffect::Live},
 	{"ini_grab_lunge", "VR: a walker's lunge", "Units more it may lunge in to grab, 0 none.", LinkKind::Slider, 0,
 	 120, 5, 0, false, LinkEffect::Live},
-	{"ini_grab_lunge_seconds", "VR: the lunge's time", "Seconds its lunge takes.", LinkKind::Slider, 0, 1, 0.05f, 2,
+	{"ini_grab_lunge_seconds", "VR: the lunge's time", "Milliseconds its lunge takes.", LinkKind::Slider, 0, 1000, 50, 0,
 	 false, LinkEffect::Live},
 	{"ini_rise_no_cities", "No rising in cities", "Nobody killed in a city's streets rises; the safeguard raises them.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
@@ -280,8 +280,8 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_night_enabled", "Nights are worse", "From dusk to dawn the walkers are quicker, spawns bring more of them, hordes roam farther.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_night_speed", "Night: walker pace", "How much quicker the walkers are at night, 1 as by day.", LinkKind::Slider,
-	 0.5f, 2.0f, 0.05f, 2, false, LinkEffect::Live},
+	{"ini_night_speed", "Night: walker pace", "How much quicker the walkers are at night, 100 as by day.", LinkKind::Slider,
+	 50, 200, 5, 0, true, LinkEffect::Live},
 	{"ini_night_spawns", "Night: walkers per spawn", "A spawn's walkers at night, in percent of the day's.",
 	 LinkKind::Slider, 50, 300, 10, 0, true, LinkEffect::Live},
 	{"ini_night_horde_lead", "Night: hordes roam farther", "How far ahead a horde heads at night, in percent of the day's.",
@@ -451,6 +451,16 @@ inline constexpr LinkSetting kLinkSettings[] = {
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
 
+// A setting the plugin holds as a fraction (a pace of 1.3, 0.3 seconds), as
+// LINK holds it: in whole hundredths or thousandths (130, 300). LINK's slider
+// cuts a value off to a position of its own - ( value - least ) / step into a
+// short, LINK.esp's LINKUpdateSliderMarkerFromSettingKeyFunctionScript - and
+// writes that position's value back for every slider of a page it shows, so
+// 1.30 by steps of 0.05 came back as 1.25 (Nadi's Windows log, 2026-11-13).
+// Whole numbers divide without a rest at any precision; LinkLogicTest's
+// TestSliders asks every position of every slider.
+inline double LinkScaled(float value, double scale) { return std::floor(static_cast<double>(value) * scale + 0.5); }
+
 // The setting's current value as LINK holds it: 0 or 1 for a toggle.
 inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace, UInt32 i) {
 	if (i >= kLinkCategoryFirst && i < kLinkCategoryFirst + kReplaceCategoryCount) {
@@ -467,7 +477,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 7: return rise.soundAtGetUpPercent;
 		case 8: return rise.walkOnly ? 1.0 : 0.0;
 		case 9: return rise.healthPercent;
-		case 10: return rise.speedMultiplier;
+		case 10: return LinkScaled(rise.speedMultiplier, 100.0);
 		case 11: return rise.speedRandomPercent;
 		case 12: return rise.noLoot ? 1.0 : 0.0;
 		case 13: return rise.avoidChapels ? 1.0 : 0.0;
@@ -489,7 +499,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 29: return rise.grab.chancePercent;
 		case 30: return rise.grab.bitesToDie;
 		case 31: return rise.grab.strugglePresses;
-		case 32: return rise.grab.struggleCrowdStep;
+		case 32: return LinkScaled(rise.grab.struggleCrowdStep, 100.0);
 		case 33: return rise.grab.struggleFatigue;
 		case 34: return rise.grab.messages ? 1.0 : 0.0;
 		case 35: return rise.dropSeconds;
@@ -506,7 +516,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 46: return rise.horde.staleSeconds;
 		case 47: return rise.horde.turnDegrees;
 		case 48: return rise.horde.groupMost;
-		case 49: return rise.horde.cityPull;
+		case 49: return LinkScaled(rise.horde.cityPull, 100.0);
 		case 50: return rise.horde.cityRange;
 		case 51: return rise.horde.gateHoldUnits;
 		case 52: return rise.guards.radius;
@@ -522,7 +532,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 62: return rise.grab.biteResetSeconds;
 		case 63: return rise.grab.struggleCrowdMost;
 		case 64: return rise.grab.struggleCrowdRadius;
-		case 65: return rise.grab.struggleGapSeconds;
+		case 65: return LinkScaled(rise.grab.struggleGapSeconds, 1000.0);
 		case 66: return rise.grab.shakeStrokes;
 		case 67: return rise.grab.shakeFatigue;
 		case 113: return rise.end.dieOnlyBeheaded ? 1.0 : 0.0;
@@ -537,11 +547,11 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 122: return rise.siege.guardKillsPerHour;
 		case 123: return rise.grab.reachUnits;
 		case 124: return rise.grab.lungeUnits;
-		case 125: return rise.grab.lungeSeconds;
+		case 125: return LinkScaled(rise.grab.lungeSeconds, 1000.0);
 		case 126: return rise.noRiseInCities ? 1.0 : 0.0;
 		case 127: return rise.safeguard.raiseAtHome ? 1.0 : 0.0;
 		case 128: return rise.night.enabled ? 1.0 : 0.0;
-		case 129: return rise.night.speedMultiplier;
+		case 129: return LinkScaled(rise.night.speedMultiplier, 100.0);
 		case 130: return rise.night.spawnPercent;
 		case 131: return rise.night.hordeLeadPercent;
 		case 132: return rise.night.startHour;
@@ -646,7 +656,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 7: rise.soundAtGetUpPercent = whole; break;
 		case 8: rise.walkOnly = on; break;
 		case 9: rise.healthPercent = whole; break;
-		case 10: rise.speedMultiplier = fraction; break;
+		case 10: rise.speedMultiplier = fraction / 100.0f; break;
 		case 11: rise.speedRandomPercent = whole; break;
 		case 12: rise.noLoot = on; break;
 		case 13: rise.avoidChapels = on; break;
@@ -668,7 +678,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 29: rise.grab.chancePercent = whole; break;
 		case 30: rise.grab.bitesToDie = whole; break;
 		case 31: rise.grab.strugglePresses = whole; break;
-		case 32: rise.grab.struggleCrowdStep = fraction; break;
+		case 32: rise.grab.struggleCrowdStep = fraction / 100.0f; break;
 		case 33: rise.grab.struggleFatigue = fraction; break;
 		case 34: rise.grab.messages = on; break;
 		case 35: rise.dropSeconds = fraction; break;
@@ -685,7 +695,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 46: rise.horde.staleSeconds = fraction; break;
 		case 47: rise.horde.turnDegrees = fraction; break;
 		case 48: rise.horde.groupMost = whole; break;
-		case 49: rise.horde.cityPull = fraction; break;
+		case 49: rise.horde.cityPull = fraction / 100.0f; break;
 		case 50: rise.horde.cityRange = fraction; break;
 		case 51: rise.horde.gateHoldUnits = fraction; break;
 		case 52: rise.guards.radius = fraction; break;
@@ -701,7 +711,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 62: rise.grab.biteResetSeconds = fraction; break;
 		case 63: rise.grab.struggleCrowdMost = fraction; break;
 		case 64: rise.grab.struggleCrowdRadius = fraction; break;
-		case 65: rise.grab.struggleGapSeconds = fraction; break;
+		case 65: rise.grab.struggleGapSeconds = fraction / 1000.0f; break;
 		case 66: rise.grab.shakeStrokes = whole; break;
 		case 67: rise.grab.shakeFatigue = fraction; break;
 		case 113:
@@ -719,11 +729,11 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 122: rise.siege.guardKillsPerHour = fraction; break;
 		case 123: rise.grab.reachUnits = fraction; break;
 		case 124: rise.grab.lungeUnits = fraction; break;
-		case 125: rise.grab.lungeSeconds = fraction; break;
+		case 125: rise.grab.lungeSeconds = fraction / 1000.0f; break;
 		case 126: rise.noRiseInCities = on; break;
 		case 127: rise.safeguard.raiseAtHome = on; break;
 		case 128: rise.night.enabled = on; break;
-		case 129: rise.night.speedMultiplier = fraction; break;
+		case 129: rise.night.speedMultiplier = fraction / 100.0f; break;
 		case 130: rise.night.spawnPercent = whole; break;
 		case 131: rise.night.hordeLeadPercent = whole; break;
 		case 132: rise.night.startHour = fraction; break;

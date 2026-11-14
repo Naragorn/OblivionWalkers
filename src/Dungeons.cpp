@@ -305,7 +305,7 @@ bool Raise(UInt32 ref, UInt32 slot);
 
 // The runner for help (DungeonQuestLogic.h): put out behind the player on
 // the land, told to speak to him, taken away when he has walked on.
-void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, LogFn log) {
+void StepMessengerInGame(UInt8 newsKind, bool told, bool byPaper, UInt32 player, float now, LogFn log) {
 	const UInt32 ref = g_espBase != kNoEsp ? LookupForm(EspFormId(g_espBase, kDungeonMessengerRefLocalId)) : 0;
 	if (!LooksLikeObject(ref)) {
 		return;
@@ -323,8 +323,10 @@ void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, Lo
 	const float py = FloatAt(player + kRefPositionOffset + 4);
 	const float pz = FloatAt(player + kRefPositionOffset + 8);
 	const UInt32 cell = Read(player + kRefParentCellOffset);
-	const bool outdoors = LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0;
-	if (MessengerSends(g_messenger, newsKind, g_siteSettings->messengerHours, now, outdoors)) {
+	const bool interior = !LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0;
+	const UInt32 world = interior ? 0 : Read(cell + kCellWorldspaceOffset);
+	const bool openLand = MessengerLand(interior, LooksLikeObject(world) ? FormIdOf(world) : 0);
+	if (MessengerSends(g_messenger, newsKind, g_siteSettings->messengerHours, now, openLand)) {
 		// A dead runner is raised and dressed again (his base is the
 		// camps' first man's: slot 0's outfit); one who rose as a walker
 		// himself is lost.
@@ -375,7 +377,8 @@ void StepMessengerInGame(UInt8 newsKind, bool told, UInt32 player, float now, Lo
 	if (does == MessengerDoes::Leave) {
 		Say(ref, "EvaluatePackage");
 		log("Dungeons: runner - %s; he stays about until the player has walked on",
-		    told ? "he told his news" : "a minute without reaching the player");
+		    !told ? "a minute without reaching the player"
+		          : (byPaper ? "a paper told the news before he did" : "the news is told (his line, or a rumor's)"));
 	} else if (does == MessengerDoes::Go) {
 		Say(ref, "Disable");
 		log("Dungeons: runner - taken away (%.0f units from the player)", distance);
@@ -1397,11 +1400,13 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		// A paper of ours newly opened - the Courier's edition on the held
 		// dungeons, the notice - is read: it tells as a rumor does.
 		const UInt32 book = BookOpen();
+		bool byPaper = false;
 		const UInt32 papers[3] = {EspFormId(g_espBase, kDungeonEditionLocalId), EspFormId(g_espBase, kDungeonNoticeLocalId),
 		                          EspFormId(g_espBase, kDungeonBoardNoticeLocalId)};
 		if (g_espBase != kNoEsp && PaperOpened(book, g_bookBefore, papers, 3)) {
 			SetGlobal(kDungeonHeardGlobalLocalId, 1.0f);
 			log("Dungeons: news - the player reads %08X", book);
+			byPaper = true;
 		}
 		if (g_espBase != kNoEsp && book != g_bookBefore && IsPaper(g_bookBefore, papers, 3)) {
 			log("Dungeons: news - the paper %08X is closed (the book menu now holds %08X)", g_bookBefore, book);
@@ -1426,7 +1431,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		NoteRefugesInNews(kind != 0);
 		StepNotices(log);
 		StepBeds(log);
-		StepMessengerInGame(kind, told, player, now, log);
+		StepMessengerInGame(kind, told, byPaper, player, now, log);
 	}
 	// The player's cell held now and not before, or the other way (the place
 	// overrun, given up, [Dungeons] Enabled changed): looked at again.

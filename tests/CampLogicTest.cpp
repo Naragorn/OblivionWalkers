@@ -588,12 +588,30 @@ void TestEscortKit() {
 void TestEscortReset() {
 	std::printf("An escorted one held by an engine package is reset\n");
 	const UInt32 follow = 0x26000A42;
-	Check(!walkers::EscortResets(follow, follow, false), "running the follow: left alone");
-	Check(!walkers::EscortResets(0x26000A43, follow, false), "its own wander (the ESP's): AddScriptPackage takes it");
-	Check(walkers::EscortResets(0xFF001242, follow, false),
+	using walkers::kEscortResetGapSeconds;
+	using walkers::kPackageTypeDialogue;
+	using walkers::kPackageTypeGreet;
+	const float never = walkers::kEscortNeverReset;
+	Check(!walkers::EscortResets(follow, follow, false, 1, never), "running the follow: left alone");
+	Check(!walkers::EscortResets(0x26000A43, follow, false, 5, never),
+	      "its own wander (the ESP's): AddScriptPackage takes it");
+	Check(walkers::EscortResets(0xFF001242, follow, false, kPackageTypeDialogue, never),
 	      "an engine-made package (FF..., a talk between two - harness 2026-11-09): reset");
-	Check(!walkers::EscortResets(0xFF001242, follow, true), "fighting: left to the fight");
-	Check(!walkers::EscortResets(0, follow, false), "no package known: left alone");
+	Check(!walkers::EscortResets(0xFF001242, follow, true, kPackageTypeDialogue, never), "fighting: left to the fight");
+	Check(!walkers::EscortResets(0, follow, false, 0xFF, never), "no package known: left alone");
+	Check(!walkers::EscortResets(0xFF00E21C, follow, false, kPackageTypeGreet, never),
+	      "the engine's greeting (type 20 - Nadi's Windows log, 2026-11-13: seventeen resets in a row freed nobody): "
+	      "left to end");
+	Check(walkers::EscortResets(0xFF001242, follow, false, 19, never) &&
+	          walkers::EscortResets(0xFF001242, follow, false, 0xFF, never),
+	      "another engine-made package, one of no type read: reset");
+	Check(!walkers::EscortResets(0xFF001242, follow, false, kPackageTypeDialogue, 0.0f) &&
+	          !walkers::EscortResets(0xFF001242, follow, false, kPackageTypeDialogue, kEscortResetGapSeconds - 1.0f),
+	      "reset within the last half minute: not again yet - no blinking in a row");
+	Check(walkers::EscortResets(0xFF001242, follow, false, kPackageTypeDialogue, kEscortResetGapSeconds),
+	      "half a minute after the last reset: again");
+	Check(kPackageTypeDialogue == 18 && kPackageTypeGreet == 20 && kEscortResetGapSeconds == 30.0f,
+	      "the types as the EXE has them (GetCurrentAIPackage's switch): 18 a dialogue, 20 a greeting");
 }
 
 void TestNearestGate() {

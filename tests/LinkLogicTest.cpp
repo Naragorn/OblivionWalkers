@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -104,7 +105,10 @@ void TestValues() {
 	Check(walkers::SetLinkValue(rise, replace, enabled, 0.0) && !rise.enabled &&
 	          walkers::SetLinkValue(rise, replace, enabled, 1.0) && rise.enabled,
 	      "a toggle: 0 off, 1 on");
-	Check(walkers::SetLinkValue(rise, replace, speed, 1.5) && rise.speedMultiplier == 1.5f, "a fraction kept");
+	Check(walkers::LinkValue(rise, replace, speed) == 100.0 && !walkers::SetLinkValue(rise, replace, speed, 100.0) &&
+	          walkers::SetLinkValue(rise, replace, speed, 150.0) && rise.speedMultiplier == 1.5f &&
+	          walkers::LinkValue(rise, replace, speed) == 150.0,
+	      "a fraction in whole hundredths: the pace 1 is LINK's 100, LINK's 150 the pace 1.5");
 	Check(walkers::SetLinkValue(rise, replace, maxCount, 4.0) && replace.maxCount == 4, "a spawn setting");
 	Check(walkers::SetLinkValue(rise, replace, courier, 0.0) && !rise.news.courier, "a news setting");
 	Check(walkers::SetLinkValue(rise, replace, guardsHealth, 2.5) && rise.guards.healthFactor == 2.5f, "a guard setting");
@@ -126,11 +130,11 @@ void TestValues() {
 	const int fatigue = IndexOf("ini_grab_struggle_fatigue");
 	const int messages = IndexOf("ini_grab_messages");
 	Check(presses >= 0 && crowd >= 0 && fatigue >= 0 && messages >= 0 &&
-	          walkers::LinkValue(rise, replace, presses) == 4.0 && walkers::LinkValue(rise, replace, crowd) == 0.5 &&
+	          walkers::LinkValue(rise, replace, presses) == 4.0 && walkers::LinkValue(rise, replace, crowd) == 50.0 &&
 	          walkers::LinkValue(rise, replace, fatigue) == 5.0 && walkers::LinkValue(rise, replace, messages) == 1.0,
-	      "the struggle: 4 presses, 0.5 per walker more, 5 fatigue a press, the lines on - the INI's defaults");
+	      "the struggle: 4 presses, 0.5 per walker more (LINK's 50 %), 5 fatigue a press, the lines on - the INI's defaults");
 	Check(walkers::SetLinkValue(rise, replace, presses, 0.0) && rise.grab.strugglePresses == 0 &&
-	          walkers::SetLinkValue(rise, replace, crowd, 1.0) && rise.grab.struggleCrowdStep == 1.0f &&
+	          walkers::SetLinkValue(rise, replace, crowd, 100.0) && rise.grab.struggleCrowdStep == 1.0f &&
 	          walkers::SetLinkValue(rise, replace, fatigue, 12.0) && rise.grab.struggleFatigue == 12.0f &&
 	          walkers::SetLinkValue(rise, replace, messages, 0.0) && !rise.grab.messages,
 	      "the struggle's settings set from the menu (presses 0: off)");
@@ -172,9 +176,18 @@ void TestValues() {
 	const int lungeTime = IndexOf("ini_grab_lunge_seconds");
 	Check(reach == 123 && lunge == 124 && lungeTime == 125 && walkers::LinkValue(rise, replace, reach) == 37.0 &&
 	          walkers::LinkValue(rise, replace, lunge) == 100.0 &&
-	          std::fabs(walkers::LinkValue(rise, replace, lungeTime) - 0.3) < 1e-6 &&
+	          walkers::LinkValue(rise, replace, lungeTime) == 300.0 &&
+	          !walkers::SetLinkValue(rise, replace, lungeTime, 300.0) &&
+	          walkers::SetLinkValue(rise, replace, lungeTime, 450.0) && std::fabs(rise.grab.lungeSeconds - 0.45f) < 1e-6f &&
+	          walkers::LinkValue(rise, replace, lungeTime) == 450.0 &&
 	          walkers::SetLinkValue(rise, replace, lunge, 0.0) && rise.grab.lungeUnits == 0.0f,
-	      "the arm's reach 37, the lunge 100 units (0.3 s for 60); the lunge 0 from the menu");
+	      "the arm's reach 37, the lunge 100 units in 0.3 s (LINK's 300 ms; 450 ms from the menu); the lunge 0 from "
+	      "the menu");
+	const int gap = IndexOf("ini_grab_struggle_gap");
+	Check(gap >= 0 && walkers::LinkValue(rise, replace, gap) == 800.0 &&
+	          !walkers::SetLinkValue(rise, replace, gap, 800.0) && walkers::SetLinkValue(rise, replace, gap, 500.0) &&
+	          rise.grab.struggleGapSeconds == 0.5f && walkers::LinkValue(rise, replace, gap) == 500.0,
+	      "the struggle's gap of 0.8 s is LINK's 800 ms; 500 ms from the menu");
 	const int cities = IndexOf("ini_rise_no_cities");
 	Check(cities == 126 && walkers::LinkValue(rise, replace, cities) == 0.0 &&
 	          walkers::SetLinkValue(rise, replace, cities, 1.0) && rise.noRiseInCities,
@@ -190,13 +203,14 @@ void TestValues() {
 	const int nightEnd = IndexOf("ini_night_end");
 	Check(nightOn == 128 && nightSpeed == 129 && nightSpawns == 130 && nightLead == 131 && nightStart == 132 &&
 	          nightEnd == 133 && walkers::LinkValue(rise, replace, nightOn) == 1.0 &&
-	          std::fabs(walkers::LinkValue(rise, replace, nightSpeed) - 1.3) < 1e-6 &&
+	          walkers::LinkValue(rise, replace, nightSpeed) == 130.0 &&
+	          !walkers::SetLinkValue(rise, replace, nightSpeed, 130.0) &&
 	          walkers::LinkValue(rise, replace, nightSpawns) == 150.0 &&
 	          walkers::LinkValue(rise, replace, nightLead) == 150.0 &&
 	          walkers::LinkValue(rise, replace, nightStart) == 20.0 && walkers::LinkValue(rise, replace, nightEnd) == 6.0,
-	      "the nights last: on, x1.3, 150 %, 150 %, 20:00 to 6:00 - the INI's defaults");
+	      "the nights last: on, x1.3 (LINK's 130 %, read back no change), 150 %, 150 %, 20:00 to 6:00 - the INI's defaults");
 	Check(walkers::SetLinkValue(rise, replace, nightOn, 0.0) && !rise.night.enabled &&
-	          walkers::SetLinkValue(rise, replace, nightSpeed, 1.6) && std::fabs(rise.night.speedMultiplier - 1.6f) < 1e-6f &&
+	          walkers::SetLinkValue(rise, replace, nightSpeed, 160.0) && std::fabs(rise.night.speedMultiplier - 1.6f) < 1e-6f &&
 	          walkers::SetLinkValue(rise, replace, nightStart, 22.0) && rise.night.startHour == 22.0f &&
 	          kLinkSettings[nightOn].effect == walkers::LinkEffect::Live &&
 	          kLinkSettings[nightSpeed].effect == walkers::LinkEffect::Live,
@@ -395,7 +409,7 @@ void TestValues() {
 	const int pull = IndexOf("ini_horde_city_pull");
 	const int match = IndexOf("ini_rise_match_corpse");
 	const int rename = IndexOf("ini_rename_to_walker");
-	Check(pull >= 0 && walkers::SetLinkValue(rise, replace, pull, 0.25) && rise.horde.cityPull == 0.25f &&
+	Check(pull >= 0 && walkers::LinkValue(rise, replace, pull) == 50.0 && walkers::SetLinkValue(rise, replace, pull, 25.0) && rise.horde.cityPull == 0.25f &&
 	          match >= 0 && walkers::SetLinkValue(rise, replace, match, 1.0) && rise.matchCorpse == 1 &&
 	          kLinkSettings[rename].effect == walkers::LinkEffect::NextStart &&
 	          kLinkSettings[pull].effect == walkers::LinkEffect::Horde,
@@ -512,9 +526,10 @@ void TestFiles() {
 	const UInt32 ini = walkers::LinkIniText(rise, replace, text, sizeof(text));
 	const std::string iniText(text, ini);
 	Check(ini > 0 && iniText.find("set Walkers.ini_health_percent to 15\r\n") != std::string::npos &&
-	          iniText.find("set Walkers.ini_speed_multiplier to 1.00\r\n") != std::string::npos,
+	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
+	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 38\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 39\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -529,6 +544,81 @@ void TestFiles() {
 	      "too small a buffer: nothing written");
 }
 
+// LINK 1.4's slider, as its own scripts have it (read off LINK.esp,
+// 2026-11-14). LINKUpdateSliderMarkerFromSettingKeyFunctionScript: "let
+// slidervalue := ( currentvalue - LINK.settingsmin[settingkey] ) /
+// LINK.settingsstep[settingkey]", slidervalue a short - the position, cut
+// off. LINKUpdateSliderValueStringFromSettingKeyFunctionScript: "( slidervalue
+// * LINK.settingsstep[settingkey] ) + LINK.settingsmin[settingkey]", cut to
+// the setting's decimals through a short, and written back as the setting's
+// value; the menu calls it for every slider of a page it shows. So a value
+// that is not exactly a position of its slider is another one once the page
+// was open (Nadi's Windows log, 2026-11-13: 66, 40, 120 and 1.30 became 65,
+// 36, 116 and 1.25). Least and step are what the CFG's text gives LINK. At
+// the precision T: whether the game's FPU runs at 24 or 53 bits there is not
+// known, so both are asked.
+template <typename T>
+double AfterLink(const LinkSetting& s, double value) {
+	char text[32];
+	std::snprintf(text, sizeof(text), "%.*f", static_cast<int>(s.decimals), s.min);
+	const T least = static_cast<T>(std::strtod(text, nullptr));
+	std::snprintf(text, sizeof(text), "%.*f", static_cast<int>(s.decimals), s.step);
+	const T step = static_cast<T>(std::strtod(text, nullptr));
+	if (!(step > 0)) {
+		return -1.0e9;
+	}
+	const T position = std::floor((static_cast<T>(value) - least) / step);
+	T scale = 1;
+	for (UInt8 d = 0; d < s.decimals; ++d) {
+		scale *= 10;
+	}
+	return static_cast<double>(std::floor((position * step + least) * scale) / scale);
+}
+
+void TestSliders() {
+	std::printf("LINK's sliders keep what they are given\n");
+	walkers::RiseSettings rise;
+	walkers::ReplaceSettings replace;
+	bool whole = true;
+	bool positions = true;
+	bool defaults = true;
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		const LinkSetting& s = kLinkSettings[i];
+		if (s.kind != walkers::LinkKind::Slider) {
+			continue;
+		}
+		const double steps = (static_cast<double>(s.max) - s.min) / s.step;
+		if (!(s.step > 0.0f) || steps != std::floor(steps)) {
+			std::printf("        %s: its range is no whole number of steps\n", s.var);
+			whole = false;
+			continue;
+		}
+		for (double k = 0.0; k <= steps; k += 1.0) {
+			const double value = s.min + k * static_cast<double>(s.step);
+			if (AfterLink<float>(s, value) != value || AfterLink<double>(s, value) != value) {
+				std::printf("        %s: %.3f comes back as %.3f (24 bits) and %.3f (53 bits)\n", s.var, value,
+				            AfterLink<float>(s, value), AfterLink<double>(s, value));
+				positions = false;
+				break;
+			}
+		}
+		const double value = walkers::LinkValue(rise, replace, i);
+		if (AfterLink<float>(s, value) != value || AfterLink<double>(s, value) != value) {
+			std::printf("        %s: the default %.3f comes back as %.3f (24 bits) and %.3f (53 bits)\n", s.var, value,
+			            AfterLink<float>(s, value), AfterLink<double>(s, value));
+			defaults = false;
+		}
+	}
+	Check(whole, "every slider's range is a whole number of its steps");
+	Check(positions, "every position of every slider comes back from LINK as it went in, at 24 and at 53 bits");
+	Check(defaults, "every default is a position of its slider: a page shown changes nothing");
+	const LinkSetting& chance = kLinkSettings[IndexOf("ini_grab_chance")];
+	const LinkSetting& health = kLinkSettings[IndexOf("ini_guards_health_factor")];
+	Check(AfterLink<double>(chance, 66.0) == 66.0 && AfterLink<double>(health, 5.0) == 5.0 &&
+	          AfterLink<double>(health, 5.2) == 5.0,
+	      "the grab's 66 stays 66; a value between two positions is cut to the lower one (LINK's own way)");
+}
+
 }  // namespace
 
 int main() {
@@ -538,6 +628,7 @@ int main() {
 	TestStart();
 	TestEmpty();
 	TestFiles();
+	TestSliders();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

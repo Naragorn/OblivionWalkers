@@ -903,13 +903,31 @@ inline bool EscortKitWanted(bool intoCity, bool shown, bool playerInCity, float 
 	return intoCity ? playerInCity || nearGate : shown && nearGate;
 }
 
+// The engine's own package types that hold an escorted one (TESPackage's
+// type byte at +0x20). Read off the EXE on 2026-11-14: GetCurrentAIPackage's
+// handler 0x004F78B0 switches on that byte over 33 types (its jump table at
+// 0x004F7A6C) and returns the numbers the CS wiki lists for the command - the
+// byte 18 gives 6, DIALOGUE; the byte 20 gives 12, GREET.
+inline constexpr UInt8 kPackageTypeDialogue = 18;
+inline constexpr UInt8 kPackageTypeGreet = 20;
+// A reset of the same one at the soonest this long after the last: a reset
+// that frees nobody shall not blink him in a row.
+inline constexpr float kEscortResetGapSeconds = 30.0f;
+inline constexpr float kEscortNeverReset = 1.0e9f;  // `sinceReset` of one never reset
+
 // Whether an escorted one is reset (disabled, enabled a second later, then
 // given the follow): it runs a package the engine made (its ID's top byte
 // 0xFF) and is not fighting - harness 2026-11-09: the four who stayed ran
-// such a package, shared by pairs (two talking, an interrupt
-// AddScriptPackage does not break; Nadi, 2026-11-09: "a").
-inline bool EscortResets(UInt32 packageId, UInt32 followId, bool inCombat) {
-	return packageId != 0 && packageId != followId && (packageId >> 24) == 0xFF && !inCombat;
+// such a package, shared by pairs (two talking, type 18, an interrupt
+// AddScriptPackage does not break; Nadi, 2026-11-09: "a"). Not for the
+// engine's greeting: Nadi's Windows log of 2026-11-13 has the last one alive
+// of seven, his six dead about him, reset seventeen times in a row, a new
+// greeting each time, and left behind all the same - the reset frees nobody
+// there; whether it kept the greetings coming is not known. And not within
+// kEscortResetGapSeconds of the same one's last reset.
+inline bool EscortResets(UInt32 packageId, UInt32 followId, bool inCombat, UInt8 type, float sinceReset) {
+	return packageId != 0 && packageId != followId && (packageId >> 24) == 0xFF && !inCombat &&
+	       type != kPackageTypeGreet && sinceReset >= kEscortResetGapSeconds;
 }
 
 // The co-save record: type "CAMP", version 2 (the dynamic camps) - the last

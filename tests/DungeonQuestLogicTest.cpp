@@ -234,7 +234,13 @@ void TestMessenger() {
 	          !MessengerSends(m, 0, 24.0f, 10.0f, true),
 	      "a quiet refuge, a fallen place, no news: nobody runs");
 	Check(!MessengerSends(m, 2, 0.0f, 10.0f, true), "MessengerHours 0: never");
-	Check(!MessengerSends(m, 2, 24.0f, 10.0f, false), "the player indoors: not now");
+	Check(!MessengerSends(m, 2, 24.0f, 10.0f, false), "the player not in the open land: not now");
+	Check(walkers::MessengerLand(false, 0x0000003C), "the open land: Tamriel's own worldspace, out of doors");
+	Check(!walkers::MessengerLand(true, 0) && !walkers::MessengerLand(true, 0x0000003C), "indoors: none");
+	Check(!walkers::MessengerLand(false, 0x0001C31A) && !walkers::MessengerLand(false, 0x00009F18) &&
+	          !walkers::MessengerLand(false, 0),
+	      "a city's streets (a worldspace of its own - Nadi's Windows log, 2026-11-13: sent in Anvil, he never came "
+	      "up), another land, none known: none");
 	walkers::MessengerSent(m, 10.0f);
 	Check(m.phase == MessengerPhase::Coming && m.lastSentDay == 10.0f && m.seconds == 0.0f, "sent: coming");
 	Check(!MessengerSends(m, 2, 24.0f, 12.0f, true), "one on his way: no second");

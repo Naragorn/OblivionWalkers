@@ -107,7 +107,7 @@ inline int BedsCandidate(int kitCandidate, bool kitOutside, UInt32 beds) {
 
 // The messenger: one of the refugees runs to the player for help - with
 // news of a siege or of a place to clear, MessengerHours apart at the
-// soonest, only out of doors. He comes up and speaks (the game's forced
+// soonest, only in the open land (MessengerLand). He comes up and speaks (the game's forced
 // greeting; his line sets "heard"), then stays about until the player has
 // walked on.
 enum class MessengerPhase : UInt8 { Away, Coming, Leaving };
@@ -131,8 +131,16 @@ inline RunnerFit MessengerFit(bool dead, bool risen) {
 	return risen ? RunnerFit::Lost : (dead ? RunnerFit::Raise : RunnerFit::Fit);
 }
 
-inline bool MessengerSends(const DungeonMessenger& m, UInt8 newsKind, float hours, float now, bool outdoors) {
-	return m.phase == MessengerPhase::Away && hours > 0.0f && outdoors && (newsKind == 2 || newsKind == 3) &&
+// Where he can come up to the player: out of doors in Tamriel's own
+// worldspace (0000003C). A city's streets are a worldspace of their own
+// behind walls and between houses - sent there he stood 1070 to 1440 units
+// off and never came up (Nadi's Windows log, 2026-11-13, Anvil); the cities
+// have the notices and the rumors. A city opened into Tamriel by a mod is
+// not told apart.
+inline bool MessengerLand(bool interior, UInt32 worldFormId) { return !interior && worldFormId == 0x0000003C; }
+
+inline bool MessengerSends(const DungeonMessenger& m, UInt8 newsKind, float hours, float now, bool openLand) {
+	return m.phase == MessengerPhase::Away && hours > 0.0f && openLand && (newsKind == 2 || newsKind == 3) &&
 	       now - m.lastSentDay >= hours / 24.0f;
 }
 

@@ -1821,6 +1821,36 @@ now 0". Seen too: the first write comes before the save's quest data is
 read and is done again after it (two such lines) - harmless. Not run: the
 menu itself (Nadi's, Windows).
 
+**The sliders hold whole numbers only (2026-11-14, LINK version 39).**
+LINK's slider keeps a position, not the value. Read off LINK.esp's scripts:
+`LINKUpdateSliderMarkerFromSettingKeyFunctionScript` sets the position to
+"( currentvalue - LINK.settingsmin[settingkey] ) /
+LINK.settingsstep[settingkey]" in a short - cut off - and
+`LINKUpdateSliderValueStringFromSettingKeyFunctionScript` writes "(
+slidervalue * LINK.settingsstep[settingkey] ) + LINK.settingsmin[settingkey]",
+cut to the decimals through a short, back as the setting's value; the page's
+script calls it for every slider it shows. So a value that is not exactly a
+position of its slider is another one once its page was open: Nadi's Windows
+log of 2026-11-13 has "ini_grab_chance now 65", "ini_siege_min now 36",
+"ini_siege_max now 116" and "ini_night_speed now 1.25" in one step (66 at 0
+by 5; 40 and 120 at 1 by 5; 1.30 at 0.5 by 0.05, which the plugin had written
+as the float 1.2999999, position 15). Nadi the next day: he had opened the
+menu to change them, in VR, and the sliders would not move (that is OBVR's
+part: its session is told). Simulated for every position of the 109 sliders
+at 24 and at 53 bits: the steps 0.05 and 0.1 lose positions at both. Fix:
+the six fractions with such steps are whole numbers in LINK - the walkers'
+pace, the night's pace, the pull toward a city and the struggle's "harder
+per walker" in percent, the struggle's gap and the lunge's time in
+milliseconds (`LinkScaled`; the plugin INI keeps its fractions; the lunge's
+variable keeps its name `ini_grab_lunge_seconds`, the ESP's script is not
+written anew) - the grab's chance goes by 1, the siege's counts from 5 by 5.
+The steps 0.25 and 0.5 are exact and stay. `LinkLogicTest` TestSliders asks
+every position of every slider and every default both ways through LINK's
+two formulas, at 24 and at 53 bits. Version 39: a save's values are replaced
+by the plugin INI's once. Not covered: a value in the plugin INI that is no
+position of its slider (a siege of 42) is still cut by LINK when its page
+opens. Not seen in the game yet.
+
 ### 4.19 Grabbed and overwhelmed - `[Grab] Enabled=1`, `ChancePercent=66`, `BitesToDie=3`, `BiteSeconds=4`, `BiteHealthPercent=20`, `StruggleHits=2`, `TearFreeDistance=1000`, `BiteResetSeconds=30`, test switch `TestGrabSeconds=0` (built 2026-10-28, A + B)
 
 What (Nadi, 2026-10-28: "wenn von zuvielen zombies umzingelt, greifen oder
@@ -2641,7 +2671,14 @@ arrival). Settings (INI and LINK 160..165, LINK version 27, 166 settings):
   1 and 6), none in combat, not moving. Derived: two refugees talking to
   each other (an engine-made package shared by a pair, an interrupt;
   AddScriptPackage does not take during one - CS wiki). Not read off the
-  engine: what type 18 is.
+  engine: what type 18 is. **Read 2026-11-14:** the handler of
+  GetCurrentAIPackage (0x004F78B0, the command table's entry at 0x00B0D9F0)
+  switches on the package's byte at +0x20 over 33 types (jump table
+  0x004F7A6C) and returns the numbers the CS wiki lists for the command
+  (cs.uesp.net/wiki/GetCurrentAIPackage): the byte 18 gives 6, DIALOGUE -
+  the talk between two, as derived; the byte 20 gives 12, GREET; 12 gives 5
+  COMBAT, 13 COMBAT_LOW, 14 ACTIVATE, 15 ALARM, 16 FLEE, 17 TRESPASS, 19
+  SPECTATOR, 21 GET_UP, 0 to 11 as xOBSE's enum.
   **Fixed 2026-11-09** (Nadi: "a"): at the first look a second after the
   ask, then every EscortFollowSeconds, one running a package the engine made
   (its ID's top byte 0xFF) and not fighting is disabled, enabled the next
@@ -3174,7 +3211,9 @@ game (their flows are the unit tests'), the journal with `Journal=0`.
 tests/DungeonQuestLogicTest.cpp, NewsLogicTest.cpp and
 DungeonNoticeLogicTest.cpp; runs below):
 - **A runner for help**: with news of a siege or of a place to clear, the
-  player out of doors, one of the refugees ("Refugee Runner", a base of his
+  player in the open land (out of doors in Tamriel's own worldspace,
+  `MessengerLand` - since 2026-11-14: sent in Anvil's streets he never came
+  up, 7a), one of the refugees ("Refugee Runner", a base of his
   own, his reference in the holding cell) is put on the land 800 units
   behind the player (`LandHeightAt`), a second on told `StartConversation
   player` (as 27 of Oblivion.esm's scripts say it) and every ten seconds
@@ -3771,43 +3810,44 @@ roster line's counts.
 
 ## 7a. Open bugs
 
-- **LINK's menu moves four settings off their defaults** (Windows session
-  2026-11-13, 21:44 to 22:23, OblivionWalkers.log: "LINK: ini_grab_chance
-  now 65", "ini_siege_min now 36", "ini_siege_max now 116",
-  "ini_night_speed now 1.25", four lines in one step, the plugin INI's
-  66, 40, 120 and 1.30 before). Derived, LINK's own code not read: a
-  slider's value floored onto its grid (min + k * step, in 32-bit floats)
-  gives exactly these four values, and of the 109 sliders exactly these
-  four have a default the floor moves (66 at 0 by 5; 40 and 120 at 1 by 5;
-  1.30 at 0.5 by 0.05, where the float quotient reads 15.99). Not known:
-  whether Nadi moved them himself. Fix: grids that hold the defaults
-  (grab by 1, the siege counts from 0 by 5, the night's pace as a whole
-  percent or a step the float keeps), and a test over the table that every
-  default survives the floor.
+- **FIX BUILT 2026-11-14, Windows open - LINK's menu moved four settings
+  off their defaults** (Windows session 2026-11-13, OblivionWalkers.log:
+  "LINK: ini_grab_chance now 65", "ini_siege_min now 36", "ini_siege_max now
+  116", "ini_night_speed now 1.25" in one step). Cause, read off LINK.esp's
+  slider scripts: a slider keeps a position, cut off, and writes that
+  position's value back when its page is shown. Fix and test: 4.18, "The
+  sliders hold whole numbers only". Nadi, 2026-11-14: the sliders would not
+  move in VR - OBVR's part, its session is told.
 
-- **The runner does not reach a player who stands in a city** (Windows
-  session 2026-11-13: sent with the player in Anvil, "the land there 141,
-  the player at 295", then 1331, 1070 and 1440 units from him at the three
-  asks to speak, taken away at 1758; the player read the notice on MOO's
-  board meanwhile, which told the news). Not known: whether he stood
-  outside the wall or under the street. The harness run had the player in
-  the open land. To decide: no runner while the player is in a city's own
-  worldspace (he comes once the player is outside), or a spot of the
-  city's for him.
-  The log line then reads "runner - he told his news" although the paper
-  told it: the line should name what told.
+- **FIX BUILT 2026-11-14, Windows open - the runner did not reach a player
+  who stood in a city** (Windows session 2026-11-13: sent the second the
+  player stepped out of a house in Anvil, "the land there 141, the player at
+  295", then 1331, 1070 and 1440 units from him at the three asks to speak,
+  taken away at 1758; the player read the notice on MOO's board meanwhile).
+  Fix: he is sent in the open land only - out of doors in Tamriel's own
+  worldspace (`MessengerLand`, DungeonQuestLogicTest: indoors, a city's
+  worldspace, another land, none known - none). In a city the notices and
+  the rumors tell. Not told apart: a city a mod opens into Tamriel. The log
+  now names what told: "a paper told the news before he did" or "the news is
+  told (his line, or a rumor's)". Not seen in the game.
 
-- **An escorted refugee reset seventeen times in a row** (Windows session
-  2026-11-13, camp 37, the first escort: slot 7, the last one alive of
-  seven, "held by package FF00E21C (type 20): reset" and sixteen more, a
-  new package ID each time, between game hours 20.3 and 21.0; the player
-  then 1008 up to 5084 units away and "the escort failed: left behind").
-  Each reset is a Disable and an Enable a second apart - seen as the
-  refugee blinking. Not known: what the engine's package type 20 is (18
-  was the one of 2026-11-09), and whether the reset kept him from
-  following or he would not have followed anyway. To find first: the
-  type's name in the EXE; then whether a reset is right for it at all, and
-  at most one reset per person in a given time.
+- **FIX BUILT 2026-11-14, not seen in the game - an escorted refugee reset
+  seventeen times in a row** (Windows session 2026-11-13, camp 37, the first
+  escort: slot 7, the last one alive of seven, "held by package FF00E21C
+  (type 20): reset" and sixteen more, a new package ID each time, with the
+  player 132 up to 4385 units away, then "the escort failed: left behind").
+  Read: type 20 is the engine's GREET (4.20.6's note of 2026-11-14, the
+  EXE's GetCurrentAIPackage). Derived, not read: with the player thousands
+  of units off he greeted no player - xOBSE's procedures have a GREET_DEAD,
+  and his six dead lay about him. Not known: whether the reset (a Disable
+  and an Enable, which may clear what he has greeted) kept the greetings
+  coming, and whether he follows once they are left alone. Fix
+  (`EscortResets`, CampLogicTest): no reset for a greeting - it is left to
+  end, the follow sent on at every EscortFollowSeconds - and no second reset
+  of the same one within 30 s (`kEscortResetGapSeconds`), whatever holds
+  him. The log says once per hold "held by package ... (type 20), left to
+  end (a greeting)". To look at in the next Windows log: whether one so
+  held comes along.
 
 - **The held dungeons' beds do not show** (2026-11-13, harness dungeon-beds
   20261113-211250, Linux): laid by the log, not in the eye pictures, no

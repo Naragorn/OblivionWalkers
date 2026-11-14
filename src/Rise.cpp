@@ -2437,7 +2437,7 @@ void StepLink(float dt) {
 		}
 		const bool empty = LinkLooksEmpty(values, kLinkSettingCount);
 		g_log("LINK: first look %u frames after the load - version %.0f, %u of %u variables there, values %s "
-		      "(ini_rise_after %.0f, ini_speed_multiplier %.2f)",
+		      "(ini_rise_after %.0f, ini_speed_multiplier %.0f)",
 		      g_frame - g_linkLoadFrame, *version, read, kLinkSettingCount, empty ? "EMPTY" : "set", values[2],
 		      values[10]);
 		if (StartOf(g_linkLoaded, *version, empty) == LinkStart::WriteIni) {
