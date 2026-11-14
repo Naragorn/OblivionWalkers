@@ -304,6 +304,19 @@ void TestCleared() {
 	Check(inside.people == 3, "a refuge has nobody waiting: nothing");
 }
 
+void TestBlocksClearing() {
+	std::printf("Who keeps a cell from being cleared\n");
+	using walkers::BlocksClearing;
+	Check(BlocksClearing(false, 0), "a person: blocks");
+	Check(BlocksClearing(false, walkers::kCreatureSwims), "a person, whatever his flags read: blocks");
+	Check(BlocksClearing(true, walkers::kCreatureWalks), "a walking creature (a rat): blocks");
+	Check(!BlocksClearing(true, walkers::kCreatureSwims), "a creature that only swims (a slaughterfish): does not block");
+	Check(BlocksClearing(true, walkers::kCreatureSwims | walkers::kCreatureWalks),
+	      "a creature that swims and walks: blocks (it can reach the player)");
+	Check(BlocksClearing(true, walkers::kCreatureSwims | walkers::kCreatureFlies), "a creature that swims and flies: blocks");
+	Check(BlocksClearing(true, 0), "a creature with no movement flag: blocks (nothing says it cannot be reached)");
+}
+
 void TestLeft() {
 	std::printf("Left when the player stays away\n");
 	DungeonSiteSettings s;
@@ -638,6 +651,7 @@ int main() {
 	TestClockSetBack();
 	TestNear();
 	TestCleared();
+	TestBlocksClearing();
 	TestLeft();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

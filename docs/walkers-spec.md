@@ -4442,6 +4442,9 @@ answer; whatever needs the game waits for a free addressed to Walkers.
 
 ### D1. Dungeon sieges: too easy?
 
+**Decided (Nadi, 2026-11-14): A** - left as it is; the refugees may hold a
+siege alone. The plan for B below stays for later.
+
 Measured: the refugees win without the player. Fort Ash, 8 people against
 10 walkers (2026-11-13 15:46): all ended in under 110 s, no person died.
 5 people against 12 walkers (`fight 5 12`, 2026-11-14 09:30): all ended, no
@@ -4485,6 +4488,8 @@ Building B:
 
 ### D2. The quest box in the middle of a fight
 
+**Open** - Nadi asked what it is (2026-11-14); explained, answer pending.
+
 Measured: the place's quest is told by `SetStage` (Dungeons.cpp `Tell`) on
 entering a besieged place or hearing of it (stage 20), and when it is
 defended or taken (stage 50). Each stage opens the game's quest box. Stage
@@ -4526,6 +4531,9 @@ Building B:
   last kill.
 
 ### D3. When does Daedra step 1 come?
+
+**Decided (Nadi, 2026-11-14): B** - right after 0.2.0. The two smaller
+points below are still open.
 
 Step 1 of 4.22 (the `KindLogic.h` unit, `[Invaders] Kind`, Kind 1 through
 the spawn replacement and the game's Daedra lists, the summoners held back),
@@ -4571,6 +4579,10 @@ Harness: a forced Kind=1 spawn at Tamriel -29,5. Dremora and beasts have to
 come, they must not rise, and they have to die as the game's do.
 
 ### D4. Release 0.2.0 - when?
+
+**Decided (Nadi, 2026-11-14): B** - after Nadi's Windows test of LINK, the
+runner, the beds, the escort and the walkers before the door. Still open:
+the comment in xOBSE issue 263.
 
 Since v0.1.0 (2026-11-03), 158 commits. Draft changelog:
 - **New:**
@@ -4618,6 +4630,18 @@ Building B:
   range 0x2B00-0x2B0F: <release link>. Thanks again."
 
 ### D5. A living thing the player cannot reach keeps a place from being cleared
+
+**Decided (Nadi, 2026-11-14): B - built the same day, not yet deployed or
+run in the game.** The flags constants moved into `CreatureFlags.h` with
+`SwimsOnly`, now shared by ReplaceLogic.h, SoundLogic.h and
+DungeonSiteLogic.h. `BlocksClearing` is in DungeonSiteLogic.h, and its
+seven flows are in `TestBlocksClearing`. `StepClearing` skips a creature
+that only swims. A cell held for 60 s, and every 60 s after, logs "still
+kept from being cleared after N s by <ref> (base, a creature or a person,
+flags), U units from the player". All 34 unit test programs pass, and the
+DLL compiles. It was not deployed: OBNG's Anvil series takes the DLL out
+for each run, so the deploy waits for its free. The harness run is still
+open.
 
 Measured: `StepClearing` (Dungeons.cpp) notes a cell only when no living
 actor is left in it except the player, his followers and Walkers' own. A

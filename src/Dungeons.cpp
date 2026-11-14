@@ -99,6 +99,7 @@ namespace {
 constexpr UInt32 kPlayerRefId = 0x14;
 constexpr UInt32 kFormFlagsOffset = 0x08;        // TESForm::flags
 constexpr UInt32 kFormFlagDisabled = 0x00000800;  // xOBSE TESObjectREFR::kFlags_Disabled
+constexpr UInt32 kRefBaseFormOffset = 0x1C;  // TESObjectREFR::baseForm
 constexpr UInt32 kRefPositionOffset = 0x2C;
 constexpr UInt32 kRefParentCellOffset = 0x40;
 constexpr UInt32 kRefExtraFirstOffset = 0x48;  // TESObjectREFR::baseExtraList (+0x44), its m_data
@@ -1229,9 +1230,15 @@ void PutBack(UInt32 cellId, bool atOnce, LogFn log) {
 	}
 }
 
+// Seconds a cell of a place to clear has been kept from being cleared, for
+// naming the one who keeps it once a minute (spec 7b, D5).
+UInt32 g_clearHeldSeconds = 0;
+constexpr UInt32 kClearHeldLogSeconds = 60;
+
 // Once a second with the player in a cell of a place to clear: nobody
-// living left in it (but him, his followers and our own) - the cell is
-// noted; every cell so, and the place is cleared: those waiting move in.
+// living left in it (but him, his followers, our own and creatures that
+// only swim - BlocksClearing) - the cell is noted; every cell so, and the
+// place is cleared: those waiting move in.
 void StepClearing(UInt32 cell, UInt32 player, LogFn log) {
 	const UInt32 cellId = FormIdOf(cell);
 	const int c = CandidateOfCell(kDungeonCandidates, kDungeonCandidateCount, cellId);
@@ -1265,10 +1272,27 @@ void StepClearing(UInt32 cell, UInt32 player, LogFn log) {
 		for (UInt32 k = 0; k < followerCount; ++k) {
 			follower = follower || followers[k] == ref;
 		}
-		if (!follower) {
-			return;  // someone lives here still
+		if (follower) {
+			continue;
 		}
+		const bool creature = vtable == kVtblCreature;
+		const UInt32 base = Read(ref + kRefBaseFormOffset);
+		const UInt32 flags = creature && LooksLikeObject(base) ? Read(base + kCreatureFlagsOffset) : 0;
+		if (!BlocksClearing(creature, flags)) {
+			continue;
+		}
+		if (++g_clearHeldSeconds % kClearHeldLogSeconds == 0) {
+			const float dx = FloatAt(ref + kRefPositionOffset) - FloatAt(player + kRefPositionOffset);
+			const float dy = FloatAt(ref + kRefPositionOffset + 4) - FloatAt(player + kRefPositionOffset + 4);
+			const float dz = FloatAt(ref + kRefPositionOffset + 8) - FloatAt(player + kRefPositionOffset + 8);
+			log("Dungeons: %s (cell %08X) - still kept from being cleared after %u s by %08X (base %08X, %s, flags "
+			    "%08X), %.0f units from the player",
+			    place.name, cellId, g_clearHeldSeconds, FormIdOf(ref), LooksLikeObject(base) ? FormIdOf(base) : 0,
+			    creature ? "a creature" : "a person", flags, std::sqrt(dx * dx + dy * dy + dz * dz));
+		}
+		return;  // someone lives here still
 	}
+	g_clearHeldSeconds = 0;
 	const bool all = NoteCellClear(d, index, place.cellCount);
 	log("Dungeons: %s (cell %08X, %u of %u) - nobody living left in it; cells cleared %02X%s", place.name, cellId,
 	    index + 1, place.cellCount, d.cleared, all ? " - the place is cleared" : "");

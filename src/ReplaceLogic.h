@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "CategoryLogic.h"
+#include "CreatureFlags.h"
 #include "RiseLogic.h"
 #include "Types.h"
 
@@ -41,10 +42,6 @@ struct ReplaceSettings {
 		}
 	}
 };
-// TESActorBaseData flags of a creature (xOBSE GameForms.h).
-inline constexpr UInt32 kCreatureSwims = 0x10;
-inline constexpr UInt32 kCreatureFlies = 0x20;
-inline constexpr UInt32 kCreatureWalks = 0x40;
 // An animal this timid never starts a fight: Oblivion.esm's deer read
 // confidence 0, the wild horses 10, the sheep 5 and the ram 25; the wolves
 // 50 and up, the dogs and boars above 25 too (tools/esm-spawns.py's records,
@@ -91,7 +88,7 @@ inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	if (facts.scripted) {
 		return CreatureKind::Scripted;
 	}
-	if ((facts.flags & kCreatureSwims) != 0 && (facts.flags & (kCreatureWalks | kCreatureFlies)) == 0) {
+	if (SwimsOnly(facts.flags)) {
 		return CreatureKind::SwimsOnly;
 	}
 	if (facts.type == kCreatureTypeCreature && facts.confidence <= kHarmlessConfidenceMost) {
@@ -121,9 +118,8 @@ inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& give
 		return exception != 0;
 	}
 	if (category < kReplaceCategoryCount) {
-		const bool swimsOnly =
-			(facts.flags & kCreatureSwims) != 0 && (facts.flags & (kCreatureWalks | kCreatureFlies)) == 0;
-		return settings.categories[category] && !facts.scripted && !facts.questItem && !facts.questNamed && !swimsOnly;
+		return settings.categories[category] && !facts.scripted && !facts.questItem && !facts.questNamed &&
+		       !SwimsOnly(facts.flags);
 	}
 	if (line >= 0) {
 		return line != 0;

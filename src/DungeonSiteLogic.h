@@ -22,6 +22,7 @@
 
 #include "Bytes.h"
 
+#include "CreatureFlags.h"
 #include "DungeonLogic.h"
 #include "Types.h"
 
@@ -461,6 +462,13 @@ inline bool NoteCellClear(DungeonSite& d, UInt32 index, UInt32 cellCount) {
 	d.cleared = static_cast<UInt8>(d.cleared | (1u << index));
 	return d.cleared == static_cast<UInt8>((1u << cellCount) - 1u);
 }
+
+// Whether a living actor keeps its cell of a place to clear from being
+// cleared (docs/walkers-spec.md 7b, D5; Nadi, 2026-11-14: "d5 b"): everyone
+// but a creature that only swims - a slaughterfish the player cannot reach
+// in its water. `flags` the creature's (CreatureFlags.h); a person's are not
+// read.
+inline bool BlocksClearing(bool creature, UInt32 flags) { return !creature || !SwimsOnly(flags); }
 
 // One of those waiting before a place to clear died.
 inline void DungeonWaitingDied(DungeonSite& d) {

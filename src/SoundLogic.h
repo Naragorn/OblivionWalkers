@@ -26,11 +26,11 @@
 // lists is emptied and put back: no sound is drawn, none plays. The sound
 // it would have drawn is drawn beforehand and played as the walker gets up.
 
+#include "CreatureFlags.h"
 #include "Types.h"
 
 namespace walkers {
 
-inline constexpr UInt32 kCreatureFlagsOffset = 0x28;
 inline constexpr UInt32 kCreatureHasSounds = 0x100;
 inline constexpr UInt32 kCreatureSoundsOffset = 0x100;
 inline constexpr UInt32 kCreatureSoundDeath = 8;
