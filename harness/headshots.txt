@@ -1,0 +1,85 @@
+# Spells that end a walker as a lost head does (docs/walkers-spec.md 4.17b).
+# DieOnlyBeheaded on (the default). The player casts with OBVR's left hand
+# (raised, the trigger - as OBVR's spell-casting-hand.txt), at a walker placed
+# 300 units before him and held in place (SetRestrained); the console's Cast
+# cannot make the player cast a target spell at an actor (CS wiki Cast:
+# "cannot force him to cast Touch or Target range spells at other actors").
+# Each case in a cell of its own (Tamriel -28..-26, 5), so {actor} - the
+# actor nearest the player - is the walker just placed:
+#   a  burning: SEStdFireFrostDam1Novice (0004DC23, 7 fire damage) cast at
+#      it, killed 2 s later - "dies burning", stays down
+#   b  overkill: StandardFireDamageTarget5Master (000A97E3, 110 fire) cast at
+#      it - "a spell took N of its N health at once" (or burning); the bolt's
+#      distance to the head bone logged ("Headshot: spell projectile")
+#   c  control: killed with no fire - "gets up again"
+# Arrows are not here: a placed archer did not shoot the walker in the run of
+# 2026-11-14 19:20 (it was killed first).
+# The save's companion (the ESP's A78, a camp's escort that follows the
+# player, essential) is sent to the Market District for the run, or it is
+# the nearest actor.
+# The hand pitched up 30 degrees: at 0 the laser points 40 degrees down.
+# Run through tools/headshots-harness.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console player.addspell 0004DC23
+console player.addspell 000A97E3
+console-at ready tgm
+console-at ready {form:OblivionWalkers.esp:A78}.positioncell 0 0 0 0 ICMarketDistrict
+console-at ready tdetect
+console-at ready cow Tamriel -28 5
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at loaded SetActiveSpell 0004DC23
+console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
+console-at a-placed {actor}.setrestrained 1
+console-at a-burnt {actor}.kill player
+console-at a-done cow Tamriel -27 5
+console-at b-there SetActiveSpell 000A97E3
+console-at b-there player.placeatme {form:OblivionWalkers.esp:802} 1 300 0
+console-at b-placed {actor}.setrestrained 1
+console-at b-done cow Tamriel -26 5
+console-at c-there player.placeatme {form:OblivionWalkers.esp:803} 1 300 0
+console-at c-placed {actor}.kill player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.25 -0.60 -0.10
+left pos -0.15 -0.30 -0.45
+left rot 30 0 0
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 2
+mark a-placed
+wait 1
+left trigger 1
+wait 0.6
+left trigger 0
+wait 1.4
+mark a-burnt
+wait 4
+mark a-done
+wait 6
+mark b-there
+wait 2
+mark b-placed
+wait 1
+left trigger 1
+wait 0.6
+left trigger 0
+wait 4
+mark b-done
+wait 6
+mark c-there
+wait 2
+mark c-placed
+wait 4
+mark end
+wait 1
