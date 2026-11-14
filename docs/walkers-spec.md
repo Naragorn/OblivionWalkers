@@ -3356,8 +3356,37 @@ tests/DungeonSiteLogicTest.cpp, TestBeforeTheDoor):
 - Not changed: the journal tells of a siege on entering or hearing of it,
   not at the sight of the walkers before the door (the quest's box would
   open in the fight - Nadi's open point); the toll away; the reward.
-Harness `tools/dungeon-walkers.sh siege-outside | siege-past`
-(harness/dungeon-outside.txt, dungeon-outside-past.txt): not run yet.
+- `[Dungeons] TestSite` with TestSiteState=2 gives its siege the share too
+  (`ForceSite`).
+Harness `tools/dungeon-walkers.sh`, 2026-11-14 (Fort Ash, eight walkers,
+half before the door, the console's kills):
+**siege-outside** (harness/dungeon-outside.txt) 20261114-084932 **PASS** -
+"the pool to site 0 Fort Ash (besieged; 8 walkers, 4 of them before the
+door, 4 at once - before the door)", four "walker ... before Fort Ash
+(slot 0..3, before the door; MoveTo 00066266 ...)", then four "into Fort
+Ash (slot 4..7, by the door ...)" ahead of him; the eye picture shows
+walkers standing on the grass before the fort's door, the next one them
+lying there; the four killed "ended before the door; ... 4 walkers left, 0
+of them before the door", "the pool at Fort Ash fills the place now"; in,
+the four killed, "defended - now refuge", the quest's stages 20 and 50, the
+reward once.
+**siege-past** (harness/dungeon-outside-past.txt) 20261114-085644 **PASS** -
+straight in ("fills the place now (8 walkers left, 4 of them before the
+door)"), the four inside killed, "nobody left inside: the 4 before the door
+break in (4 living taken off the ground outside)", four more "into Fort
+Ash (slot 0..3, by the door ...)", nobody raised for it, killed -
+"defended".
+**siege** with WalkersOutsidePercent=0 (the runner sets it for every other
+mode) 20261114-085417 **PASS** as before: six in at once, all inside.
+The dungeons' step in these runs: 1.5 to 2.5 us a frame at rest; a frame
+with a walker put before the door up to 4.5 ms (its 3D loads at once, as a
+kit person's outside). Seen in all three and in the runs of 2026-11-13
+alike: one frame of 24 to 34 ms in the period a journal stage is told (the
+quest's box opens in it) - not looked into.
+Not looked at: a fight before the door fought by the game (the runs had
+tdetect on and the console's kills); what those outside do while the
+player is inside; a place whose spots before the door lie badly; coming
+out again with some left outside.
 Not measured: a siege's fight with three to six people (the fight look
 takes its counts now: `tools/dungeon-walkers.sh fight 5 12`).
 Open: a living thing the player cannot reach (a slaughterfish, a

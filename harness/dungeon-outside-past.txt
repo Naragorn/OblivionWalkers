@@ -8,7 +8,8 @@
 # - kill1: the four inside killed by the console - "4 walkers left, 4 of
 #   them before the door", then "nobody left inside: the 4 before the door
 #   break in (4 living taken off the ground outside)" and four more "walker
-#   ... into Fort Ash (..., by the door ...)";
+#   ... into Fort Ash (..., by the door ...)" - in the pool's first four
+#   slots, the ones taken off the ground outside two seconds before;
 # - kill2: those four killed - "0 walkers left", "defended - now refuge".
 # Run through tools/dungeon-walkers.sh siege-past.
 ini Hands Enabled=1
@@ -27,10 +28,10 @@ console-at kill1 "{form:OblivionWalkers.esp:A58}".kill
 console-at kill1 "{form:OblivionWalkers.esp:A59}".kill
 console-at kill1 "{form:OblivionWalkers.esp:A5A}".kill
 console-at kill1 "{form:OblivionWalkers.esp:A5B}".kill
-console-at kill2 "{form:OblivionWalkers.esp:A5C}".kill
-console-at kill2 "{form:OblivionWalkers.esp:A5D}".kill
-console-at kill2 "{form:OblivionWalkers.esp:A5E}".kill
-console-at kill2 "{form:OblivionWalkers.esp:A5F}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A54}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A55}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A56}".kill
+console-at kill2 "{form:OblivionWalkers.esp:A57}".kill
 console-at close2 CloseAllMenus
 expect HandScript: finished
 reject HandScript: WARNING

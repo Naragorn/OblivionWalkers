@@ -328,8 +328,10 @@ inline bool ForceSite(DungeonSitesState& st, const DungeonCandidate* all, UInt32
 		d.state = state;
 		d.people = static_cast<UInt8>(DungeonHeld(state) ? people : 0);
 		d.waiting = static_cast<UInt8>(state == DungeonState::ToClear ? people : 0);
-		d.walkersLeft = static_cast<UInt16>(
-		    state == DungeonState::Besieged || state == DungeonState::WalkerDungeon ? s.walkersMax : 0);
+		d.walkersLeft = static_cast<UInt16>(state == DungeonState::WalkerDungeon ? s.walkersMax : 0);
+		if (state == DungeonState::Besieged) {
+			dungeon_detail::Storm(d, s.walkersMax, s);
+		}
 		d.tollFrom = state == DungeonState::Besieged ? now : -1.0f;
 		d.dayFrom = now;
 		d.lastSeen = now;

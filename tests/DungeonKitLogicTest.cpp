@@ -257,12 +257,13 @@ void TestForce() {
 	Check(!walkers::ForceSite(none, kAll, 2, inPool, "", DungeonState::Refuge, fs, 1.0f), "no name: nothing");
 	DungeonSitesState siege;
 	Check(walkers::ForceSite(siege, kAll, 2, inPool, "A", DungeonState::Besieged, fs, 1.0f) &&
-	          siege.sites[0].people == 6 && siege.sites[0].walkersLeft == 16 && siege.sites[0].tollFrom == 1.0f,
-	      "TestSiteState besieged: PeopleMax inside, AttackWalkersMax storming");
+	          siege.sites[0].people == 6 && siege.sites[0].walkersLeft == 16 && siege.sites[0].before == 8 &&
+	          siege.sites[0].tollFrom == 1.0f,
+	      "TestSiteState besieged: PeopleMax inside, AttackWalkersMax storming, their share before the door");
 	DungeonSitesState dead;
 	Check(walkers::ForceSite(dead, kAll, 2, inPool, "A", DungeonState::WalkerDungeon, fs, 1.0f) &&
-	          dead.sites[0].people == 0 && dead.sites[0].walkersLeft == 16,
-	      "a walker dungeon: its walkers, nobody");
+	          dead.sites[0].people == 0 && dead.sites[0].walkersLeft == 16 && dead.sites[0].before == 0,
+	      "a walker dungeon: its walkers, all in it, nobody");
 	DungeonSitesState clear;
 	Check(walkers::ForceSite(clear, kAll, 2, inPool, "A", DungeonState::ToClear, fs, 1.0f) &&
 	          clear.sites[0].people == 0 && clear.sites[0].waiting == 6 && clear.sites[0].walkersLeft == 0,
