@@ -23,7 +23,10 @@ text = open(path, encoding="latin-1", newline="").read()
 for name in ("Replace", "Dungeons"):
     head = re.search(r"^\[" + name + r"\]\s*$", text, re.M)
     if head is None:
-        sys.exit("no [" + name + "] section in " + path)
+        # an INI without the section runs on the default (on): it is added
+        newline = "\r\n" if "\r\n" in text else "\n"
+        text = text.rstrip("\r\n") + newline + newline + "[" + name + "]" + newline + "Enabled=0" + newline
+        continue
     end = re.search(r"^\[", text[head.end():], re.M)
     stop = head.end() + (end.start() if end else len(text) - head.end())
     section = re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, flags=re.M)

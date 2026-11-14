@@ -1,7 +1,7 @@
 # Spells that end a walker as a lost head does (docs/walkers-spec.md 4.17b).
 # DieOnlyBeheaded on (the default). The player casts with OBVR's left hand
 # (raised, the trigger - as OBVR's spell-casting-hand.txt), at a walker placed
-# 300 units before him and held in place (SetRestrained); the console's Cast
+# 150 units before him and held in place (SetRestrained); the console's Cast
 # cannot make the player cast a target spell at an actor (CS wiki Cast:
 # "cannot force him to cast Touch or Target range spells at other actors").
 # Each case in a cell of its own, far from the others (Tamriel -28 5, -20 10,
@@ -19,7 +19,11 @@
 # The dungeons' runner (the ESP's A78) came with news and was {actor} in
 # those runs: headshots-harness.sh sets [Dungeons] Enabled=0 for the run and
 # checks that every {actor} line hit a placed walker (FF...).
-# The hand pitched up 30 degrees: at 0 the laser points 40 degrees down.
+# The hand pitched up 38 degrees: at 0 the laser points 40 degrees down, at 30
+# 10 degrees down (sine of pitch -0.175). In the run of 2026-11-14 20:33 both
+# bolts flew (two spell noises) but none struck the walker 348 units off - 10
+# degrees down and 0.068 rad to the side passes by its legs; it now stands
+# 150 units off, the bolt about level.
 # Run through tools/headshots-harness.sh.
 
 ini Hands Enabled=1
@@ -35,15 +39,15 @@ console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready fw 00038EEE
 console-at loaded SetActiveSpell 0004DC23
-console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
+console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1 150 0
 console-at a-placed {actor}.setrestrained 1
 console-at a-burnt {actor}.kill player
 console-at a-done cow Tamriel -20 10
 console-at b-there SetActiveSpell 000A97E3
-console-at b-there player.placeatme {form:OblivionWalkers.esp:802} 1 300 0
+console-at b-there player.placeatme {form:OblivionWalkers.esp:802} 1 150 0
 console-at b-placed {actor}.setrestrained 1
 console-at b-done cow Tamriel -29 -11
-console-at c-there player.placeatme {form:OblivionWalkers.esp:803} 1 300 0
+console-at c-there player.placeatme {form:OblivionWalkers.esp:803} 1 150 0
 console-at c-placed {actor}.kill player
 
 expect HandScript: finished
@@ -52,7 +56,7 @@ reject HandScript: WARNING
 wait 12
 right pos 0.25 -0.60 -0.10
 left pos -0.15 -0.30 -0.45
-left rot 30 0 0
+left rot 38 0 0
 wait 1
 mark ready
 wait 20
