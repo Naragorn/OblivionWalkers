@@ -4433,6 +4433,220 @@ roster line's counts.
   routine's address - xOBSE's GameObjects.cpp names 0x004FBB30 (deepwiki),
   but the bytes there read as a list insert (REA), so that is unverified.
 
+## 7b. Open decisions (2026-11-14)
+
+Every decision still Nadi's, as a question, with its options, their cost,
+the recommendation and what building each answer takes - so the build can
+start on the answer. Nothing below is built. Building waits for the
+answer; whatever needs the game waits for a free addressed to Walkers.
+
+### D1. Dungeon sieges: too easy?
+
+Measured: the refugees win without the player. Fort Ash, 8 people against
+10 walkers (2026-11-13 15:46): all ended in under 110 s, no person died.
+5 people against 12 walkers (`fight 5 12`, 2026-11-14 09:30): all ended, no
+person died. The walkers stand at `[Zombies] HealthPercent=15` (Plugin.cpp
+default), so they fall to one or two blows - derived, the blows per walker
+not counted. Defaults now: `AttackWalkersMin=8`, `AttackWalkersMax=16`,
+`WalkersAtOnce=6`, `WalkersOutsidePercent=50`, people 3-6.
+
+Question: should a siege be one the refugees lose without the player, and
+by which lever?
+
+| option | what | cost |
+|---|---|---|
+| A | leave it: the refugees hold, the player's part is the reward | none |
+| B | **the siege walkers' own health**: `[Dungeons] WalkerHealthPercent=50` (LINK), set on each pool walker when it is put into the place | small - one key, one call per walker placed |
+| C | more walkers: AttackWalkers 12-24 (WalkersAtOnce stays 6, so no more actors at once) | cheap - defaults and a LINK version; the fight lasts longer, its outcome likely the same |
+| D | the refugees' kills not final in a siege: a walker felled by a refugee rises again, only the player ends one | small in code; against the camps' rule (a walker felled by a refugee ends, 'WGCT') and a siege could then only end with the player there |
+
+Recommended: **B**, with A as the fallback. It changes the cause (walkers
+that fall at the first blow), not the length of the fight, and costs no
+frame time: no more actors, one call per walker placed, the direct call of
+ConsoleLogic.h. Not known yet: the value at which the refugees start to
+lose. The cheapest step that settles it: one `fight 5 12` run each at 30, 50
+and 70.
+
+Building B:
+- `DungeonSiteLogic.h`: `walkerHealthPercent` in the settings (1-100, 0 =
+  the record's as now); a pure `PoolWalkerHealth(recordHealth, percent)`.
+  Its flows go in `tests/DungeonSiteLogicTest.cpp`: 0 leaves the record's
+  value, 1-100 scale it, the result is at least 1, and a value above 100 is
+  clamped.
+- `Plugin.cpp` reads `[Dungeons] WalkerHealthPercent`. `LinkLogic.h` gets a
+  new slot, which bumps the LINK version, so `esp-write.py` writes the ESP
+  anew. `OblivionWalkers.ini` gets the key with its comment.
+- `Dungeons.cpp`: where a pool walker is placed (the slot raised or
+  enabled), set its health by `DirectModAV(ref, kAvHealth, delta)` (Engine.h).
+  `kAvHealth = 8`, xOBSE's kActorVal_Health, is derived from the order of
+  the enum (Aggression 33 is measured). Read it off xOBSE before building.
+- Harness: `tools/dungeon-walkers.sh fight 5 12` at three values, with the
+  people's deaths and the time to "defended" taken from the log.
+
+### D2. The quest box in the middle of a fight
+
+Measured: the place's quest is told by `SetStage` (Dungeons.cpp `Tell`) on
+entering a besieged place or hearing of it (stage 20), and when it is
+defended or taken (stage 50). Each stage opens the game's quest box. Stage
+20 costs one frame of 43-44 ms: the engine makes textures and reads files
+for the box (the sampler, 2026-11-14). Stage 50 costs 6-7 ms. On entering, stage 20 falls into the fight's
+first seconds.
+
+Question: may the box open in a fight?
+
+| option | what | cost |
+|---|---|---|
+| A | leave it | none; the box and its 43 ms frame come as the fight begins |
+| B | **hold the stage while the player fights**: told once he has been out of combat for `JournalCalmSeconds=3` (INI), or when he leaves the place | small - a pure gate, one combat read a second while a stage waits |
+| C | tell stage 20 before the fight: at the sight of the walkers before the door or on hearing only | small; the box comes as he arrives, often still before the walkers roused (5-9 s in fight-door) - not certain |
+| D | write the entry without the box | unknown - the engine's quest-added display not read; medium to large, unverified |
+
+Recommended: **B**. It keeps every stage. The 43 ms frame is still there,
+but outside combat, where it does least harm. A pure gate is easy to test,
+and the one engine read it needs (`ActorInCombat`, Horde.h) already exists.
+Not measured: that `ActorInCombat` answers for the player as for an NPC.
+The harness run below settles it.
+
+Building B:
+- `DungeonQuestLogic.h`: a pure `JournalWaits(bool inCombat, UInt32
+  calmMs, UInt32 calmNeededMs, bool leaving)`. A stage due goes into
+  `DungeonSite::journalDue` instead of being told at once. Its flows: told
+  at once out of combat, held in combat, told after the calm period, told on
+  leaving even in combat, and a newer stage replacing a held one (the
+  highest kept; stage 50 replacing stage 20 tells only 50).
+- `Dungeons.cpp`: `Tell` sets the due stage; the second step tells it when
+  `JournalWaits` allows. `Plugin.cpp` and the INI get `[Dungeons]
+  JournalCalmSeconds=3` (INI only, no LINK slot).
+- The co-save: the held stage takes a byte of the site image that is now
+  unused, if one is left; otherwise it is not kept over a save (a load
+  tells it again from the state, `JournalNear`). Which of the two applies:
+  read the image layout before building.
+- Harness: in `fight-door`, the log has to show stage 20 only after
+  "combat ended" (to be added) and never between the first rouse and the
+  last kill.
+
+### D3. When does Daedra step 1 come?
+
+Step 1 of 4.22 (the `KindLogic.h` unit, `[Invaders] Kind`, Kind 1 through
+the spawn replacement and the game's Daedra lists, the summoners held back),
+medium. Every "is a walker" test gets a second answer: 16 matches in
+Rise.cpp (the definitions among them), 1 in Grab.cpp (grep 2026-11-14,
+`IsWalkerRef`/`IsWalkerBase`);
+Horde, Siege, Camps and Dungeons decide by their own pools.
+
+Question: before 0.2.0, after it, or later?
+
+| option | what | cost |
+|---|---|---|
+| A | now, before 0.2.0 | medium; 0.2.0 waits, and the release carries a change to the core of every walker rule, unseen on Windows |
+| B | **right after 0.2.0** | medium; the release ships what has been tested, Kind=0 remains as it is |
+| C | after the headset round of the dungeons | medium, later |
+
+Recommended: **B**. 0.2.0 already holds 158 commits since v0.1.0. Step 1
+touches every walker rule. Shipping the two together puts a new risk on top
+of what has been tested.
+
+Two smaller points of 4.22, open since 2026-11-13:
+- The fallback (c) for Origin=1 with no gate open is kept as an INI key, off
+  by default. That was read from a short answer. Should the key stay, or
+  go?
+- A second Nexus page for the Daedra variant (same DLL, other INI defaults):
+  yes or no, decided at its release.
+
+Building step 1, as 4.22 lays it out. First the unit:
+- `KindLogic.h`: `enum class Kind { Walker, Daedra }`, with
+  `RulesOf(kind)` returning which rules apply: rise, the head rule, the
+  grab, slow aggression, the disguise and walk-only.
+- Its flows go in `tests/KindLogicTest.cpp`, one per row of 4.22's table
+  and Kind 0/1/2.
+
+Then the call sites take the kind:
+- Each `IsWalkerRef` site asks `RulesOf(KindOf(ref))`.
+- Replace gets the Daedra lists through CategoryLogic.h's existing
+  categories.
+- `[Invaders] Kind` goes into the INI and LINK, which bumps the LINK
+  version and needs a new ESP.
+
+Harness: a forced Kind=1 spawn at Tamriel -29,5. Dremora and beasts have to
+come, they must not rise, and they have to die as the game's do.
+
+### D4. Release 0.2.0 - when?
+
+Since v0.1.0 (2026-11-03), 158 commits. Draft changelog:
+- **New:**
+  - nights are worse (4.20.5)
+  - noise draws walkers (4.20.2)
+  - survivors' camps with escort and rewards (4.20.6)
+  - walker blood as a disguise (4.20.1)
+  - city sieges (4.12)
+  - hordes wait out of sight at the gates (4.11c)
+  - slow aggression (4.21)
+  - refugees hold dungeons: sieges, places to clear, walker dungeons,
+    journal quests, runner, notices, beds, walkers before the door (4.20.7)
+  - others' kills end walkers (4.17a)
+  - the grab's shock sounds
+  - quests keep their foes (KeepQuestLists)
+  - a victim is raised at home (Safeguard)
+- **Fixed:**
+  - passive walkers after Ultimate Leveling's hold
+  - risen walkers twitching on the ground
+  - LINK's sliders moving values
+  - the crash with a dialogue open
+- **Performance:** Walkers' own cost per frame, measured and cut. Engine
+  calls replace console lines. Records are looked up once.
+
+Question: when, and is a comment in xOBSE issue 263 after it allowed?
+
+| option | what | cost |
+|---|---|---|
+| A | now, on harness coverage alone | small (pack, notes, upload); risk: the points open on Windows (LINK, runner, beds, escort, walkers before the door) ship unseen |
+| B | **after Nadi's Windows test of those points** | small, plus his test time |
+| C | after the headset round | small; later |
+
+Recommended: **B**. The open points are what players meet first: LINK, the
+dungeons and the escort, and none of them has run on Windows.
+
+Building B:
+- `docs/nexus.md`: version 0.2.0, the changelog above, the file names.
+- `README.md`: the new features, in the plain tone of public texts.
+- `tools/package-release.sh 0.2.0`: the zips into dist/, from the MSVC
+  build.
+- Then, each only on Nadi's OK: the tag v0.2.0 and the GitHub release, the
+  Nexus upload (Nadi), and the comment in xOBSE issue 263 telling llde the
+  range is in a release (draft below).
+- Comment draft: "OblivionWalkers 0.2.0 is out and uses the registered
+  range 0x2B00-0x2B0F: <release link>. Thanks again."
+
+### D5. A living thing the player cannot reach keeps a place from being cleared
+
+Measured: `StepClearing` (Dungeons.cpp) notes a cell only when no living
+actor is left in it except the player, his followers and Walkers' own. A
+slaughterfish or a rat the player cannot reach keeps the cell uncleared.
+The log does not name it. The spec names this as a risk; whether a run
+showed it is not recorded.
+
+Question: which actors stop counting?
+
+| option | what | cost |
+|---|---|---|
+| A | name the blocker in the log only, decide later | cheap |
+| B | **A, and creatures that only swim (TESCreature flags +0x28: swims 0x10 without walks 0x40) do not count** | cheap - a pure test on the flags read in section 2 |
+| C | B, and a cell counts as cleared once its last living thing has been out of the player's reach for 60 s | small to medium; "out of reach" needs a path query or a guess by height, unverified |
+
+Recommended: **B**. It cures the one case that is known and names any other
+in the log, without guessing at reach.
+
+Building B:
+- `DungeonSiteLogic.h`: a pure `BlocksClearing(isCreature, flags)`. Its
+  flows go in the test: a person blocks; a walking creature blocks; a
+  swim-only creature does not block; a creature that swims and walks
+  blocks.
+- `Dungeons.cpp` `StepClearing` reads the base's flags. Once a minute it
+  logs the blocker: its form ID, its base and the distance to the player.
+- Harness: `tools/dungeon-walkers.sh clear` at a place with water. Which
+  candidate has a slaughterfish is not yet known: find one with
+  `tools/dungeon-candidates.py`.
+
 ## 8. Phases
 
 1. **Engine proofs** (this week): `spawn-count`, `rise-baseline` (both PASS
