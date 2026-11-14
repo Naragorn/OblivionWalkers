@@ -3771,6 +3771,44 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **LINK's menu moves four settings off their defaults** (Windows session
+  2026-11-13, 21:44 to 22:23, OblivionWalkers.log: "LINK: ini_grab_chance
+  now 65", "ini_siege_min now 36", "ini_siege_max now 116",
+  "ini_night_speed now 1.25", four lines in one step, the plugin INI's
+  66, 40, 120 and 1.30 before). Derived, LINK's own code not read: a
+  slider's value floored onto its grid (min + k * step, in 32-bit floats)
+  gives exactly these four values, and of the 109 sliders exactly these
+  four have a default the floor moves (66 at 0 by 5; 40 and 120 at 1 by 5;
+  1.30 at 0.5 by 0.05, where the float quotient reads 15.99). Not known:
+  whether Nadi moved them himself. Fix: grids that hold the defaults
+  (grab by 1, the siege counts from 0 by 5, the night's pace as a whole
+  percent or a step the float keeps), and a test over the table that every
+  default survives the floor.
+
+- **The runner does not reach a player who stands in a city** (Windows
+  session 2026-11-13: sent with the player in Anvil, "the land there 141,
+  the player at 295", then 1331, 1070 and 1440 units from him at the three
+  asks to speak, taken away at 1758; the player read the notice on MOO's
+  board meanwhile, which told the news). Not known: whether he stood
+  outside the wall or under the street. The harness run had the player in
+  the open land. To decide: no runner while the player is in a city's own
+  worldspace (he comes once the player is outside), or a spot of the
+  city's for him.
+  The log line then reads "runner - he told his news" although the paper
+  told it: the line should name what told.
+
+- **An escorted refugee reset seventeen times in a row** (Windows session
+  2026-11-13, camp 37, the first escort: slot 7, the last one alive of
+  seven, "held by package FF00E21C (type 20): reset" and sixteen more, a
+  new package ID each time, between game hours 20.3 and 21.0; the player
+  then 1008 up to 5084 units away and "the escort failed: left behind").
+  Each reset is a Disable and an Enable a second apart - seen as the
+  refugee blinking. Not known: what the engine's package type 20 is (18
+  was the one of 2026-11-09), and whether the reset kept him from
+  following or he would not have followed anyway. To find first: the
+  type's name in the EXE; then whether a reset is right for it at all, and
+  at most one reset per person in a given time.
+
 - **The held dungeons' beds do not show** (2026-11-13, harness dungeon-beds
   20261113-211250, Linux): laid by the log, not in the eye pictures, no
   sleep menu on activation (4.20.7, step 4c). To find first: whether the
@@ -3779,7 +3817,7 @@ roster line's counts.
   whether laying it with the player already inside, or a Disable and an
   Enable a second apart after the move, shows it.
 
-- **FIX BUILT 2026-11-10, Windows open - no refugee ever asked to be led** (Nadi, 2026-11-10:
+- **FIXED, seen on Windows 2026-11-13 - no refugee ever asked to be led** (Nadi, 2026-11-10:
   found a camp, could start the escort nowhere). Cause, read: the escort's greeting,
   its topic "Safety" and its lines sat in the LINK quest, priority 0; the game says the
   first GREETING info whose conditions hold, taking the quests by priority (CS wiki Quest
@@ -3787,8 +3825,11 @@ roster line's counts.
   first and the topic was never added. The harness had set the ask global directly and
   never spoke. Fix: the escort's dialogue in a quest of its own, WalkersEscortQuest
   (0xA46), start game enabled, priority 50 (the convention's miscellaneous quests; below
-  guilds 60, the main quest 85, crime 90); tools/esp-write.py reads it back. Not seen in
-  the game yet. The same priority 0 holds for the sieges', the night's and the camps'
+  guilds 60, the main quest 85, crime 90); tools/esp-write.py reads it back. Seen on
+  Windows 2026-11-13 (OblivionWalkers.log): "camp 37 near Anvil Lighthouse - the escort
+  begun, 7 set out for Anvil Dock Gate" and, at the second try with the one left, "the
+  escort arrived: You brought 1 of 1 refugees safe to Anvil Dock Gate (+2 fame, 300 gold,
+  a thing of theirs)". The same priority 0 holds for the sieges', the night's and the camps'
   rumors (INFOGENERAL) - not measured whether they are ever said.
 - **Rise stand watch, 2026-11-10:** every raise (a walker up again, the swap's walker, the
   siege pool's, the safeguard's) is watched; one still within 16 units of its spot 20 s
