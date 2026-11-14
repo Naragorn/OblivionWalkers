@@ -3778,8 +3778,9 @@ with 60 Daedra beside the 60 walkers' numbers.
   worse" becomes idea 9 (the weather), off by default.
 - The early game with `Origin=1`: nothing comes until gates open (a). The
   plugin opens no gate itself ((b) is not built). The fallback (c) stays
-  an INI choice, off by default - read this way from Nadi's short answer;
-  if he meant no fallback at all, the key goes.
+  an INI choice, off by default, under a name that says what it does:
+  `[Invaders] EverywhereUntilGatesOpen=0` (Nadi, 2026-11-14: keep it, a
+  better name).
 - All thirteen ideas, each with the default named in it.
 
 **Build order** (proposed, each step with its tests before the next; not
@@ -4555,12 +4556,15 @@ Recommended: **B**. 0.2.0 already holds 158 commits since v0.1.0. Step 1
 touches every walker rule. Shipping the two together puts a new risk on top
 of what has been tested.
 
-Two smaller points of 4.22, open since 2026-11-13:
-- The fallback (c) for Origin=1 with no gate open is kept as an INI key, off
-  by default. That was read from a short answer. Should the key stay, or
-  go?
+Two smaller points of 4.22:
+- The fallback (c) for Origin=1 with no gate open: **kept** (Nadi,
+  2026-11-14), named `[Invaders] EverywhereUntilGatesOpen=0` (LINK): 1 -
+  as long as no gate is open, the invaders come everywhere as with
+  Origin=0; the first gate open, only out of gates. Built with step 3
+  (Origin=1), its flows in that step's tests.
 - A second Nexus page for the Daedra variant (same DLL, other INI defaults):
-  yes or no, decided at its release.
+  undecided (Nadi, 2026-11-14: maybe). Decided once the Daedra are
+  playable (after step 3), when there is something to show.
 
 Building step 1, as 4.22 lays it out. First the unit:
 - `KindLogic.h`: `enum class Kind { Walker, Daedra }`, with
