@@ -4488,7 +4488,8 @@ Building B:
 
 ### D2. The quest box in the middle of a fight
 
-**Open** - Nadi asked what it is (2026-11-14); explained, answer pending.
+**Decided (Nadi, 2026-11-14): A** - left as it is: the box opens when the
+stage is told, in a fight too. The plan for B below stays for later.
 
 Measured: the place's quest is told by `SetStage` (Dungeons.cpp `Tell`) on
 entering a besieged place or hearing of it (stage 20), and when it is
