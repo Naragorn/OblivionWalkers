@@ -187,6 +187,14 @@ GET_GLOBAL_VALUE = 74  # the condition function, as Oblivion.esm's 246 INFOs wit
 LOCAL_NIGHT_GLOBAL = LOCAL_SIEGE_RUMOR_FIRST + 8
 LOCAL_NIGHT_RUMOR = LOCAL_NIGHT_GLOBAL + 1
 INFO_RANDOM = 0x02
+# "Run For Rumors" (CS wiki, Category:Editing_Dialogue): an INFOGENERAL
+# line's result script runs when it is said to the player as a rumor only
+# with this flag - every vanilla rumor with a script carries it (0x0018B1F5
+# DATA 01 00 44). Without it the held dungeons' rumors never set "heard"
+# (Nadi's Windows run, 2026-11-14: the rumor said often, no marker).
+INFO_RUN_FOR_RUMORS = 0x40
+CONDITION_RUN_ON_TARGET = 0x02
+PLAYER_BASE = 0x00000007
 # The survivors' camps (4.20.6; the IDs are src/CampLogic.h's, read off it in
 # camp_ids()): fourteen refugee bases - copies of Oblivion.esm's generic
 # bandits and marauders (their faces, races and sexes) without factions,
@@ -423,11 +431,14 @@ def kit_conditions(kit_refs: list[int], global_form: int, values: tuple) -> byte
 def build_news_rumor(quest_form: int, news_global: int, kind: int, text: str, heard_global: int) -> bytes:
     """A line of the Rumors topic as build_rumor's, said while the news'
     global is `kind`; its result script sets "heard" (SET_GLOBAL_*)."""
-    out = subrecord(b"DATA", bytes([1, 0, 0]))
+    out = subrecord(b"DATA", bytes([1, 0, INFO_RUN_FOR_RUMORS]))
     out += subrecord(b"QSTI", struct.pack("<I", quest_form))
     out += subrecord(b"TRDT", struct.pack("<IiIB3s", 0, 50, 0, 1, b"\0\0\0"))
     out += subrecord(b"NAM1", zstring(text))
     out += subrecord(b"NAM2", b"\0")
+    # Said to the player only (the vanilla broadsheet rumor 0x0018B1F5's
+    # condition): INFOGENERAL is also what NPCs say to each other.
+    out += subrecord(b"CTDA", struct.pack("<B3xfIIII", CONDITION_RUN_ON_TARGET, 1.0, GET_IS_ID, PLAYER_BASE, 0, 0))
     out += subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, float(kind), GET_GLOBAL_VALUE, news_global, 0, 0))
     out += subrecord(b"SCHR", SET_GLOBAL_SCHR) + subrecord(b"SCDA", SET_GLOBAL_SCDA)
     out += subrecord(b"SCTX", b"set WalkersDungeonHeard to 1")
@@ -1867,7 +1878,8 @@ def main() -> int:
     for k, (kind, text) in enumerate(DUNGEON_RUMORS):
         back = dict(find_record(esm, plugin, b"INFO", index | (talk["kDungeonRumorFirstLocalId"] + k)))
         if (struct.unpack_from("<B3xfIIII", back[b"CTDA"], 0)[1:4] != (float(kind), GET_GLOBAL_VALUE, news_global)
-                or back[b"SCDA"] != SET_GLOBAL_SCDA or struct.unpack("<I", back[b"SCRO"])[0] != heard_global):
+                or back[b"SCDA"] != SET_GLOBAL_SCDA or struct.unpack("<I", back[b"SCRO"])[0] != heard_global
+                or (back[b"DATA"][2] & INFO_RUN_FOR_RUMORS) == 0):
             raise SystemExit(f"the held dungeons' rumor {k} reads back wrong")
     if dict(find_record(esm, plugin, b"QUST", talk_quest_form))[b"DATA"] != bytes([1, DUNGEON_TALK_PRIORITY]):
         raise SystemExit("the held dungeons' dialogue quest reads back wrong")
