@@ -61,6 +61,8 @@ aimed = [re.search(r'console "([0-9A-F]{8})\.(setrestrained|kill)', l) for l in 
 aimed = [m.group(1) for m in aimed if m]
 print("Aimed at: " + " ".join(aimed))
 check(len(aimed) == 4 and all(a.startswith("FF") for a in aimed), "{actor} was a placed walker each time")
+print("Magic hits (reported):")
+show("Magic hit:")
 print("Watch:")
 watch = show("Headshot watch:")
 check(bool(watch) and "magic on, damage on" in watch[-1], "both events registered")

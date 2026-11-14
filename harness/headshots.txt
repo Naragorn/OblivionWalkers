@@ -23,7 +23,10 @@
 # 10 degrees down (sine of pitch -0.175). In the run of 2026-11-14 20:33 both
 # bolts flew (two spell noises) but none struck the walker 348 units off - 10
 # degrees down and 0.068 rad to the side passes by its legs; it now stands
-# 150 units off, the bolt about level.
+# 150 units off, the bolt about level. In the run of 20:53 the first walker
+# had walked to 63 units before it was held (2 s after it was placed) and the
+# second stood 499 off: it is held 0.5 s after, and the head turns to face the
+# nearest actor (head face 1) so the laser points at it.
 # Run through tools/headshots-harness.sh.
 
 ini Hands Enabled=1
@@ -57,11 +60,12 @@ wait 12
 right pos 0.25 -0.60 -0.10
 left pos -0.15 -0.30 -0.45
 left rot 38 0 0
+head face 1
 wait 1
 mark ready
 wait 20
 mark loaded
-wait 2
+wait 0.5
 mark a-placed
 wait 1
 left trigger 1
@@ -73,7 +77,7 @@ wait 4
 mark a-done
 wait 6
 mark b-there
-wait 2
+wait 0.5
 mark b-placed
 wait 1
 left trigger 1
