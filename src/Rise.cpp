@@ -499,16 +499,19 @@ void JudgeBolts(UInt32 target) {
 // xOBSE's OnMagicEffectHit: the target, the effect's code. On a walker: the
 // time noted (a spell's overkill, OnHealthDamage), fire noted (it burns),
 // and a bolt at its head looked for.
-// The first effects that strike anyone are logged, a walker or not: whether a
-// spell reached its walker at all (the headshots harness, 2026-11-14: two
-// bolts cast and nothing in the log said where they went).
+// The first damage effects (codes ending "DG": fire, frost, shock, ...) that
+// strike anyone are logged, a walker or not: whether a spell reached its
+// walker at all (the headshots harness, 2026-11-14: two bolts cast and
+// nothing in the log said where they went). Only damage: the abilities every
+// actor gets on loading (RSFR, RSDI, ...) used up the lines before any cast.
 UInt32 g_magicLinesLeft = 24;
 
 void __cdecl OnMagicHit(void* arg0, void* arg1, void*) {
 	const UInt32 target = reinterpret_cast<UInt32>(arg0);
 	const UInt32 code = reinterpret_cast<UInt32>(arg1);
 	const bool walker = HeadshotsApply(target);
-	if (g_magicLinesLeft > 0) {
+	const bool damage = ((code >> 16) & 0xFF) == 'D' && (code >> 24) == 'G';
+	if (damage && g_magicLinesLeft > 0) {
 		--g_magicLinesLeft;
 		const char name[5] = {static_cast<char>(code & 0xFF), static_cast<char>((code >> 8) & 0xFF),
 		                      static_cast<char>((code >> 16) & 0xFF), static_cast<char>(code >> 24), 0};
