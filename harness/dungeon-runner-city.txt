@@ -1,0 +1,53 @@
+# The runner for help comes in the open land only (docs/walkers-spec.md
+# 4.20.7 and 7a; Nadi's Windows log of 2026-11-13: sent in Anvil's streets,
+# he never came up). tools/dungeon-walkers.sh runner-city sets [Dungeons]
+# TestSite=Fort Ash, TestSiteState=2 (besieged), MessengerHours=1.
+# - city: the player in Anvil's streets (AnvilWorld -47,-7, its own
+#   worldspace) for 24 s - "runner - news of kind 2, held back: the player
+#   is not in the open land (indoors 0, worldspace ...)", no runner sent;
+# - land: the player out of doors in Tamriel (5,5) - "runner - sent with
+#   news of kind 2", "told to speak to the player", "news - told to the
+#   player (site 0)", "the news is told (his line, or a rumor's)";
+# - away: the player far off (Tamriel 20,20) - "runner - taken away".
+# Run through tools/dungeon-walkers.sh runner-city.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow AnvilWorld -47 -7
+console-at land cow Tamriel 5 5
+console-at closed CloseAllMenus
+console-at away cow Tamriel 20 20
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 12
+mark city
+wait 12
+mark land
+wait 14
+mark t1
+wait 4
+mark t2
+wait 4
+mark t3
+wait 4
+mark spoken
+wait 6
+mark closed
+wait 4
+mark away
+wait 14
+mark end
+wait 1

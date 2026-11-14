@@ -179,6 +179,7 @@ DungeonMessenger g_messenger;
 // (one a second), and whether a save may hold them out.
 int g_bedsCandidate = -1;
 UInt8 g_bedsToPlace = 0;
+UInt8 g_bedsLook = 0;  // seconds until the laid beds are looked at (the log's "beds - bed N lies ...")
 bool g_bedsUnknown = true;
 
 // The notices: MOO's quest (0 not loaded) once the load order is read, each
@@ -190,6 +191,8 @@ bool g_noticeDone[kNoticeCities] = {};
 float g_noticeWaited = 0.0f;
 bool g_messengerUnknown = true;
 bool g_messengerDeadLogged = false;
+constexpr UInt32 kHeldNowhere = 0xFFFFFFFE;
+UInt32 g_messengerHeldAt = kHeldNowhere;  // where "held back" was said last: a worldspace, 0 indoors
 UInt32 g_bookBefore = 0;
 
 // The occupants taken out, and the player's cell as it was last frame.
@@ -326,6 +329,16 @@ void StepMessengerInGame(UInt8 newsKind, bool told, bool byPaper, UInt32 player,
 	const bool interior = !LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0;
 	const UInt32 world = interior ? 0 : Read(cell + kCellWorldspaceOffset);
 	const bool openLand = MessengerLand(interior, LooksLikeObject(world) ? FormIdOf(world) : 0);
+	const UInt32 heldAt = LooksLikeObject(world) ? FormIdOf(world) : 0;
+	if (openLand) {
+		g_messengerHeldAt = kHeldNowhere;
+	} else if (g_messengerHeldAt != heldAt &&
+	           MessengerSends(g_messenger, newsKind, g_siteSettings->messengerHours, now, true)) {
+		// Said once per place he is held back in.
+		g_messengerHeldAt = heldAt;
+		log("Dungeons: runner - news of kind %u, held back: the player is not in the open land (indoors %d, worldspace "
+		    "%08X)", newsKind, interior ? 1 : 0, heldAt);
+	}
 	if (MessengerSends(g_messenger, newsKind, g_siteSettings->messengerHours, now, openLand)) {
 		// A dead runner is raised and dressed again (his base is the
 		// camps' first man's: slot 0's outfit); one who rose as a walker
@@ -417,6 +430,23 @@ void StepBeds(LogFn log) {
 		g_bedsCandidate = want;
 		g_bedsToPlace = static_cast<UInt8>((1u << beds) - 1u);
 	}
+	if (g_bedsToPlace == 0 && g_bedsLook > 0 && --g_bedsLook == 0) {
+		// Three seconds after the last was laid: where each lies, as the
+		// kit's "stands" line. Harness 2026-11-14: all three in the place's
+		// cell at their spots, enabled - and without their 3D; a Disable and
+		// an Enable a second apart changed nothing (tried, taken out again).
+		for (UInt32 b = 0; b < beds; ++b) {
+			const UInt32 ref = LookupForm(EspFormId(g_espBase, kDungeonBedFirstLocalId + b));
+			if (!LooksLikeObject(ref)) {
+				continue;
+			}
+			const UInt32 cell = Read(ref + kRefParentCellOffset);
+			log("Dungeons: beds - bed %u lies at %.0f %.0f %.0f in cell %08X, enabled %d, its 3D %d", b,
+			    FloatAt(ref + kRefPositionOffset), FloatAt(ref + kRefPositionOffset + 4),
+			    FloatAt(ref + kRefPositionOffset + 8), LooksLikeObject(cell) ? FormIdOf(cell) : 0, Disabled(ref) ? 0 : 1,
+			    LooksLikeObject(Read(ref + 0x3C)) ? 1 : 0);  // TESObjectREFR::niNode
+		}
+	}
 	if (g_bedsToPlace == 0 || g_bedsCandidate < 0) {
 		return;
 	}
@@ -439,6 +469,7 @@ void StepBeds(LogFn log) {
 		Say(ref, "Enable");
 	}
 	log("Dungeons: beds - bed %u laid in %s on spot %d (%s answered %d)", bed, c.name, spot, line, moved ? 1 : 0);
+	g_bedsLook = 3;
 }
 
 // One of MOO's quest variables, 0 when it is not there.
@@ -1289,7 +1320,9 @@ void ResetDungeonsInGame() {
 	g_noticeWaited = 0.0f;
 	g_bedsCandidate = -1;
 	g_bedsToPlace = 0;
+	g_bedsLook = 0;
 	g_bedsUnknown = true;
+	g_messengerHeldAt = kHeldNowhere;
 }
 
 void StepDungeonsInGame(float dt, LogFn log) {

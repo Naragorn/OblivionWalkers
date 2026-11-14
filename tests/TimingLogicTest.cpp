@@ -47,8 +47,31 @@ void TestTiming() {
 
 }  // namespace
 
+void TestTickSeconds() {
+	std::printf("The seconds a tick counts\n");
+	const UInt32 none[10] = {};
+	const UInt32 world[10] = {0x3EC, 0x3ED, 0x3EE, 0x3F2};  // the HUD's menus
+	const UInt32 talking[10] = {0x3EC, 0x3ED, 0x3EE, 0x3F2, 0x3F1};
+	const UInt32 book[10] = {0x402};
+	Check(!walkers::MenuStackHolds(none, 10, walkers::kMenuDialog) &&
+	          !walkers::MenuStackHolds(world, 10, walkers::kMenuDialog) &&
+	          !walkers::MenuStackHolds(book, 10, walkers::kMenuDialog),
+	      "no menu, the HUD's, a book: no dialogue");
+	Check(walkers::MenuStackHolds(talking, 10, walkers::kMenuDialog), "the dialogue menu among the open ones: a dialogue");
+	Check(!walkers::MenuStackHolds(talking, 4, walkers::kMenuDialog) && !walkers::MenuStackHolds(nullptr, 10, 0x3F1),
+	      "only the slots given are read; no stack: none");
+	Check(walkers::TickSeconds(0.011f, false) == 0.011f, "a frame in the world: its seconds");
+	Check(walkers::TickSeconds(0.011f, true) == 0.0f,
+	      "a frame with the dialogue open: none - the world stands, nobody is taken away, moved or reset while the "
+	      "player talks (the runner disabled as the dialogue's speaker: the game ended, harness 2026-11-14)");
+	Check(walkers::TickSeconds(0.0f, false) == 0.0f && walkers::TickSeconds(-0.5f, false) == 0.0f &&
+	          walkers::TickSeconds(1.0f, false) == 0.0f && walkers::TickSeconds(5.0f, false) == 0.0f,
+	      "no time, a negative one, a second or more (a load): none, as before");
+}
+
 int main() {
 	TestTiming();
+	TestTickSeconds();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

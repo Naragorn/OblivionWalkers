@@ -12,6 +12,34 @@ namespace walkers {
 
 inline constexpr UInt32 kTimingStepsMost = 32;
 
+// The dialogue menu's ID (xOBSE GameMenus.h kMenuType_Dialog, 1009) and
+// whether it is among the IDs of the interface's open menus (`ids`: the
+// ten dwords at InterfaceManager +0xE0, OBVR GameAddresses.h
+// kInterfaceMenuStackOffset).
+inline constexpr UInt32 kMenuDialog = 0x3F1;
+inline bool MenuStackHolds(const UInt32* ids, UInt32 count, UInt32 id) {
+	for (UInt32 k = 0; ids != nullptr && k < count; ++k) {
+		if (ids[k] == id) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// The seconds a tick of the plugin counts for a frame of `frameSeconds`:
+// none for a frame of no time or of a second and more (a load), and none
+// while the dialogue menu is open. The game's frame seconds run on in a
+// dialogue while its world stands; counted, the plugin's clocks took the
+// runner away after his ninety seconds - or the player 1500 units off -
+// with the dialogue still open: disabled, the dialogue's speaker has no
+// process, and DialogMenu reads it (0x0059F649: [speaker + 0x58], then its
+// vtable - an access violation at 0x0059F64C; CrashLogger 2026-11-14 06:12,
+// eax the runner 25000A78, ecx 0). The same held for an escorted one reset
+// and a gate guard sent back in while spoken to.
+inline float TickSeconds(float frameSeconds, bool dialogueOpen) {
+	return !dialogueOpen && frameSeconds > 0.0f && frameSeconds < 1.0f ? frameSeconds : 0.0f;
+}
+
 struct TimingStep {
 	const char* name = nullptr;
 	unsigned long long total = 0;  // counter ticks this period

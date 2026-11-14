@@ -1,0 +1,50 @@
+# The escorted among their dead (docs/walkers-spec.md 7a; Nadi's Windows log
+# of 2026-11-13: the last of seven, his six dead about him, held by the
+# engine's greeting - package type 20 - time after time and left behind).
+# tools/camp-harness.sh with CAMP_SCENARIO=escort-dead: the escort's test as
+# harness/camp-escort.txt ([Survivors] TestEscort=7), [Rise] Enabled=0 so the
+# dead stay dead, and three of the kit's people killed by the console while
+# the others come up to the player (slots 1, 2 and 6 of kit 0, one each at
+# k1, k2, k3). To read off the log: the probe's lines of the twenty seconds
+# after the ask ("probe N s - slot S ... package ... type T") - whether a
+# living one runs a type 20 package near the dead; "held by package ... (type
+# 20), left to end (a greeting)" and no "reset" for it; "escorted slot N ...
+# units from the player" at 60 s - whether those alive came up.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set GameHour to 12
+console-at ready cow Tamriel 20 -15
+console-at k1 "{form:OblivionWalkers.esp:A05}".kill
+console-at k2 "{form:OblivionWalkers.esp:A06}".kill
+console-at k3 "{form:OblivionWalkers.esp:A0A}".kill
+expect HandScript: finished
+reject HandScript: WARNING
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 11
+mark k1
+wait 2
+mark k2
+wait 2
+mark k3
+wait 15
+mark t30
+wait 20
+mark t50
+wait 20
+mark t70
+wait 20
+mark t90
+wait 20
+mark t110
+wait 1
+mark end
+wait 1

@@ -3810,6 +3810,31 @@ roster line's counts.
 
 ## 7a. Open bugs
 
+- **FIX BUILT 2026-11-14, not reproduced at will - the game ended when the
+  runner was taken away with his dialogue open** (harness camp-escort
+  20261114-071136, CrashLogger 2026-11-14 06:12 UTC: EXCEPTION_ACCESS_VIOLATION
+  at 0x0059F64C, eax the runner 25000A78, esi the DialogMenu, ecx 0). Read
+  off the EXE: 0x0059F640 takes the DialogMenu's speaker at +0x60, his
+  process at +0x58 and calls through its vtable; a disabled actor has no
+  process. The log before it: "runner - the news is told", the test's
+  "player taken to the camp", "runner - taken away (88090 units from the
+  player)" - his line was still being said. The plugin's clocks ran on in
+  the dialogue (the game's frame seconds do) while its world stood. Fix:
+  a tick counts no seconds while the dialogue menu is among the interface's
+  open menus (`TickSeconds`, `MenuStackHolds`, TimingLogicTest) - nobody is
+  taken away, moved or reset while the player talks; the same holds for an
+  escorted one's reset and a gate guard sent back in. Since the runner was
+  built (990d60e), so in the Windows build of 2026-11-13 too. Not
+  reproduced at will: the window is the seconds of his one line (two
+  scenarios tried - the player moved off by `cow`, which closes the
+  dialogue first, and a hundred seconds' wait, by which the dialogue had
+  closed itself). After the fix: runner-city and two escort runs through
+  without it. Not changed: behind the other menus that hold the world (the
+  journal's box) the clocks run on - seen in camp-escort 20261114-072348,
+  where the runner's news opened the box and nobody moved for the test's
+  twenty seconds; tools/camp-harness.sh turns the held dungeons off for its
+  runs since.
+
 - **FIX BUILT 2026-11-14, Windows open - LINK's menu moved four settings
   off their defaults** (Windows session 2026-11-13, OblivionWalkers.log:
   "LINK: ini_grab_chance now 65", "ini_siege_min now 36", "ini_siege_max now
@@ -3817,7 +3842,14 @@ roster line's counts.
   slider scripts: a slider keeps a position, cut off, and writes that
   position's value back when its page is shown. Fix and test: 4.18, "The
   sliders hold whole numbers only". Nadi, 2026-11-14: the sliders would not
-  move in VR - OBVR's part, its session is told.
+  move in VR - OBVR's part, its session is told. Harness 2026-11-14: the
+  version's change seen ("the plugin INI's values written into the quest's
+  196 of 196 variables (version 39 was 0)"); LINK's page itself not opened -
+  tried from the console: `Call` by the script's editor ID (xOBSE: "Unquoted
+  argument ... will be treated as string"), `Call (GetFormFromMod ...)`
+  ("Expected user function."), `DispatchEvent "LppShowModConfigMenuRequest"`
+  (run, no menu; with an eventSender longer than the 96 characters OBVR's
+  console lines take). The page stays Nadi's to look at.
 
 - **FIX BUILT 2026-11-14, Windows open - the runner did not reach a player
   who stood in a city** (Windows session 2026-11-13: sent the second the
@@ -3829,7 +3861,12 @@ roster line's counts.
   worldspace, another land, none known - none). In a city the notices and
   the rumors tell. Not told apart: a city a mod opens into Tamriel. The log
   now names what told: "a paper told the news before he did" or "the news is
-  told (his line, or a rumor's)". Not seen in the game.
+  told (his line, or a rumor's)". Harness `tools/dungeon-walkers.sh
+  runner-city` (harness/dungeon-runner-city.txt), 20261114-072138 **PASS**:
+  in Anvil's streets "held back: the player is not in the open land
+  (indoors 0, worldspace 0001C31A)" and no runner; in Tamriel "sent with
+  news of kind 2", told to speak at 1061 units, "news - told to the player
+  (site 0)", the quest at stage 20, taken away.
 
 - **FIX BUILT 2026-11-14, not seen in the game - an escorted refugee reset
   seventeen times in a row** (Windows session 2026-11-13, camp 37, the first
@@ -3847,15 +3884,32 @@ roster line's counts.
   of the same one within 30 s (`kEscortResetGapSeconds`), whatever holds
   him. The log says once per hold "held by package ... (type 20), left to
   end (a greeting)". To look at in the next Windows log: whether one so
-  held comes along.
+  held comes along. Harness 2026-11-14, `CAMP_SCENARIO=escort-dead`
+  (harness/camp-escort-dead.txt: [Rise] off, three of the seven killed by
+  the console), 20261114-073033: the four alive 187 to 227 units from the
+  player twenty seconds after the ask, their packages of type 1 and 5 only
+  - no greeting by their dead: the GREET_DEAD guess is not borne out, what
+  made the greetings on Windows stays open. `CAMP_SCENARIO=escort`,
+  20261114-072722: the camp was attacked, all six alive fighting (type 12,
+  left to the fight), brought in by the test's move. Neither run had a
+  package of type 18 or 20, so the reset's new rule ran by its unit flows
+  only.
 
 - **The held dungeons' beds do not show** (2026-11-13, harness dungeon-beds
   20261113-211250, Linux): laid by the log, not in the eye pictures, no
-  sleep menu on activation (4.20.7, step 4c). To find first: whether the
-  bed's reference is in the cell and has its 3D (log its parent cell and
-  node three seconds after it is laid, as the kit's "stands" line), then
-  whether laying it with the player already inside, or a Disable and an
-  Enable a second apart after the move, shows it.
+  sleep menu on activation (4.20.7, step 4c). Looked at 2026-11-14 (the
+  log's new "beds - bed N lies at ..." three seconds after the last is
+  laid; harness dungeon-beds 20261114-073354 and -073610): each bed is in
+  the place's cell (00015E2A) at its spot and enabled - and has no 3D
+  (TESObjectREFR::niNode 0); the eye picture from 220 units shows the bare
+  floor. A Disable and an Enable a second apart changed nothing (tried in
+  the second run, taken out again). So the reference is moved and enabled
+  and the engine builds nothing for it. Not known why: the kit's people,
+  moved and enabled the same way, have their 3D; the notices, moved the same
+  way, were seen only in cells loaded after the move. To try next: whether
+  the beds show once the cell is left and entered again (then a moved
+  object gets its 3D only as its cell is attached); a bedroll made on the
+  spot (PlaceAtMe, as MOO makes its boards) in place of a moved one.
 
 - **FIXED, seen on Windows 2026-11-13 - no refugee ever asked to be led** (Nadi, 2026-11-10:
   found a camp, could start the escort nowhere). Cause, read: the escort's greeting,

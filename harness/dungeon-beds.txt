@@ -3,7 +3,7 @@
 # people, Beds=3.
 # - outside, then inside: "beds - bed 0 laid in Fort Ash on spot 11", bed 1
 #   on 10, bed 2 on 9 - one a second;
-# - bed0, bed1: the player put 110 units from a bed, looking at it (tlb: the
+# - bed0, bed1: the player put 220 units from a bed, looking at it (tlb: the
 #   place lit) - the eye pictures;
 # - sleep: bed 0 activated for the player - the game's sleep menu ("menu
 #   SleepWait" in OBVR's log); closed again;
@@ -22,10 +22,10 @@ console-at ready cow Tamriel -9 19
 console-at inside coc FortAsh01
 console-at seen CloseAllMenus
 console-at seen tlb
-console-at look0 player.moveto {form:OblivionWalkers.esp:A8F} 110 0 20
+console-at look0 player.moveto {form:OblivionWalkers.esp:A8F} 220 0 20
 console-at look0 player.setangle z 270
 console-at look0 player.setangle x 25
-console-at bed0 player.moveto {form:OblivionWalkers.esp:A90} 0 110 20
+console-at bed0 player.moveto {form:OblivionWalkers.esp:A90} 0 220 20
 console-at bed0 player.setangle z 180
 console-at bed0 player.setangle x 25
 console-at bed1 "{form:OblivionWalkers.esp:A8F}".activate player
