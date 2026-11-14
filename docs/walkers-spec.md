@@ -3378,10 +3378,12 @@ Ash (slot 0..3, by the door ...)", nobody raised for it, killed -
 "defended".
 **siege** with WalkersOutsidePercent=0 (the runner sets it for every other
 mode) 20261114-085417 **PASS** as before: six in at once, all inside.
-The dungeons' step in these runs: 1.5 to 2.5 us a frame at rest; a frame
-with a walker put before the door up to 4.5 ms (its 3D loads at once, as a
-kit person's outside). Seen in all three and in the runs of 2026-11-13
-alike: one frame of 24 to 34 ms in the period a journal stage is told (the
+The dungeons' step in these runs ([Debug] StepTiming, ten-second periods):
+1.5 to 2.5 us a frame at rest; its most in a frame 4.4 to 4.5 ms in the
+first period and 0.8 to 1.1 ms in the second - the same in the old siege's
+run and on 2026-11-13, so no cost of those before the door shows in these
+numbers (which frame holds their placing is not told apart). Seen in all
+three and in the runs of 2026-11-13 alike: one frame of 24 to 34 ms in the period a journal stage is told (the
 quest's box opens in it) - not looked into.
 Not looked at: a fight before the door fought by the game (the runs had
 tdetect on and the console's kills); what those outside do while the
