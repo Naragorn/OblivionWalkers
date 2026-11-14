@@ -383,6 +383,162 @@ UInt32 g_hitLinesLeft = 12;
 UInt32 g_originalSkillUse = 0;
 bool g_hitWatchOn = false;
 
+// 4.17b (HeadshotLogic.h): shots and spells that end a walker as a lost
+// head does. The projectiles' classes by their vtables (RTTI of Oblivion.exe
+// 1.2.416, read 2026-11-14: ArrowProjectile 0x00A6F08C, MagicBallProjectile
+// 0x00A75944, MagicBoltProjectile 0x00A75BC4, MagicFogProjectile 0x00A75EFC,
+// MagicSprayProjectile 0x00A76594); an arrow's CollisionData at +0x5C, in it
+// what it hit at +0x24 and the NiNode it struck at +0x28 (xOBSE
+// GameObjects.h); a node's name at +0x08 (Pose.cpp).
+constexpr UInt32 kVtblArrowProjectile = 0x00A6F08C;
+constexpr UInt32 kVtblMagicProjectiles[] = {0x00A75944, 0x00A75BC4, 0x00A75EFC, 0x00A76594};
+constexpr UInt32 kArrowCollisionOffset = 0x5C;
+constexpr UInt32 kCollisionRefOffset = 0x24;
+constexpr UInt32 kCollisionNodeOffset = 0x28;
+constexpr UInt32 kNiNodeNameOffset = 0x08;
+constexpr UInt32 kCellObjectsOffset = 0x48;  // TESObjectCELL::objectList {refr, next} (xOBSE GameForms.h)
+constexpr float kBoltNearUnits = 300.0f;    // a bolt farther from the walker is another's, left unjudged
+SeenShots g_seenShots;
+HitNotes g_fireHits;
+HitNotes g_magicHits;
+UInt32 g_shotLinesLeft = 60;
+
+// A head lost to a shot or a spell: noted for the death that comes (in this
+// frame or later), and the living walker killed at the next tick - as OBVR's
+// cut ('WGHD', OnObvrHeads).
+void HeadLostTo(UInt32 refId, const char* how) {
+	NoteHead(g_heads, refId);
+	if (g_headsDueCount < 8) {
+		g_headsDue[g_headsDueCount++] = refId;
+	}
+	g_log("End: walker %08X - %s, it ends as if beheaded", refId, how);
+}
+
+bool HeadshotsApply(UInt32 target) {
+	return g_settings.end.dieOnlyBeheaded && LooksLikeObject(target) && IsWalkerRef(target);
+}
+
+// The arrows stuck in `target` that are new since its last hit: one in its
+// head or neck ends it.
+void JudgeArrows(UInt32 target) {
+	const UInt32 cell = Read(target + kRefParentCellOffset);
+	if (!LooksLikeObject(cell)) {
+		return;
+	}
+	UInt32 visited = 0;
+	for (UInt32 node = cell + kCellObjectsOffset; LooksLikeObject(node) && visited < 16384; node = Read(node + 4), ++visited) {
+		const UInt32 ref = Read(node);
+		if (!LooksLikeObject(ref) || Read(ref) != kVtblArrowProjectile) {
+			continue;
+		}
+		const UInt32 hit = Read(ref + kArrowCollisionOffset);
+		if (!LooksLikeObject(hit) || Read(hit + kCollisionRefOffset) != target || !FreshShot(g_seenShots, FormIdOf(ref))) {
+			continue;
+		}
+		const UInt32 bone = Read(hit + kCollisionNodeOffset);
+		const UInt32 nameAt = LooksLikeObject(bone) ? Read(bone + kNiNodeNameOffset) : 0;
+		const char* name = LooksLikeObject(nameAt) ? reinterpret_cast<const char*>(nameAt) : nullptr;
+		const bool head = IsHeadBone(name);
+		if (g_shotLinesLeft > 0) {
+			--g_shotLinesLeft;
+			g_log("Headshot: arrow %08X in walker %08X struck %s - %s", FormIdOf(ref), FormIdOf(target),
+			      name != nullptr ? name : "(no node)", head ? "the head" : "not the head");
+		}
+		if (head) {
+			HeadLostTo(FormIdOf(target), "an arrow in its head");
+		}
+	}
+}
+
+// The spell projectiles near `target` as a magic effect lands on it: one
+// within HeadRadius of its head bone ends it. The bolt's own position is
+// taken as where it struck - no node is known for a spell (spec 4.17b).
+void JudgeBolts(UInt32 target) {
+	const UInt32 cell = Read(target + kRefParentCellOffset);
+	Vec3 headAt{};
+	if (!LooksLikeObject(cell) || !BonePosition(target, "Bip01 Head", &headAt)) {
+		return;
+	}
+	const float tx = FloatAt(target + kRefPositionOffset);
+	const float ty = FloatAt(target + kRefPositionOffset + 4);
+	UInt32 visited = 0;
+	for (UInt32 node = cell + kCellObjectsOffset; LooksLikeObject(node) && visited < 16384; node = Read(node + 4), ++visited) {
+		const UInt32 ref = Read(node);
+		if (!LooksLikeObject(ref)) {
+			continue;
+		}
+		bool magic = false;
+		for (const UInt32 vtable : kVtblMagicProjectiles) {
+			magic = magic || Read(ref) == vtable;
+		}
+		if (!magic) {
+			continue;
+		}
+		const float x = FloatAt(ref + kRefPositionOffset);
+		const float y = FloatAt(ref + kRefPositionOffset + 4);
+		const float z = FloatAt(ref + kRefPositionOffset + 8);
+		if ((x - tx) * (x - tx) + (y - ty) * (y - ty) > kBoltNearUnits * kBoltNearUnits || !FreshShot(g_seenShots, FormIdOf(ref))) {
+			continue;
+		}
+		const float dx = x - headAt.x;
+		const float dy = y - headAt.y;
+		const float dz = z - headAt.z;
+		const bool head = BoltAtHead(dx, dy, dz, g_settings.headshots.headRadius);
+		if (g_shotLinesLeft > 0) {
+			--g_shotLinesLeft;
+			g_log("Headshot: spell projectile %08X (vtable %08X) at walker %08X, %.0f units from its head (%.0f %.0f %.0f) - %s",
+			      FormIdOf(ref), Read(ref), FormIdOf(target), std::sqrt(dx * dx + dy * dy + dz * dz), dx, dy, dz,
+			      head ? "the head" : "not the head");
+		}
+		if (head) {
+			HeadLostTo(FormIdOf(target), "a spell at its head");
+		}
+	}
+}
+
+// xOBSE's OnMagicEffectHit: the target, the effect's code. On a walker: the
+// time noted (a spell's overkill, OnHealthDamage), fire noted (it burns),
+// and a bolt at its head looked for.
+void __cdecl OnMagicHit(void* arg0, void* arg1, void*) {
+	const UInt32 target = reinterpret_cast<UInt32>(arg0);
+	if (!HeadshotsApply(target)) {
+		return;
+	}
+	const UInt32 code = reinterpret_cast<UInt32>(arg1);
+	const UInt32 now = GetTickCount();
+	NoteHit(g_magicHits, FormIdOf(target), now);
+	if (code == kEffectFireDamage && g_settings.headshots.fire) {
+		NoteHit(g_fireHits, FormIdOf(target), now);
+	}
+	if (g_settings.headshots.bolts) {
+		JudgeBolts(target);
+	}
+}
+
+float BaseHealthOfActor(UInt32 actor) {
+	using GetBaseFn = SInt32(__fastcall*)(void* self, void* edx, UInt32 av);
+	return static_cast<float>(reinterpret_cast<GetBaseFn>(0x005F1910)(reinterpret_cast<void*>(actor), nullptr, 8));
+}
+
+// xOBSE's OnHealthDamage (before the damage is applied): the damage's float
+// bits, the attacker, the actor. A spell's hit of a walker's whole health
+// ends it.
+void __cdecl OnHealthDamage(void* arg0, void* arg1, void* thisObj) {
+	const UInt32 target = reinterpret_cast<UInt32>(thisObj);
+	if (!g_settings.headshots.overkill || !HeadshotsApply(target)) {
+		return;
+	}
+	const UInt32 bits = reinterpret_cast<UInt32>(arg0);
+	float damage = 0.0f;
+	std::memcpy(&damage, &bits, sizeof(damage));
+	const float base = BaseHealthOfActor(target);
+	if (SpellOverkill(g_settings.headshots, g_magicHits, FormIdOf(target), GetTickCount(), damage, base)) {
+		NoteHead(g_heads, FormIdOf(target));
+		g_log("End: walker %08X - a spell took %.0f of its %.0f health at once (attacker %08X), it ends as if beheaded",
+		      FormIdOf(target), damage, base, FormIdOf(reinterpret_cast<UInt32>(arg1)));
+	}
+}
+
 // xOBSE's OnHit: the hit actor and who hit it, noted for the skill use of the
 // same frame.
 void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
@@ -394,6 +550,10 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	NoteDisguiseHit(g_lastHit.target, g_lastHit.attacker);
 	// 4.20.2: a blow that lands is heard where it lands.
 	HordeNoiseAtRef(g_lastHit.target, "a blow");
+	// 4.17b: an arrow in a walker's head ends it.
+	if (g_settings.headshots.arrows && HeadshotsApply(g_lastHit.target)) {
+		JudgeArrows(g_lastHit.target);
+	}
 	if (g_hitLinesLeft > 0) {
 		--g_hitLinesLeft;
 		g_log("Hit: %08X hit by %08X (frame %u; this %08X)", FormIdOf(g_lastHit.target), FormIdOf(g_lastHit.attacker),
@@ -647,6 +807,11 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 		FallFacts facts;
 		facts.headless = headless;
 		facts.headNoted = HeadNoted(g_heads, fallen.refId);
+		// 4.17b: a walker dying while it burns stays down.
+		if (!facts.headNoted && Burned(g_settings.headshots, g_fireHits, fallen.refId, GetTickCount())) {
+			facts.headNoted = true;
+			g_log("End: walker %08X dies burning - it ends as if beheaded", fallen.refId);
+		}
 		facts.cutterOn = g_headCutter;
 		facts.killedByRefugee = IsCampPerson(FormIdOf(reinterpret_cast<UInt32>(arg1))) ||
 		                        IsDungeonPerson(FormIdOf(reinterpret_cast<UInt32>(arg1)));
@@ -1607,6 +1772,13 @@ bool TryRegisterDeath() {
 	const bool scrolls = g_events->RegisterEvent("OnScrollCast", &OnCast, nullptr, nullptr, nullptr);
 	g_log("Cast watch %s, scrolls %s (OnSpellCast, OnScrollCast - the noise, 4.20.2)", g_castWatchOn ? "on" : "REFUSED",
 	      scrolls ? "on" : "REFUSED");
+	const bool magic = g_events->RegisterEvent("OnMagicEffectHit", &OnMagicHit, nullptr, nullptr, nullptr);
+	const bool damage = g_events->RegisterEvent("OnHealthDamage", &OnHealthDamage, nullptr, nullptr, nullptr);
+	g_log("Headshot watch: magic %s, damage %s (OnMagicEffectHit, OnHealthDamage - 4.17b); arrows %d, bolts %d "
+	      "(within %.0f units of the head), overkill %d, fire %d (%.1f s)",
+	      magic ? "on" : "REFUSED", damage ? "on" : "REFUSED", g_settings.headshots.arrows ? 1 : 0,
+	      g_settings.headshots.bolts ? 1 : 0, g_settings.headshots.headRadius, g_settings.headshots.overkill ? 1 : 0,
+	      g_settings.headshots.fire ? 1 : 0, g_settings.headshots.fireSeconds);
 	InstallSkillHook();
 	return true;
 }
@@ -2310,6 +2482,8 @@ void StepStandWatch(float dt) {
 	}
 }
 
+void StepCorpses(const UInt32* ids, UInt32 count);
+
 void StepWalkers(float dt) {
 	if (g_walkerCount == 0) {
 		return;
@@ -2343,6 +2517,7 @@ void StepWalkers(float dt) {
 					StepChapel(actor, farRefs[i]);
 				}
 			}
+			StepCorpses(farRefs, allCount);
 		}
 	}, true);
 	Timed(21, "w.aggression", [count, dt] { StepSlowAggression(refs, count, dt); }, true);
@@ -2431,6 +2606,72 @@ void StepWalkers(float dt) {
 		      "walks in the last 2 s, all walkers",
 		      allCount, high, g_walkTurned);
 		g_walkTurned = 0;
+	}
+}
+
+// CorpseLogic.h, once a second over the walkers on the process lists: the
+// ended bodies made in the game taken out of the world out of the player's
+// sight, and how many lie counted in the log every LogSeconds.
+UInt32 g_corpsesTaken = 0;
+float g_corpseLogClock = 0.0f;
+
+float DistanceInSameSpace(UInt32 a, UInt32 b) {
+	const UInt32 ca = Read(a + kRefParentCellOffset);
+	const UInt32 cb = Read(b + kRefParentCellOffset);
+	if (!LooksLikeObject(ca) || !LooksLikeObject(cb)) {
+		return -1.0f;
+	}
+	const bool ia = (Read8(ca + kCellFlagsOffset) & 1) != 0;
+	const bool ib = (Read8(cb + kCellFlagsOffset) & 1) != 0;
+	const bool same = ia || ib ? ca == cb : Read(ca + kCellWorldspaceOffset) == Read(cb + kCellWorldspaceOffset);
+	if (!same) {
+		return -1.0f;
+	}
+	const float dx = FloatAt(a + kRefPositionOffset) - FloatAt(b + kRefPositionOffset);
+	const float dy = FloatAt(a + kRefPositionOffset + 4) - FloatAt(b + kRefPositionOffset + 4);
+	const float dz = FloatAt(a + kRefPositionOffset + 8) - FloatAt(b + kRefPositionOffset + 8);
+	return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+void StepCorpses(const UInt32* ids, UInt32 count) {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	if (!LooksLikeObject(player)) {
+		return;
+	}
+	UInt32 lying = 0;
+	UInt32 lyingMade = 0;
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 actor = LookupForm(ids[i]);
+		if (!LooksLikeObject(actor) || !IsActor(actor)) {
+			continue;
+		}
+		CorpseFacts f;
+		f.dead = IsDead(actor);
+		if (!f.dead) {
+			continue;
+		}
+		f.disabled = (Read(actor + 0x08) & 0x00000800) != 0;  // TESForm flags, Disabled (xOBSE)
+		f.waiting = FindWaiting(g_list, ids[i]) >= 0;
+		f.made = MadeInGame(ids[i]);
+		f.carriesLoot = IsRisen(g_risenSet, ids[i]);
+		f.distance = DistanceInSameSpace(actor, player);
+		if (CorpseLies(f)) {
+			++lying;
+			lyingMade += f.made ? 1u : 0u;
+		}
+		if (CorpseGoes(g_settings.corpses, f)) {
+			const bool gone = ConsoleOn(actor, "Disable");
+			++g_corpsesTaken;
+			g_log("Corpses: walker %08X ended %.0f units off - taken out of the world (Disable handed to xOBSE: %d)%s",
+			      ids[i], f.distance, gone ? 1 : 0, f.carriesLoot ? ", the things it carried with it" : "");
+		}
+	}
+	g_corpseLogClock += 1.0f;
+	if (g_settings.corpses.countSeconds > 0.0f && g_corpseLogClock >= g_settings.corpses.countSeconds) {
+		g_corpseLogClock = 0.0f;
+		g_log("Corpses: %u ended walkers lie on the process lists (%u of them made in the game), %u walkers on the "
+		      "lists; %u taken out of the world so far",
+		      lying, lyingMade, count, g_corpsesTaken);
 	}
 }
 

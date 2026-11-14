@@ -1150,7 +1150,46 @@ void StepTestEscort(float now, CampEvent* events, UInt32& n) {
 }
 
 // The kits to the camps nearest the player.
+// Where a kit's people stand against their spots, every 10 s with the
+// player within 4000 units of the camp (Nadi, Windows 2026-11-14: a camp on
+// the road to Kvatch with "the 7 people elsewhere" - the log could not say
+// where they were). 20 looks a session.
+UInt32 g_kitLookClock = 0;
+UInt32 g_kitLooksLeft = 20;
+
+void LookAtKit(UInt32 kit, UInt32 i, float distance) {
+	if (InCity(i) || distance < 0.0f || distance > 4000.0f || g_kitLooksLeft == 0 || ++g_kitLookClock % 10 != 0) {
+		return;
+	}
+	--g_kitLooksLeft;
+	const CampCandidate& place = Place(i);
+	for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+		const UInt32 ref = Esp(KitPersonLocalId(kit, slot));
+		if (!LooksLikeObject(ref) || (Read(ref + 0x08) & 0x00000800) != 0) {
+			continue;
+		}
+		const CampSpot& at = place.people[slot];
+		const float x = *reinterpret_cast<const float*>(ref + 0x2C);
+		const float y = *reinterpret_cast<const float*>(ref + 0x30);
+		const float z = *reinterpret_cast<const float*>(ref + 0x34);
+		const float off = std::sqrt((x - at.x) * (x - at.x) + (y - at.y) * (y - at.y) + (z - at.z) * (z - at.z));
+		bool high = false;
+		const UInt32 package = ActorPackageNow(FormIdOf(ref), high);
+		const UInt32 cell = Read(ref + 0x40);
+		g_log("Camps: camp %02u slot %u (%08X) at %.0f %.0f %.0f, %.0f from its spot; dead %d, package %08X type %u, "
+		      "combat %d, high %d, cell %08X (player %.0f off the camp)",
+		      i, slot, FormIdOf(ref), x, y, z, off, g_dead != nullptr && g_dead(ref) ? 1 : 0, package,
+		      PackageType(package), ActorInCombat(FormIdOf(ref)) ? 1 : 0, high ? 1 : 0,
+		      LooksLikeObject(cell) ? FormIdOf(cell) : 0, distance);
+	}
+}
+
 void StepKits(const float* distance) {
+	for (UInt32 k = 0; k < kCampKits; ++k) {
+		if (g_kitCamp[k] >= 0) {
+			LookAtKit(k, static_cast<UInt32>(g_kitCamp[k]), distance[g_kitCamp[k]]);
+		}
+	}
 	bool moved[kCampKits];
 	int before[kCampKits];
 	for (UInt32 k = 0; k < kCampKits; ++k) {

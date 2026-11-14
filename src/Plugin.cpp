@@ -228,6 +228,16 @@ bool ReadSettings(walkers::Settings* settings) {
 		const int others = GetPrivateProfileIntA("Zombies", "OthersEndPercent", 100, path);
 		rise.end.othersEndPercent = static_cast<UInt32>(others < 0 ? 0 : (others > 100 ? 100 : others));
 	}
+	rise.headshots.arrows = GetPrivateProfileIntA("Headshots", "Arrows", 1, path) != 0;
+	rise.headshots.bolts = GetPrivateProfileIntA("Headshots", "Bolts", 1, path) != 0;
+	rise.headshots.headRadius = IniFloat("Headshots", "HeadRadius", 30.0f, path);
+	rise.headshots.overkill = GetPrivateProfileIntA("Headshots", "Overkill", 1, path) != 0;
+	rise.headshots.fire = GetPrivateProfileIntA("Headshots", "Fire", 1, path) != 0;
+	rise.headshots.fireSeconds = IniFloat("Headshots", "FireSeconds", 6.0f, path);
+	rise.corpses.enabled = GetPrivateProfileIntA("Corpses", "Enabled", 1, path) != 0;
+	rise.corpses.units = IniFloat("Corpses", "CorpseUnits", 4000.0f, path);
+	rise.corpses.lootUnits = IniFloat("Corpses", "CorpseLootUnits", 8000.0f, path);
+	rise.corpses.countSeconds = IniFloat("Corpses", "LogSeconds", 60.0f, path);
 	if (rise.end.riseAgainSeconds < 0.0f) {
 		rise.end.riseAgainSeconds = 0.0f;
 	}

@@ -1779,6 +1779,45 @@ asked to cut the head), B the same by a chance, C only guards. Nadi: "B".
   dispatch line said "felled by a refugee" for these too - fixed to "a
   refugee or someone else".
 
+#### 4.17b Shots and spells to the head - `[Headshots] Arrows=1`, `Bolts=1`, `HeadRadius=30`, `Overkill=1`, `Fire=1`, `FireSeconds=6` - BUILT 2026-11-14, not run in the game
+
+Nadi, 2026-11-14 (Windows test): "dringendes feature: kopfschüsse zählen
+auch als beheaded. wie machen wir das mit magic", then "go kopfschuss.
+magie: B C D". Each counts for any shooter or caster, as 4.17a, and goes
+the way of OBVR's cut (`HeadLostTo`: the head noted for the death watch, a
+living walker killed at the next tick; StepHeads).
+- **Arrows** (xOBSE OnHit): the arrows in the hit walker's cell whose
+  CollisionData names it (xOBSE GameObjects.h: ArrowProjectile +0x5C the
+  data, in it +0x24 what it hit, +0x28 the NiNode, "seen Bip01 Spine"),
+  each judged once (`FreshShot` - an arrow stays stuck and is found again);
+  its node a head or neck bone (`IsHeadBone`) - the walker ends. The
+  projectiles' classes by their vtables, read off the EXE's RTTI
+  2026-11-14 (ArrowProjectile 0x00A6F08C; Ball 0x00A75944, Bolt 0x00A75BC4,
+  Fog 0x00A75EFC, Spray 0x00A76594).
+- **C, spell bolts** (xOBSE OnMagicEffectHit: the target, the effect's
+  code): the spell projectiles within 300 units of the walker, each once,
+  their position against "Bip01 Head"'s - within `HeadRadius` it ends. A
+  spell has no node; the projectile's position at the effect's landing is
+  taken as where it struck - **derived, not measured**: the log names every
+  distance ("Headshot: spell projectile ... N units from its head") for the
+  first look.
+- **D, overkill** (xOBSE OnHealthDamage, before the damage: its float bits,
+  the attacker, the actor): within 500 ms of a magic effect landing on the
+  walker, damage of its whole base health (GetBaseActorValue 0x005F1910,
+  health 8) or more ends it. Note: with HealthPercent=15 a walker's health
+  is small (20 in the guards' log line), so most damage spells will do it -
+  to be seen in play.
+- **B, fire** (OnMagicEffectHit, 'FIDG'): a walker dying within
+  `FireSeconds` of a fire damage hit burns and stays down (at its death
+  watch). A fire spell's damage over time longer than FireSeconds is not
+  covered.
+- Not in LINK yet (INI only) - a LINK version and the ESP anew, with the
+  next LINK change.
+- Tests: `HeadshotLogicTest` (head bones, each projectile once, the bolt's
+  radius, overkill and the spell's window, burning and the clock's wrap).
+  Not run in the game: whether the arrow's collision data is set when OnHit
+  comes, the bolts' distances, OnHealthDamage's order against OnDeath.
+
 ### 4.18 LINK - the settings in the game's menu
 
 What (Nadi, 2026-10-27: "Link support ... dann muss ich keine inis anpassen
@@ -3900,6 +3939,41 @@ roster line's counts.
    path.
 
 ## 7a. Open bugs
+
+- **FIX BUILT 2026-11-14, ESP not yet deployed - the held dungeons' rumors
+  never set a marker** (Nadi, Windows: "das gerücht kam oft aber kein map
+  marker"). Cause, read off the ESP and Oblivion.esm: the rumor INFOs lacked
+  the flag "Run For Rumors" (DATA flags 0x40; CS wiki Category:Editing
+  Dialogue: an INFOGENERAL line's result script runs as a rumor only with
+  it). Every vanilla rumor with a script carries it (0x0018B1F5: 01 00 44);
+  ours read 01 00 00, so "set WalkersDungeonHeard to 1" never ran - the
+  runner's GREETING with the same bytes worked. Fix: the flag, and the
+  vanilla rumor's condition GetIsID player on the target (INFOGENERAL is
+  also what NPCs say to each other); esp-write.py's read-back checks the
+  flag. Not seen in a run: a rumor said by an NPC.
+- **OPEN 2026-11-14 - a camp's people not at their camp** (Nadi, Windows:
+  a camp on the road to Kvatch, "die 7 leute woanders"). Read off the log
+  and the code (2026-11-14): the kit was set up at the save's camp (camp 10
+  near Brina Cross Inn, its marker where the log says), the escort's kit
+  was freed before - placement ruled out. Most likely, not proven: the
+  refugees fought the Anvil siege's hordes nearby and stayed where the
+  fight ended - their packages wander about their current place, nothing
+  leads them back. The log cannot say where they stood: since 2026-11-14
+  "Camps: camp NN slot S (...) at x y z, D from its spot; ... package,
+  combat" every 10 s with the player within 4000 units (20 looks a
+  session). Next: that line from Nadi's next sighting; then a leash
+  (small to medium) if they wander.
+- **BUILT 2026-11-14, not run in the game - ended walkers' bodies lay for
+  good** (Nadi: "viele walker leichen ... liegen ewig, kostet
+  performance"; "go A + B"). `[Corpses]` (CorpseLogic.h): once a second
+  over the walkers on the process lists, an ended body made in the game
+  (FF... - PlaceAtMe references, which nothing else removes) is disabled
+  once the player is `CorpseUnits=4000` away (one risen from someone,
+  carrying his things, at `CorpseLootUnits=8000`); every `LogSeconds=60`
+  the count of those lying. Placed spawns are left to their cell's reset,
+  the pools' walkers to their pools. Not measured: whether dead walkers stay
+  on the process lists (the count line will say), the frame cost of the
+  bodies.
 
 - **FIX BUILT 2026-11-14, not reproduced at will - the game ended when the
   runner was taken away with his dialogue open** (harness camp-escort

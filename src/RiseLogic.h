@@ -11,11 +11,13 @@
 #include "AggressionLogic.h"
 #include "Bytes.h"
 #include "CampLogic.h"
+#include "CorpseLogic.h"
 #include "DisguiseLogic.h"
 #include "DungeonSiteLogic.h"
 #include "EndLogic.h"
 #include "GrabLogic.h"
 #include "GuardLogic.h"
+#include "HeadshotLogic.h"
 #include "HordeLogic.h"
 #include "MissingLogic.h"
 #include "NewsLogic.h"
@@ -174,6 +176,12 @@ struct RiseSettings {
 	// [Zombies] DieOnlyBeheaded, RiseAgainSeconds, RiseAgainJitterSeconds
 	// (4.17, EndLogic.h): a walker gets up again until its head is off.
 	EndSettings end;
+	// [Headshots] (4.17b, HeadshotLogic.h): arrows in the head, spell bolts at
+	// it, a spell's overkill and fire end a walker as a lost head does.
+	HeadshotSettings headshots;
+	// [Corpses] (CorpseLogic.h): ended walkers' bodies taken out of the world
+	// out of the player's sight, and how many lie counted in the log.
+	CorpseSettings corpses;
 	// [Night] (4.20.5, NightLogic.h): nights are worse.
 	NightSettings night;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
