@@ -79,6 +79,10 @@ bool WalkerWithin(UInt32 ref, float radius, const HordeCandidate* candidates, UI
 // TES::GetTerrainHeight); false where no loaded cell is.
 bool LandHeightAt(float x, float y, float& z);
 
+// Whether the menu of this ID (xOBSE GameMenus.h kMenuType_*) is among the
+// interface's open menus (TimingLogic.h MenuStackHolds).
+bool MenuOpen(UInt32 menuId);
+
 // The distance from `ref` to the nearest living walker of `candidates` in
 // the same interior or worldspace; -1 when there is none.
 float NearestWalkerDistance(UInt32 ref, const HordeCandidate* candidates, UInt32 count);

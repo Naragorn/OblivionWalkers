@@ -1,0 +1,92 @@
+# Which way a moved bedroll gets its 3D (docs/walkers-spec.md 7a, "The held
+# dungeons' beds do not show": moved while disabled into the loaded cell and
+# enabled, they lie there enabled without their 3D). The held dungeons are
+# off for the run (tools/bed-probe.sh), so the plugin leaves its four beds
+# alone; the console tries them one way each, in Fort Ash's first hall, the
+# player by the door looking east (z 90), an eye picture at every mark:
+# - a: bed 0 (A8F) moved 250 units ahead and enabled in the same step - the
+#   plugin's own way (expected: nothing to see);
+# - b1, b2: bed 1 (A90) enabled where it lies, three seconds on moved 250
+#   ahead and 130 to the left;
+# - c1, c2: bed 2 (A91) moved 250 ahead and 130 to the right, three seconds
+#   on enabled;
+# - d: a new bedroll made 400 units ahead (PlaceAtMe of the beds' base,
+#   0001D5BF);
+# - e1, e2: bed 0 disabled, three seconds on enabled;
+# - f: bed 0 asked for its 3D anew (xOBSE's Update3D).
+# - g: bed 3 (A92) moved as the plugin moves it - to the place's inside door
+#   (0009DCB2) with a spot's offset (1123 20, 8 above the spot's -118) - and
+#   enabled; h: the player put 250 units east of it, looking at it; i: the
+#   same bed 78 units higher; j: the bed moved to 250 units before the player.
+# To read off the pictures a..f: which of the three spots and the far one
+# show a bedroll, and from which step on.
+# Run through tools/bed-probe.sh.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Debug EyeDump=1
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready tdetect
+console-at ready set timescale to 0
+console-at ready coc FortAsh01
+console-at inside CloseAllMenus
+console-at inside tlb
+console-at inside player.setangle z 90
+console-at a "{form:OblivionWalkers.esp:A8F}".moveto player 250 0 0
+console-at a "{form:OblivionWalkers.esp:A8F}".enable
+console-at b1 "{form:OblivionWalkers.esp:A90}".enable
+console-at b2 "{form:OblivionWalkers.esp:A90}".moveto player 250 130 0
+console-at c1 "{form:OblivionWalkers.esp:A91}".moveto player 250 -130 0
+console-at c2 "{form:OblivionWalkers.esp:A91}".enable
+console-at d player.placeatme 0001D5BF 1 400 0
+console-at e1 "{form:OblivionWalkers.esp:A8F}".disable
+console-at e2 "{form:OblivionWalkers.esp:A8F}".enable
+console-at f "{form:OblivionWalkers.esp:A8F}".update3d
+console-at g "{form:OblivionWalkers.esp:A92}".moveto 0009DCB2 1123 20 -110
+console-at g "{form:OblivionWalkers.esp:A92}".enable
+console-at h player.moveto {form:OblivionWalkers.esp:A92} 250 0 30
+console-at h player.setangle z 270
+console-at i "{form:OblivionWalkers.esp:A92}".moveto 0009DCB2 1123 20 -40
+console-at j "{form:OblivionWalkers.esp:A92}".moveto player -250 0 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 10
+mark inside
+wait 4
+mark a
+wait 3
+mark b1
+wait 3
+mark b2
+wait 3
+mark c1
+wait 3
+mark c2
+wait 3
+mark d
+wait 3
+mark e1
+wait 3
+mark e2
+wait 3
+mark f
+wait 3
+mark g
+wait 3
+mark h
+wait 3
+mark i
+wait 3
+mark j
+wait 3
+mark end
+wait 1

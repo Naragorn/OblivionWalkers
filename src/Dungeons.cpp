@@ -18,6 +18,7 @@
 #include "QuestVars.h"
 #include "Replace.h"
 #include "RiseLogic.h"
+#include "TimingLogic.h"
 
 namespace walkers {
 using namespace engine;
@@ -402,7 +403,9 @@ void StepMessengerInGame(UInt8 newsKind, bool told, bool byPaper, UInt32 player,
 // (DungeonQuestLogic.h) - taken away first when it stands elsewhere now (a
 // console Disable takes hold after the frame, so a second lies between), then
 // laid one a second on the candidate's far spots.
-void StepBeds(LogFn log) {
+float Closeness(const DungeonCandidate& c, UInt32 player);
+
+void StepBeds(UInt32 player, LogFn log) {
 	if (g_espBase == kNoEsp || g_siteSettings == nullptr) {
 		return;
 	}
@@ -432,9 +435,8 @@ void StepBeds(LogFn log) {
 	}
 	if (g_bedsToPlace == 0 && g_bedsLook > 0 && --g_bedsLook == 0) {
 		// Three seconds after the last was laid: where each lies, as the
-		// kit's "stands" line. Harness 2026-11-14: all three in the place's
-		// cell at their spots, enabled - and without their 3D; a Disable and
-		// an Enable a second apart changed nothing (tried, taken out again).
+		// kit's "stands" line (laid before the player was inside they lay
+		// there enabled and without their 3D - BedsLieNow).
 		for (UInt32 b = 0; b < beds; ++b) {
 			const UInt32 ref = LookupForm(EspFormId(g_espBase, kDungeonBedFirstLocalId + b));
 			if (!LooksLikeObject(ref)) {
@@ -447,7 +449,8 @@ void StepBeds(LogFn log) {
 			    LooksLikeObject(Read(ref + 0x3C)) ? 1 : 0);  // TESObjectREFR::niNode
 		}
 	}
-	if (g_bedsToPlace == 0 || g_bedsCandidate < 0) {
+	if (g_bedsToPlace == 0 || g_bedsCandidate < 0 ||
+	    !BedsLieNow(Closeness(kDungeonCandidates[g_bedsCandidate], player) == 0.0f, MenuOpen(kMenuLoading))) {
 		return;
 	}
 	UInt32 bed = 0;
@@ -1463,7 +1466,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		}
 		NoteRefugesInNews(kind != 0);
 		StepNotices(log);
-		StepBeds(log);
+		StepBeds(player, log);
 		StepMessengerInGame(kind, told, byPaper, player, now, log);
 	}
 	// The player's cell held now and not before, or the other way (the place

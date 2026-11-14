@@ -17,6 +17,7 @@ inline constexpr UInt32 kTimingStepsMost = 32;
 // ten dwords at InterfaceManager +0xE0, OBVR GameAddresses.h
 // kInterfaceMenuStackOffset).
 inline constexpr UInt32 kMenuDialog = 0x3F1;
+inline constexpr UInt32 kMenuLoading = 0x3EF;  // kMenuType_Loading, 1007
 inline bool MenuStackHolds(const UInt32* ids, UInt32 count, UInt32 id) {
 	for (UInt32 k = 0; ids != nullptr && k < count; ++k) {
 		if (ids[k] == id) {

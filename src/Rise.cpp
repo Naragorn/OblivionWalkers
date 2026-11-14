@@ -85,12 +85,6 @@ constexpr UInt32 kActorProcessManager = 0x00B3BD00;
 constexpr UInt32 kActorListByLevel = 0x00673A50;
 constexpr const char* kPluginEsp = "OblivionWalkers.esp";
 constexpr UInt32 kFrameSeconds = 0x00B33E9C;    // the last frame's seconds, a float (OBVR GameAddresses.h)
-// The interface's open menus: ten menu IDs at InterfaceManager +0xE0, the
-// manager at [0x00B3A6E0] (OBVR GameAddresses.h kInterfaceManagerPointer,
-// kInterfaceMenuStackOffset - read there off GetTopVisibleMenuID).
-constexpr UInt32 kInterfaceManagerPointer = 0x00B3A6E0;
-constexpr UInt32 kInterfaceMenuStackOffset = 0xE0;
-constexpr UInt32 kInterfaceMenuStackSlots = 10;
 constexpr UInt32 kTextStart = 0x00401000;
 constexpr UInt32 kOpcodeBase = 0x2B00;
 constexpr UInt32 kTextEnd = 0x00A27C39;
@@ -2871,11 +2865,7 @@ void Tick() {
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
 	}
-	const UInt32 interface = Read(kInterfaceManagerPointer);
-	const bool talking = LooksLikeObject(interface) &&
-	                     MenuStackHolds(reinterpret_cast<const UInt32*>(interface + kInterfaceMenuStackOffset),
-	                                    kInterfaceMenuStackSlots, kMenuDialog);
-	const float dt = TickSeconds(*reinterpret_cast<const float*>(kFrameSeconds), talking);
+	const float dt = TickSeconds(*reinterpret_cast<const float*>(kFrameSeconds), MenuOpen(kMenuDialog));
 	Timed(0, "find", [] {
 		FindWalkers();
 		FindMoo();

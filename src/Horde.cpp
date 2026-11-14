@@ -4,6 +4,7 @@
 #include "Engine.h"
 #include "News.h"
 #include "Siege.h"
+#include "TimingLogic.h"
 
 #include <cmath>
 #include <cstdio>
@@ -182,6 +183,19 @@ bool LandHeight(float x, float y, float& z) {
 }  // namespace
 
 bool LandHeightAt(float x, float y, float& z) { return LandHeight(x, y, z); }
+
+// The interface's open menus: ten menu IDs at InterfaceManager +0xE0, the
+// manager at [0x00B3A6E0] (OBVR GameAddresses.h kInterfaceManagerPointer,
+// kInterfaceMenuStackOffset - read there off GetTopVisibleMenuID).
+bool MenuOpen(UInt32 menuId) {
+	constexpr UInt32 kInterfaceManagerPointer = 0x00B3A6E0;
+	constexpr UInt32 kInterfaceMenuStackOffset = 0xE0;
+	constexpr UInt32 kInterfaceMenuStackSlots = 10;
+	const UInt32 manager = Read(kInterfaceManagerPointer);
+	return LooksLikeObject(manager) &&
+	       MenuStackHolds(reinterpret_cast<const UInt32*>(manager + kInterfaceMenuStackOffset),
+	                      kInterfaceMenuStackSlots, menuId);
+}
 
 namespace {
 

@@ -321,6 +321,11 @@ void TestBeds() {
 	c.spotCount = 2;
 	Check(walkers::BedSpotIndex(c, 0, 4) == -1, "two spots or fewer: no bed");
 	Check(walkers::BedsCandidate(7, false, 3) == 7, "the kit inside a place: its beds there");
+	Check(walkers::BedsLieNow(true, false), "the player inside the place, nothing loading: a bed is laid");
+	Check(!walkers::BedsLieNow(false, false),
+	      "the player still outside, the kit gone in ahead of him: not yet (laid into the place before it was loaded "
+	      "the beds never got their 3D - harness 2026-11-14)");
+	Check(!walkers::BedsLieNow(true, true) && !walkers::BedsLieNow(false, true), "behind the loading screen: not yet");
 	Check(walkers::BedsCandidate(7, true, 3) == -1, "the kit waiting outside (a place to clear): no beds");
 	Check(walkers::BedsCandidate(-1, false, 3) == -1, "no kit out: no beds");
 	Check(walkers::BedsCandidate(7, false, 0) == -1, "Beds=0: none");

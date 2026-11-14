@@ -100,6 +100,16 @@ inline int BedSpotIndex(const DungeonCandidate& c, UInt32 bed, UInt32 beds) {
 	return index >= 2 ? index : -1;
 }
 
+// Whether a bed may be laid this second: with the player inside the place
+// and no loading screen up. The kit goes in ahead of the player, while he is
+// still before the door; a bed moved and enabled then - into a cell not
+// loaded - lay in it enabled and without its 3D for good, also once the
+// player was inside (harness 2026-11-14, dungeon-beds: the log's "lies at
+// ... its 3D 0" and the eye pictures). The same two console lines with the
+// player inside show it (harness bed-probe, step g). The kit's people get
+// their 3D as the cell is attached; a moved object does not.
+inline bool BedsLieNow(bool playerInside, bool loading) { return playerInside && !loading; }
+
 // The candidate the beds lie in, -1 none: where the kit stands inside.
 inline int BedsCandidate(int kitCandidate, bool kitOutside, UInt32 beds) {
 	return kitCandidate >= 0 && !kitOutside && beds > 0 ? kitCandidate : -1;

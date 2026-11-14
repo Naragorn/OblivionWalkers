@@ -3895,21 +3895,28 @@ roster line's counts.
   package of type 18 or 20, so the reset's new rule ran by its unit flows
   only.
 
-- **The held dungeons' beds do not show** (2026-11-13, harness dungeon-beds
-  20261113-211250, Linux): laid by the log, not in the eye pictures, no
-  sleep menu on activation (4.20.7, step 4c). Looked at 2026-11-14 (the
-  log's new "beds - bed N lies at ..." three seconds after the last is
-  laid; harness dungeon-beds 20261114-073354 and -073610): each bed is in
-  the place's cell (00015E2A) at its spot and enabled - and has no 3D
-  (TESObjectREFR::niNode 0); the eye picture from 220 units shows the bare
-  floor. A Disable and an Enable a second apart changed nothing (tried in
-  the second run, taken out again). So the reference is moved and enabled
-  and the engine builds nothing for it. Not known why: the kit's people,
-  moved and enabled the same way, have their 3D; the notices, moved the same
-  way, were seen only in cells loaded after the move. To try next: whether
-  the beds show once the cell is left and entered again (then a moved
-  object gets its 3D only as its cell is attached); a bedroll made on the
-  spot (PlaceAtMe, as MOO makes its boards) in place of a moved one.
+- **FIXED 2026-11-14, harness PASS, Windows open - the held dungeons' beds
+  did not show** (2026-11-13, harness dungeon-beds 20261113-211250: laid by
+  the log, not in the eye pictures, no sleep menu on activation). Cause,
+  measured: the kit goes into a place while the player still stands before
+  its door, and the beds were laid right after it - into a cell not loaded.
+  A bed moved and enabled so lies in the cell at its spot, enabled, and
+  never gets its 3D, also once the player is inside (the log's new "beds -
+  bed N lies at ... enabled 1, its 3D 0", runs 20261114-073354, -073610,
+  -075735; a Disable and an Enable a second apart changed nothing; neither
+  did waiting for the loading screen alone). The same two console lines
+  with the player inside show the bed at once (harness/bed-probe.txt,
+  tools/bed-probe.sh, 20261114-075333, step g: the plugin's own anchor and
+  offsets; its steps a to d: moved then enabled, enabled then moved, a
+  PlaceAtMe - all show; a bed moved again after it showed keeps its place
+  in the picture). Fix: a bed is laid only with the player inside the place
+  and no loading screen up (`BedsLieNow`, DungeonQuestLogicTest) - one a
+  second from then, on the far spots. Harness dungeon-beds 20261114-080002
+  **PASS**: "lies at ... enabled 1, its 3D 1" for the three, the eye picture
+  bed0 shows three bedrolls at the foot of the stairs, the console's
+  activate opens the sleep menu ("menu SleepWait"). Not looked at: the beds
+  of a place the player is in when a save is loaded; whether a bedroll
+  stands in someone's way at a spot.
 
 - **FIXED, seen on Windows 2026-11-13 - no refugee ever asked to be led** (Nadi, 2026-11-10:
   found a camp, could start the escort nowhere). Cause, read: the escort's greeting,
