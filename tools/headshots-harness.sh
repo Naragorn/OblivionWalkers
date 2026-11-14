@@ -8,8 +8,11 @@ obvr="${OBVR_DIR:-$root/../OBVR}"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 log="$game/OblivionWalkers.log"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
-# The spawn replacement off for the run (put back whatever happens), as in
-# rise-twitch.sh: {actor} must be the walker just placed.
+# The spawn replacement and the dungeons off for the run (put back whatever
+# happens), as in rise-twitch.sh: {actor} must be the walker just placed. The
+# dungeons' runner (the ESP's A78, WalkersDungeonRunnerRef) otherwise comes
+# with news and stands nearest the player - he was {actor} in the runs of
+# 2026-11-14 19:20-19:28.
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
@@ -17,21 +20,23 @@ python3 - "$ini" <<'INI'
 import re, sys
 path = sys.argv[1]
 text = open(path, encoding="latin-1", newline="").read()
-head = re.search(r"^\[Replace\]\s*$", text, re.M)
-if head is None:
-    sys.exit("no [Replace] section in " + path)
-end = re.search(r"^\[", text[head.end():], re.M)
-stop = head.end() + (end.start() if end else len(text) - head.end())
-section = re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, flags=re.M)
-open(path, "w", encoding="latin-1", newline="").write(text[:head.end()] + section + text[stop:])
+for name in ("Replace", "Dungeons"):
+    head = re.search(r"^\[" + name + r"\]\s*$", text, re.M)
+    if head is None:
+        sys.exit("no [" + name + "] section in " + path)
+    end = re.search(r"^\[", text[head.end():], re.M)
+    stop = head.end() + (end.start() if end else len(text) - head.end())
+    section = re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, flags=re.M)
+    text = text[:head.end()] + section + text[stop:]
+open(path, "w", encoding="latin-1", newline="").write(text)
 INI
 mkdir -p "$root/artifacts"
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/headshots.txt" --headless \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/headshots-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/headshots/*/ | head -1)"
 cp "$log" "$run/OblivionWalkers.log"
-python3 - "$run/OblivionWalkers.log" <<'PY'
-import sys
+python3 - "$run/OblivionWalkers.log" "$run/OBVR.log" <<'PY'
+import re, sys
 lines = open(sys.argv[1], encoding="latin-1").read().splitlines()
 failures = 0
 
@@ -46,6 +51,13 @@ def show(prefix):
         print("        " + l[:220])
     return found
 
+# The console lines aimed at {actor} must have hit a placed walker (FF...),
+# not one of the plugin's people (25...) - else the case proves nothing.
+obvr_log = open(sys.argv[2], encoding="latin-1").read().splitlines()
+aimed = [re.search(r'console "([0-9A-F]{8})\.(setrestrained|kill)', l) for l in obvr_log]
+aimed = [m.group(1) for m in aimed if m]
+print("Aimed at: " + " ".join(aimed))
+check(len(aimed) == 4 and all(a.startswith("FF") for a in aimed), "{actor} was a placed walker each time")
 print("Watch:")
 watch = show("Headshot watch:")
 check(bool(watch) and "magic on, damage on" in watch[-1], "both events registered")

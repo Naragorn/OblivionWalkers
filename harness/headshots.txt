@@ -4,8 +4,10 @@
 # 300 units before him and held in place (SetRestrained); the console's Cast
 # cannot make the player cast a target spell at an actor (CS wiki Cast:
 # "cannot force him to cast Touch or Target range spells at other actors").
-# Each case in a cell of its own (Tamriel -28..-26, 5), so {actor} - the
-# actor nearest the player - is the walker just placed:
+# Each case in a cell of its own, far from the others (Tamriel -28 5, -20 10,
+# -29 -11), so {actor} - the actor nearest the player - is the walker just
+# placed, not the one before (in the runs of 2026-11-14 19:20-19:28 the case's
+# walker chased the player into the next cell):
 #   a  burning: SEStdFireFrostDam1Novice (0004DC23, 7 fire damage) cast at
 #      it, killed 2 s later - "dies burning", stays down
 #   b  overkill: StandardFireDamageTarget5Master (000A97E3, 110 fire) cast at
@@ -14,9 +16,9 @@
 #   c  control: killed with no fire - "gets up again"
 # Arrows are not here: a placed archer did not shoot the walker in the run of
 # 2026-11-14 19:20 (it was killed first).
-# The save's companion (the ESP's A78, a camp's escort that follows the
-# player, essential) is sent to the Market District for the run, or it is
-# the nearest actor.
+# The dungeons' runner (the ESP's A78) came with news and was {actor} in
+# those runs: headshots-harness.sh sets [Dungeons] Enabled=0 for the run and
+# checks that every {actor} line hit a placed walker (FF...).
 # The hand pitched up 30 degrees: at 0 the laser points 40 degrees down.
 # Run through tools/headshots-harness.sh.
 
@@ -27,7 +29,6 @@ ini SelfCheck ShowPanel=0
 console player.addspell 0004DC23
 console player.addspell 000A97E3
 console-at ready tgm
-console-at ready {form:OblivionWalkers.esp:A78}.positioncell 0 0 0 0 ICMarketDistrict
 console-at ready tdetect
 console-at ready cow Tamriel -28 5
 console-at ready set timescale to 0
@@ -37,11 +38,11 @@ console-at loaded SetActiveSpell 0004DC23
 console-at loaded player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
 console-at a-placed {actor}.setrestrained 1
 console-at a-burnt {actor}.kill player
-console-at a-done cow Tamriel -27 5
+console-at a-done cow Tamriel -20 10
 console-at b-there SetActiveSpell 000A97E3
 console-at b-there player.placeatme {form:OblivionWalkers.esp:802} 1 300 0
 console-at b-placed {actor}.setrestrained 1
-console-at b-done cow Tamriel -26 5
+console-at b-done cow Tamriel -29 -11
 console-at c-there player.placeatme {form:OblivionWalkers.esp:803} 1 300 0
 console-at c-placed {actor}.kill player
 
