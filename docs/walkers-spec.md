@@ -4582,8 +4582,9 @@ come, they must not rise, and they have to die as the game's do.
 ### D4. Release 0.2.0 - when?
 
 **Decided (Nadi, 2026-11-14): B** - after Nadi's Windows test of LINK, the
-runner, the beds, the escort and the walkers before the door. Still open:
-the comment in xOBSE issue 263.
+runner, the beds, the escort and the walkers before the door. The comment
+in xOBSE issue 263 comes only once 0.2.0 is published (Nadi, 2026-11-14),
+with the release link.
 
 Since v0.1.0 (2026-11-03), 158 commits. Draft changelog:
 - **New:**
