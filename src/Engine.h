@@ -158,5 +158,34 @@ inline void DirectModAV2(UInt32 actor, UInt32 av, int amount) {
 	                                                       static_cast<UInt32>(amount), 0);
 }
 
+// The engine's MoveTo (command 0x109E, its handler 0x00512870, objdump
+// 2026-11-14): after reading its arguments the handler only calls cdecl
+// 0x00512540(this, target, x, y, z) - the offsets from the target, 0 when
+// not given (the handler's fldz). The cell change and the move are that
+// call's; a console line "MoveTo" did the same after compiling a script.
+inline void DirectMoveTo(UInt32 ref, UInt32 target, float x, float y, float z) {
+	using MoveToFn = void(__cdecl*)(UInt32 ref, UInt32 target, float x, float y, float z);
+	reinterpret_cast<MoveToFn>(0x00512540)(ref, target, x, y, z);
+}
+
+// The engine's ModActorValue (command 0x1010, its handler 0x005017E0,
+// objdump 2026-11-14): the reference cast to an Actor (0x009832E6, as for
+// SetPos); then, as the byte at 0x00B361AC says, the actor's vtable +0x2A8
+// or +0x2A0 with (av, amount, 0). False: not an actor.
+inline bool DirectModAV(UInt32 ref, UInt32 av, int amount) {
+	using CastFn = void*(__cdecl*)(void* object, UInt32 vfDelta, void* from, void* to, UInt32 isReference);
+	void* const actor = reinterpret_cast<CastFn>(0x009832E6)(reinterpret_cast<void*>(ref), 0,
+	                                                         reinterpret_cast<void*>(0x00B03054),
+	                                                         reinterpret_cast<void*>(0x00B03070), 0);
+	if (actor == nullptr) {
+		return false;
+	}
+	const UInt32 slot = Read8(0x00B361AC) != 0 ? 0x2A8u : 0x2A0u;
+	using ModFn = void(__fastcall*)(void* self, void* edx, UInt32 av, UInt32 amount, UInt32 unk);
+	reinterpret_cast<ModFn>(Read(Read(reinterpret_cast<UInt32>(actor)) + slot))(actor, nullptr, av,
+	                                                                              static_cast<UInt32>(amount), 0);
+	return true;
+}
+
 }  // namespace engine
 }  // namespace walkers

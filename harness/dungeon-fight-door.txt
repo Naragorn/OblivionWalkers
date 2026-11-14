@@ -1,0 +1,73 @@
+# A siege fought before the door (docs/walkers-spec.md 4.20.7, step 6): a
+# look, not a test. tools/dungeon-walkers.sh fight-door sets [Dungeons]
+# TestSite=Fort Ash, TestSiteState=2, AttackWalkersMin/Max=10,
+# WalkersOutsidePercent=50: five walkers before the door, five inside with
+# eight refugees (the people and walkers from the runner's arguments).
+# - ready, near: the player (tgm, no tdetect - the walkers see him) 700 units
+#   south of the door, looking at it; o10, o25, o40: the eye pictures -
+#   whether those before the door rouse ("Slow aggression: walker ...
+#   roused") and come at him;
+# - inside: in Fort Ash for 40 s - whether the walkers inside and the
+#   refugees fight ("ended", "one of its people ... died");
+# - back: out again before the door - who of those outside is still there
+#   ("the pool at Fort Ash fills the ground before the door now"), and where.
+# Time stands (timescale 0): no toll of hours. Run through
+# tools/dungeon-walkers.sh fight-door.
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Debug EyeDump=1
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel -9 19
+console-at near player.moveto 00066266 -40 -700 0
+console-at near player.setangle z 0
+console-at c5 CloseAllMenus
+console-at o10 CloseAllMenus
+console-at inside coc FortAsh01
+console-at seen CloseAllMenus
+console-at i20 CloseAllMenus
+console-at back cow Tamriel -9 19
+console-at back2 player.moveto 00066266 -40 -700 0
+console-at back2 player.setangle z 0
+console-at b10 CloseAllMenus
+console-at b20 CloseAllMenus
+expect HandScript: finished
+reject HandScript: WARNING
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 14
+mark near
+wait 5
+mark c5
+wait 5
+mark o10
+wait 15
+mark o25
+wait 15
+mark o40
+wait 2
+mark inside
+wait 6
+mark seen
+wait 14
+mark i20
+wait 20
+mark i40
+wait 1
+mark back
+wait 10
+mark back2
+wait 10
+mark b10
+wait 10
+mark b20
+wait 10
+mark end
+wait 1

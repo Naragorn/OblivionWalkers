@@ -1,5 +1,6 @@
 #include "Rise.h"
 
+#include "ConsoleLogic.h"
 #include "Engine.h"
 #include "Grab.h"
 #include "Horde.h"
@@ -10,6 +11,7 @@
 #include "SoundLogic.h"
 #include "Pose.h"
 #include "QuestVars.h"
+#include "SamplerLogic.h"
 #include "SkillLogic.h"
 #include "TimingLogic.h"
 #include "Dungeons.h"
@@ -1208,34 +1210,204 @@ UInt32 CollectWalkersOn(UInt32* out, UInt32 most, UInt32 levels) {
 // A console line run by xOBSE with the reference as "this" (the proof of
 // 2026-10-23, rise-creature-proof.txt: PlaceAtMe, Disable, Kill,
 // RemoveAllItems all vanilla).
+// [Debug] SampleLine (SamplerLogic.h): a second thread that, while a console
+// line of that verb runs, stops the main thread every 200 us and counts its
+// instruction pointer and the return addresses on its stack.
+HANDLE g_sampleMain = nullptr;
+HANDLE g_sampleGo = nullptr;
+HANDLE g_sampleDone = nullptr;
+UInt32 g_sampleStackBase = 0;
+volatile LONG g_sampling = 0;
+SampleCounts g_sampleCounts;
+SampleCounts g_sampleLeaves;  // the instruction pointers alone: where the time is spent
+UInt32 g_sampleLogsLeft = 12;
+
+const UInt8* CodeBefore(UInt32 address) { return reinterpret_cast<const UInt8*>(address - 6); }
+
+void BusyWaitMicros(double micros) {
+	LARGE_INTEGER f;
+	LARGE_INTEGER a;
+	LARGE_INTEGER b;
+	QueryPerformanceFrequency(&f);
+	QueryPerformanceCounter(&a);
+	do {
+		YieldProcessor();
+		QueryPerformanceCounter(&b);
+	} while (static_cast<double>(b.QuadPart - a.QuadPart) * 1.0e6 / static_cast<double>(f.QuadPart) < micros);
+}
+
+DWORD WINAPI SampleThread(void*) {
+	static UInt32 stack[2048];
+	for (;;) {
+		WaitForSingleObject(g_sampleGo, INFINITE);
+		while (InterlockedCompareExchange(&g_sampling, 0, 0) != 0) {
+			if (SuspendThread(g_sampleMain) == static_cast<DWORD>(-1)) {
+				break;
+			}
+			CONTEXT ctx = {};
+			ctx.ContextFlags = CONTEXT_CONTROL;
+			UInt32 words = 0;
+			UInt32 eip = 0;
+			if (GetThreadContext(g_sampleMain, &ctx) && ctx.Esp != 0 && ctx.Esp < g_sampleStackBase) {
+				eip = ctx.Eip;
+				words = (g_sampleStackBase - ctx.Esp) / 4;
+				words = words < 2048 ? words : 2048;
+				std::memcpy(stack, reinterpret_cast<const void*>(ctx.Esp), words * 4);
+			}
+			ResumeThread(g_sampleMain);
+			if (eip != 0) {
+				CountSample(g_sampleCounts, eip, stack, words, CodeBefore);
+				CountAddress(g_sampleLeaves, eip);
+			}
+			BusyWaitMicros(200.0);
+		}
+		SetEvent(g_sampleDone);
+	}
+}
+
+// Whether `line` is of the verb sampled; the sampler made ready on the first.
+bool SampleWanted(const char* line) {
+	const char* verb = g_settings.sampleLine;
+	if (verb[0] == '\0' || line == nullptr) {
+		return false;
+	}
+	UInt32 n = 0;
+	for (; verb[n] != '\0'; ++n) {
+		const char a = line[n] >= 'A' && line[n] <= 'Z' ? static_cast<char>(line[n] + 32) : line[n];
+		const char b = verb[n] >= 'A' && verb[n] <= 'Z' ? static_cast<char>(verb[n] + 32) : verb[n];
+		if (a != b) {
+			return false;
+		}
+	}
+	if (line[n] != ' ' && line[n] != '\0') {
+		return false;
+	}
+	if (g_sampleMain == nullptr) {
+		if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &g_sampleMain,
+		                     THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, 0)) {
+			g_sampleMain = nullptr;
+			return false;
+		}
+		g_sampleStackBase = __readfsdword(0x04);  // the main thread's NT_TIB StackBase
+		g_sampleGo = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+		g_sampleDone = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+		HANDLE thread = CreateThread(nullptr, 0, SampleThread, nullptr, 0, nullptr);
+		if (thread == nullptr) {
+			return false;
+		}
+		CloseHandle(thread);
+	}
+	return true;
+}
+
+// The module and offset of an address outside Oblivion.exe, for the log.
+void ModuleOf(UInt32 address, char* out, UInt32 size) {
+	HMODULE module = nullptr;
+	char path[MAX_PATH] = {};
+	if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+	                        reinterpret_cast<LPCSTR>(address), &module) ||
+	    GetModuleFileNameA(module, path, sizeof(path)) == 0) {
+		std::snprintf(out, size, "?");
+		return;
+	}
+	const char* name = std::strrchr(path, '\\');
+	std::snprintf(out, size, "%s+%X", name != nullptr ? name + 1 : path,
+	              address - static_cast<UInt32>(reinterpret_cast<uintptr_t>(module)));
+}
+
+void LogSample(const char* line, UInt32 ref, double us) {
+	if (g_sampleLogsLeft == 0) {
+		return;
+	}
+	--g_sampleLogsLeft;
+	UInt32 top[40] = {};
+	UInt32 counts[40] = {};
+	const UInt32 n = TopAddresses(g_sampleCounts, top, counts, 40);
+	g_log("Sample: \"%s\" on %08X took %.0f us - %u samples, %u addresses (%u lost); seen most (in how many samples):",
+	      line, FormIdOf(ref), us, g_sampleCounts.samples, g_sampleCounts.used, g_sampleCounts.lost);
+	for (UInt32 k = 0; k < n; ++k) {
+		char where[MAX_PATH + 16] = "Oblivion.exe";
+		if (!InExeCode(top[k])) {
+			ModuleOf(top[k], where, sizeof(where));
+		}
+		g_log("Sample:   %08X %3u  %s", top[k], counts[k], where);
+	}
+	const UInt32 leaves = TopAddresses(g_sampleLeaves, top, counts, 20);
+	g_log("Sample: where it stood (the instruction pointer, %u places):", g_sampleLeaves.used);
+	for (UInt32 k = 0; k < leaves; ++k) {
+		char where[MAX_PATH + 16] = "Oblivion.exe";
+		if (!InExeCode(top[k])) {
+			ModuleOf(top[k], where, sizeof(where));
+		}
+		g_log("Sample:   %08X %3u  %s", top[k], counts[k], where);
+	}
+}
+
+// A line ConsoleLogic.h reads carried out by the engine's own calls: no
+// script compiled. False: a reference not found.
+bool RunDirect(UInt32 ref, const DirectLine& d) {
+	if (!LooksLikeObject(ref)) {
+		return false;
+	}
+	if (d.verb == DirectVerb::MoveTo) {
+		const UInt32 target = LookupForm(d.targetPlayer ? kPlayerRefId : d.target);
+		if (!LooksLikeObject(target)) {
+			return false;
+		}
+		engine::DirectMoveTo(ref, target, d.x, d.y, d.z);
+		return true;
+	}
+	return d.verb == DirectVerb::ModAV && engine::DirectModAV(ref, d.av, d.amount);
+}
+
 bool ConsoleOn(UInt32 ref, const char* line) {
-	if (g_console == nullptr) {
+	DirectLine direct;
+	const bool byEngine = ParseDirectLine(line, direct);
+	if (g_console == nullptr && !byEngine) {
 		return false;
 	}
 	if (!g_settings.stepTiming) {
-		return g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
+		return byEngine ? RunDirect(ref, direct) : g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
 	}
 	// Every console line timed (StepTiming): each is a script compiled and
 	// run - a part of whichever step sent it; a slow one logged with its text.
+	// The lines carried out by the engine's calls counted under their verb
+	// with ".direct".
+	const bool sample = !byEngine && SampleWanted(line);
+	if (sample) {
+		g_sampleCounts = SampleCounts{};
+		g_sampleLeaves = SampleCounts{};
+		InterlockedExchange(&g_sampling, 1);
+		SetEvent(g_sampleGo);
+	}
 	LARGE_INTEGER a;
 	LARGE_INTEGER b;
 	QueryPerformanceCounter(&a);
-	const bool done = g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
+	const bool done =
+	    byEngine ? RunDirect(ref, direct) : g_console->RunScriptLine2(line, reinterpret_cast<void*>(ref), true);
 	QueryPerformanceCounter(&b);
+	if (sample) {
+		InterlockedExchange(&g_sampling, 0);
+		WaitForSingleObject(g_sampleDone, 1000);
+	}
 	const unsigned long long ticks = static_cast<unsigned long long>(b.QuadPart - a.QuadPart);
 	NoteTiming(g_timing, 22, "console", ticks, true);
-	NoteConsoleVerb(line, ticks);
+	NoteConsoleVerb(byEngine ? (direct.verb == DirectVerb::MoveTo ? "MoveTo.direct" : "ModAV.direct") : line, ticks);
 	++g_consoleLines;
+	if (g_qpcFrequency == 0) {
+		LARGE_INTEGER f;
+		QueryPerformanceFrequency(&f);
+		g_qpcFrequency = static_cast<unsigned long long>(f.QuadPart);
+	}
+	const double us = TimingMicros(ticks, g_qpcFrequency);
+	if (sample) {
+		LogSample(line, ref, us);
+	}
 	if (g_slowConsoleLogsLeft > 0) {
-		if (g_qpcFrequency == 0) {
-			LARGE_INTEGER f;
-			QueryPerformanceFrequency(&f);
-			g_qpcFrequency = static_cast<unsigned long long>(f.QuadPart);
-		}
-		const double us = TimingMicros(ticks, g_qpcFrequency);
 		if (us >= 300.0) {
 			--g_slowConsoleLogsLeft;
-			g_log("Timing: console line \"%s\" on %08X took %.0f us", line, FormIdOf(ref), us);
+			g_log("Timing: %s line \"%s\" on %08X took %.0f us", byEngine ? "direct" : "console", line, FormIdOf(ref),
+			      us);
 		}
 	}
 	return done;
@@ -1912,7 +2084,6 @@ struct CalmClock {
 };
 CalmClock g_calmClocks[256];
 UInt32 g_rouseLogsLeft = 200;
-constexpr UInt32 kAvAggression = 33;  // xOBSE kActorVal_Aggression
 
 float& CalmFor(UInt32 refId) {
 	for (CalmClock& c : g_calmClocks) {

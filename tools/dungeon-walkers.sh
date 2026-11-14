@@ -17,6 +17,7 @@ case "$mode" in
 	siege-past) state=2; walkers=8; behead=0; scenario=dungeon-outside-past; site="Fort Ash" ;;
 	taken) state=4; walkers=8; behead=0; scenario=dungeon-walkers; site="Fort Ash" ;;
 	fight) state=2; walkers=10; behead=1; scenario=dungeon-fight; site="Fort Ash" ;;
+	fight-door) state=2; walkers=10; behead=1; scenario=dungeon-fight-door; site="Fort Ash" ;;
 	clear) state=3; walkers=8; behead=0; scenario=dungeon-clear; site="Echo Mine" ;;
 	talk) state=3; walkers=8; behead=0; scenario=dungeon-talk; site="Echo Mine" ;;
 	runner) state=2; walkers=8; behead=0; scenario=dungeon-runner; site="Fort Ash" ;;
@@ -25,12 +26,12 @@ case "$mode" in
 	notice) state=1; walkers=8; behead=0; scenario=dungeon-notice; site="Fort Ash" ;;
 	runner-dead) state=2; walkers=8; behead=0; scenario=dungeon-runner-dead; site="Fort Ash" ;;
 	beds) state=1; walkers=8; behead=0; scenario=dungeon-beds; site="Fort Ash" ;;
-	*) echo "mode: siege | siege-outside | siege-past | taken | fight | clear | talk | runner | runner-city | runner-dead | paper | notice | beds" >&2; exit 2 ;;
+	*) echo "mode: siege | siege-outside | siege-past | taken | fight | fight-door | clear | talk | runner | runner-city | runner-dead | paper | notice | beds" >&2; exit 2 ;;
 esac
-# fight only: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
+# fight, fight-door: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
 people="${2:-8}"
 if [[ "$mode" == "beds" ]]; then people=5; fi
-if [[ "$mode" == "fight" && -n "${3:-}" ]]; then walkers="$3"; fi
+if [[ "$mode" == fight* && -n "${3:-}" ]]; then walkers="$3"; fi
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
@@ -54,8 +55,9 @@ def put(text, section, key, value):
 
 for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"),
                    ("AttackWalkersMin", walkers), ("AttackWalkersMax", walkers), ("WalkersAtOnce", "6"),
-                   # a siege's walkers before the door only in their own runs
-                   ("WalkersOutsidePercent", "50" if mode in ("siege-outside", "siege-past") else "0"),
+                   # a siege's walkers before the door only in their own runs and the looks at a
+                   # fight (50, the shipped default)
+                   ("WalkersOutsidePercent", "50" if mode in ("siege-outside", "siege-past", "fight", "fight-door") else "0"),
                    ("PeopleMin", people), ("PeopleMax", people), ("Journal", "1"), ("Rumors", "1"),
                    # the test site alone: it is the news, and its quest the one told
                    # (runner-dead: a second place, besieged too - news for a second runner)
@@ -74,6 +76,8 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
     text = put(text, "Dungeons", key, value)
 text = put(text, "Zombies", "DieOnlyBeheaded", behead)
 text = put(text, "Debug", "StepTiming", "1")
+# the journal's SetStage looked inside (SamplerLogic.h): where its 20 to 40 ms go
+text = put(text, "Debug", "SampleLine", "SetStage")
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/$scenario.txt" --headless \
@@ -260,8 +264,15 @@ elif mode == "talk":
     check(len(news) >= 1 and "now 3" in news[0] and "Echo Mine" in news[0], "before he met them the place was news, a place to clear" + (f" ({news[0][10:]})" if news else ""))
     check(len(news) >= 2 and "now 0" in news[-1], "met: no news any more")
     print("  look  the picture at 'talked': the greeting and the two topics")
-elif mode == "fight":
+elif mode in ("fight", "fight-door"):
     died = [l for l in d if "one of its people" in l and "died" in l]
+    before = [l for l in d if re.search(r"walker \w+ before Fort Ash", l)]
+    out_ended = [l for l in d if "Fort Ash - walker" in l and "ended before the door" in l]
+    print(f"  look  before the door: {len(before)} placed, {len(out_ended)} ended there")
+    for l in [l for l in d if "the pool at Fort Ash fills" in l or "break in" in l][:8]:
+        print("  look  " + l[:200])
+    roused = [l for l in lines if l.startswith("Slow aggression: walker") and "roused" in l]
+    print(f"  look  walkers roused: {len(roused)}")
     print(f"  look  the pool: {len(pool)}, walkers into the place: {len(into)}, walkers ended: {len(ended)}, "
           f"people died: {len(died)}")
     for l in [l for l in d if " defended " in l or " overrun " in l or " held " in l]:
@@ -298,6 +309,8 @@ else:
 for l in d[2:44]:
     print("        " + l[:210])
 for l in [l for l in lines if l.startswith("Timing:   dungeons")][-8:]:
+    print("        " + l)
+for l in [l for l in lines if l.startswith("Sample:")][:45]:
     print("        " + l)
 sys.exit(1 if failures else 0)
 PY

@@ -199,6 +199,9 @@ struct RiseSettings {
 	// [Debug] TestLinkPage (INI only, a test switch; LinkLogic.h LinkPageTest):
 	// seconds after a load at which LINK's page of the plugin is shown, 0 never.
 	float testLinkPage = 0.0f;
+	// [Debug] SampleLine (INI only): the verb of the console lines looked
+	// inside (SamplerLogic.h), e.g. SetStage; empty: none. Needs StepTiming=1.
+	char sampleLine[24] = {};
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

@@ -3389,8 +3389,31 @@ Not looked at: a fight before the door fought by the game (the runs had
 tdetect on and the console's kills); what those outside do while the
 player is inside; a place whose spots before the door lie badly; coming
 out again with some left outside.
-Not measured: a siege's fight with three to six people (the fight look
-takes its counts now: `tools/dungeon-walkers.sh fight 5 12`).
+**fight-door** (harness/dungeon-fight-door.txt, ten walkers, eight people,
+WalkersOutsidePercent=50) 20261114-092649 - a look: five walkers placed
+before the door; the player 700 units south of it (tgm, no tdetect): all
+five roused on him within 5.2 to 9.3 s and came at him (eye picture o25:
+two at arm's length); inside, the eight people ended the five inside
+(none of them died); "nobody left inside: the 5 before the door break in",
+those five came in by the door and were ended too - "defended", the
+reward, stage 50. Back outside: nobody left before the door.
+**fight 5 12** 20261114-093059 - a look at a fight with five people and
+twelve walkers (six before the door): the six inside ended, the six
+outside broke in and were ended, no person died, "defended".
+Not looked at: a fight before the door that ends some there (the player
+fought nobody); a place whose spots before the door lie badly.
+The journal's 20 to 44 ms frame, looked inside ([Debug] SampleLine=SetStage,
+SamplerLogic.h: the main thread sampled every 200 us while the line ran):
+"SetStage WalkersDungeon024 20" 44 and 43 ms, 148 and 144 samples; where
+the thread stood: in d3dx9_27.dll (about a third of the samples), msvcrt,
+ntdll and Oblivion.exe 0x007450xx/0x007453xx; on its stack the CRT's
+__read_nolock (0x00998F76, file reads, 23 samples). The stage's own
+script is empty and the quest's icon is the vanilla
+Quest\icon_miscellaneous.dds: the time is the engine's - textures made by
+D3DX and files read while the quest is told - derived: the engine's
+"quest added" display (not read off the code). Stage 50 (completed): 6 to 7
+ms, no D3DX. Not Walkers' to cut (every vanilla quest started does the
+same, not measured); handed to OBNG as an engine candidate (2026-11-14).
 Open: a living thing the player cannot reach (a slaughterfish, a
 rat behind a wall) keeps a place from being cleared - the log names
 nothing yet; the refugees win a siege of ten walkers without the player
@@ -4468,5 +4491,10 @@ steps that do almost nothing (the dungeons' once a second) look like the
 thread being preempted under Wine - not shown, not chased. Left: the horde
 markers' MoveTo (they change cell - SetPos would not) ~300-400 us each a
 few times a minute, the horde's AddScriptPackage, the slow aggression's
-ModAV and StartCombat (a walker roused). Not heard in the harness: whether
+ModAV and StartCombat (a walker roused). 2026-11-14: MoveTo and ModAV by
+the engine's own calls (ConsoleLogic.h, Engine.h DirectMoveTo/DirectModAV):
+MoveTo 3 us a line where the console's was ~206 us, 126 to 280 us a line
+for those into another cell (the move itself); ModAV 2 us (console ~80).
+StartCombat (80 to 135 us a line) and AddScriptPackage (~29 us) stay
+console lines - their handlers do much more than one call. Not heard in the harness: whether
 the shock sound sounds - the log only says the engine made it.
