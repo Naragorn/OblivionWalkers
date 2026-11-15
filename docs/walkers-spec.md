@@ -4794,6 +4794,22 @@ Building B:
 4.17 waits for OBVR's decapitation (Nadi, 2026-10-26: "4.17 erst wenn obvr
 decapitation kann") - not even the power-attack rule before it.
 
+### 8a. Ports to other games (Nadi, 2026-11-15; planned, not started)
+
+The walkers' part of the mod (the zombies - not the Daedra of 4.22) is to
+be ported to other Bethesda games some day, in this order:
+
+1. **Fallout 4 - next.**
+2. **Fallout: New Vegas**, played as **Tale of Two Wastelands** (TTW: Fallout
+   3 and New Vegas in New Vegas's engine) - one port for both.
+3. **Fallout 3** on its own - at the very end, maybe.
+
+Nothing is decided about how: which plugin loader each game has (F4SE,
+xNVSE), which of the process-free logic units (`*Logic.h`) carry over as they
+are and which engine reads must be found again per game, and what replaces
+LINK there - each to be read off the game before its port is planned, with
+its cost.
+
 ## 9. Sources
 
 - Zombie Walkers: Nexus 20485 (description and 1700 of the 2480 comments,
