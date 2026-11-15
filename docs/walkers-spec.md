@@ -1806,13 +1806,17 @@ living walker killed at the next tick; StepHeads).
   walker, damage of its whole base health (GetBaseActorValue 0x005F1910,
   health 8) or more ends it. Note: with HealthPercent=15 a walker's health
   is small (20 in the guards' log line), so most damage spells will do it -
-  to be seen in play.
+  to be seen in play. `OverkillPercent=100` (2026-11-15, 10 to 500): the
+  share of the base health one hit must take; the records' 80 at
+  HealthPercent 15 is 12, so 100 ends a walker at a 12 point spell already
+  - above 100 asks a bigger one. The default stays 100, the behaviour
+  before it.
 - **B, fire** (OnMagicEffectHit, 'FIDG'): a walker dying within
   `FireSeconds` of a fire damage hit burns and stays down (at its death
   watch). A fire spell's damage over time longer than FireSeconds is not
   covered.
-- Not in LINK yet (INI only) - a LINK version and the ESP anew, with the
-  next LINK change.
+- In LINK since 2026-11-15 (version 41, header "Only a lost head ends a
+  walker - shots, spells and fire"): all seven.
 - Tests: `HeadshotLogicTest` (head bones, each projectile once, the bolt's
   radius, overkill and the spell's window, burning and the clock's wrap).
   Not run in the game: whether the arrow's collision data is set when OnHit
@@ -3963,6 +3967,21 @@ roster line's counts.
   combat" every 10 s with the player within 4000 units (20 looks a
   session). Next: that line from Nadi's next sighting; then a leash
   (small to medium) if they wander.
+  **Leash BUILT 2026-11-15, not run in the game** (Nadi: go before the
+  log's proof). The cause in the data, read: both camp-life packages are
+  near the CURRENT location (TWander 600 units, aaaSleepCurrent22x8 -
+  esp-write.py WANDER_TEMPLATE, SLEEP_TEMPLATE), so one drawn off stays
+  where it stopped. A package near the camp would need one per kit, but
+  the four kits share their bases (one per outfit) - so `[Survivors]
+  LeashUnits=1500` (0 off, LINK "Camps: lead strays home"): once a second a
+  living camp's shown, living refugee out of combat more than LeashUnits
+  from its spot is put on it as the kit's setting up does (MoveTo the
+  camp's marker plus the spot, SetAngle, EvaluatePackage), only while
+  neither it nor its spot is within 4000 units of the player
+  (`kLeashUnseenUnits`, the corpses' distance) - none moves before his
+  eyes; the player indoors: nothing. `LeashDue`, CampLogicTest TestLeash.
+  Log: "Camps: camp NN ... led home" (40 a session). Not run: a stray
+  brought back in the game.
 - **BUILT 2026-11-14, not run in the game - ended walkers' bodies lay for
   good** (Nadi: "viele walker leichen ... liegen ewig, kostet
   performance"; "go A + B"). `[Corpses]` (CorpseLogic.h): once a second
@@ -3973,7 +3992,8 @@ roster line's counts.
   the count of those lying. Placed spawns are left to their cell's reset,
   the pools' walkers to their pools. Not measured: whether dead walkers stay
   on the process lists (the count line will say), the frame cost of the
-  bodies.
+  bodies. In LINK since 2026-11-15 (version 41, "Ended walkers' bodies"):
+  Enabled and the two distances; `LogSeconds` stays INI only (a log's).
 
 - **FIX BUILT 2026-11-14, not reproduced at will - the game ended when the
   runner was taken away with his dialogue open** (harness camp-escort
@@ -4788,6 +4808,16 @@ decapitation kann") - not even the power-attack rule before it.
 
 
 ### Performance (Nadi, 2026-11-13: "baust du walkers extrem performant")
+
+**Not built 2026-11-15 - a cap on the walkers' sounds.** OBNG's knowledge
+(`../OBNG/knowledge/voice-lines.md`, 2026-11-14) answers it: the wait was
+Wine's DirectSound under Proton (its mixer's lock), Linux only; under the
+Walkers build with the corpses taken away it fell to 2.5 % of the samples,
+and DSOAL took it to 0.0 % without changing the mean. On Windows the
+buffers' making is 0.12 ms a frame; the sound update's cost is the
+listener's commit (0.96 ms), which a cap on started sounds does not touch.
+Walkers' own sounds are few (the get-up groan, the grab's sting); the
+crowd's are the engine's. A cap would buy nothing measured.
 
 Measured with `[Debug] StepTiming=1` (TimingLogic.h: each step of the tick
 timed by the QueryPerformanceCounter, every console line by its verb) and

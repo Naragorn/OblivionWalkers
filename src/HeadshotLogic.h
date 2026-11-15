@@ -21,7 +21,8 @@ struct HeadshotSettings {
 	bool arrows = true;          // Arrows: an arrow in the head or neck ends a walker
 	bool bolts = true;           // Bolts: a spell bolt at the head ends it
 	float headRadius = 30.0f;    // HeadRadius: units from the head bone a bolt counts within
-	bool overkill = true;        // Overkill: a spell hit of its whole health ends it
+	bool overkill = true;        // Overkill: a spell hit of OverkillPercent of its health ends it
+	float overkillPercent = 100.0f;  // OverkillPercent: of its base health, in one hit (100: the whole)
 	bool fire = true;            // Fire: a walker dying burning ends
 	float fireSeconds = 6.0f;    // FireSeconds: how long after a fire hit it still burns
 };
@@ -84,8 +85,15 @@ inline bool BoltAtHead(float dx, float dy, float dz, float radius) {
 	return radius > 0.0f && dx * dx + dy * dy + dz * dz <= radius * radius;
 }
 
-// A hit that takes the whole health at once; no base health known: none.
-inline bool Overkill(float damage, float baseHealth) { return baseHealth > 0.0f && damage >= baseHealth; }
+// A hit that takes `percent` of the base health at once - above 100 more
+// than the whole; 0 or below never (not every hit); no base health known:
+// none. 2026-11-15: a walker's base health is small - the records' 80 at
+// HealthPercent 15 is 12 (4.5) - so 100 already ends one at a 12 point
+// spell; above 100 asks a bigger spell.
+inline bool Overkill(float damage, float baseHealth, float percent = 100.0f) {
+	const float share = percent / 100.0f;
+	return baseHealth > 0.0f && share > 0.0f && damage >= baseHealth * share;
+}
 
 // Recent hits of one kind (fire, magic) by reference, with their time.
 inline constexpr UInt32 kHitNotesMost = 32;
@@ -136,7 +144,8 @@ inline constexpr UInt32 kSpellDamageWindowMs = 500;
 
 inline bool SpellOverkill(const HeadshotSettings& s, const HitNotes& magic, UInt32 id, UInt32 nowMs, float damage,
                           float baseHealth) {
-	return s.overkill && HitWithin(magic, id, nowMs, kSpellDamageWindowMs) && Overkill(damage, baseHealth);
+	return s.overkill && HitWithin(magic, id, nowMs, kSpellDamageWindowMs) &&
+	       Overkill(damage, baseHealth, s.overkillPercent);
 }
 
 }  // namespace walkers

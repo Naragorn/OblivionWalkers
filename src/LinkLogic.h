@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 40.0;  // 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 41.0;  // 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -93,6 +93,9 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 57, "Hordes - waiting out of sight"},
 	{68 + kReplaceCategoryCount + 60, "Walkers - slow aggression, calm again"},
 	{68 + kReplaceCategoryCount + 61, "Refugee dungeons"},
+	{68 + kReplaceCategoryCount + 84, "Only a lost head ends a walker - shots, spells and fire"},
+	{68 + kReplaceCategoryCount + 91, "Ended walkers' bodies"},
+	{68 + kReplaceCategoryCount + 94, "Survivors' camps - home"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -450,6 +453,39 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_dungeons_outside", "Dungeons: walkers before the door",
 	 "Of a siege's walkers, how many stand before the dungeon's door; the others are inside. 0: all inside.",
 	 LinkKind::Slider, 0, 100, 10, 0, true, LinkEffect::Live},
+	{"ini_headshot_arrows", "Arrows in the head",
+	 "An arrow stuck in a walker's head or neck ends it, whoever shot it. With Only a lost head ends a walker.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_headshot_bolts", "Spell bolts at the head",
+	 "A spell bolt that lands at a walker's head ends it, whoever cast it.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_headshot_radius", "Head radius",
+	 "How near the head a spell bolt must land (units).",
+	 LinkKind::Slider, 10, 80, 5, 0, false, LinkEffect::Live},
+	{"ini_headshot_overkill", "Overkill",
+	 "A spell that takes a big share of a walker's health in one hit ends it.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_headshot_overkill_percent", "Overkill: share of health",
+	 "How much of a walker's health one spell hit must take to end it, in percent; above 100 more than its whole health.",
+	 LinkKind::Slider, 10, 500, 10, 0, true, LinkEffect::Live},
+	{"ini_headshot_fire", "Fire",
+	 "A walker that dies burning stays down.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_headshot_fire_seconds", "Fire: seconds burning",
+	 "How long after a fire hit a walker still counts as burning.",
+	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_corpses_enabled", "Take ended bodies away",
+	 "Bodies of walkers that stay down are taken out of the world once you are far away - none before your eyes.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_corpses_units", "Bodies: taken away at",
+	 "How far you must be from a body before it goes (units, 4000 is some 57 m).",
+	 LinkKind::Slider, 1000, 20000, 500, 0, false, LinkEffect::Live},
+	{"ini_corpses_loot_units", "Bodies with things: taken away at",
+	 "The same for a risen walker that carries the dead one's things (units).",
+	 LinkKind::Slider, 1000, 30000, 500, 0, false, LinkEffect::Live},
+	{"ini_camps_leash", "Camps: lead strays home",
+	 "A refugee farther than this from the camp is put back there while you cannot see it or the camp (units). 0: never.",
+	 LinkKind::Slider, 0, 5000, 100, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -622,6 +658,17 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 194: return rise.dungeons.messengerHours;
 		case 195: return rise.dungeons.beds;
 		case 196: return rise.dungeons.walkersOutsidePercent;
+		case 197: return rise.headshots.arrows ? 1.0 : 0.0;
+		case 198: return rise.headshots.bolts ? 1.0 : 0.0;
+		case 199: return LinkScaled(rise.headshots.headRadius, 1.0);
+		case 200: return rise.headshots.overkill ? 1.0 : 0.0;
+		case 201: return LinkScaled(rise.headshots.overkillPercent, 1.0);
+		case 202: return rise.headshots.fire ? 1.0 : 0.0;
+		case 203: return LinkScaled(rise.headshots.fireSeconds, 1.0);
+		case 204: return rise.corpses.enabled ? 1.0 : 0.0;
+		case 205: return LinkScaled(rise.corpses.units, 1.0);
+		case 206: return LinkScaled(rise.corpses.lootUnits, 1.0);
+		case 207: return LinkScaled(rise.camps.leashUnits, 1.0);
 		default: return 0.0;
 	}
 }
@@ -805,6 +852,17 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 194: rise.dungeons.messengerHours = static_cast<float>(whole); break;
 		case 195: rise.dungeons.beds = whole; break;
 		case 196: rise.dungeons.walkersOutsidePercent = whole; break;
+		case 197: rise.headshots.arrows = on; break;
+		case 198: rise.headshots.bolts = on; break;
+		case 199: rise.headshots.headRadius = fraction; break;
+		case 200: rise.headshots.overkill = on; break;
+		case 201: rise.headshots.overkillPercent = fraction; break;
+		case 202: rise.headshots.fire = on; break;
+		case 203: rise.headshots.fireSeconds = fraction; break;
+		case 204: rise.corpses.enabled = on; break;
+		case 205: rise.corpses.units = fraction; break;
+		case 206: rise.corpses.lootUnits = fraction; break;
+		case 207: rise.camps.leashUnits = fraction; break;
 		default: return false;
 	}
 	return true;

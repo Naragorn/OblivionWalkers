@@ -1184,10 +1184,69 @@ void LookAtKit(UInt32 kit, UInt32 i, float distance) {
 	}
 }
 
+// The leash (CampLogic.h LeashDue, 2026-11-15): a living camp's refugee
+// strayed past LeashUnits put back on its spot, as SetUpKit puts it there,
+// once neither it nor its spot is in the player's sight. Once a second over
+// the kits' people at most - a read of each one's place, the combat asked
+// only of a stray.
+UInt32 g_leashLogged = 0;
+
+void LeashKit(UInt32 kit, UInt32 i, float px, float py) {
+	const Camp& c = g_state.camps[i];
+	if (g_settings->leashUnits <= 0.0f || c.status != CampStatus::Living || InCity(i)) {
+		return;
+	}
+	const CampCandidate& place = Place(i);
+	for (UInt32 slot = 0; slot < kCampSlots; ++slot) {
+		const UInt32 ref = Esp(KitPersonLocalId(kit, slot));
+		if (!LooksLikeObject(ref)) {
+			continue;
+		}
+		const UInt32 cell = Read(ref + kRefParentCellOffset);
+		LeashFacts f;
+		f.shown = (Read(ref + 0x08) & 0x00000800) == 0;
+		f.alive = g_dead == nullptr || !g_dead(ref);
+		const CampSpot& at = place.people[slot];
+		const float x = FloatAt(ref + kRefPositionOffset);
+		const float y = FloatAt(ref + kRefPositionOffset + 4);
+		f.offSpot = std::sqrt((x - at.x) * (x - at.x) + (y - at.y) * (y - at.y));
+		if (LooksLikeObject(cell) && (Read8(cell + kCellFlagsOffset) & 1) == 0) {
+			f.playerToPerson = std::sqrt((x - px) * (x - px) + (y - py) * (y - py));
+		}
+		f.playerToSpot = std::sqrt((at.x - px) * (at.x - px) + (at.y - py) * (at.y - py));
+		if (!LeashDue(*g_settings, c.status, f)) {
+			continue;
+		}
+		f.inCombat = ActorInCombat(FormIdOf(ref));
+		if (!LeashDue(*g_settings, c.status, f)) {
+			continue;
+		}
+		char line[96];
+		std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", MarkerId(i), at.x - place.x, at.y - place.y,
+		              at.z - place.z);
+		Say(ref, line);
+		SayF(ref, "SetAngle z %.2f", at.rz * kRadToDeg);
+		Say(ref, "EvaluatePackage");
+		if (g_leashLogged < 40) {
+			++g_leashLogged;
+			g_log("Camps: camp %02u %s slot %u (%08X) %.0f from its spot, you %.0f off it - led home (LeashUnits %.0f)", i,
+			      Name(i), slot, FormIdOf(ref), f.offSpot, f.playerToPerson, g_settings->leashUnits);
+		}
+	}
+}
+
 void StepKits(const float* distance) {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	const bool playerKnown = LooksLikeObject(player);
+	const float px = playerKnown ? FloatAt(player + kRefPositionOffset) : 0.0f;
+	const float py = playerKnown ? FloatAt(player + kRefPositionOffset + 4) : 0.0f;
 	for (UInt32 k = 0; k < kCampKits; ++k) {
 		if (g_kitCamp[k] >= 0) {
 			LookAtKit(k, static_cast<UInt32>(g_kitCamp[k]), distance[g_kitCamp[k]]);
+			// The player's distance known: outdoors in Tamriel.
+			if (playerKnown && distance[g_kitCamp[k]] >= 0.0f) {
+				LeashKit(k, static_cast<UInt32>(g_kitCamp[k]), px, py);
+			}
 		}
 	}
 	bool moved[kCampKits];

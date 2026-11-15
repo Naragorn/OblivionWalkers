@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 197,
-	      "197 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent - every INI setting but Name, CampSpacingUnits, "
+	Check(kLinkSettingCount == 208,
+	      "208 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits - every INI setting but Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 40\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 41\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -624,6 +624,44 @@ void TestSliders() {
 	      "the grab's 66 stays 66; a value between two positions is cut to the lower one (LINK's own way)");
 }
 
+void TestHeadshotsCorpsesLeash() {
+	std::printf("The headshots, the corpses and the camps' leash in LINK (2026-11-15)\n");
+	walkers::RiseSettings rise;
+	walkers::ReplaceSettings replace;
+	const int arrows = IndexOf("ini_headshot_arrows");
+	const int percent = IndexOf("ini_headshot_overkill_percent");
+	const int fireSeconds = IndexOf("ini_headshot_fire_seconds");
+	const int corpses = IndexOf("ini_corpses_enabled");
+	const int units = IndexOf("ini_corpses_units");
+	const int leash = IndexOf("ini_camps_leash");
+	Check(arrows == 197 && IndexOf("ini_headshot_bolts") == 198 && IndexOf("ini_headshot_radius") == 199 &&
+	          IndexOf("ini_headshot_overkill") == 200 && percent == 201 && IndexOf("ini_headshot_fire") == 202 &&
+	          fireSeconds == 203 && corpses == 204 && units == 205 && IndexOf("ini_corpses_loot_units") == 206 &&
+	          leash == 207,
+	      "eleven new at the table's end, 197 to 207, so a save's older variables keep their places");
+	Check(walkers::LinkValue(rise, replace, arrows) == 1.0 && walkers::LinkValue(rise, replace, 199) == 30.0 &&
+	          walkers::LinkValue(rise, replace, percent) == 100.0 && walkers::LinkValue(rise, replace, fireSeconds) == 6.0 &&
+	          walkers::LinkValue(rise, replace, corpses) == 1.0 && walkers::LinkValue(rise, replace, units) == 4000.0 &&
+	          walkers::LinkValue(rise, replace, 206) == 8000.0 && walkers::LinkValue(rise, replace, leash) == 1500.0,
+	      "read off the INI's defaults: on, radius 30, overkill 100 %, fire 6 s, bodies at 4000 and 8000, leash 1500");
+	Check(walkers::SetLinkValue(rise, replace, arrows, 0.0) && !rise.headshots.arrows &&
+	          walkers::SetLinkValue(rise, replace, percent, 200.0) && rise.headshots.overkillPercent == 200.0f &&
+	          walkers::SetLinkValue(rise, replace, fireSeconds, 10.0) && rise.headshots.fireSeconds == 10.0f &&
+	          walkers::SetLinkValue(rise, replace, corpses, 0.0) && !rise.corpses.enabled &&
+	          walkers::SetLinkValue(rise, replace, units, 6000.0) && rise.corpses.units == 6000.0f &&
+	          walkers::SetLinkValue(rise, replace, leash, 0.0) && rise.camps.leashUnits == 0.0f,
+	      "set from the menu: arrows off, overkill 200 %, fire 10 s, bodies kept, taken at 6000, the leash off");
+	Check(walkers::SetLinkValue(rise, replace, percent, 5.0) && rise.headshots.overkillPercent == 10.0f &&
+	          walkers::SetLinkValue(rise, replace, percent, 900.0) && rise.headshots.overkillPercent == 500.0f,
+	      "the overkill held to 10..500 - never every hit");
+	Check(walkers::kLinkVersion == 41.0, "the version 41: a save of 40 takes the INI's values again");
+	bool live = true;
+	for (UInt32 i = 197; i <= 207; ++i) {
+		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
+	}
+	Check(live, "all read where they are used: live");
+}
+
 void TestPageTest() {
 	std::printf("The test switch that opens LINK's page\n");
 	using walkers::LinkPageDoes;
@@ -652,6 +690,7 @@ int main() {
 	TestFiles();
 	TestSliders();
 	TestPageTest();
+	TestHeadshotsCorpsesLeash();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

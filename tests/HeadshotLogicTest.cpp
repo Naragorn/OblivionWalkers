@@ -57,12 +57,25 @@ void TestOverkill() {
 	Check(Overkill(40.0f, 40.0f) && Overkill(100.0f, 40.0f), "the whole health or more at once");
 	Check(!Overkill(39.0f, 40.0f), "less than the whole health: no");
 	Check(!Overkill(50.0f, 0.0f) && !Overkill(50.0f, -1.0f), "no base health known: no");
+	Check(Overkill(20.0f, 40.0f, 50.0f) && !Overkill(19.0f, 40.0f, 50.0f),
+	      "OverkillPercent 50: half its health at once ends it, less does not");
+	Check(Overkill(40.0f, 40.0f, 100.0f) && !Overkill(39.0f, 40.0f, 100.0f), "OverkillPercent 100: its whole health");
+	Check(!Overkill(1000.0f, 40.0f, 0.0f) && !Overkill(1000.0f, 40.0f, -5.0f),
+	      "OverkillPercent 0 or below: never, not every hit");
+	Check(Overkill(100.0f, 40.0f, 250.0f) && !Overkill(99.0f, 40.0f, 250.0f),
+	      "OverkillPercent 250: two and a half times its health - a bigger spell for the small walkers");
 	HeadshotSettings s;
+	Check(s.overkillPercent == 100.0f, "the default: its whole health, as before (2026-11-15)");
+	Check(SpellOverkill(s, HitNotes{}, 7, 1200, 50.0f, 40.0f) == false, "no magic effect landed: a blow's");
+	s.overkillPercent = 100.0f;
 	HitNotes magic;
 	NoteHit(magic, 7, 1000);
 	Check(SpellOverkill(s, magic, 7, 1200, 50.0f, 40.0f), "a magic effect landed 200 ms before the damage: a spell's");
 	Check(!SpellOverkill(s, magic, 7, 1600, 50.0f, 40.0f), "600 ms after: a blow's, not a spell's");
 	Check(!SpellOverkill(s, magic, 8, 1200, 50.0f, 40.0f), "another actor's magic: no");
+	Check(!SpellOverkill(s, magic, 7, 1200, 39.0f, 40.0f), "OverkillPercent 100: 39 of 40 is not enough");
+	s.overkillPercent = 50.0f;
+	Check(SpellOverkill(s, magic, 7, 1200, 20.0f, 40.0f), "OverkillPercent 50: 20 of 40 is");
 	s.overkill = false;
 	Check(!SpellOverkill(s, magic, 7, 1200, 50.0f, 40.0f), "Overkill=0: off");
 }

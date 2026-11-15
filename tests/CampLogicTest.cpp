@@ -444,6 +444,53 @@ void TestKits() {
 }
 
 
+void TestLeash() {
+	std::printf("The leash: a camp's people led home unseen\n");
+	walkers::CampSettings s;
+	Check(s.leashUnits == 1500.0f, "LeashUnits 1500 by default");
+	walkers::LeashFacts f;
+	f.alive = true;
+	f.shown = true;
+	f.offSpot = 3000.0f;
+	f.playerToPerson = 6000.0f;
+	f.playerToSpot = 6000.0f;
+	using walkers::CampStatus;
+	using walkers::LeashDue;
+	Check(LeashDue(s, CampStatus::Living, f), "3000 off its spot, the player 6000 off both: led home");
+	f.offSpot = 1500.0f;
+	Check(!LeashDue(s, CampStatus::Living, f), "just at LeashUnits: stays (wandering about its spot is camp life)");
+	f.offSpot = 3000.0f;
+	f.playerToPerson = walkers::kLeashUnseenUnits;
+	Check(!LeashDue(s, CampStatus::Living, f), "the player within sight of the person: not before his eyes");
+	f.playerToPerson = 6000.0f;
+	f.playerToSpot = 2000.0f;
+	Check(!LeashDue(s, CampStatus::Living, f), "the player within sight of its spot: none appears there");
+	f.playerToSpot = -1.0f;
+	Check(!LeashDue(s, CampStatus::Living, f), "where the player is not known (indoors, no distance): left");
+	f.playerToSpot = 6000.0f;
+	f.playerToPerson = -1.0f;
+	Check(!LeashDue(s, CampStatus::Living, f), "where the person is not known: left");
+	f.playerToPerson = 6000.0f;
+	f.inCombat = true;
+	Check(!LeashDue(s, CampStatus::Living, f), "fighting: left to fight");
+	f.inCombat = false;
+	f.alive = false;
+	Check(!LeashDue(s, CampStatus::Living, f), "dead: the rise's");
+	f.alive = true;
+	f.shown = false;
+	Check(!LeashDue(s, CampStatus::Living, f), "disabled: not out");
+	f.shown = true;
+	Check(!LeashDue(s, CampStatus::Attacked, f) && !LeashDue(s, CampStatus::Escort, f) &&
+	          !LeashDue(s, CampStatus::Gone, f) && !LeashDue(s, CampStatus::Overrun, f) &&
+	          !LeashDue(s, CampStatus::Left, f),
+	      "only a living camp's: an attack, an escort, a city, an overrun or empty camp are not");
+	s.leashUnits = 0.0f;
+	Check(!LeashDue(s, CampStatus::Living, f), "LeashUnits 0: off");
+	s.leashUnits = 1500.0f;
+	s.enabled = false;
+	Check(!LeashDue(s, CampStatus::Living, f), "the camps off: nothing");
+}
+
 void TestThings() {
 	std::printf("The things reward: a pick off a leveled list\n");
 	const UInt16 levels[] = {1, 1, 3, 6, 9, 12, 16, 20};
@@ -628,6 +675,7 @@ void TestNearestGate() {
 }  // namespace
 
 int main() {
+	TestLeash();
 	TestRoster();
 	TestDays();
 	TestBegin();

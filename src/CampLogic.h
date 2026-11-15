@@ -206,6 +206,10 @@ struct CampSettings {
 	// EscortFollowSeconds (INI only): the follow package sent again this
 	// often while on the way; 0 only at the start and after a load.
 	float escortFollowSeconds = 5.0f;
+	// LeashUnits (2026-11-15; spec 4.20.6, the people not at their camp): a
+	// living camp's refugee farther than this from its spot is led home, out
+	// of the player's sight (LeashDue); 0 off.
+	float leashUnits = 1500.0f;
 };
 
 // Escort: its refugees on the way to a city; Gone: there, for
@@ -334,6 +338,31 @@ UInt32 RollCampPlaces(CampsState& st, const CampSettings& s, const CampCandidate
 	}
 	st = best;
 	return bestPlaced;
+}
+
+// The leash (2026-11-15). The refugees' camp life is the ESP's two packages
+// on their bases, both near the CURRENT location (TWander 600 units,
+// aaaSleepCurrent22x8; tools/esp-write.py WANDER_TEMPLATE, SLEEP_TEMPLATE):
+// one drawn off by a fight wanders and sleeps where the fight ended, and
+// nothing brought it back (Nadi's camp on the road to Kvatch, 2026-11-14).
+// A package near the camp would need one per kit, but the kits share their
+// bases - so the plugin puts one that strayed back on its spot, as the kit's
+// setting up does, once neither it nor its spot is in the player's sight;
+// its packages then start from there again.
+inline constexpr float kLeashUnseenUnits = 4000.0f;  // the corpses' CorpseUnits: out of sight
+
+struct LeashFacts {
+	bool alive = false;
+	bool shown = false;           // enabled
+	bool inCombat = false;
+	float offSpot = 0.0f;         // from its spot
+	float playerToPerson = -1.0f; // -1 not known
+	float playerToSpot = -1.0f;   // -1 not known
+};
+
+inline bool LeashDue(const CampSettings& s, CampStatus status, const LeashFacts& f) {
+	return s.enabled && s.leashUnits > 0.0f && status == CampStatus::Living && f.alive && f.shown && !f.inCombat &&
+	       f.offSpot > s.leashUnits && f.playerToPerson > kLeashUnseenUnits && f.playerToSpot > kLeashUnseenUnits;
 }
 
 // The kits (kCampKits, each a camp's people and props): `kitCamp[k]` the camp

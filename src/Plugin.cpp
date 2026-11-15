@@ -232,6 +232,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.headshots.bolts = GetPrivateProfileIntA("Headshots", "Bolts", 1, path) != 0;
 	rise.headshots.headRadius = IniFloat("Headshots", "HeadRadius", 30.0f, path);
 	rise.headshots.overkill = GetPrivateProfileIntA("Headshots", "Overkill", 1, path) != 0;
+	rise.headshots.overkillPercent = std::min(500.0f, std::max(10.0f, IniFloat("Headshots", "OverkillPercent", 100.0f, path)));
 	rise.headshots.fire = GetPrivateProfileIntA("Headshots", "Fire", 1, path) != 0;
 	rise.headshots.fireSeconds = IniFloat("Headshots", "FireSeconds", 6.0f, path);
 	rise.corpses.enabled = GetPrivateProfileIntA("Corpses", "Enabled", 1, path) != 0;
@@ -338,6 +339,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.escortBehindUnits = static_cast<float>(whole("EscortBehindUnits", 5000, 500, 100000));
 	camps.escortStayDays = static_cast<float>(whole("EscortStayDays", 7, 1, 365));
 	camps.escortIntoCity = GetPrivateProfileIntA("Survivors", "EscortIntoCity", 1, path) != 0;
+	camps.leashUnits = std::max(0.0f, IniFloat("Survivors", "LeashUnits", 1500.0f, path));
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
 	rise.disguise.enabled = GetPrivateProfileIntA("Disguise", "Enabled", 1, path) != 0;
 	rise.disguise.seconds = std::max(1.0f, IniFloat("Disguise", "Seconds", 180.0f, path));
