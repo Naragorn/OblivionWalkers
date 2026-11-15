@@ -5,7 +5,9 @@
 // both", decided the same day; built 2026-11-15, not wired in yet).
 //
 // `[Invaders] Kind` says which groups are in play: 0 the walkers as they
-// are, 1 the Daedra in their place, 2 both. Each group keeps or drops the
+// are, 1 the Daedra in their place, 2 both at war with each other, 3 both
+// as allies (Nadi, 2026-11-15: walkers and Daedra friends, the fallen rise
+// as walkers). Each group keeps or drops the
 // walkers' rules as 4.22's table has them; every "is a walker" test of the
 // plugin will ask RulesOf for its group instead of taking the walkers' rules
 // for granted. Nothing here touches the game: Rise.cpp, Grab.cpp and the
@@ -18,7 +20,7 @@
 
 namespace walkers {
 
-enum class InvaderKind : UInt8 { Walkers = 0, Daedra = 1, Both = 2 };
+enum class InvaderKind : UInt8 { Walkers = 0, Daedra = 1, Both = 2, Allied = 3 };
 enum class Group : UInt8 { Walker, Daedra };
 
 // [Invaders] in OblivionWalkers.ini.
@@ -28,11 +30,23 @@ struct InvaderSettings {
 	bool summons = false;                      // Summons: the summoners keep their summons (idea 11, off)
 };
 
-// The INI's number; anything but 1 and 2 is the walkers - as without the
-// switch.
+// The INI's number; anything but 1, 2 and 3 is the walkers - as without
+// the switch.
 inline InvaderKind KindFromIni(int value) {
-	return value == 1 ? InvaderKind::Daedra : (value == 2 ? InvaderKind::Both : InvaderKind::Walkers);
+	switch (value) {
+		case 1: return InvaderKind::Daedra;
+		case 2: return InvaderKind::Both;
+		case 3: return InvaderKind::Allied;
+		default: return InvaderKind::Walkers;
+	}
 }
+
+// Both groups in play (Kind 2 or 3).
+inline bool BothInPlay(InvaderKind kind) { return kind == InvaderKind::Both || kind == InvaderKind::Allied; }
+
+// Whether the walkers and the Daedra fight each other: only Kind 2 (step 4,
+// idea 2); Kind 3 makes them one side.
+inline bool GroupsHostile(InvaderKind kind) { return kind == InvaderKind::Both; }
 
 inline bool InPlay(InvaderKind kind, Group group) {
 	return group == Group::Walker ? kind != InvaderKind::Daedra : kind != InvaderKind::Walkers;
@@ -57,17 +71,19 @@ inline constexpr GroupRules RulesOf(Group group) {
 }
 
 // Whether one fallen gets up as a walker: only while walkers are in play,
-// never a Daedra; with Kind 2 those the Daedra kill rise too (idea 2).
+// never a Daedra; with Kind 2 and 3 those the Daedra kill rise too (idea 2;
+// Nadi 2026-11-15 for Kind 3).
 inline bool MayRise(InvaderKind kind, bool fallenIsDaedra) {
 	return !fallenIsDaedra && InPlay(kind, Group::Walker);
 }
 
-// The group that takes a replaced spawn; `roll` 0..99 (Kind 2 only).
+// The group that takes a replaced spawn; `roll` 0..99 (Kind 2 and 3 only).
 inline Group ReplacementGroup(const InvaderSettings& s, UInt32 roll) {
 	switch (s.kind) {
 		case InvaderKind::Walkers: return Group::Walker;
 		case InvaderKind::Daedra: return Group::Daedra;
-		case InvaderKind::Both: break;
+		case InvaderKind::Both:
+		case InvaderKind::Allied: break;
 	}
 	return roll < s.daedraPercent ? Group::Daedra : Group::Walker;
 }

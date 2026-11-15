@@ -677,8 +677,8 @@ void TestInvaders() {
 	          walkers::LinkValue(rise, replace, kind) == 2.0,
 	      "Kind 2 from the menu: both, read back as 2");
 	Check(walkers::SetLinkValue(rise, replace, kind, 0.0) && walkers::SetLinkValue(rise, replace, kind, 7.0) &&
-	          rise.invaders.kind == walkers::InvaderKind::Both,
-	      "above the slider: held to 2");
+	          rise.invaders.kind == walkers::InvaderKind::Allied,
+	      "above the slider: held to 3, the allies");
 	Check(walkers::SetLinkValue(rise, replace, share, 30.0) && rise.invaders.daedraPercent == 30 &&
 	          walkers::SetLinkValue(rise, replace, summons, 1.0) && rise.invaders.summons,
 	      "the share and the summons set");

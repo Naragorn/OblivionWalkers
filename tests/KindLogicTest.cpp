@@ -28,9 +28,9 @@ using walkers::InvaderSettings;
 void TestKindFromIni() {
 	std::printf("[Invaders] Kind\n");
 	Check(walkers::KindFromIni(0) == InvaderKind::Walkers && walkers::KindFromIni(1) == InvaderKind::Daedra &&
-	          walkers::KindFromIni(2) == InvaderKind::Both,
-	      "0 the walkers, 1 the Daedra, 2 both");
-	Check(walkers::KindFromIni(-1) == InvaderKind::Walkers && walkers::KindFromIni(3) == InvaderKind::Walkers,
+	          walkers::KindFromIni(2) == InvaderKind::Both && walkers::KindFromIni(3) == InvaderKind::Allied,
+	      "0 the walkers, 1 the Daedra, 2 both at war, 3 both as allies");
+	Check(walkers::KindFromIni(-1) == InvaderKind::Walkers && walkers::KindFromIni(4) == InvaderKind::Walkers,
 	      "anything else: the walkers, as without the switch");
 	InvaderSettings s;
 	Check(s.kind == InvaderKind::Walkers && s.daedraPercent == 50 && !s.summons,
@@ -45,6 +45,19 @@ void TestInPlay() {
 	      "Kind 1: only the Daedra");
 	Check(walkers::InPlay(InvaderKind::Both, Group::Walker) && walkers::InPlay(InvaderKind::Both, Group::Daedra),
 	      "Kind 2: both");
+	Check(walkers::InPlay(InvaderKind::Allied, Group::Walker) && walkers::InPlay(InvaderKind::Allied, Group::Daedra),
+	      "Kind 3: both");
+	Check(!walkers::BothInPlay(InvaderKind::Walkers) && !walkers::BothInPlay(InvaderKind::Daedra) &&
+	          walkers::BothInPlay(InvaderKind::Both) && walkers::BothInPlay(InvaderKind::Allied),
+	      "both in play: Kind 2 and 3 only");
+}
+
+void TestHostility() {
+	std::printf("Walkers and Daedra: foes or friends\n");
+	Check(walkers::GroupsHostile(InvaderKind::Both), "Kind 2: at war - a three-way fight where a band meets a horde");
+	Check(!walkers::GroupsHostile(InvaderKind::Allied), "Kind 3: allies, one side against the living");
+	Check(!walkers::GroupsHostile(InvaderKind::Walkers) && !walkers::GroupsHostile(InvaderKind::Daedra),
+	      "Kind 0 and 1: one group, nobody to fight");
 }
 
 void TestRules() {
@@ -69,7 +82,9 @@ void TestRise() {
 	Check(!walkers::MayRise(InvaderKind::Daedra, false), "Kind 1: no walkers, nobody rises");
 	Check(walkers::MayRise(InvaderKind::Both, false),
 	      "Kind 2: the fallen rise - those the Daedra kill too (idea 2, the two plagues feed each other)");
-	Check(!walkers::MayRise(InvaderKind::Walkers, true) && !walkers::MayRise(InvaderKind::Both, true),
+	Check(walkers::MayRise(InvaderKind::Allied, false), "Kind 3: the fallen rise as walkers");
+	Check(!walkers::MayRise(InvaderKind::Walkers, true) && !walkers::MayRise(InvaderKind::Both, true) &&
+	          !walkers::MayRise(InvaderKind::Allied, true),
 	      "a fallen Daedra never rises, whatever the kind");
 }
 
@@ -84,6 +99,10 @@ void TestReplacement() {
 	s.kind = InvaderKind::Both;
 	Check(walkers::ReplacementGroup(s, 49) == Group::Daedra && walkers::ReplacementGroup(s, 50) == Group::Walker,
 	      "Kind 2, DaedraPercent 50: a roll 0..49 a Daedra, 50..99 a walker");
+	s.kind = InvaderKind::Allied;
+	Check(walkers::ReplacementGroup(s, 49) == Group::Daedra && walkers::ReplacementGroup(s, 50) == Group::Walker,
+	      "Kind 3: the same share");
+	s.kind = InvaderKind::Both;
 	s.daedraPercent = 0;
 	Check(walkers::ReplacementGroup(s, 0) == Group::Walker, "DaedraPercent 0: never a Daedra");
 	s.daedraPercent = 100;
@@ -121,7 +140,9 @@ void TestCategories() {
 	Check(!walkers::CategoryReplaced(InvaderKind::Daedra, dremora, true) &&
 	          walkers::CategoryReplaced(InvaderKind::Daedra, bandits, true),
 	      "Kind 1: the Daedra stay the game's Daedra, the bandits are replaced");
-	Check(!walkers::CategoryReplaced(InvaderKind::Both, dremora, true), "Kind 2: the Daedra stay too");
+	Check(!walkers::CategoryReplaced(InvaderKind::Both, dremora, true) &&
+	          !walkers::CategoryReplaced(InvaderKind::Allied, dremora, true),
+	      "Kind 2 and 3: the Daedra stay too");
 	Check(!walkers::CategoryReplaced(InvaderKind::Daedra, bandits, false) &&
 	          !walkers::CategoryReplaced(InvaderKind::Walkers, bandits, false),
 	      "a category switched off: never");
@@ -170,6 +191,7 @@ void TestTwins() {
 int main() {
 	TestKindFromIni();
 	TestInPlay();
+	TestHostility();
 	TestRules();
 	TestRise();
 	TestReplacement();
