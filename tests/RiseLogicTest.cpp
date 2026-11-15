@@ -154,6 +154,35 @@ struct Presences {
 	}
 };
 
+void TestInvaderKinds() {
+	std::printf("Who rises with the invaders' kind (4.22)\n");
+	using walkers::DeathVerdict;
+	using walkers::InvaderKind;
+	walkers::RiseSettings settings;
+	settings.onlyPlayableRaces = false;  // so the Dremora reach the kind's rule
+	walkers::Fallen dremora = Bandit(0xFF000C01);
+	dremora.daedra = true;
+	dremora.racePlayable = false;
+	dremora.raceHuman = false;
+	const InvaderKind kinds[] = {InvaderKind::Walkers, InvaderKind::Daedra, InvaderKind::Both, InvaderKind::Allied};
+	const bool banditRises[] = {true, false, true, true};
+	for (UInt32 k = 0; k < 4; ++k) {
+		walkers::WaitingList list;
+		settings.invaders.kind = kinds[k];
+		const DeathVerdict bandit = walkers::NoteDeath(list, settings, Bandit(), 0, 0.0f);
+		const DeathVerdict daedra = walkers::NoteDeath(list, settings, dremora, 0, 0.0f);
+		char what[96];
+		std::snprintf(what, sizeof(what), "Kind %u: a bandit %s, a Dremora stays down", k,
+		              banditRises[k] ? "rises" : "stays down");
+		Check((bandit == DeathVerdict::Waits) == banditRises[k] &&
+		          (banditRises[k] || bandit == DeathVerdict::NotForInvaders) &&
+		          daedra == DeathVerdict::NotForInvaders,
+		      what);
+	}
+	Check(std::strcmp(walkers::VerdictText(DeathVerdict::NotForInvaders), "?") != 0, "the verdict has its text");
+	Check(walkers::IsDremoraRace(0x0003E9A6) && !walkers::IsDremoraRace(0x00000907), "the Dremora race, by its ID");
+}
+
 void TestTick() {
 	std::printf("The waiting clocks over frames\n");
 	using walkers::Presence;
@@ -963,6 +992,7 @@ void TestWalkerBase() {
 int main() {
 	TestWalkerBase();
 	TestVerdicts();
+	TestInvaderKinds();
 	TestTick();
 	TestPresenceAt();
 	TestMissing();

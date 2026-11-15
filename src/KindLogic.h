@@ -23,6 +23,19 @@ namespace walkers {
 enum class InvaderKind : UInt8 { Walkers = 0, Daedra = 1, Both = 2, Allied = 3 };
 enum class Group : UInt8 { Walker, Daedra };
 
+// The spawn replacement's Daedra (step 1): Oblivion.esm's LL1Daedra100
+// (00034097, read 2026-11-15: the beasts and the seven Dremora ranks by the
+// player's level, every level at or below his) - placed 176 times in the
+// game's own Oblivion and shrines, so never rewritten itself. The ESP
+// carries two lists in the free IDs after the held dungeons' beds
+// (0xA93..0xAA3, before the grab's shock sounds): one that names
+// LL1Daedra100 (a mod's change to it is taken), and its copy with the
+// summoners' NOSUMMON twins (DaedraLists.h) for Summons=0. A replaced
+// entry names one of the two (tools/esp-write.py).
+inline constexpr UInt32 kGameDaedraList = 0x00034097;
+inline constexpr UInt32 kInvaderDaedraLocalId = 0xA93;
+inline constexpr UInt32 kInvaderDaedraNoSummonLocalId = 0xA94;
+
 // [Invaders] in OblivionWalkers.ini.
 struct InvaderSettings {
 	InvaderKind kind = InvaderKind::Walkers;  // Kind: 0 by default (decided 2026-11-13)
@@ -116,6 +129,20 @@ inline bool CategoryReplaced(InvaderKind kind, UInt8 category, bool on) {
 // xivilai) multiply the actors with their summons - by default their
 // NOSUMMON twins (DaedraLists.h).
 inline bool HoldSummonersBack(const InvaderSettings& s) { return !s.summons; }
+
+// The ESP list a replaced entry names when it goes to the Daedra.
+inline UInt32 InvaderDaedraLocalId(const InvaderSettings& s) {
+	return HoldSummonersBack(s) ? kInvaderDaedraNoSummonLocalId : kInvaderDaedraLocalId;
+}
+
+// A stable roll 0..99 for one list entry, from its address (ListData): the
+// same entry takes the same group at every pass of a session, so a LINK
+// change of DaedraPercent moves only the entries it must.
+inline UInt32 EntryRoll(UInt32 entryAddress) {
+	UInt32 h = entryAddress * 2654435761u;
+	h ^= h >> 16;
+	return h % 100;
+}
 
 // The form a Daedra spawn takes: an Oblivion.esm summoner or rank list its
 // NOSUMMON twin while they are held back, any other form itself.

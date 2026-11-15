@@ -488,7 +488,11 @@ struct Fallen {
 	bool inChapel = false;      // he fell in a chapel (IsChapelCell of his cell)
 	bool headOff = false;       // OBVR cut his head off before the death (EndLogic.h HeadNotes)
 	bool inCity = false;        // he fell in a city's streets (IsCityWorldspace)
+	bool daedra = false;        // a Dremora (IsDremoraRace): never a walker, whatever the kind (4.22)
 };
+
+// Oblivion.esm's Dremora race (0003E9A6, read 2026-11-13; 4.22).
+inline bool IsDremoraRace(UInt32 raceId) { return raceId == 0x0003E9A6; }
 
 // A chapel (4.7): a cell the Nine Divines own (Oblivion.esm's NineDivines
 // faction, 000223BC - the city chapels, their halls and undercrofts), or one
@@ -576,6 +580,7 @@ enum class DeathVerdict : UInt8 {
 	HeadOff,          // OBVR cut his head off: no walker with a head from him
 	InCity,           // NoRiseInCities=1 and he fell in a city's streets
 	ListFull,         // kWaitingMost references wait already
+	NotForInvaders,   // [Invaders] Kind: no walkers in play (1), or a Daedra fell (4.22 MayRise)
 };
 
 inline const char* VerdictText(DeathVerdict verdict) {
@@ -606,6 +611,8 @@ inline const char* VerdictText(DeathVerdict verdict) {
 			return "stays down (in a city, NoRiseInCities=1 - the safeguard raises him)";
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
+		case DeathVerdict::NotForInvaders:
+			return "stays down (Invaders Kind: no walkers, or a Daedra)";
 	}
 	return "?";
 }
@@ -670,6 +677,9 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 	}
 	if (fallen.essential) {
 		return DeathVerdict::Essential;
+	}
+	if (!MayRise(settings.invaders.kind, fallen.daedra)) {
+		return DeathVerdict::NotForInvaders;
 	}
 	if (fallen.headOff) {
 		return DeathVerdict::HeadOff;

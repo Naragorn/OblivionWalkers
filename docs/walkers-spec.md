@@ -3848,7 +3848,11 @@ started - Nadi's go for each):
 | 6 | The news and rumors name the feeding gate; "close the gate" as a journal quest; after the main quest | 4, 5, 13 | small to medium - 5 waits for the journal frame of 4.20.7 step 4 |
 | 7 | The looks: the siege gate prop, the marching weather, the Daedric disguise, the Legion's answer | 3, 9, 7, 10 | medium each; 3 and 9 touch sky and weather (9 off by default) |
 
-**Step 1, BUILT IN PART 2026-11-15 on the branch `daedra`** (Nadi: A and
+**Kind 3, the allies** (Nadi, 2026-11-15): walkers and Daedra on one
+side, the fallen rise as walkers - Kind 2's spawns and rise, without the
+war between the two (`GroupsHostile` only for Kind 2).
+
+**Step 1, BUILT 2026-11-15 on the branch `daedra`** (Nadi: A and
 B without harness runs, then C; nothing wired into the game):
 - A, the unit: `KindLogic.h` - `[Invaders] Kind` (0/1/2), `DaedraPercent=50`,
   `Summons=0` in the INI and LINK (version 42, header "Invaders from
@@ -3873,8 +3877,27 @@ B without harness runs, then C; nothing wired into the game):
   (LL0Dremora*Archer100, *Mage100, LL1DremoraMage100) have no twin, so the
   ESP's own Daedra list must name the twins' actors itself
   (`InvaderForm`), not only the twin lists.
-- Not built: the wiring (the 17 "is a walker" sites, the spawn
-  replacement's Daedra list in the ESP) - it waits for a harness run.
+- **Wired 2026-11-15** (Nadi: "harness erlaubt. go 1-7"): the spawn
+  replacement names the ESP's Daedra lists - `WalkersInvaderDaedra` (A93,
+  one entry: LL1Daedra100 itself, so a mod's change to it is taken) and
+  `WalkersInvaderDaedraNoSummon` (A94, LL1Daedra100's entries copied with
+  the summoners' twins), in the free IDs after the held dungeons' beds.
+  LL1Daedra100 itself is never rewritten: it stands 176 times in the
+  game's own Oblivion and shrines. Kind 1: every replaced entry; Kind 2
+  and 3: DaedraPercent of them by each entry's stable roll (`EntryRoll`,
+  its address - a LINK change moves only the entries it must); the extra
+  entries (4.13) follow the same roll. The Daedra's own categories stay
+  the game's. The rise: `NoteDeath` asks `MayRise` - Kind 1 nobody, a
+  Dremora (race 0003E9A6) never ("stays down (Invaders Kind ...)"). The
+  "is a walker" tests need no second answer for step 1: a Daedra of the
+  lists is none of the walker records, so the head rule, the grab, the
+  pace and the disguise never touch it.
+  Harness `daedra-spawn.txt` through `tools/daedra-harness.sh spawn 1`
+  (`tools/linux-walkers.sh on|off` puts the walkers into the Linux game
+  for the runs only): 2026-11-15 21:06 PASS - 3311 entries point at A94,
+  247 of the Daedra's own categories kept; three LL0Goblin100 placed gave
+  three stunted scamps (0003E9CB, the save's level 1), no goblin, no
+  walker; killed, nobody waits to rise.
 
 All of it together: huge (seven steps, each with its own harness
 scenarios). The first three give a playable Daedra invasion; the rest

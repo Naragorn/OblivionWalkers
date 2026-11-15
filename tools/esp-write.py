@@ -1182,6 +1182,43 @@ def build_list(entries: list[tuple[int, int]], edid: str = "", flags: int = 0) -
     return out
 
 
+def invader_ids() -> dict[str, int]:
+    """src/KindLogic.h's Daedra lists (4.22 step 1), one source for the plugin and the ESP."""
+    text = (HERE.parent / "src" / "KindLogic.h").read_text()
+    return {name: int(value, 16) for name, value in
+            re.findall(r"inline constexpr UInt32 (kInvaderDaedra\w*LocalId|kGameDaedraList) = (0x[0-9A-Fa-f]+);", text)}
+
+
+def invader_lists(esm, buf: bytes, index: int) -> bytes:
+    """The two lists a Daedra spawn of the replacement names (4.22 step 1, idea 11): WalkersInvaderDaedra names
+    LL1Daedra100 itself, WalkersInvaderDaedraNoSummon copies its entries, the summoners' twins in their place
+    (tools/daedra-lists.py's pairs)."""
+    ids = invader_ids()
+    header = (HERE.parent / "src" / "DaedraLists.h").read_text()
+    twin_of = {int(a, 16): int(b, 16) for a, b in re.findall(r"\{0x([0-9A-F]{8}), 0x([0-9A-F]{8}),", header)}
+    game = find_record(esm, buf, b"LVLC", ids["kGameDaedraList"])
+    flags = 0
+    entries = []
+    swapped = 0
+    for st, sd in game:
+        if st == b"LVLF":
+            flags = sd[0]
+        elif st == b"LVLO":
+            level, form, count = struct.unpack_from("<h", sd, 0)[0], struct.unpack_from("<I", sd, 4)[0], \
+                struct.unpack_from("<H", sd, 8)[0]
+            entries.append((level, twin_of.get(form, form), count))
+            swapped += 1 if form in twin_of else 0
+    if not entries or swapped == 0:
+        raise SystemExit("LL1Daedra100 holds none of DaedraLists.h's summoners - read it again")
+    no_summon = subrecord(b"EDID", zstring("WalkersInvaderDaedraNoSummon")) + subrecord(b"LVLD", bytes([0])) \
+        + subrecord(b"LVLF", bytes([flags]))
+    for level, form, count in entries:
+        no_summon += subrecord(b"LVLO", struct.pack("<hHIHH", level, 0, form, count, 0))
+    return (record(b"LVLC", index | ids["kInvaderDaedraLocalId"],
+                   build_list([(ids["kGameDaedraList"], 1)], "WalkersInvaderDaedra"))
+            + record(b"LVLC", index | ids["kInvaderDaedraNoSummonLocalId"], no_summon))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("esm", help="Oblivion.esm")
@@ -1235,7 +1272,8 @@ def main() -> int:
     any_walker_form = index | LOCAL_ANY_WALKER_ID
     lists = (record(b"LVLC", list_form, build_list(variant_entries(any_walker_form)))
              + record(b"LVLC", any_walker_form,
-                      build_list(any_walker_entries(walker_forms, walker_no_heads), ANY_WALKER_EDID, LIST_CALC_EACH)))
+                      build_list(any_walker_entries(walker_forms, walker_no_heads), ANY_WALKER_EDID, LIST_CALC_EACH))
+             + invader_lists(esm, buf, index))
 
     travel_template = find_record(esm, buf, b"PACK", TRAVEL_TEMPLATE)
     follow_template = find_record(esm, buf, b"PACK", FOLLOW_TEMPLATE)
@@ -1678,6 +1716,7 @@ def main() -> int:
                + len(siege_globals) + 1 + len(CITIES) + 2
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
                + camp_records + 2 + len(shock_forms)
+               + 2  # the invaders' two Daedra lists (4.22 step 1)
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
                + 1  # the escort's quest

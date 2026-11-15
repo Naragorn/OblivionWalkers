@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "KindLogic.h"
 #include "ReplaceLogic.h"
 #include "Rise.h"
 
@@ -30,8 +31,12 @@ std::vector<UInt32> QuestCellIds();
 // The references a quest names, by form ID - after CollectQuestNames.
 std::vector<UInt32> QuestRefIds();
 
-UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
-                     LogFn log);
+// With the Daedra in play ([Invaders] Kind 1, 2 or 3, KindLogic.h) a
+// replaced entry names the ESP's Daedra list instead (all of them with Kind
+// 1, DaedraPercent of them with 2 and 3, by each entry's stable roll), and
+// the Daedra's own categories stay the game's.
+UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
+                     const char* iniPath, bool mooLoaded, LogFn log);
 
 // The walker records' health at `percent` of their own, from the values
 // they had at the first call - the record in memory only.

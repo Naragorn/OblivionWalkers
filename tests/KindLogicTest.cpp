@@ -158,9 +158,28 @@ void TestSummoners() {
 	      "held back: the Churl mage and the spider daedra their twins");
 	Check(walkers::InvaderForm(s, 0x00092DA0) == 0x00092DA0 && walkers::InvaderForm(s, 0x0002D802) == 0x0002D802,
 	      "a Churl of the sword (summons nothing) and a scamp: themselves");
+	Check(walkers::InvaderDaedraLocalId(s) == walkers::kInvaderDaedraNoSummonLocalId,
+	      "held back: a replaced entry names the ESP's NOSUMMON copy");
 	s.summons = true;
 	Check(!walkers::HoldSummonersBack(s), "Summons 1: the game's own, with their summons");
+	Check(walkers::InvaderDaedraLocalId(s) == walkers::kInvaderDaedraLocalId,
+	      "Summons 1: the ESP's list that names LL1Daedra100");
 	Check(walkers::InvaderForm(s, 0x00092DA6) == 0x00092DA6, "Summons 1: the list itself");
+}
+
+void TestEntryRoll() {
+	std::printf("The stable roll of a list entry\n");
+	bool inRange = true;
+	UInt32 below50 = 0;
+	for (UInt32 a = 0x10000000; a < 0x10000000 + 4000 * 12; a += 12) {
+		const UInt32 r = walkers::EntryRoll(a);
+		inRange = inRange && r < 100;
+		below50 += r < 50 ? 1u : 0u;
+	}
+	Check(inRange, "always 0..99");
+	Check(walkers::EntryRoll(0x1234ABC0) == walkers::EntryRoll(0x1234ABC0), "the same entry: the same roll");
+	Check(below50 > 1800 && below50 < 2200,
+	      "4000 entries 12 bytes apart (ListData's size): about half below 50");
 }
 
 void TestTwins() {
@@ -197,6 +216,7 @@ int main() {
 	TestReplacement();
 	TestCategories();
 	TestSummoners();
+	TestEntryRoll();
 	TestTwins();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Runs a Daedra scenario (docs/walkers-spec.md 4.22) on OBVR's harness with
+# [Invaders] set for the run, then checks OblivionWalkers.log. The INI is put
+# back whatever happens (md5 checked). Needs tools/linux-walkers.sh on.
+# Announce "busy" to the other sessions first.
+#
+#   tools/daedra-harness.sh spawn [Kind]     harness/daedra-spawn.txt, Kind 1 by default
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+obvr="${OBVR_DIR:-$root/../OBVR}"
+game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
+log="$game/OblivionWalkers.log"
+ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
+scenario="${1:-spawn}"
+kind="${2:-1}"
+backup="$(mktemp)"
+cp "$ini" "$backup"
+sum="$(md5sum "$ini" | cut -c1-32)"
+restore() {
+	cp "$backup" "$ini"
+	rm -f "$backup"
+	[[ "$(md5sum "$ini" | cut -c1-32)" == "$sum" ]] && echo "daedra-harness: INI restored (md5 $sum)" ||
+		echo "daedra-harness: INI NOT restored" >&2
+}
+trap restore EXIT
+python3 - "$ini" "$kind" "$scenario" <<'INI'
+import re, sys
+path, kind, scenario = sys.argv[1], sys.argv[2], sys.argv[3]
+text = open(path, encoding="latin-1", newline="").read()
+nl = "\r\n" if "\r\n" in text else "\n"
+
+def set_key(text, section, key, value):
+    head = re.search(r"^\[" + section + r"\]\s*$", text, re.M)
+    if head is None:
+        return text.rstrip("\r\n") + nl + nl + "[" + section + "]" + nl + key + "=" + value + nl
+    end = re.search(r"^\[", text[head.end():], re.M)
+    stop = head.end() + (end.start() if end else len(text) - head.end())
+    body = text[head.end():stop]
+    if re.search(r"^" + key + r"=", body, re.M):
+        body = re.sub(r"^" + key + r"=.*$", key + "=" + value, body, count=1, flags=re.M)
+    else:
+        body = nl + key + "=" + value + body
+    return text[:head.end()] + body + text[stop:]
+
+text = set_key(text, "Invaders", "Kind", kind)
+# the dungeons' runner off, as in the other wrappers: nobody of the plugin's own beside the player
+text = set_key(text, "Dungeons", "Enabled", "0")
+open(path, "w", encoding="latin-1", newline="").write(text)
+INI
+mkdir -p "$root/artifacts"
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/daedra-$scenario.txt" --headless \
+	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/daedra-$scenario-runner.txt"
+run="$(ls -td "$root"/artifacts/hand-script/daedra-"$scenario"/*/ | head -1)"
+cp "$log" "$run/OblivionWalkers.log"
+python3 - "$run/OblivionWalkers.log" "$run/OBVR.log" "$scenario" "$kind" <<'PY'
+import re, sys
+lines = open(sys.argv[1], encoding="latin-1").read().splitlines()
+obvr = open(sys.argv[2], encoding="latin-1").read().splitlines()
+scenario, kind = sys.argv[3], int(sys.argv[4])
+failures = 0
+
+def check(ok, what):
+    global failures
+    print(("  ok    " if ok else "  FAIL  ") + what)
+    failures += 0 if ok else 1
+
+def show(prefix, most=8):
+    found = [l for l in lines if prefix in l]
+    for l in found[:most]:
+        print("        " + l[:240])
+    return found
+
+spawns = show("Spawns: Invaders Kind=")
+m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
+check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
+check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
+walkers = show("Spawns: ")
+roster = [l for l in obvr if "HandScript: actors" in l]
+print("Roster:")
+for l in roster[:3]:
+    print("        " + l[:400])
+if scenario == "spawn" and kind == 1:
+    full = [l for l in roster if not re.search(r"actors - 0 loaded", l)]
+    check(bool(full), "the placed lists brought someone (%d rosters with actors)" % len(full))
+    check(not re.search(r"\b[0-9A-F]{2}000(80[1-4]|9[0-4][0-9A-F])\b", " ".join(full)), "no walker in the roster")
+    rises = [l for l in lines if "waits to rise" in l]
+    check(not rises, "nobody waits to rise with Kind=1 (%d)" % len(rises))
+    show("stays down (Invaders Kind")
+print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
+sys.exit(1 if failures else 0)
+PY

@@ -1,0 +1,37 @@
+# Invaders from Oblivion, step 1 (docs/walkers-spec.md 4.22): with
+# [Invaders] Kind=1 a replaced leveled-list entry names the ESP's
+# WalkersInvaderDaedraNoSummon (A94) instead of the walkers' variant list -
+# the Daedra in the walkers' place, by the player's level, the summoners as
+# their NOSUMMON twins (Summons=0).
+#
+# The hall, the harness save: the console places LL0Goblin100 (00084B2C,
+# goblins only) three times. Replaced with Kind=1, the roster ("HandScript:
+# actors") at the counted mark holds no goblin (0001FCB1, 00084B29) and no
+# walker; the plugin's log (checked by tools/daedra-harness.sh) says
+# "Spawns: Invaders Kind=1 ... entries point at the Daedra". The kill at
+# the end: nobody rises ("stays down (Invaders Kind ...)" or no rise line).
+#
+# Runs through tools/daedra-harness.sh spawn (sets Kind in the INI, puts it
+# back).
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 00084B2C 3
+
+expect HandScript: finished
+reject 0001FCB1 x
+reject 00084B29 x
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark counted
+console-at counted killall
+wait 30
+mark end
+wait 1

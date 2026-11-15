@@ -548,8 +548,8 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 	}
 }
 
-UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char* iniPath, bool mooLoaded,
-                     LogFn log) {
+UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
+                     const char* iniPath, bool mooLoaded, LogFn log) {
 	CollectQuestNames(log);
 	if (espBase == kNoEsp) {
 		log("Spawns: no ESP, the lists as they are");
@@ -560,6 +560,30 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 		log("Spawns: %08X is no leveled creature list - the lists as they are", EspFormId(espBase, kVariantLocalId));
 		return 0;
 	}
+	// The Daedra's two lists (KindLogic.h): the one this pass names, and
+	// both to tell an entry of ours from a list's own.
+	const auto espList = [espBase](UInt32 local) {
+		const UInt32 form = LookupForm(EspFormId(espBase, local));
+		return LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeLeveledCreature ? form : 0u;
+	};
+	const UInt32 daedraWithSummons = espList(kInvaderDaedraLocalId);
+	const UInt32 daedraNoSummons = espList(kInvaderDaedraNoSummonLocalId);
+	const UInt32 daedraList = espList(InvaderDaedraLocalId(invaders));
+	const bool daedraInPlay = InPlay(invaders.kind, Group::Daedra);
+	if (daedraInPlay && daedraList == 0) {
+		log("Spawns: Invaders Kind=%u, but %08X is no leveled creature list (an older ESP) - no Daedra in the lists",
+		    static_cast<UInt32>(invaders.kind), EspFormId(espBase, InvaderDaedraLocalId(invaders)));
+	}
+	const auto ours = [&](UInt32 form) {
+		return form == variant || (form != 0 && (form == daedraWithSummons || form == daedraNoSummons));
+	};
+	// The list a replaced entry names: by the kind and the entry's roll.
+	const auto targetOf = [&](UInt32 data) {
+		if (!daedraInPlay || daedraList == 0) {
+			return invaders.kind == InvaderKind::Daedra ? 0u : variant;
+		}
+		return ReplacementGroup(invaders, EntryRoll(data)) == Group::Daedra ? daedraList : variant;
+	};
 	static bool s_countsWritten = false;
 	if (!s_countsWritten) {
 		s_countsWritten = true;
@@ -597,11 +621,13 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 	UInt32 extraLists = 0;
 	UInt32 questListsSeen = 0;
 	UInt32 questEntriesKept = 0;
+	UInt32 daedraEntries = 0;
+	UInt32 daedraKept = 0;
 	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
 		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
 			const UInt32 form = Read(entry + kMapEntryFormOffset);
 			++forms;
-			if (!LooksLikeObject(form) || form == variant || Read8(form + kFormTypeOffset) != kFormTypeLeveledCreature) {
+			if (!LooksLikeObject(form) || ours(form) || Read8(form + kFormTypeOffset) != kFormTypeLeveledCreature) {
 				continue;
 			}
 			++lists;
@@ -621,11 +647,16 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 					continue;
 				}
 				UInt32 own = target;
-				if (target == variant) {
+				if (ours(target)) {
 					// Ours from an earlier pass - or an extra entry (4.13), which
-					// named nothing of its own and stays.
+					// named nothing of its own: it stays ours, its group as the
+					// kind says now.
 					const auto original = g_original.find(data);
 					if (original == g_original.end()) {
+						const UInt32 extra = targetOf(data);
+						if (extra != 0 && extra != target) {
+							*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = extra;
+						}
 						continue;
 					}
 					own = original->second;
@@ -640,19 +671,24 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 				}
 				const Known& known = Learn(own, espBase, settings, section.data(), exceptions.data(), added,
 				                           addedUsed, newLines, log);
-				const bool on =
+				const bool listed =
 				    ReplaceInList(settings, questList, known.facts, known.category, known.line, known.exception);
+				// The Daedra in play keep their own categories (KindLogic.h).
+				const bool daedraKeeps = listed && !CategoryReplaced(invaders.kind, known.category, true);
+				daedraKept += daedraKeeps ? 1 : 0;
+				const UInt32 replacement = listed && !daedraKeeps ? targetOf(data) : 0u;
+				const bool on = replacement != 0;
 				if (questList && settings.keepQuestLists && ReplaceOn(settings, known.facts, known.category, known.line,
 				                                                      known.exception)) {
 					++questEntriesKept;
 				}
-				const UInt32 wanted = on ? variant : own;
+				const UInt32 wanted = on ? replacement : own;
 				if (wanted != target) {
 					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = wanted;
 					++(on ? replaced : restored);
 				}
 				if (on) {
-					++walkerEntries;
+					++(replacement == variant ? walkerEntries : daedraEntries);
 					touched = true;
 				} else {
 					++kept;
@@ -663,7 +699,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 			// list all walkers has nothing to add to, one of lists only feeds
 			// its nested lists, which get theirs.
 			if (settings.extraPercent > 0 && kept > 0 && !(questList && settings.keepQuestLists)) {
-				const UInt32 more = AddExtraEntries(form, variant, settings.extraPercent);
+				const UInt32 extraTarget = targetOf(form);
+				const UInt32 more = extraTarget == 0 ? 0 : AddExtraEntries(form, extraTarget, settings.extraPercent);
 				extraAdded += more;
 				extraLists += more > 0 ? 1 : 0;
 			}
@@ -678,6 +715,12 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const char
 	    "them new, %u entries back to their own; %u creatures and people known, %u of them walkers",
 	    forms, lists, settings.enabled ? 1 : 0, walkerEntries, listsTouched, replaced, restored,
 	    static_cast<UInt32>(g_known.size()), on);
+	if (invaders.kind != InvaderKind::Walkers) {
+		log("Spawns: Invaders Kind=%u DaedraPercent=%u Summons=%d - %u entries point at the Daedra (%08X), %u entries "
+		    "of the Daedra's own categories stay the game's",
+		    static_cast<UInt32>(invaders.kind), invaders.daedraPercent, invaders.summons ? 1 : 0, daedraEntries,
+		    daedraList != 0 ? FormIdOf(daedraList) : 0u, daedraKept);
+	}
 	log("Spawns: KeepQuestLists=%d - %u of the lists are a quest's; %u entries in them that would be walkers stay "
 	    "their own",
 	    settings.keepQuestLists ? 1 : 0, questListsSeen, questEntriesKept);

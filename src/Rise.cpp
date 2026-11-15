@@ -796,6 +796,7 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 					raceId = Read(race + kFormIdOffset);
 					fallen.racePlayable = Read8(race + kRacePlayableOffset) != 0;
 					fallen.raceHuman = IsHumanRace(raceId);
+					fallen.daedra = IsDremoraRace(raceId);
 				}
 			}
 		}
@@ -2770,7 +2771,7 @@ void StepSpawns(float dt) {
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
 		SelectDungeonPool(g_iniPath, g_settings.dungeonsOnlyChosen, g_log);
 		if (g_replace.enabled) {
-			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 		}
 		return;
 	}
@@ -2780,7 +2781,7 @@ void StepSpawns(float dt) {
 	g_spawnsAgainSeconds -= dt;
 	if (g_spawnsAgainSeconds <= 0.0f) {
 		g_spawnsAgainSeconds = -1.0f;
-		ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
+		ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 	}
 }
 
@@ -2831,7 +2832,7 @@ void ApplyLinkEffect(LinkEffect effect) {
 			ConfigureNews(g_settings.news, FindEspBase(), g_log);
 			break;
 		case LinkEffect::Spawns:
-			ReplaceSpawns(FindEspBase(), g_replace, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 			break;
 		default:
 			break;
