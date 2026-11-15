@@ -3910,6 +3910,17 @@ B without harness runs, then C; nothing wired into the game):
   itself and DremoraFaction) - not built, the next harness run proves it.
   Runs stopped 2026-11-15 on Nadi's word via OBNG ("keine harness runs
   mehr"), the walkers out of the Linux game again.
+- **Step 3, the logic BUILT 2026-11-15** (`BandLogic.h`, BandLogicTest;
+  not wired, no INI or LINK keys yet): `Origin` 0/1,
+  `EverywhereUntilGatesOpen` (`ReplacementOn`, `BandsOn`), a band per open
+  gate at once and then every `BandEveryHours` (12), `BandSizeMin..Max`
+  (4..9), far bands as numbers walking `UnitsPerHour` (10000 - a guess,
+  to measure) to the nearest city (Arrived: the siege's pressure), a band
+  within `NearUnits` (16384) of the player handed to the caller to place
+  (Near), a closed gate ending its far bands (Ended) and its clock, a long
+  jump of time forming one band, not a burst, `BandsMost` (32). The wiring
+  (the 103 gates' flags read once a game minute, a Near band placed as a
+  horde with the Daedra list) waits for a harness run.
 
 All of it together: huge (seven steps, each with its own harness
 scenarios). The first three give a playable Daedra invasion; the rest
