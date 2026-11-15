@@ -131,8 +131,38 @@ void TestSummoners() {
 	std::printf("The summoners held back (idea 11)\n");
 	InvaderSettings s;
 	Check(walkers::HoldSummonersBack(s), "Summons 0 (the default): the NOSUMMON twins");
+	Check(walkers::InvaderForm(s, 0x00092DA6) == 0x00000FE7 && walkers::InvaderForm(s, 0x0003265D) == 0x00000FED,
+	      "held back: the Churls' list LL0Dremora0Churl100 its NOSUMMON twin, the xivilai's too");
+	Check(walkers::InvaderForm(s, 0x00092DA5) == 0x00000FCB && walkers::InvaderForm(s, 0x0001E64C) == 0x00000FE0,
+	      "held back: the Churl mage and the spider daedra their twins");
+	Check(walkers::InvaderForm(s, 0x00092DA0) == 0x00092DA0 && walkers::InvaderForm(s, 0x0002D802) == 0x0002D802,
+	      "a Churl of the sword (summons nothing) and a scamp: themselves");
 	s.summons = true;
 	Check(!walkers::HoldSummonersBack(s), "Summons 1: the game's own, with their summons");
+	Check(walkers::InvaderForm(s, 0x00092DA6) == 0x00092DA6, "Summons 1: the list itself");
+}
+
+void TestTwins() {
+	std::printf("The twins read off Oblivion.esm (DaedraLists.h)\n");
+	UInt32 lists = 0;
+	UInt32 mages = 0;
+	bool distinct = true;
+	bool loadIndexZero = true;
+	for (UInt32 i = 0; i < walkers::kSummonTwinCount; ++i) {
+		const walkers::SummonTwin& t = walkers::kSummonTwins[i];
+		lists += t.list ? 1u : 0u;
+		mages += std::strstr(t.name, "Mage") != nullptr && std::strncmp(t.name, "Dremora", 7) == 0 ? 1u : 0u;
+		distinct = distinct && t.original != t.twin;
+		loadIndexZero = loadIndexZero && (t.original >> 24) == 0 && (t.twin >> 24) == 0;
+		for (UInt32 j = i + 1; j < walkers::kSummonTwinCount; ++j) {
+			distinct = distinct && walkers::kSummonTwins[j].original != t.original;
+		}
+	}
+	Check(lists == 8, "eight lists: the seven ranks' and the xivilai's");
+	Check(mages == 7, "a mage of each of the seven ranks - the Dremora who summon");
+	Check(walkers::kSummonTwinCount == 18, "eighteen in all: eight lists, seven mages, the spider daedra, two xivilai");
+	Check(distinct && loadIndexZero, "each original once, never its own twin, all Oblivion.esm's (load index 0)");
+	Check(walkers::NoSummonTwin(0x12345678) == 0x12345678, "a form not in the table: itself");
 }
 
 }  // namespace
@@ -145,6 +175,7 @@ int main() {
 	TestReplacement();
 	TestCategories();
 	TestSummoners();
+	TestTwins();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

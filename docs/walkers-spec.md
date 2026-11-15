@@ -3839,6 +3839,34 @@ started - Nadi's go for each):
 | 6 | The news and rumors name the feeding gate; "close the gate" as a journal quest; after the main quest | 4, 5, 13 | small to medium - 5 waits for the journal frame of 4.20.7 step 4 |
 | 7 | The looks: the siege gate prop, the marching weather, the Daedric disguise, the Legion's answer | 3, 9, 7, 10 | medium each; 3 and 9 touch sky and weather (9 off by default) |
 
+**Step 1, BUILT IN PART 2026-11-15 on the branch `daedra`** (Nadi: A and
+B without harness runs, then C; nothing wired into the game):
+- A, the unit: `KindLogic.h` - `[Invaders] Kind` (0/1/2), `DaedraPercent=50`,
+  `Summons=0` in the INI and LINK (version 42, header "Invaders from
+  Oblivion", the descriptions say "not in the game yet"); `RulesOf(group)`
+  row by row of the table above, `InPlay`, `MayRise` (Kind 1 nobody, Kind
+  2 the fallen of either, a Daedra never), `ReplacementGroup` (Kind 2 by
+  DaedraPercent), the seven Daedra categories by index (Atronachs,
+  Clannfears, Daedroths, Scamps, SpiderDaedra, Xivilai, Dremora - the SI
+  Hungers stay the walkers'), `CategoryReplaced` (with Daedra in play
+  their own categories are never made walkers). KindLogicTest.
+- B, idea 11's data: `tools/daedra-lists.py` reads Oblivion.esm and writes
+  `src/DaedraLists.h`, each pair checked off the file - the original's
+  spells, its leveled spell lists (LVSP) walked through, hold a summoning
+  effect (code 'Z...'), the twin's none; a list's twin holds entry for
+  entry the twins. **Read 2026-11-15:** 18 pairs - the seven ranks' lists
+  (LL0Dremora0Churl100 .. 6Valkynaz100), LL0Xivilai100, the seven rank
+  mages, the spider daedra, the two xivilai. The Dremora's melee and
+  archers summon nothing: their NOSUMMON twins carry the same spell list
+  (LL2CreatureDremora100) and only fewer things - 42 left out. The mages
+  summon from LL2CreatureDremoraMage100 (ZCLA, ZDAE, ZFIA, ZSCA, ZSPD,
+  ZSTA, ZXIV). **For the wiring:** the archer and mage lists
+  (LL0Dremora*Archer100, *Mage100, LL1DremoraMage100) have no twin, so the
+  ESP's own Daedra list must name the twins' actors itself
+  (`InvaderForm`), not only the twin lists.
+- Not built: the wiring (the 17 "is a walker" sites, the spawn
+  replacement's Daedra list in the ESP) - it waits for a harness run.
+
 All of it together: huge (seven steps, each with its own harness
 scenarios). The first three give a playable Daedra invasion; the rest
 deepens it.

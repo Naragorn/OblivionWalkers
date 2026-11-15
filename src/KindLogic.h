@@ -13,6 +13,7 @@
 // built - it waits for a harness run).
 
 #include "CategoryLogic.h"
+#include "DaedraLists.h"
 #include "Types.h"
 
 namespace walkers {
@@ -99,5 +100,11 @@ inline bool CategoryReplaced(InvaderKind kind, UInt8 category, bool on) {
 // xivilai) multiply the actors with their summons - by default their
 // NOSUMMON twins (DaedraLists.h).
 inline bool HoldSummonersBack(const InvaderSettings& s) { return !s.summons; }
+
+// The form a Daedra spawn takes: an Oblivion.esm summoner or rank list its
+// NOSUMMON twin while they are held back, any other form itself.
+inline UInt32 InvaderForm(const InvaderSettings& s, UInt32 formId) {
+	return HoldSummonersBack(s) ? NoSummonTwin(formId) : formId;
+}
 
 }  // namespace walkers
