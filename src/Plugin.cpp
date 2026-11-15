@@ -228,6 +228,10 @@ bool ReadSettings(walkers::Settings* settings) {
 		const int others = GetPrivateProfileIntA("Zombies", "OthersEndPercent", 100, path);
 		rise.end.othersEndPercent = static_cast<UInt32>(others < 0 ? 0 : (others > 100 ? 100 : others));
 	}
+	// 4.22 [Invaders] (KindLogic.h): read, not wired in yet.
+	rise.invaders.kind = walkers::KindFromIni(GetPrivateProfileIntA("Invaders", "Kind", 0, path));
+	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(GetPrivateProfileIntA("Invaders", "DaedraPercent", 50, path)))));
+	rise.invaders.summons = GetPrivateProfileIntA("Invaders", "Summons", 0, path) != 0;
 	rise.headshots.arrows = GetPrivateProfileIntA("Headshots", "Arrows", 1, path) != 0;
 	rise.headshots.bolts = GetPrivateProfileIntA("Headshots", "Bolts", 1, path) != 0;
 	rise.headshots.headRadius = IniFloat("Headshots", "HeadRadius", 30.0f, path);

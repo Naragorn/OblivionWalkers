@@ -1,0 +1,103 @@
+#pragma once
+
+// Invaders from Oblivion, step 1 - the kind's rules, process-free
+// (docs/walkers-spec.md 4.22; Nadi, 2026-11-13: "0 zombies, 1 Dremora, 2
+// both", decided the same day; built 2026-11-15, not wired in yet).
+//
+// `[Invaders] Kind` says which groups are in play: 0 the walkers as they
+// are, 1 the Daedra in their place, 2 both. Each group keeps or drops the
+// walkers' rules as 4.22's table has them; every "is a walker" test of the
+// plugin will ask RulesOf for its group instead of taking the walkers' rules
+// for granted. Nothing here touches the game: Rise.cpp, Grab.cpp and the
+// spawn replacement still take the walkers' rules (step 1's wiring, not
+// built - it waits for a harness run).
+
+#include "CategoryLogic.h"
+#include "Types.h"
+
+namespace walkers {
+
+enum class InvaderKind : UInt8 { Walkers = 0, Daedra = 1, Both = 2 };
+enum class Group : UInt8 { Walker, Daedra };
+
+// [Invaders] in OblivionWalkers.ini.
+struct InvaderSettings {
+	InvaderKind kind = InvaderKind::Walkers;  // Kind: 0 by default (decided 2026-11-13)
+	UInt32 daedraPercent = 50;                 // DaedraPercent: Kind 2's share of the replaced spawns
+	bool summons = false;                      // Summons: the summoners keep their summons (idea 11, off)
+};
+
+// The INI's number; anything but 1 and 2 is the walkers - as without the
+// switch.
+inline InvaderKind KindFromIni(int value) {
+	return value == 1 ? InvaderKind::Daedra : (value == 2 ? InvaderKind::Both : InvaderKind::Walkers);
+}
+
+inline bool InPlay(InvaderKind kind, Group group) {
+	return group == Group::Walker ? kind != InvaderKind::Daedra : kind != InvaderKind::Walkers;
+}
+
+// What a group takes of the walkers' rules (4.22's table, row by row).
+struct GroupRules {
+	bool rise;            // the fallen rise as it (4.1)
+	bool headRule;        // only a lost head ends one (4.17, 4.17b)
+	bool grab;            // grabs and bites (4.19)
+	bool slowAggression;  // 4.21
+	bool disguise;        // walker blood fools it (4.20.1)
+	bool walkOnly;        // walks at its own pace, never runs (4.4)
+	bool marches;         // hordes or war bands to the cities, gate guards, sieges, news, camps, dungeons
+	bool nightWorse;      // 4.20.5; the Daedra's is the weather (idea 9, off by default)
+	bool scaledHealth;    // HealthPercent; the Daedra keep the game's leveling
+};
+
+inline constexpr GroupRules RulesOf(Group group) {
+	return group == Group::Walker ? GroupRules{true, true, true, true, true, true, true, true, true}
+	                              : GroupRules{false, false, false, false, false, false, true, false, false};
+}
+
+// Whether one fallen gets up as a walker: only while walkers are in play,
+// never a Daedra; with Kind 2 those the Daedra kill rise too (idea 2).
+inline bool MayRise(InvaderKind kind, bool fallenIsDaedra) {
+	return !fallenIsDaedra && InPlay(kind, Group::Walker);
+}
+
+// The group that takes a replaced spawn; `roll` 0..99 (Kind 2 only).
+inline Group ReplacementGroup(const InvaderSettings& s, UInt32 roll) {
+	switch (s.kind) {
+		case InvaderKind::Walkers: return Group::Walker;
+		case InvaderKind::Daedra: return Group::Daedra;
+		case InvaderKind::Both: break;
+	}
+	return roll < s.daedraPercent ? Group::Daedra : Group::Walker;
+}
+
+// The Daedra among the replacement categories (CategoryLogic.h), by their
+// keys: Atronachs, Clannfears, Daedroths, Scamps, SpiderDaedra, Xivilai,
+// Dremora - the ones 4.22 names; the Shivering Isles' Hungers are Sheogorath's,
+// not Dagon's, and stay a walkers' category. KindLogicTest checks the keys.
+inline constexpr UInt8 kDaedraCategories[] = {6, 7, 8, 9, 10, 11, 39};
+inline constexpr UInt32 kDaedraCategoryCount = sizeof(kDaedraCategories) / sizeof(kDaedraCategories[0]);
+
+inline constexpr UInt8 DaedraCategoryIndex(UInt32 i) { return i < kDaedraCategoryCount ? kDaedraCategories[i] : kNoCategory; }
+
+inline bool IsDaedraCategory(UInt8 category) {
+	for (UInt8 c : kDaedraCategories) {
+		if (c == category) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// Whether a category switched `on` is replaced: with the Daedra in play
+// their own categories stay the game's Daedra - they are the invaders.
+inline bool CategoryReplaced(InvaderKind kind, UInt8 category, bool on) {
+	return on && !(InPlay(kind, Group::Daedra) && IsDaedraCategory(category));
+}
+
+// Idea 11: the summoners (the Dremora's ranks, the spider daedra, the
+// xivilai) multiply the actors with their summons - by default their
+// NOSUMMON twins (DaedraLists.h).
+inline bool HoldSummonersBack(const InvaderSettings& s) { return !s.summons; }
+
+}  // namespace walkers

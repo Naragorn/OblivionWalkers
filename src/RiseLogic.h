@@ -19,6 +19,7 @@
 #include "GuardLogic.h"
 #include "HeadshotLogic.h"
 #include "HordeLogic.h"
+#include "KindLogic.h"
 #include "MissingLogic.h"
 #include "NewsLogic.h"
 #include "NightLogic.h"
@@ -184,6 +185,9 @@ struct RiseSettings {
 	CorpseSettings corpses;
 	// [Night] (4.20.5, NightLogic.h): nights are worse.
 	NightSettings night;
+	// [Invaders] (4.22, KindLogic.h): walkers, Daedra or both - read and in
+	// LINK, not wired in yet (step 1's wiring waits for a harness run).
+	InvaderSettings invaders;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
 	CampSettings camps;
 	// [Zombies] SlowAggression, SlowAggressionLevel, SlowAggressionSecondsMin, SlowAggressionSecondsMax, SlowAggressionUnits

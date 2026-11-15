@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 208,
-	      "208 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits - every INI setting but Name, CampSpacingUnits, the corpses' LogSeconds, "
+	Check(kLinkSettingCount == 211,
+	      "211 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three - every INI setting but Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 41\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 42\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -654,12 +654,39 @@ void TestHeadshotsCorpsesLeash() {
 	Check(walkers::SetLinkValue(rise, replace, percent, 5.0) && rise.headshots.overkillPercent == 10.0f &&
 	          walkers::SetLinkValue(rise, replace, percent, 900.0) && rise.headshots.overkillPercent == 500.0f,
 	      "the overkill held to 10..500 - never every hit");
-	Check(walkers::kLinkVersion == 41.0, "the version 41: a save of 40 takes the INI's values again");
+	Check(walkers::kLinkVersion >= 41.0, "the version 41 or later: a save of 40 takes the INI's values again");
 	bool live = true;
-	for (UInt32 i = 197; i <= 207; ++i) {
+	for (UInt32 i = 197; i <= 207; ++i) {  // the invaders' after them: Spawns
 		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
 	}
 	Check(live, "all read where they are used: live");
+}
+
+void TestInvaders() {
+	std::printf("The invaders' three in LINK (4.22 step 1, 2026-11-15)\n");
+	walkers::RiseSettings rise;
+	walkers::ReplaceSettings replace;
+	const int kind = IndexOf("ini_invaders_kind");
+	const int share = IndexOf("ini_invaders_daedra_percent");
+	const int summons = IndexOf("ini_invaders_summons");
+	Check(kind == 208 && share == 209 && summons == 210, "three at the table's end, 208 to 210");
+	Check(walkers::LinkValue(rise, replace, kind) == 0.0 && walkers::LinkValue(rise, replace, share) == 50.0 &&
+	          walkers::LinkValue(rise, replace, summons) == 0.0,
+	      "the INI's defaults: Kind 0, DaedraPercent 50, Summons 0");
+	Check(walkers::SetLinkValue(rise, replace, kind, 2.0) && rise.invaders.kind == walkers::InvaderKind::Both &&
+	          walkers::LinkValue(rise, replace, kind) == 2.0,
+	      "Kind 2 from the menu: both, read back as 2");
+	Check(walkers::SetLinkValue(rise, replace, kind, 0.0) && walkers::SetLinkValue(rise, replace, kind, 7.0) &&
+	          rise.invaders.kind == walkers::InvaderKind::Both,
+	      "above the slider: held to 2");
+	Check(walkers::SetLinkValue(rise, replace, share, 30.0) && rise.invaders.daedraPercent == 30 &&
+	          walkers::SetLinkValue(rise, replace, summons, 1.0) && rise.invaders.summons,
+	      "the share and the summons set");
+	Check(kLinkSettings[kind].effect == walkers::LinkEffect::Spawns &&
+	          kLinkSettings[share].effect == walkers::LinkEffect::Spawns &&
+	          kLinkSettings[summons].effect == walkers::LinkEffect::Spawns,
+	      "all three change the spawns: the lists written anew");
+	Check(walkers::kLinkVersion == 42.0, "the version 42");
 }
 
 void TestPageTest() {
@@ -691,6 +718,7 @@ int main() {
 	TestSliders();
 	TestPageTest();
 	TestHeadshotsCorpsesLeash();
+	TestInvaders();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;
