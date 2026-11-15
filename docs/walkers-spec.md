@@ -3980,8 +3980,11 @@ roster line's counts.
   neither it nor its spot is within 4000 units of the player
   (`kLeashUnseenUnits`, the corpses' distance) - none moves before his
   eyes; the player indoors: nothing. `LeashDue`, CampLogicTest TestLeash.
-  Log: "Camps: camp NN ... led home" (40 a session). Not run: a stray
-  brought back in the game.
+  Log: "Camps: camp NN ... led home" (40 a session). Harness camp-leash
+  (`CAMP_SCENARIO=leash tools/camp-harness.sh`, `[Survivors] TestLeash=7`,
+  run 20261115-195257, Linux): PASS - camp 07 living, slot 0 put 3000 off
+  its spot, the player 9329 off it, "led home" the next second, 15 s later
+  0 from its spot. Not seen: a stray of a real fight, the headset.
 - **BUILT 2026-11-14, not run in the game - ended walkers' bodies lay for
   good** (Nadi: "viele walker leichen ... liegen ewig, kostet
   performance"; "go A + B"). `[Corpses]` (CorpseLogic.h): once a second
