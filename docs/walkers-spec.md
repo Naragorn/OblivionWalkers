@@ -3898,6 +3898,18 @@ B without harness runs, then C; nothing wired into the game):
   247 of the Daedra's own categories kept; three LL0Goblin100 placed gave
   three stunted scamps (0003E9CB, the save's level 1), no goblin, no
   walker; killed, nobody waits to rise.
+- **Step 4, read 2026-11-15** (`daedra-fight.txt`, `tools/daedra-harness.sh
+  fight <Kind>`: the player unseen, a walker and a Churl placed 300 units
+  before him): with Kind 0 the Churl's list became walkers (the Dremora
+  category on) - no Daedra, the probe needs Kind 1 to 3. Kind 2, nothing
+  of the factions changed, 21:2x PASS: after 45 s one of the two dead -
+  the game's own factions (UndeadFaction vs DaedraFaction/DremoraFaction,
+  no reaction between them, aggression 90-100) make them foes already.
+  So Kind 2 needs no faction work; Kind 3 (allies) does: the walkers have
+  to join a faction the Daedra like (DaedraFaction 00053FED reacts +100 to
+  itself and DremoraFaction) - not built, the next harness run proves it.
+  Runs stopped 2026-11-15 on Nadi's word via OBNG ("keine harness runs
+  mehr"), the walkers out of the Linux game again.
 
 All of it together: huge (seven steps, each with its own harness
 scenarios). The first three give a playable Daedra invasion; the rest

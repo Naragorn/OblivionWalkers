@@ -1,0 +1,29 @@
+# Invaders step 4 (docs/walkers-spec.md 4.22): do a walker and a Dremora
+# fight each other? The player unseen (Chameleon 100, tgm), a walker
+# (WalkersZombie1) and a Churl (LL0Dremora0Churl100NOSUMMON, 00000FE7)
+# placed 300 units before him. The rosters at the marks say who is dead;
+# the plugin's log (tools/daedra-harness.sh fight) says which kind ran and
+# the factions it set. Kind 2: they fight; Kind 3: neither dies.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at ready player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
+console-at ready player.placeatme 00000FE7 1 300 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 5
+mark placed
+wait 20
+mark twenty
+wait 25
+mark end
+wait 1

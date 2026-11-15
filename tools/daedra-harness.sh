@@ -5,6 +5,7 @@
 # Announce "busy" to the other sessions first.
 #
 #   tools/daedra-harness.sh spawn [Kind]     harness/daedra-spawn.txt, Kind 1 by default
+#   tools/daedra-harness.sh fight [Kind]     harness/daedra-fight.txt: a walker and a Churl
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -72,9 +73,10 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Kind=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
-check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
-walkers = show("Spawns: ")
+if kind != 0:
+    check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
+    check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
+walkers = [l for l in lines if l.startswith("Spawns: ")]
 roster = [l for l in obvr if "HandScript: actors" in l]
 print("Roster:")
 for l in roster[:3]:
@@ -86,6 +88,17 @@ if scenario == "spawn" and kind == 1:
     rises = [l for l in lines if "waits to rise" in l]
     check(not rises, "nobody waits to rise with Kind=1 (%d)" % len(rises))
     show("stays down (Invaders Kind")
+if scenario == "fight":
+    for l in [l for l in obvr if "HandScript: actors" in l or "HandScript: mark" in l][:12]:
+        print("        " + l[:300])
+    show("Invaders:")
+    last = [l for l in roster if "loaded" in l][-1] if roster else ""
+    dead = re.search(r"(\d+) dead", last)
+    print("        last roster: " + last[:200])
+    if kind == 2:
+        check(dead is not None and int(dead.group(1)) >= 1, "Kind 2: one of the two is dead")
+    if kind == 3:
+        check(dead is not None and int(dead.group(1)) == 0, "Kind 3: neither is dead")
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)
 PY
