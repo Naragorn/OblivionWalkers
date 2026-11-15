@@ -3688,6 +3688,15 @@ the same day):
   - **Open, for the plugin:** the door is enabled and not destroyed. The
     engine field behind `GetDestroyed` is not read yet; it has to be,
     for a direct read (the performance rule: no console line per gate).
+    **Read 2026-11-15** (branch `daedra`, C): GetDestroyed's eval
+    0x004F82C0 answers bit 13 (0x2000) of the reference's form flags
+    (+0x08); SetDestroyed sets it through 0x0046AA50. `GateLogic.h`
+    `GateOpen`: door and parent not disabled (0x800), door not destroyed.
+    `tools/oblivion-gates.py` writes `src/OblivionGates.h`: 103 gate doors
+    in Tamriel - 90 random, 6 on the cities' script (MQ11's five, MS13's),
+    7 the quests' own; all with an enable parent. GateLogicTest. Not seen
+    in the game: the flags of a gate as it opens and closes.
+    `../OBNG/knowledge/oblivion-gates.md`.
   - An open gate spawns by itself: `mySpawnMarker.placeatme
     LL1DaedricBeast100` at its parent, one every 10 s up to
     `MQ00.maxCreatureCount` (1), the count reset on every load of the gate
