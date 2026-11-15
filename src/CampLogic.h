@@ -202,6 +202,11 @@ struct CampSettings {
 	// then the player and they taken to the nearest gate - or, with
 	// TestEscortBehind, the player 7000 units off (-1: never).
 	int testEscort = -1;
+	// Test switch (harness/camp-leash.txt): camp N, living, the player taken
+	// to it 30 s after the load, at 45 s one refugee put 3000 units off its
+	// spot and the player 9000 units off the camp - the leash leads it home;
+	// at 60 s its distance from its spot logged (-1: never).
+	int testLeash = -1;
 	bool testEscortBehind = false;
 	// EscortFollowSeconds (INI only): the follow package sent again this
 	// often while on the way; 0 only at the start and after a load.

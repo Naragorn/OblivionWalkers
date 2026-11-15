@@ -1235,6 +1235,57 @@ void LeashKit(UInt32 kit, UInt32 i, float px, float py) {
 	}
 }
 
+// [Survivors] TestLeash=N (CampLogic.h; harness/camp-leash.txt).
+UInt32 g_testLeashStage = 0;
+int g_testLeashSlot = -1;
+
+void StepTestLeash() {
+	const int camp = g_settings->testLeash;
+	if (camp < 0 || camp >= static_cast<int>(kCampMost) || g_testLeashStage >= 3) {
+		return;
+	}
+	const UInt32 i = static_cast<UInt32>(camp);
+	const UInt32 player = LookupForm(kPlayerRefId);
+	char line[96];
+	if (g_testLeashStage == 0 && g_testClock >= kTestCampAfterSeconds) {
+		g_testLeashStage = 1;
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -1000 200", MarkerId(i));
+		const bool moved = Say(player, line);
+		g_log("Camps: test - TestLeash=%d, camp status %u, the player taken there (%s answered %d)", camp,
+		      static_cast<UInt32>(g_state.camps[i].status), line, moved ? 1 : 0);
+	} else if (g_testLeashStage == 1 && g_testClock >= kTestCampAfterSeconds + 15.0f) {
+		g_testLeashStage = 2;
+		const int kit = KitOf(g_kitCamp, i);
+		const CampCandidate& place = Place(i);
+		for (UInt32 slot = 0; kit >= 0 && slot < kCampSlots && g_testLeashSlot < 0; ++slot) {
+			const UInt32 ref = Esp(KitPersonLocalId(static_cast<UInt32>(kit), slot));
+			if (LooksLikeObject(ref) && (Read(ref + 0x08) & 0x00000800) == 0 && (g_dead == nullptr || !g_dead(ref))) {
+				g_testLeashSlot = static_cast<int>(slot);
+				const CampSpot& at = place.people[slot];
+				std::snprintf(line, sizeof(line), "MoveTo %08X %.0f %.0f %.0f", MarkerId(i), at.x - place.x + 3000.0f,
+				              at.y - place.y, at.z - place.z + 100.0f);
+				Say(ref, line);
+			}
+		}
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 -9000 300", MarkerId(i));
+		Say(player, line);
+		g_log("Camps: test - TestLeash: kit %d, slot %d put 3000 off its spot, the player 9000 off the camp", kit,
+		      g_testLeashSlot);
+	} else if (g_testLeashStage == 2 && g_testClock >= kTestCampAfterSeconds + 30.0f) {
+		g_testLeashStage = 3;
+		const int kit = KitOf(g_kitCamp, i);
+		float off = -1.0f;
+		if (kit >= 0 && g_testLeashSlot >= 0) {
+			const UInt32 ref = Esp(KitPersonLocalId(static_cast<UInt32>(kit), static_cast<UInt32>(g_testLeashSlot)));
+			const CampSpot& at = Place(i).people[g_testLeashSlot];
+			const float x = FloatAt(ref + kRefPositionOffset);
+			const float y = FloatAt(ref + kRefPositionOffset + 4);
+			off = std::sqrt((x - at.x) * (x - at.x) + (y - at.y) * (y - at.y));
+		}
+		g_log("Camps: test - TestLeash: slot %d now %.0f from its spot (kit %d)", g_testLeashSlot, off, kit);
+	}
+}
+
 void StepKits(const float* distance) {
 	const UInt32 player = LookupForm(kPlayerRefId);
 	const bool playerKnown = LooksLikeObject(player);
@@ -1451,6 +1502,7 @@ void StepCampsInGame(float dt) {
 	g_testClock += kStepSeconds;
 	SetGlobal(kCampRumorGlobalLocalId, 1.0f);
 	StepTestEscort(now, events, n);
+	StepTestLeash();
 	n += StepEscortInGame(distance, now, events + n, kEventsMost - n);
 	if (!g_testDone && g_testClock >= kTestCampAfterSeconds && g_settings->testCamp >= 0 &&
 	    CampInPlay(g_state, *g_settings, static_cast<UInt32>(g_settings->testCamp))) {

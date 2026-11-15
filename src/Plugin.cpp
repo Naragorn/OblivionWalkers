@@ -341,6 +341,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.escortIntoCity = GetPrivateProfileIntA("Survivors", "EscortIntoCity", 1, path) != 0;
 	camps.leashUnits = std::max(0.0f, IniFloat("Survivors", "LeashUnits", 1500.0f, path));
 	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
+	camps.testLeash = GetPrivateProfileIntA("Survivors", "TestLeash", -1, path);
 	rise.disguise.enabled = GetPrivateProfileIntA("Disguise", "Enabled", 1, path) != 0;
 	rise.disguise.seconds = std::max(1.0f, IniFloat("Disguise", "Seconds", 180.0f, path));
 	rise.disguiseTest = GetPrivateProfileIntA("Disguise", "Test", 0, path) != 0;

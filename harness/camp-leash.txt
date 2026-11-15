@@ -1,0 +1,31 @@
+# The camps' leash (docs/walkers-spec.md 4.20.6, LeashUnits, 2026-11-15):
+# tools/camp-harness.sh with CAMP_SCENARIO=leash sets [Survivors]
+# TestLeash=7 and AttackChancePercent=0. 30 s after the load the player is
+# taken 1000 units off camp 07's fire ("TestLeash=7, camp status 0" - living)
+# and its kit set up ("kit N to camp 07"); at 45 s one refugee is put 3000
+# units off its spot and the player 9000 units off the camp; the leash puts
+# it back within a second ("led home"); at 60 s its distance from its spot
+# is logged - near 0. Checked off OblivionWalkers.log after the run.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set GameHour to 12
+console-at ready cow Tamriel 20 -15
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 30
+mark t30
+wait 20
+mark t50
+wait 25
+mark end
+wait 1
