@@ -5176,7 +5176,7 @@ names what it takes of them.
   of that city starts from it; before that no gate - opening it ourselves
   would trouble MQ11's count. No prop of our own. Idea 7, the Daedric
   disguise (a full Daedric set: the Daedra take the player for one of
-  theirs until he strikes or comes very near), on the walkers' disguise.
+  theirs until the player strikes or comes very near), on the walkers' disguise.
   Idea 10, the Legion's answer from the gate guards' pool. Idea 9, the
   weather, last and off by default.
 
@@ -5193,7 +5193,7 @@ The camps' rumor names no place (their kits stand near the player already).
 Options: (A) the news names the nearest site with news - the kind only
 breaks a tie (small: the sites' doors are known, DungeonNewsSite takes the
 player's place). (B) new sites are rolled near the player: among the free
-candidates within `RollWithinUnits` (say 60000, some 860 m) of him, any
+candidates within `RollWithinUnits` (say 60000, some 860 m) of the player, any
 only when none is that near (small to medium; the far ones go on and run
 out by LeaveAfterDays). Recommended A and B together. Both unit flows; the
 game's proof is a harness run (8c) when the walkers may run again.
