@@ -612,7 +612,7 @@ inline const char* VerdictText(DeathVerdict verdict) {
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
 		case DeathVerdict::NotForInvaders:
-			return "stays down (Invaders Kind: no walkers, or a Daedra)";
+			return "stays down (Invaders Mode: no walkers, or a Daedra)";
 	}
 	return "?";
 }

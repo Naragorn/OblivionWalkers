@@ -46,6 +46,11 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log);
 
+// Kind 3 (KindLogic.h WalkersJoinDaedra): the walker records join
+// DaedraFaction (a faction entry of ours appended to each record's list in
+// memory), or leave it again - only the entries this call added.
+void SetWalkersAllied(const UInt32* walkerIds, UInt32 count, bool allied, LogFn log);
+
 // The walker records' Speed (4.4): each record's own times the multiplier,
 // spread over the records (ReplaceLogic.h WalkerSpeed), from the values they
 // had at the first call - the records in memory only.

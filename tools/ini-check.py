@@ -23,7 +23,7 @@ EXPECTED = {
     "Dungeons": "OnlyChosen",
     "News": "Courier",
     "Grab": "Enabled",
-    "Invaders": "Kind",
+    "Invaders": "Mode",
     "Debug": "StepTiming",
 }
 

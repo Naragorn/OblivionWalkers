@@ -43,7 +43,7 @@ def set_key(text, section, key, value):
         body = nl + key + "=" + value + body
     return text[:head.end()] + body + text[stop:]
 
-text = set_key(text, "Invaders", "Kind", kind)
+text = set_key(text, "Invaders", "Mode", kind)
 # the dungeons' runner off, as in the other wrappers: nobody of the plugin's own beside the player
 text = set_key(text, "Dungeons", "Enabled", "0")
 open(path, "w", encoding="latin-1", newline="").write(text)
@@ -71,7 +71,7 @@ def show(prefix, most=8):
         print("        " + l[:240])
     return found
 
-spawns = show("Spawns: Invaders Kind=")
+spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
 if kind != 0:
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
@@ -86,8 +86,8 @@ if scenario == "spawn" and kind == 1:
     check(bool(full), "the placed lists brought someone (%d rosters with actors)" % len(full))
     check(not re.search(r"\b[0-9A-F]{2}000(80[1-4]|9[0-4][0-9A-F])\b", " ".join(full)), "no walker in the roster")
     rises = [l for l in lines if "waits to rise" in l]
-    check(not rises, "nobody waits to rise with Kind=1 (%d)" % len(rises))
-    show("stays down (Invaders Kind")
+    check(not rises, "nobody waits to rise with Mode=1 (%d)" % len(rises))
+    show("stays down (Invaders Mode")
 if scenario == "fight":
     for l in [l for l in obvr if "HandScript: actors" in l or "HandScript: mark" in l][:12]:
         print("        " + l[:300])

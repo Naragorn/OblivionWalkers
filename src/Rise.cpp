@@ -2770,6 +2770,9 @@ void StepSpawns(float dt) {
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
 		SelectDungeonPool(g_iniPath, g_settings.dungeonsOnlyChosen, g_log);
+		if (WalkersJoinDaedra(g_settings.invaders.kind)) {
+			SetWalkersAllied(g_walkers, g_walkerCount, true, g_log);
+		}
 		if (g_replace.enabled) {
 			ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 		}
@@ -2832,6 +2835,7 @@ void ApplyLinkEffect(LinkEffect effect) {
 			ConfigureNews(g_settings.news, FindEspBase(), g_log);
 			break;
 		case LinkEffect::Spawns:
+			SetWalkersAllied(g_walkers, g_walkerCount, WalkersJoinDaedra(g_settings.invaders.kind), g_log);
 			ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 			break;
 		default:

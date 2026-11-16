@@ -58,6 +58,10 @@ void TestHostility() {
 	Check(!walkers::GroupsHostile(InvaderKind::Allied), "Kind 3: allies, one side against the living");
 	Check(!walkers::GroupsHostile(InvaderKind::Walkers) && !walkers::GroupsHostile(InvaderKind::Daedra),
 	      "Kind 0 and 1: one group, nobody to fight");
+	Check(walkers::WalkersJoinDaedra(InvaderKind::Allied) && !walkers::WalkersJoinDaedra(InvaderKind::Both) &&
+	          !walkers::WalkersJoinDaedra(InvaderKind::Walkers) && !walkers::WalkersJoinDaedra(InvaderKind::Daedra),
+	      "only Kind 3: the walkers join the Daedra's faction");
+	Check(walkers::kDaedraFaction == 0x00053FED, "DaedraFaction, Oblivion.esm 00053FED");
 }
 
 void TestRules() {

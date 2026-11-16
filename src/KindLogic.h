@@ -4,7 +4,8 @@
 // (docs/walkers-spec.md 4.22; Nadi, 2026-11-13: "0 zombies, 1 Dremora, 2
 // both", decided the same day; built 2026-11-15, not wired in yet).
 //
-// `[Invaders] Kind` says which groups are in play: 0 the walkers as they
+// `[Invaders] Mode` (named Kind until 2026-11-16, Nadi: a better key) says
+// which groups are in play: 0 the walkers as they
 // are, 1 the Daedra in their place, 2 both at war with each other, 3 both
 // as allies (Nadi, 2026-11-15: walkers and Daedra friends, the fallen rise
 // as walkers). Each group keeps or drops the
@@ -60,6 +61,14 @@ inline bool BothInPlay(InvaderKind kind) { return kind == InvaderKind::Both || k
 // Whether the walkers and the Daedra fight each other: only Kind 2 (step 4,
 // idea 2); Kind 3 makes them one side.
 inline bool GroupsHostile(InvaderKind kind) { return kind == InvaderKind::Both; }
+
+// Kind 3's side: the walker records join Oblivion.esm's DaedraFaction
+// (00053FED - it reacts +100 to itself and to DremoraFaction, DremoraFaction
+// +100 to it; read 2026-11-15). Kind 2 needs nothing: the game's own
+// factions make walkers and Daedra foes already (daedra-fight.txt,
+// 2026-11-15, one of the two dead within 45 s).
+inline constexpr UInt32 kDaedraFaction = 0x00053FED;
+inline bool WalkersJoinDaedra(InvaderKind kind) { return kind == InvaderKind::Allied; }
 
 inline bool InPlay(InvaderKind kind, Group group) {
 	return group == Group::Walker ? kind != InvaderKind::Daedra : kind != InvaderKind::Walkers;

@@ -3848,6 +3848,11 @@ started - Nadi's go for each):
 | 6 | The news and rumors name the feeding gate; "close the gate" as a journal quest; after the main quest | 4, 5, 13 | small to medium - 5 waits for the journal frame of 4.20.7 step 4 |
 | 7 | The looks: the siege gate prop, the marching weather, the Daedric disguise, the Legion's answer | 3, 9, 7, 10 | medium each; 3 and 9 touch sky and weather (9 off by default) |
 
+**The key is `[Invaders] Mode`** (Nadi, 2026-11-16: a better name than
+`Kind`; the section's "Kind 0..3" below are its values): 0 the walkers, 1
+the Daedra in their place, 2 both at war, 3 both as allies. LINK
+`ini_invaders_mode`, "Invaders: who comes".
+
 **Kind 3, the allies** (Nadi, 2026-11-15): walkers and Daedra on one
 side, the fallen rise as walkers - Kind 2's spawns and rise, without the
 war between the two (`GroupsHostile` only for Kind 2).

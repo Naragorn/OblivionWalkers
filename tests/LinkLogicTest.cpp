@@ -666,7 +666,7 @@ void TestInvaders() {
 	std::printf("The invaders' three in LINK (4.22 step 1, 2026-11-15)\n");
 	walkers::RiseSettings rise;
 	walkers::ReplaceSettings replace;
-	const int kind = IndexOf("ini_invaders_kind");
+	const int kind = IndexOf("ini_invaders_mode");
 	const int share = IndexOf("ini_invaders_daedra_percent");
 	const int summons = IndexOf("ini_invaders_summons");
 	Check(kind == 208 && share == 209 && summons == 210, "three at the table's end, 208 to 210");

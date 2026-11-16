@@ -571,7 +571,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	const UInt32 daedraList = espList(InvaderDaedraLocalId(invaders));
 	const bool daedraInPlay = InPlay(invaders.kind, Group::Daedra);
 	if (daedraInPlay && daedraList == 0) {
-		log("Spawns: Invaders Kind=%u, but %08X is no leveled creature list (an older ESP) - no Daedra in the lists",
+		log("Spawns: Invaders Mode=%u, but %08X is no leveled creature list (an older ESP) - no Daedra in the lists",
 		    static_cast<UInt32>(invaders.kind), EspFormId(espBase, InvaderDaedraLocalId(invaders)));
 	}
 	const auto ours = [&](UInt32 form) {
@@ -716,7 +716,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	    forms, lists, settings.enabled ? 1 : 0, walkerEntries, listsTouched, replaced, restored,
 	    static_cast<UInt32>(g_known.size()), on);
 	if (invaders.kind != InvaderKind::Walkers) {
-		log("Spawns: Invaders Kind=%u DaedraPercent=%u Summons=%d - %u entries point at the Daedra (%08X), %u entries "
+		log("Spawns: Invaders Mode=%u DaedraPercent=%u Summons=%d - %u entries point at the Daedra (%08X), %u entries "
 		    "of the Daedra's own categories stay the game's",
 		    static_cast<UInt32>(invaders.kind), invaders.daedraPercent, invaders.summons ? 1 : 0, daedraEntries,
 		    daedraList != 0 ? FormIdOf(daedraList) : 0u, daedraKept);
@@ -734,6 +734,86 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 		    AppendToIni(iniPath, added.data(), addedUsed + newLines + 64));
 	}
 	return replaced;
+}
+
+// TESActorBaseData's faction list (kFactionListOffset): FactionListEntry
+// {data, next}, the first inline; data {TESFaction*, SInt8 rank, pad[3]}
+// (xOBSE GameForms.h). The entries this session appended, by record.
+std::unordered_map<UInt32, UInt32> g_alliedNode;
+
+void SetWalkersAllied(const UInt32* walkerIds, UInt32 count, bool allied, LogFn log) {
+	const UInt32 faction = LookupForm(kDaedraFaction);
+	if (!LooksLikeObject(faction)) {
+		log("Invaders: DaedraFaction %08X not found - the walkers keep their factions", kDaedraFaction);
+		return;
+	}
+	using AllocateFn = void*(__cdecl*)(UInt32 size);
+	const auto allocate = reinterpret_cast<AllocateFn>(kFormHeapAllocate);
+	UInt32 joined = 0;
+	UInt32 left = 0;
+	UInt32 already = 0;
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 record = LookupForm(walkerIds[i]);
+		if (!LooksLikeObject(record)) {
+			continue;
+		}
+		UInt32 last = 0;
+		UInt32 before = 0;  // the node before ours, to unlink it
+		bool member = false;
+		UInt32 visited = 0;
+		for (UInt32 node = record + kFactionListOffset; LooksLikeObject(node) && visited < kFactionsMost;
+		     node = Read(node + 4), ++visited) {
+			const UInt32 data = Read(node);
+			const auto ours = g_alliedNode.find(record);
+			if (ours != g_alliedNode.end() && Read(node + 4) == ours->second) {
+				before = node;
+			}
+			member = member || (LooksLikeObject(data) && Read(data) == faction);
+			last = node;
+		}
+		const auto ours = g_alliedNode.find(record);
+		if (allied) {
+			if (member) {
+				++already;
+				continue;
+			}
+			if (Read(record + kFactionListOffset) == 0) {
+				// an empty list: the inline first node takes ours
+				auto* data = static_cast<UInt32*>(allocate(8));
+				if (data == nullptr) {
+					break;
+				}
+				data[0] = faction;
+				data[1] = 0;
+				*reinterpret_cast<UInt32*>(record + kFactionListOffset) = reinterpret_cast<UInt32>(data);
+				g_alliedNode[record] = record + kFactionListOffset;
+				++joined;
+				continue;
+			}
+			auto* data = static_cast<UInt32*>(allocate(8));
+			auto* node = static_cast<UInt32*>(allocate(8));
+			if (data == nullptr || node == nullptr || last == 0) {
+				break;
+			}
+			data[0] = faction;
+			data[1] = 0;  // rank 0
+			node[0] = reinterpret_cast<UInt32>(data);
+			node[1] = 0;
+			*reinterpret_cast<UInt32*>(last + 4) = reinterpret_cast<UInt32>(node);
+			g_alliedNode[record] = reinterpret_cast<UInt32>(node);
+			++joined;
+		} else if (ours != g_alliedNode.end()) {
+			if (ours->second == record + kFactionListOffset) {
+				*reinterpret_cast<UInt32*>(record + kFactionListOffset) = 0;
+			} else if (before != 0) {
+				*reinterpret_cast<UInt32*>(before + 4) = Read(ours->second + 4);
+			}
+			g_alliedNode.erase(ours);
+			++left;
+		}
+	}
+	log("Invaders: the walkers %s DaedraFaction (%08X) - %u records joined, %u left, %u members already",
+	    allied ? "join" : "keep out of", kDaedraFaction, joined, left, already);
 }
 
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log) {
