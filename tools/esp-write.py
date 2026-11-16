@@ -1290,6 +1290,11 @@ def main() -> int:
     markers = b"".join(record(b"REFR", form, build_marker(marker_template, f"WalkersHordeMarker{i:02d}", i),
                               flags=RECORD_PERSISTENT)
                        for i, form in enumerate(marker_forms))
+    # the war bands' marker (4.22 step 3, BandLogic.h kBandMarkerLocalId), after the horde's
+    band_marker = int(re.search(r"kBandMarkerLocalId = (0x[0-9A-Fa-f]+);",
+                                (HERE.parent / "src" / "BandLogic.h").read_text()).group(1), 16)
+    markers += record(b"REFR", index | band_marker,
+                      build_marker(marker_template, "WalkersBandMarker", len(marker_forms)), flags=RECORD_PERSISTENT)
     guard_forms = [index | local for local in LOCAL_GUARD_IDS]
     guard_templates = [find_record(esm, buf, b"NPC_", t) for t in GUARD_TEMPLATES]
     guards = b"".join(record(b"NPC_", form, build_guard(tpl, f"WalkersGuard{city}"))
@@ -1717,6 +1722,7 @@ def main() -> int:
                + len(camp_base_forms) + 1 + len(camp_marker_forms) + len(camp_travel_forms) + camp_pool_count
                + camp_records + 2 + len(shock_forms)
                + 2  # the invaders' two Daedra lists (4.22 step 1)
+               + 1  # the war bands' marker (step 3)
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
                + 1  # the escort's quest

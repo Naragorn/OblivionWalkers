@@ -3926,6 +3926,28 @@ B without harness runs, then C; nothing wired into the game):
   jump of time forming one band, not a burst, `BandsMost` (32). The wiring
   (the 103 gates' flags read once a game minute, a Near band placed as a
   horde with the Daedra list) waits for a harness run.
+- **Steps 2 and 3 wired 2026-11-16** (Nadi: "harness erlaubt. go"):
+  `[Invaders] Origin`, `EverywhereUntilGatesOpen`, `BandEveryHours`,
+  `BandSizeMin`, `BandSizeMax`, `BandsMost` in the INI (LINK the first
+  five, version 43; `NearUnits` 6000 now - inside the loaded grid, so a band
+  is placed into loaded cells). `Bands.cpp`: once a second, in a game only
+  (at the main menu the gates' flags are the file's - gate 0 read open
+  there, closed after the load), the 103 gates' flags read, `StepBands` by
+  the game's clock, the spawn replacement off while `ReplacementOn` says so
+  (its lists pointed back, again on when a gate opens with the fallback).
+  A Near band: the ESP's `WalkersBandMarker` (A95, in the horde markers'
+  cell) moved to the band's spot (at least 3000 from the player, on the
+  land), `PlaceAtMe` of the mode's list (the Daedra's A93/A94 or the
+  walkers' 805; Mode 2 and 3 by DaedraPercent), the new FF actors within
+  1500 units found the next second and handed to the horde as candidates -
+  step 2: the horde leads a Daedra band as it leads walkers (leader,
+  marker, followers, the gates and sieges). `[Invaders] TestBandSeconds`
+  (test switch). Harness `daedra-band.txt` (`tools/daedra-harness.sh band
+  <Mode>`, outdoors at cow Tamriel -3 3): 2026-11-16 Mode 1 PASS - 8
+  stunted scamps placed, found, one group formed, its leader on the
+  travel package, 7 followers on theirs; Mode 2 PASS - 5 placed and found.
+  Not built: the far bands across a save (the state is the session's), a
+  leader two ranks above (idea 1), Arrived as a siege's pressure (step 5).
 
 All of it together: huge (seven steps, each with its own harness
 scenarios). The first three give a playable Daedra invasion; the rest

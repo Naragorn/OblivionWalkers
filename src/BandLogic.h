@@ -30,6 +30,29 @@ inline InvaderOrigin OriginFromIni(int value) { return value == 1 ? InvaderOrigi
 inline constexpr UInt32 kBandsMost = 32;       // far bands at once
 inline constexpr UInt32 kBandGatesMost = 128;  // OblivionGates.h holds 103
 inline constexpr UInt32 kBandEventsMost = 64;
+// The ESP's marker a Near band is placed at (tools/esp-write.py, in the
+// horde markers' holding cell; a free ID after the invaders' lists).
+inline constexpr UInt32 kBandMarkerLocalId = 0xA95;
+// A band is never placed nearer than this to the player: it comes from
+// somewhere, it does not appear before his eyes.
+inline constexpr float kBandPlaceLeastUnits = 3000.0f;
+
+// Where a Near band's actors are placed, as an offset from the player: the
+// band's own spot, pushed out to kBandPlaceLeastUnits along the same line.
+inline void BandPlaceOffset(float bx, float by, float px, float py, float& dx, float& dy) {
+	dx = bx - px;
+	dy = by - py;
+	const float d = std::sqrt(dx * dx + dy * dy);
+	if (d < 1.0f) {
+		dx = 0.0f;
+		dy = kBandPlaceLeastUnits;
+		return;
+	}
+	if (d < kBandPlaceLeastUnits) {
+		dx *= kBandPlaceLeastUnits / d;
+		dy *= kBandPlaceLeastUnits / d;
+	}
+}
 
 struct BandSettings {
 	InvaderOrigin origin = InvaderOrigin::Everywhere;  // Origin
@@ -41,9 +64,15 @@ struct BandSettings {
 	// A band's pace on the map, units per game hour - a guess to be measured
 	// (a walk of ~120 units/s and the default timescale 30 give ~14400).
 	float unitsPerHour = 10000.0f;
-	// Nearer than this to the player a band comes into the world: four
-	// exterior cells, past the loaded grid of 5x5 (4.11c).
-	float nearUnits = 16384.0f;
+	// Nearer than this to the player a band comes into the world - inside
+	// the loaded grid of 5x5 (two cells each way, 8192), so its actors are
+	// placed into loaded cells; past the fog of a VR view in most weather.
+	float nearUnits = 6000.0f;
+	// [Invaders] TestBandSeconds (INI only, a test switch; harness
+	// daedra-band.txt): this many seconds after a load one band is placed
+	// before the player whatever the gates, through the same path as a Near
+	// band. 0: off.
+	float testBandSeconds = 0.0f;
 };
 
 // The spawn replacement on: Origin 0, or Origin 1 with no gate open and the

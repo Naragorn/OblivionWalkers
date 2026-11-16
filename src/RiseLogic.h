@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "AggressionLogic.h"
+#include "BandLogic.h"
 #include "Bytes.h"
 #include "CampLogic.h"
 #include "CorpseLogic.h"
@@ -185,9 +186,12 @@ struct RiseSettings {
 	CorpseSettings corpses;
 	// [Night] (4.20.5, NightLogic.h): nights are worse.
 	NightSettings night;
-	// [Invaders] (4.22, KindLogic.h): walkers, Daedra or both - read and in
-	// LINK, not wired in yet (step 1's wiring waits for a harness run).
+	// [Invaders] (4.22, KindLogic.h): who comes - the spawn replacement and
+	// the rise follow it.
 	InvaderSettings invaders;
+	// [Invaders] Origin and the bands out of the gates (4.22 step 3,
+	// BandLogic.h).
+	BandSettings bands;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
 	CampSettings camps;
 	// [Zombies] SlowAggression, SlowAggressionLevel, SlowAggressionSecondsMin, SlowAggressionSecondsMax, SlowAggressionUnits

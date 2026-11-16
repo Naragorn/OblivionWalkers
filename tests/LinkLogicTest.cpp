@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 211,
-	      "211 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three - every INI setting but Name, CampSpacingUnits, the corpses' LogSeconds, "
+	Check(kLinkSettingCount == 216,
+	      "216 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands' - every INI setting but BandsMost, Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 42\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 43\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -686,7 +686,23 @@ void TestInvaders() {
 	          kLinkSettings[share].effect == walkers::LinkEffect::Spawns &&
 	          kLinkSettings[summons].effect == walkers::LinkEffect::Spawns,
 	      "all three change the spawns: the lists written anew");
-	Check(walkers::kLinkVersion == 42.0, "the version 42");
+	const int origin = IndexOf("ini_invaders_origin");
+	const int until = IndexOf("ini_invaders_everywhere_until_gates");
+	const int hours = IndexOf("ini_invaders_band_hours");
+	const int smallest = IndexOf("ini_invaders_band_min");
+	const int largest = IndexOf("ini_invaders_band_max");
+	Check(origin == 211 && until == 212 && hours == 213 && smallest == 214 && largest == 215,
+	      "the gates' five after them, 211 to 215");
+	Check(walkers::LinkValue(rise, replace, origin) == 0.0 && walkers::LinkValue(rise, replace, until) == 0.0 &&
+	          walkers::LinkValue(rise, replace, hours) == 12.0 && walkers::LinkValue(rise, replace, smallest) == 4.0 &&
+	          walkers::LinkValue(rise, replace, largest) == 9.0,
+	      "the defaults: everywhere, no fallback, 12 hours, 4 to 9");
+	Check(walkers::SetLinkValue(rise, replace, origin, 1.0) && rise.bands.origin == walkers::InvaderOrigin::Gates &&
+	          walkers::SetLinkValue(rise, replace, hours, 6.0) && rise.bands.everyHours == 6.0f,
+	      "only out of gates, every 6 hours, from the menu");
+	Check(kLinkSettings[origin].effect == walkers::LinkEffect::Spawns && kLinkSettings[hours].effect == walkers::LinkEffect::Live,
+	      "Origin rewrites the lists (the replacement off or on), the bands' numbers are read live");
+	Check(walkers::kLinkVersion == 43.0, "the version 43");
 }
 
 void TestPageTest() {

@@ -3,6 +3,7 @@
 #include "ConsoleLogic.h"
 #include "Engine.h"
 #include "Grab.h"
+#include "Bands.h"
 #include "Horde.h"
 #include "LevelingLogic.h"
 #include "LinkLogic.h"
@@ -1199,6 +1200,7 @@ void FindWalkers() {
 	g_log("Walkers: %s is at %08X (%s), %u walker creatures found", kPluginEsp, base,
 	      (base >> 24) == 0xFE ? "a light plugin, OblivionESL" : "a regular plugin", g_walkerCount);
 	ConfigureHorde(g_settings.horde, base, g_log);
+	ConfigureBands(base, g_log);
 	ConfigureGuards(g_settings.guards, g_log);
 	ConfigureNews(g_settings.news, base, g_log);
 	ConfigureSiegeEsp(base);
@@ -2756,6 +2758,15 @@ void StepNight(float dt) {
 	}
 }
 
+// The spawn replacement as it runs now: off with [Invaders] Origin=1 while
+// the bands come out of the gates (Bands.h BandsWantReplacement).
+ReplaceSettings EffectiveReplace() {
+	ReplaceSettings r = g_replace;
+	r.enabled = r.enabled && BandsWantReplacement(g_settings.bands);
+	return r;
+}
+bool g_replaceWantedLast = true;
+
 // The spawn replacement (4.6) and the walkers' health (4.5), once the ESP's
 // walkers are known: at the first tick (the main menu - the records are
 // loaded, nothing spawned yet), and again five game seconds after every
@@ -2773,10 +2784,21 @@ void StepSpawns(float dt) {
 		if (WalkersJoinDaedra(g_settings.invaders.kind)) {
 			SetWalkersAllied(g_walkers, g_walkerCount, true, g_log);
 		}
+		g_replaceWantedLast = BandsWantReplacement(g_settings.bands);
 		if (g_replace.enabled) {
-			ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 		}
 		return;
+	}
+	// Origin=1: a gate opened or closed the replacement's way (BandLogic.h).
+	const bool wanted = BandsWantReplacement(g_settings.bands);
+	if (wanted != g_replaceWantedLast) {
+		g_replaceWantedLast = wanted;
+		if (g_replace.enabled) {
+			g_log("Spawns: Invaders Origin=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
+			      OpenGateCount(), wanted ? "on" : "off");
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+		}
 	}
 	if (g_spawnsAgainSeconds < 0.0f) {
 		return;
@@ -2784,7 +2806,7 @@ void StepSpawns(float dt) {
 	g_spawnsAgainSeconds -= dt;
 	if (g_spawnsAgainSeconds <= 0.0f) {
 		g_spawnsAgainSeconds = -1.0f;
-		ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+		ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 	}
 }
 
@@ -2836,7 +2858,7 @@ void ApplyLinkEffect(LinkEffect effect) {
 			break;
 		case LinkEffect::Spawns:
 			SetWalkersAllied(g_walkers, g_walkerCount, WalkersJoinDaedra(g_settings.invaders.kind), g_log);
-			ReplaceSpawns(FindEspBase(), g_replace, g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 			break;
 		default:
 			break;
@@ -3023,7 +3045,9 @@ UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 		c.busy = (g_swap.active && ids[i] == g_swap.zombieId) || IsCampWalker(ids[i]) || IsDungeonWalker(ids[i]) ||
 		         (c.alive && GettingUpNow(ref));
 	}
-	return count;
+	// The war bands' members (4.22 steps 2 and 3, Bands.h): led as the walkers
+	// are - a Daedra band's too.
+	return AppendBandMembers(out, count, most, &IsDead);
 }
 
 // The grab's test switch (GrabLogic.h testGrabSeconds): the living walker
@@ -3350,7 +3374,10 @@ void Tick() {
 	Timed(6, "night", [dt] { StepNight(dt); });
 	Timed(7, "walkers", [dt] { StepWalkers(dt); });
 	Timed(8, "grab", [dt] { StepGrabInGame(dt); });
-	Timed(9, "horde", [dt] { StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log); });
+	Timed(9, "horde", [dt] {
+		StepBandsInGame(dt, g_settings.bands, g_settings.invaders, &ConsoleOn, &IsDead, g_log);
+		StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
+	});
 	Timed(10, "safeguard", [dt] { StepSafeguardInGame(dt); });
 	Timed(11, "news", [dt] { StepNewsInGame(dt, HordeHeadingCity(), g_log); });
 	Timed(12, "siege", [dt] { StepSiegeInGame(dt); });
@@ -3465,6 +3492,7 @@ void OnLoad(void*) {
 	g_safeguardClock = 0.0f;
 	g_unclaimedCount = 0;
 	ResetHorde();
+	ResetBands();
 	ResetGrabInGame();
 	CurrentNews() = NewsState{};
 	ReleaseSiegeLocks();
@@ -3615,6 +3643,7 @@ void OnNewGame(void*) {
 	g_safeguardClock = 0.0f;
 	g_unclaimedCount = 0;
 	ResetHorde();
+	ResetBands();
 	ResetGrabInGame();
 	CurrentNews() = NewsState{};
 	ReleaseSiegeLocks();

@@ -128,9 +128,21 @@ void TestNear() {
 	Run far;
 	far.Step(s, open, 0.0f, 0.0f, 60000.0f);
 	Check(far.Count(walkers::BandEventKind::Near) == 0 && far.state.count == 1, "beyond NearUnits: a number");
-	far.Step(s, open, 1.0f, far.state.bands[0].x, 10000.0f);
+	far.Step(s, open, 1.0f, s.unitsPerHour, 4000.0f);  // where it gets to in the hour
 	Check(far.Count(walkers::BandEventKind::Near) == 1 && far.events[0].x > 0.0f && far.state.count == 0,
 	      "the player comes near: Near where it has got to");
+}
+
+void TestPlace() {
+	std::printf("Where a Near band is placed\n");
+	float dx = 0.0f;
+	float dy = 0.0f;
+	walkers::BandPlaceOffset(5000.0f, 0.0f, 0.0f, 0.0f, dx, dy);
+	Check(dx == 5000.0f && dy == 0.0f, "farther than 3000: at its own spot");
+	walkers::BandPlaceOffset(1000.0f, 0.0f, 0.0f, 0.0f, dx, dy);
+	Check(dx > 2999.0f && dx < 3001.0f && dy == 0.0f, "nearer: pushed out to 3000 on the same line");
+	walkers::BandPlaceOffset(10.0f, 10.0f, 10.0f, 10.0f, dx, dy);
+	Check(dx == 0.0f && dy == 3000.0f, "on the player: 3000 to the north");
 }
 
 void TestClosed() {
@@ -186,6 +198,7 @@ int main() {
 	TestClock();
 	TestMarch();
 	TestNear();
+	TestPlace();
 	TestClosed();
 	TestCap();
 	if (g_failures != 0) {

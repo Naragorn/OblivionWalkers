@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 42.0;  // 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 43.0;  // 43: the invaders' Origin and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -496,6 +496,21 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_invaders_summons", "Invaders: summoners summon",
 	 "Off: the Dremora, spider daedra and xivilai come without their summons - fewer actors, steadier frames.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_invaders_origin", "Invaders: only out of gates",
+	 "Off: they come everywhere, in place of the world's creatures. On: the world keeps its creatures, and bands march out of the open Oblivion gates toward the nearest city.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_invaders_everywhere_until_gates", "Invaders: everywhere until a gate opens",
+	 "With only out of gates: until the first gate opens, they come everywhere as without it.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_invaders_band_hours", "Invaders: hours between a gate's bands",
+	 "Each open gate sends a band this often (game hours).",
+	 LinkKind::Slider, 1, 72, 1, 0, false, LinkEffect::Live},
+	{"ini_invaders_band_min", "Invaders: smallest band",
+	 "The fewest in one band.",
+	 LinkKind::Slider, 1, 20, 1, 0, false, LinkEffect::Live},
+	{"ini_invaders_band_max", "Invaders: largest band",
+	 "The most in one band.",
+	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -682,6 +697,11 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 208: return static_cast<double>(rise.invaders.kind);
 		case 209: return rise.invaders.daedraPercent;
 		case 210: return rise.invaders.summons ? 1.0 : 0.0;
+		case 211: return rise.bands.origin == InvaderOrigin::Gates ? 1.0 : 0.0;
+		case 212: return rise.bands.everywhereUntilGatesOpen ? 1.0 : 0.0;
+		case 213: return rise.bands.everyHours;
+		case 214: return rise.bands.sizeMin;
+		case 215: return rise.bands.sizeMax;
 		default: return 0.0;
 	}
 }
@@ -879,6 +899,11 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 208: rise.invaders.kind = KindFromIni(static_cast<int>(whole)); break;
 		case 209: rise.invaders.daedraPercent = whole; break;
 		case 210: rise.invaders.summons = on; break;
+		case 211: rise.bands.origin = on ? InvaderOrigin::Gates : InvaderOrigin::Everywhere; break;
+		case 212: rise.bands.everywhereUntilGatesOpen = on; break;
+		case 213: rise.bands.everyHours = static_cast<float>(whole); break;
+		case 214: rise.bands.sizeMin = whole; break;
+		case 215: rise.bands.sizeMax = whole; break;
 		default: return false;
 	}
 	return true;

@@ -5,7 +5,8 @@
 # Announce "busy" to the other sessions first.
 #
 #   tools/daedra-harness.sh spawn [Kind]     harness/daedra-spawn.txt, Kind 1 by default
-#   tools/daedra-harness.sh fight [Kind]     harness/daedra-fight.txt: a walker and a Churl
+#   tools/daedra-harness.sh fight [Mode]     harness/daedra-fight.txt: a walker and a Churl
+#   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: Origin=1, a band placed and led
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -44,6 +45,9 @@ def set_key(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 
 text = set_key(text, "Invaders", "Mode", kind)
+if scenario == "band":
+    text = set_key(text, "Invaders", "Origin", "1")
+    text = set_key(text, "Invaders", "TestBandSeconds", "20")
 # the dungeons' runner off, as in the other wrappers: nobody of the plugin's own beside the player
 text = set_key(text, "Dungeons", "Enabled", "0")
 open(path, "w", encoding="latin-1", newline="").write(text)
@@ -73,7 +77,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0:
+if kind != 0 and scenario != "band":
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -88,6 +92,15 @@ if scenario == "spawn" and kind == 1:
     rises = [l for l in lines if "waits to rise" in l]
     check(not rises, "nobody waits to rise with Mode=1 (%d)" % len(rises))
     show("stays down (Invaders Mode")
+if scenario == "band":
+    gates = show("Bands: ")
+    check(any(re.search(r"\d+ of 103 Oblivion gates open", l) for l in lines), "the 103 gates read")
+    found = [re.search(r"Bands: (\d+) new members found", l) for l in lines]
+    found = [int(m.group(1)) for m in found if m]
+    check(bool(found) and found[-1] >= 1, "the band's members found at the marker (%s)" % found)
+    show("Horde: ", 10)
+    for l in [l for l in obvr if "HandScript: actors" in l][:6]:
+        print("        " + l[:300])
 if scenario == "fight":
     for l in [l for l in obvr if "HandScript: actors" in l or "HandScript: mark" in l][:12]:
         print("        " + l[:300])
