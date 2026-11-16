@@ -5145,10 +5145,61 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | A band that reaches its city raising the siege chance | new: a far band driven to its city by a fast `UnitsPerHour` test switch, the next day's siege roll logged |
 | 2026-11-16 | Mode 2's fallen as fuel: a bandit a Churl kills rises | `daedra-fuel.txt` (`daedra-harness.sh fuel 2`) |
 | 2026-11-16 | News of the nearest held place, new places rolled near the player (4.20.7a) | new: `dungeon-sites-near.txt` - TestSite off, the player moved by coc far from the save's places, a day waited: the log's rolled sites within NewPlacesWithin, the rumor's site the nearest |
-| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 45 with 220 variables | `link-page.txt` (`tools/link-page.sh`, expects 220) and a run on an old INI |
+| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 46 with 225 variables | `link-page.txt` (`tools/link-page.sh`, expects 225) and a run on an old INI |
+| 2026-11-16 | 5a: a Daedra siege - the placer's marker, PlaceAtMe of the Daedra list before the gate, the fallen counted off, the rest deleted (DeleteReference on disabled actors) when the player leaves or it ends | `daedra-siege.txt` (`daedra-harness.sh siege 1`) |
+| 2026-11-16 | 5b: a dead Daedra banished - the shader (effectEnchantConjuration, a pick: the game has no summon-end shader by ID), its things in a LootBag read back through `placed_ref` (a ref variable set by a console line - not proven that the console fills it), the body deleted; the bags taken away at 8000 units | `daedra-siege.txt` (the same run); the bag's ID line `Banish: ... placed_ref reads` decides |
+| 2026-11-16 | 5c: a camp attack by Daedra - placed on the ring, led in by the bank's travel package, counted off, held or overrun (none stay among the tents) | `camp-daedra.txt` (`CAMP_SCENARIO=daedra tools/camp-harness.sh`) |
+| 2026-11-16 | 5c: a Daedra outpost - its Daedra in the first cell, the boss three ranks above deep inside, the boss chest (DungOblivionBossSack01) at its feet, cleared once all and the boss fell | `dungeon-daedra.txt` (`tools/dungeon-walkers.sh outpost`) |
+| 2026-11-16 | 6: the Daedra broadsheet; the gate rumor said by anyone (dialogue not seen - only the global); "Close the gate" begun at the nearest open gate, its target rewritten (TESQuest +0x48 entry +0x0C), done when the gate shuts | `daedra-gate.txt` (`daedra-harness.sh gate 1`, a gate opened by TestGateOpen); the rumor and the compass marker need a look in the game |
+| 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
 
 
-### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; not built)
+### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; 5 and 6 BUILT 2026-11-16, "go 5a 5b 5c 6"; 7 not built)
+
+**Built 2026-11-16 (5a, 5b, 5c, 6), and where it differs from the plan:**
+
+- The placer (PlaceLogic.h, Placer.cpp): one request at a time at the ESP's
+  `WalkersPlaceMarker` (0xA96) - marker moved, list placed, the new actors
+  found within 1500 units; deleted in two looks (Disable, then xOBSE's
+  DeleteReference, which takes disabled FF actors - xOBSE
+  Cmd_DeleteReference_Execute; CorpseLogic.h's older note said it refuses
+  actors). The placed ones still standing go into the co-save ('PLAC') and
+  are deleted after a load - their owner places its own again.
+- 5a: each new siege's side is rolled as a spawn's (Mode 0 walkers, 1
+  Daedra, 2/3 by DaedraPercent). A Daedra siege is smaller: [Siege]
+  DaedraMin 10 .. DaedraMax 30, DaedraAtGate 8 (1-24) at once - not in the
+  plan, new keys (LINK 46). The side sits in the co-save's former pad byte.
+  Not built: the gate guards come out for walkers only (GuardLogic.h counts
+  walkers) - against Daedra the city's own guards fight.
+- 5b: only the Daedra the plugin placed (bands, sieges, camps, outposts) -
+  the game's own stay (a disabled reference of the game's might stay
+  disabled through its cell's reset). **Deviation: the shader is not the
+  game's summon-end shader** - there is none to read: the summon effects
+  name no shader (MGEF DATA), the EXE names only 0x144-0x146 by ID. So
+  [Invaders] BanishShader picks one, effectEnchantConjuration (0018B576).
+  The pile is the game's own LootBag (0000000E), no ESP ID. Piles are not
+  in the co-save: after a load they stay in the world for good.
+- 5c: a camp attack's side rolled the same; Daedra are placed on the attack
+  ring and led in by the bank's travel package; overrun by Daedra none stay.
+  A held place's siege or walker dungeon rolls its side; a Daedra walker
+  dungeon is the outpost; overrun by Daedra the lost do not rise into it.
+  Daedra stand where the player is - before the door outside, inside only
+  when he is in the first cell (elsewhere they would be placed in an
+  unloaded cell). The boss chest is Oblivion.esm's DungOblivionBossSack01
+  (00037680, leveled loot) - **no ESP ID** (the plan said 1-2).
+- 6: the broadsheet is one book for all cities (0xA97). The rumor is one
+  line in the Rumors topic for anyone, said to the player while a gate is
+  open and Daedra are in play (globals 0xA98, 0xA99, INFO 0xA9A). **Deviation:
+  it names no gate or city** - dialogue text is read off the file, a line
+  per gate would take 103 IDs. Heard, the quest WalkersCloseTheGate
+  (0xA9B) begins at the open gate nearest the player; its one target is
+  rewritten at run time to that gate's door (not its map marker), and a
+  Message says where it lies ("north-east of Chorrol"). Done when the gate
+  no longer reads open; the camps' reward. Co-save 'GATQ'.
+  `DaedraAfterMainQuest` (INI, LINK): off, MQ16 completed stops the Daedra -
+  every new side the walkers', Mode 1's spawn replacement off.
+- IDs used: 0xA96..0xA9B (6); 0xA9C..0xAA3 free (8).
+
 
 The ESP holds 14 free IDs the plugin can look up (0xA96..0xAA3); each part
 names what it takes of them.
