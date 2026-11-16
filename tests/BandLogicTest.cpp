@@ -65,6 +65,11 @@ void TestOrigin() {
 	      "the INI's number: 1 the gates, anything else everywhere");
 }
 
+void TestPace() {
+	std::printf("How often the gates are looked at\n");
+	Check(walkers::kGateLookSeconds == 5.0f, "every 5 s (Nadi, 2026-11-16)");
+}
+
 void TestSize() {
 	std::printf("A band's size\n");
 	Check(walkers::BandSize(4, 9, 0) == 4 && walkers::BandSize(4, 9, 5) == 9 && walkers::BandSize(4, 9, 6) == 4,
@@ -194,6 +199,7 @@ void TestCap() {
 
 int main() {
 	TestOrigin();
+	TestPace();
 	TestSize();
 	TestClock();
 	TestMarch();

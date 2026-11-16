@@ -1,5 +1,5 @@
 # Invaders steps 2 and 3 (docs/walkers-spec.md 4.22): a war band placed and
-# led. With [Invaders] Origin=1 and TestBandSeconds=20 (set by
+# led. With [Invaders] OnlyFromGates=1 and TestBandSeconds=20 (set by
 # tools/daedra-harness.sh band) the plugin reads the 103 gates' flags once a
 # second ("Bands: N of 103 Oblivion gates open"), turns the spawn
 # replacement off while none is open, and 20 s after the load places one

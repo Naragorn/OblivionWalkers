@@ -37,6 +37,7 @@ UInt32 g_espBase = kNoEsp;
 BandState g_state;
 int g_openGates = -1;
 float g_clock = 0.0f;
+float g_gateClock = kGateLookSeconds;  // the first look at once
 double g_lastDays = -1.0;
 UInt32 g_seed = 0x2545F491u;
 UInt32 g_logsLeft = 400;
@@ -262,6 +263,7 @@ void ResetBands() {
 	g_queueCount = 0;
 	g_testClock = 0.0f;
 	g_testDone = false;
+	g_gateClock = kGateLookSeconds;
 }
 
 void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings& invaders, ConsoleFn console,
@@ -299,7 +301,9 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 		}
 	}
 
-	if (bands.origin == InvaderOrigin::Gates) {
+	g_gateClock += elapsed;
+	if (bands.origin == InvaderOrigin::Gates && g_gateClock >= kGateLookSeconds) {
+		g_gateClock = 0.0f;
 		static bool open[kBandGatesMost];
 		static BandGate gates[kBandGatesMost];
 		UInt32 count = 0;

@@ -3927,10 +3927,12 @@ B without harness runs, then C; nothing wired into the game):
   (the 103 gates' flags read once a game minute, a Near band placed as a
   horde with the Daedra list) waits for a harness run.
 - **Steps 2 and 3 wired 2026-11-16** (Nadi: "harness erlaubt. go"):
-  `[Invaders] Origin`, `EverywhereUntilGatesOpen`, `BandEveryHours`,
+  `[Invaders] OnlyFromGates` (named `Origin` until 2026-11-16 - Nadi: a
+  clearer name; `Origin=1` below means `OnlyFromGates=1`), `EverywhereUntilGatesOpen`, `BandEveryHours`,
   `BandSizeMin`, `BandSizeMax`, `BandsMost` in the INI (LINK the first
   five, version 43; `NearUnits` 6000 now - inside the loaded grid, so a band
-  is placed into loaded cells). `Bands.cpp`: once a second, in a game only
+  is placed into loaded cells). `Bands.cpp`: every 5 s (Nadi, 2026-11-16: once a second was too often;
+  `kGateLookSeconds`), in a game only
   (at the main menu the gates' flags are the file's - gate 0 read open
   there, closed after the load), the 103 gates' flags read, `StepBands` by
   the game's clock, the spawn replacement off while `ReplacementOn` says so

@@ -2758,7 +2758,7 @@ void StepNight(float dt) {
 	}
 }
 
-// The spawn replacement as it runs now: off with [Invaders] Origin=1 while
+// The spawn replacement as it runs now: off with [Invaders] OnlyFromGates=1 while
 // the bands come out of the gates (Bands.h BandsWantReplacement).
 ReplaceSettings EffectiveReplace() {
 	ReplaceSettings r = g_replace;
@@ -2790,12 +2790,12 @@ void StepSpawns(float dt) {
 		}
 		return;
 	}
-	// Origin=1: a gate opened or closed the replacement's way (BandLogic.h).
+	// OnlyFromGates=1: a gate opened or closed the replacement's way (BandLogic.h).
 	const bool wanted = BandsWantReplacement(g_settings.bands);
 	if (wanted != g_replaceWantedLast) {
 		g_replaceWantedLast = wanted;
 		if (g_replace.enabled) {
-			g_log("Spawns: Invaders Origin=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
+			g_log("Spawns: Invaders OnlyFromGates=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
 			      OpenGateCount(), wanted ? "on" : "off");
 			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
 		}
