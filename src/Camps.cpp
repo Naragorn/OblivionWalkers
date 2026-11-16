@@ -54,6 +54,9 @@ const InvaderSettings* g_invaders = nullptr;
 // to the banishing.
 UInt32 g_bankDaedra[kCampShownMost][kCampWalkersAtOnce] = {};
 UInt32 g_bankDaedraCount[kCampShownMost] = {};
+// Each camp's last attack was the Daedra's: the reward's words (the side is
+// forgotten when the attack is held, before the reward is said).
+bool g_lastAttackDaedra[kCampMost] = {};
 CampConsoleFn g_console = nullptr;
 CampRollFn g_roll = nullptr;
 CampDeadFn g_dead = nullptr;
@@ -749,7 +752,8 @@ void Reward(UInt32 i) {
 	char what[96];
 	GiveReward(g_settings->rewardFame ? g_settings->famePoints : 0, g_settings->rewardGold ? g_settings->gold : 0,
 	           CampThings(g_settings->rewardThings, CampAlive(g_state.camps[i]), 0, false), what, sizeof(what));
-	std::snprintf(text, sizeof(text), "The refugees %s are safe - the walkers are beaten%s.", Name(i), what);
+	std::snprintf(text, sizeof(text), "The refugees %s are safe - the %s are beaten%s.", Name(i),
+	              g_lastAttackDaedra[i] ? "Daedra" : "walkers", what);
 	Line(text);
 	const bool sound = QuestSound();
 	g_log("Camps: camp %02u %s defended - %s (the sound answered %d)", i, Name(i), text, sound ? 1 : 0);
@@ -803,6 +807,7 @@ void Carry(const CampEvent& ev, const float* distance, float now) {
 			// 4.22a step 5c: the attack's side, rolled as a spawn's (the test
 			// switch has set it already).
 			c.daedra = c.daedra || (g_invaders != nullptr && CampAttackDaedra(*g_invaders, g_roll()));
+			g_lastAttackDaedra[i] = c.daedra;
 			g_log("Camps: camp %02u %s attacked - %u %s (game day %.3f, the player %s)", i, Name(i), c.walkersLeft,
 			      c.daedra ? "Daedra" : "walkers", now, near ? "near" : "away");
 			if (near) {

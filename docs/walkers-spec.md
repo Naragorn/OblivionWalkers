@@ -5148,7 +5148,7 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 46 with 225 variables | `link-page.txt` (`tools/link-page.sh`, expects 225) and a run on an old INI |
 | 2026-11-16 | 5/6 across a save: the placed Daedra in 'PLAC' deleted after a load, 'GATQ' read back, a camp's or a held place's Daedra side in their records | new: `daedra-siege.txt` with a save and a load while the Daedra stand |
 | 2026-11-16 | 5b: which things stay on a banished body - of 1-4 kinds on a body 0-2 reached the bag (RemoveAllItems); not read which kinds stay (creature parts? equipped armor?) | a look: GetInventoryObject on a Dremora before and after |
-| 2026-11-16 | 5c: a camp's reward line says "the walkers are beaten" after a Daedra attack (the side is forgotten at Held before the text) | fix, then `camp-daedra.txt` |
+| 2026-11-16 | 5c: the reward's words after a Daedra attack ("the Daedra are beaten"), camp and held place - fixed, not seen | `camp-daedra.txt`, `dungeon-daedra.txt` (a siege, TestSiteState=2) |
 | 2026-11-16 | 6: the gate rumor said in dialogue, the compass pointing at the rewritten target, the Daedra broadsheet on a sheet | a look in the game |
 | 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
 

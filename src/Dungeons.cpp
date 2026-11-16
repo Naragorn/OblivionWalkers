@@ -663,7 +663,8 @@ void Carry(const DungeonEvent* ev, UInt32 n, DungeonSite& d, const DungeonSite& 
 			GiveRefugeeReward(at.people, what, sizeof(what));
 			char text[200];
 			std::snprintf(text, sizeof(text),
-			              kind == DungeonEventKind::Defended ? "The refugees of %s are safe - the walkers are beaten%s."
+			              kind == DungeonEventKind::Defended ? (before.daedra ? "The refugees of %s are safe - the Daedra are beaten%s."
+			                                                                  : "The refugees of %s are safe - the walkers are beaten%s.")
 			                                                 : "%s is cleared - refugees move in%s.",
 			              kDungeonCandidates[at.candidate].name, what);
 			char line[220];
@@ -1141,10 +1142,11 @@ void StepSiteDaedra(int want, const float* closeness, UInt32 playerCell, LogFn l
 		}
 		if (g_dead != nullptr && g_dead(ref)) {
 			DungeonEvent ev[4];
+			const DungeonSite was = d;  // its side, for the reward's words
 			const UInt32 n = DungeonWalkerEnded(d, static_cast<UInt32>(want), *g_siteSettings, roll, ev, 4, !inside);
 			log("Dungeons: %s - a Daedra fell; %u left, now %s", c.name, d.walkersLeft, StateName(d.state));
 			LogEvents(ev, n, d, log);
-			Carry(ev, n, d, d, log);
+			Carry(ev, n, d, was, log);
 			continue;
 		}
 		g_siteDaedra[kept++] = g_siteDaedra[k];
