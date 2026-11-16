@@ -4007,6 +4007,24 @@ B without harness runs, then C; nothing wired into the game):
   travel package, 7 followers on theirs; Mode 2 PASS - 5 placed and found.
   Not built: the far bands across a save (the state is the session's), a
   leader two ranks above (idea 1), Arrived as a siege's pressure (step 5).
+- **Built 2026-11-16** (Nadi: "go 1 2 3 4"): (1) the bands outlive a save -
+  co-save record 'BAND' (`BandImage`: the far bands, the gates' clocks, the
+  siege pressure, the members by their saved IDs through ResolveRefID; a
+  member gone from the game dropped). (2) Idea 1: a Daedra band gets a
+  leader, a Dremora two ranks above its men (`DremoraRankAt` by the
+  player's level off LL1Dremora100's steps 1, 8, 11, 14, 17, 21, 24;
+  `LeaderList` the rank's list, its NOSUMMON twin while the summoners are
+  held back), placed after the men and marked; the horde takes him as the
+  leader (`HordeCandidate.leads`, the highest rank). When he falls, his
+  band breaks up - its men are let go of the horde. (3) A band that reaches
+  its city raises the city's daily siege chance by `BandSiegePercent` (5)
+  points, fading `BandSiegeFadePerDay` (5) a game day, 90 at most
+  (`StepSiegeDays`' `extraPercent`). (4) Mode 2's fallen as fuel needed no
+  code: the rise takes anyone the Daedra kill (`MayRise`). Unit flows in
+  BandLogicTest, KindLogicTest, SiegeLogicTest. Harness scenarios ready,
+  not run (the Linux game was OBNG's and Nadi's): `daedra-save.txt` (the
+  band and its leader across a save and a load), `daedra-fuel.txt` (a
+  bandit a Churl kills waits to rise).
 
 All of it together: huge (seven steps, each with its own harness
 scenarios). The first three give a playable Daedra invasion; the rest
@@ -5034,3 +5052,71 @@ for those into another cell (the move itself); ModAV 2 us (console ~80).
 StartCombat (80 to 135 us a line) and AddScriptPackage (~29 us) stay
 console lines - their handlers do much more than one call. Not heard in the harness: whether
 the shock sound sounds - the log only says the engine made it.
+
+## 8b Clearer names for the INI and LINK (Nadi, 2026-11-15: "ein humanize run auf alle ini + LINK settings um texte und schlüssel zu humanizen"; 2026-11-16 "go 8"; built 2026-11-16)
+
+Decided (the recommendation Nadi took): new names where the old ones were
+the code's words (Units, Radius, Jitter, Stale, Count), and the old names
+still read - an INI of an older version keeps every value. `IniNames.h`
+holds the table; `Plugin.cpp` reads every setting through `IniInt`,
+`IniString` and `IniFloat`, which take the new name and, where only the old
+one stands, the old one. The section `[Zombies]` is `[Walkers]` now; each of
+its keys is looked for under `[Zombies]` too. IniNamesTest.
+
+LINK's variable names (`ini_...`) stay: no player sees them, and a new name
+would only cost LINK's saved values. LINK's titles of the technical
+settings say what they do now (17, e.g. "Join radius" is "Hordes: lone
+walkers join within", "Your loaded grid" is "Your uGridsToLoad"), and every
+"(units)" says "(units; 70 are about 1 m)".
+
+The forty renamed keys:
+
+| was | is |
+|---|---|
+| `[Zombies] Walk` | `[Walkers] WalkOnly` |
+| `[Zombies] SpeedRandomPercent` | `[Walkers] PaceSpreadPercent` |
+| `[Zombies] FamePerKills` | `[Walkers] KillsPerFamePoint` |
+| `[Zombies] RenameVanilla` | `[Walkers] RenameEveryZombie` |
+| `[Zombies] RiseAgainJitterSeconds` | `[Walkers] RiseAgainRandomSeconds` |
+| `[Zombies] OthersEndPercent` | `[Walkers] OthersKillsEndPercent` |
+| `[Zombies] SlowAggressionUnits` | `[Walkers] SlowAggressionDistance` |
+| `[Rise] JitterSeconds` | `[Rise] RandomExtraSeconds` |
+| `[Rise] OnlyGeneric` | `[Rise] OnlyNamelessPeople` |
+| `[Rise] ZombieRace` | `[Rise] WalkerRace` |
+| `[Rise] SoundAtGetUpPercent` | `[Rise] GroanChancePercent` |
+| `[Horde] JoinRadius` | `[Horde] JoinDistance` |
+| `[Horde] LeadUnits` | `[Horde] LeadDistance` |
+| `[Horde] StaleSeconds` | `[Horde] NewHeadingAfterSeconds` |
+| `[Horde] GroupMost` | `[Horde] WalkersPerLeader` |
+| `[Horde] CityRange` | `[Horde] CityDistance` |
+| `[Horde] GateHoldUnits` | `[Horde] HoldBeforeGateDistance` |
+| `[Horde] GateHordesMost` | `[Horde] HordesPerGateMost` |
+| `[Horde] GateNearUnits` | `[Horde] HoldOnlyWithinDistance` |
+| `[Guards] ZombiesPerGuard` | `[Guards] WalkersPerGuard` |
+| `[Guards] Radius` | `[Guards] GateDistance` |
+| `[Guards] ClearSeconds` | `[Guards] GoInAfterSeconds` |
+| `[Grab] StruggleCrowdStep` | `[Grab] HarderPerWalkerPercent` |
+| `[Grab] StruggleCrowdMost` | `[Grab] CrowdMost` |
+| `[Grab] StruggleCrowdRadius` | `[Grab] CrowdDistance` |
+| `[Grab] StruggleGapSeconds` | `[Grab] SecondsBetweenPresses` |
+| `[Grab] BiteResetSeconds` | `[Grab] BitesForgottenAfterSeconds` |
+| `[Corpses] CorpseUnits` | `[Corpses] TakeAwayBeyond` |
+| `[Corpses] CorpseLootUnits` | `[Corpses] TakeAwayWithThingsBeyond` |
+| `[Night] RampHours` | `[Night] TwilightHours` |
+| `[Night] HordeLeadPercent` | `[Night] HordeRoamPercent` |
+| `[Noise] Radius` | `[Noise] HeardWithin` |
+| `[Safeguard] Radius` | `[Safeguard] NoWalkerWithin` |
+| `[Survivors] CampSpacingUnits` | `[Survivors] CampDistanceApart` |
+| `[Survivors] LeashUnits` | `[Survivors] LeadStraysHomeBeyond` |
+| `[Survivors] EscortBehindUnits` | `[Survivors] EscortLeftBehindDistance` |
+| `[Dungeons] SpacingUnits` | `[Dungeons] DistanceApart` |
+| `[Replace] MinCount` | `[Replace] WalkersPerSpawnMin` |
+| `[Replace] MaxCount` | `[Replace] WalkersPerSpawnMax` |
+| `[Replace] ExtraPercent` | `[Replace] ExtraSpawnPercent` |
+
+Not renamed: keys that read plainly already (Enabled, AfterSeconds,
+HealthPercent, ...), the advanced rise switches (AsCreature, DropSeconds,
+LieSeconds, MatchCorpse, SettleSeconds, KeepCorpseApart, CloneBase,
+LookAfterSeconds - proof and tuning switches), and the test switches. The
+harness wrappers write the new names (camp-harness.sh, dungeon-walkers.sh,
+night-harness.sh); the scenarios' comments keep the names of their day.

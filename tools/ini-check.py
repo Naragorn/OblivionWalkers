@@ -16,6 +16,7 @@ HEADER = re.compile(r"^\[[A-Za-z]+\]$")
 # One key a section, enough to show its keys are still its own.
 EXPECTED = {
     "Rise": "Enabled",
+    "Walkers": "WalkOnly",
     "Replace": "Enabled",
     "ReplaceCategories": "Skeletons",
     "Horde": "Enabled",

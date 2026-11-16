@@ -1,6 +1,7 @@
 // The DLL's exports and real side effects: the log, the INI, the rise's
 // installation. The decisions live in PluginEntry and RiseLogic.
 
+#include "IniNames.h"
 #include "PluginEntry.h"
 #include "PoseLogic.h"
 #include "Rise.h"
@@ -123,9 +124,38 @@ bool IniPath(char* path, size_t length) {
 	return true;
 }
 
+// Whether `key` stands in `section`, with any value (an empty one too).
+bool HasIniKey(const char* section, const char* key, const char* path) {
+	char text[4] = {};
+	GetPrivateProfileStringA(section, key, "\x01", text, sizeof(text), path);
+	return !(text[0] == '\x01' && text[1] == '\0');
+}
+
+// The name a setting is read under (IniNames.h): its own, or the older one
+// when an INI still has only that.
+void NameToRead(const char*& section, const char*& key, const char* path) {
+	const char* oldSection = nullptr;
+	const char* oldKey = nullptr;
+	if (!HasIniKey(section, key, path) && walkers::OldIniName(section, key, oldSection, oldKey) &&
+	    HasIniKey(oldSection, oldKey, path)) {
+		section = oldSection;
+		key = oldKey;
+	}
+}
+
+UINT IniInt(const char* section, const char* key, int fallback, const char* path) {
+	NameToRead(section, key, path);
+	return GetPrivateProfileIntA(section, key, fallback, path);
+}
+
+DWORD IniString(const char* section, const char* key, const char* fallback, char* out, DWORD size, const char* path) {
+	NameToRead(section, key, path);
+	return GetPrivateProfileStringA(section, key, fallback, out, size, path);
+}
+
 float IniFloat(const char* section, const char* key, float fallback, const char* path) {
 	char text[64] = {};
-	GetPrivateProfileStringA(section, key, "", text, sizeof(text), path);
+	IniString(section, key, "", text, sizeof(text), path);
 	if (text[0] == '\0') {
 		return fallback;
 	}
@@ -140,118 +170,118 @@ bool ReadSettings(walkers::Settings* settings) {
 		return false;
 	}
 	walkers::RiseSettings& rise = settings->rise;
-	rise.enabled = GetPrivateProfileIntA("Rise", "Enabled", 1, path) != 0;
+	rise.enabled = IniInt("Rise", "Enabled", 1, path) != 0;
 	rise.afterSeconds = IniFloat("Rise", "AfterSeconds", 20.0f, path);
-	rise.jitterSeconds = IniFloat("Rise", "JitterSeconds", 10.0f, path);
-	const int chance = GetPrivateProfileIntA("Rise", "ChancePercent", 100, path);
+	rise.jitterSeconds = IniFloat("Rise", "RandomExtraSeconds", 10.0f, path);
+	const int chance = IniInt("Rise", "ChancePercent", 100, path);
 	rise.chancePercent = chance < 0 ? 0u : (chance > 100 ? 100u : static_cast<UInt32>(chance));
-	rise.onlyGeneric = GetPrivateProfileIntA("Rise", "OnlyGeneric", 1, path) != 0;
-	rise.onlyPlayableRaces = GetPrivateProfileIntA("Rise", "OnlyPlayableRaces", 1, path) != 0;
-	rise.onlyHumans = GetPrivateProfileIntA("Rise", "OnlyHumans", 0, path) != 0;
-	rise.cloneBase = GetPrivateProfileIntA("Rise", "CloneBase", 0, path) != 0;
-	rise.zombieRace = GetPrivateProfileIntA("Rise", "ZombieRace", 1, path) != 0;
+	rise.onlyGeneric = IniInt("Rise", "OnlyNamelessPeople", 1, path) != 0;
+	rise.onlyPlayableRaces = IniInt("Rise", "OnlyPlayableRaces", 1, path) != 0;
+	rise.onlyHumans = IniInt("Rise", "OnlyHumans", 0, path) != 0;
+	rise.cloneBase = IniInt("Rise", "CloneBase", 0, path) != 0;
+	rise.zombieRace = IniInt("Rise", "WalkerRace", 1, path) != 0;
 	rise.lookAfterSeconds = IniFloat("Rise", "LookAfterSeconds", 3.0f, path);
 	if (rise.lookAfterSeconds < 0.0f) {
 		rise.lookAfterSeconds = 0.0f;
 	}
-	rise.asCreature = GetPrivateProfileIntA("Rise", "AsCreature", 1, path) != 0;
-	rise.walkOnly = GetPrivateProfileIntA("Zombies", "Walk", 1, path) != 0;
-	const int health = GetPrivateProfileIntA("Zombies", "HealthPercent", 15, path);
+	rise.asCreature = IniInt("Rise", "AsCreature", 1, path) != 0;
+	rise.walkOnly = IniInt("Walkers", "WalkOnly", 1, path) != 0;
+	const int health = IniInt("Walkers", "HealthPercent", 15, path);
 	rise.healthPercent = health < 1 ? 1u : (health > 100 ? 100u : static_cast<UInt32>(health));
-	rise.noLoot = GetPrivateProfileIntA("Zombies", "NoLoot", 1, path) != 0;
-	rise.blockMooResurrect = GetPrivateProfileIntA("Zombies", "BlockMooResurrect", 1, path) != 0;
-	rise.noLevelingXp = GetPrivateProfileIntA("Zombies", "NoLevelingXP", 1, path) != 0;
-	rise.noSkillGain = GetPrivateProfileIntA("Zombies", "NoSkillGain", 1, path) != 0;
-	rise.slowAggression.enabled = GetPrivateProfileIntA("Zombies", "SlowAggression", 1, path) != 0;
+	rise.noLoot = IniInt("Walkers", "NoLoot", 1, path) != 0;
+	rise.blockMooResurrect = IniInt("Walkers", "BlockMooResurrect", 1, path) != 0;
+	rise.noLevelingXp = IniInt("Walkers", "NoLevelingXP", 1, path) != 0;
+	rise.noSkillGain = IniInt("Walkers", "NoSkillGain", 1, path) != 0;
+	rise.slowAggression.enabled = IniInt("Walkers", "SlowAggression", 1, path) != 0;
 	char level[16] = {};
-	GetPrivateProfileStringA("Zombies", "SlowAggressionLevel", "Medium", level, sizeof(level), path);
+	IniString("Walkers", "SlowAggressionLevel", "Medium", level, sizeof(level), path);
 	rise.slowAggression.level = walkers::ParseSlowAggressionLevel(level);
-	rise.slowAggression.secondsMin = IniFloat("Zombies", "SlowAggressionSecondsMin", 5.0f, path);
+	rise.slowAggression.secondsMin = IniFloat("Walkers", "SlowAggressionSecondsMin", 5.0f, path);
 	if (rise.slowAggression.secondsMin < 0.0f) {
 		rise.slowAggression.secondsMin = 0.0f;
 	}
-	rise.slowAggression.secondsMax = IniFloat("Zombies", "SlowAggressionSecondsMax", 10.0f, path);
+	rise.slowAggression.secondsMax = IniFloat("Walkers", "SlowAggressionSecondsMax", 10.0f, path);
 	if (rise.slowAggression.secondsMax < 0.0f) {
 		rise.slowAggression.secondsMax = 0.0f;
 	}
-	rise.slowAggression.units = IniFloat("Zombies", "SlowAggressionUnits", 1000.0f, path);
-	rise.slowAggression.calmSeconds = IniFloat("Zombies", "SlowAggressionCalmSeconds", 10.0f, path);
-	rise.dungeonsOnlyChosen = GetPrivateProfileIntA("Dungeons", "OnlyChosen", 0, path) != 0;
-	rise.dungeons.walkersAtOnce = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WalkersAtOnce", 6, path));
-	rise.dungeons.journal = GetPrivateProfileIntA("Dungeons", "Journal", 1, path) != 0;
-	rise.dungeons.rumors = GetPrivateProfileIntA("Dungeons", "Rumors", 1, path) != 0;
+	rise.slowAggression.units = IniFloat("Walkers", "SlowAggressionDistance", 1000.0f, path);
+	rise.slowAggression.calmSeconds = IniFloat("Walkers", "SlowAggressionCalmSeconds", 10.0f, path);
+	rise.dungeonsOnlyChosen = IniInt("Dungeons", "OnlyChosen", 0, path) != 0;
+	rise.dungeons.walkersAtOnce = static_cast<UInt32>(IniInt("Dungeons", "WalkersAtOnce", 6, path));
+	rise.dungeons.journal = IniInt("Dungeons", "Journal", 1, path) != 0;
+	rise.dungeons.rumors = IniInt("Dungeons", "Rumors", 1, path) != 0;
 	rise.dungeons.messengerHours = IniFloat("Dungeons", "MessengerHours", 24.0f, path);
-	rise.dungeons.beds = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "Beds", 3, path));
+	rise.dungeons.beds = static_cast<UInt32>(IniInt("Dungeons", "Beds", 3, path));
 	rise.dungeons.walkersOutsidePercent =
-	    static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WalkersOutsidePercent", 50, path));
-	rise.dungeonsTestSiteState = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "TestSiteState", 1, path));
-	rise.stepTiming = GetPrivateProfileIntA("Debug", "StepTiming", 0, path) != 0;
-	rise.testLinkPage = static_cast<float>(GetPrivateProfileIntA("Debug", "TestLinkPage", 0, path));
-	GetPrivateProfileStringA("Debug", "SampleLine", "", rise.sampleLine, sizeof(rise.sampleLine), path);
-	GetPrivateProfileStringA("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);
-	rise.dungeons.enabled = GetPrivateProfileIntA("Dungeons", "Enabled", 1, path) != 0;
-	rise.dungeons.activeMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "ActiveMin", 3, path));
-	rise.dungeons.activeMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "ActiveMax", 5, path));
-	rise.dungeons.weightRefuge = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightRefuge", 25, path));
-	rise.dungeons.weightBesieged = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightBesieged", 25, path));
-	rise.dungeons.weightToClear = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightToClear", 25, path));
-	rise.dungeons.weightWalkerDungeon = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "WeightWalkerDungeon", 25, path));
-	rise.dungeons.spacingUnits = IniFloat("Dungeons", "SpacingUnits", 15000.0f, path);
-	rise.dungeons.peopleMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMin", 3, path));
-	rise.dungeons.peopleMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "PeopleMax", 6, path));
-	rise.dungeons.attackChancePercent = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackChancePercent", 15, path));
-	rise.dungeons.walkersMin = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackWalkersMin", 8, path));
-	rise.dungeons.walkersMax = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "AttackWalkersMax", 16, path));
+	    static_cast<UInt32>(IniInt("Dungeons", "WalkersOutsidePercent", 50, path));
+	rise.dungeonsTestSiteState = static_cast<UInt32>(IniInt("Dungeons", "TestSiteState", 1, path));
+	rise.stepTiming = IniInt("Debug", "StepTiming", 0, path) != 0;
+	rise.testLinkPage = static_cast<float>(IniInt("Debug", "TestLinkPage", 0, path));
+	IniString("Debug", "SampleLine", "", rise.sampleLine, sizeof(rise.sampleLine), path);
+	IniString("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);
+	rise.dungeons.enabled = IniInt("Dungeons", "Enabled", 1, path) != 0;
+	rise.dungeons.activeMin = static_cast<UInt32>(IniInt("Dungeons", "ActiveMin", 3, path));
+	rise.dungeons.activeMax = static_cast<UInt32>(IniInt("Dungeons", "ActiveMax", 5, path));
+	rise.dungeons.weightRefuge = static_cast<UInt32>(IniInt("Dungeons", "WeightRefuge", 25, path));
+	rise.dungeons.weightBesieged = static_cast<UInt32>(IniInt("Dungeons", "WeightBesieged", 25, path));
+	rise.dungeons.weightToClear = static_cast<UInt32>(IniInt("Dungeons", "WeightToClear", 25, path));
+	rise.dungeons.weightWalkerDungeon = static_cast<UInt32>(IniInt("Dungeons", "WeightWalkerDungeon", 25, path));
+	rise.dungeons.spacingUnits = IniFloat("Dungeons", "DistanceApart", 15000.0f, path);
+	rise.dungeons.peopleMin = static_cast<UInt32>(IniInt("Dungeons", "PeopleMin", 3, path));
+	rise.dungeons.peopleMax = static_cast<UInt32>(IniInt("Dungeons", "PeopleMax", 6, path));
+	rise.dungeons.attackChancePercent = static_cast<UInt32>(IniInt("Dungeons", "AttackChancePercent", 15, path));
+	rise.dungeons.walkersMin = static_cast<UInt32>(IniInt("Dungeons", "AttackWalkersMin", 8, path));
+	rise.dungeons.walkersMax = static_cast<UInt32>(IniInt("Dungeons", "AttackWalkersMax", 16, path));
 	rise.dungeons.refugeeKillsPerHour = IniFloat("Dungeons", "RefugeeKillsPerHour", 2.0f, path);
-	rise.dungeons.lossPercentPerHour = static_cast<UInt32>(GetPrivateProfileIntA("Dungeons", "LossPercentPerHour", 25, path));
+	rise.dungeons.lossPercentPerHour = static_cast<UInt32>(IniInt("Dungeons", "LossPercentPerHour", 25, path));
 	rise.dungeons.leaveAfterDays = IniFloat("Dungeons", "LeaveAfterDays", 7.0f, path);
 	if (rise.slowAggression.units < 100.0f) {
 		rise.slowAggression.units = 100.0f;
 	}
-	rise.speedMultiplier = IniFloat("Zombies", "SpeedMultiplier", 1.0f, path);
-	const int spread = GetPrivateProfileIntA("Zombies", "SpeedRandomPercent", 30, path);
+	rise.speedMultiplier = IniFloat("Walkers", "SpeedMultiplier", 1.0f, path);
+	const int spread = IniInt("Walkers", "PaceSpreadPercent", 30, path);
 	rise.speedRandomPercent = spread < 0 ? 0u : (spread > 100 ? 100u : static_cast<UInt32>(spread));
-	const int fame = GetPrivateProfileIntA("Zombies", "FamePerKills", 0, path);
+	const int fame = IniInt("Walkers", "KillsPerFamePoint", 0, path);
 	rise.famePerKills = fame < 0 ? 0u : static_cast<UInt32>(fame);
-	rise.avoidChapels = GetPrivateProfileIntA("Zombies", "AvoidChapels", 1, path) != 0;
-	rise.renameToWalker = GetPrivateProfileIntA("Zombies", "RenameToWalker", 1, path) != 0;
-	GetPrivateProfileStringA("Zombies", "Name", "Walker", rise.walkerName, sizeof(rise.walkerName), path);
+	rise.avoidChapels = IniInt("Walkers", "AvoidChapels", 1, path) != 0;
+	rise.renameToWalker = IniInt("Walkers", "RenameToWalker", 1, path) != 0;
+	IniString("Walkers", "Name", "Walker", rise.walkerName, sizeof(rise.walkerName), path);
 	if (rise.walkerName[0] == '\0') {
 		std::snprintf(rise.walkerName, sizeof(rise.walkerName), "%s", "Walker");
 	}
-	rise.renameVanilla = GetPrivateProfileIntA("Zombies", "RenameVanilla", 0, path) != 0;
-	rise.noRiseInCities = GetPrivateProfileIntA("Rise", "NoRiseInCities", 0, path) != 0;
-	rise.end.dieOnlyBeheaded = GetPrivateProfileIntA("Zombies", "DieOnlyBeheaded", 1, path) != 0;
-	rise.end.riseAgainSeconds = IniFloat("Zombies", "RiseAgainSeconds", 20.0f, path);
-	rise.end.riseAgainJitterSeconds = IniFloat("Zombies", "RiseAgainJitterSeconds", 10.0f, path);
+	rise.renameVanilla = IniInt("Walkers", "RenameEveryZombie", 0, path) != 0;
+	rise.noRiseInCities = IniInt("Rise", "NoRiseInCities", 0, path) != 0;
+	rise.end.dieOnlyBeheaded = IniInt("Walkers", "DieOnlyBeheaded", 1, path) != 0;
+	rise.end.riseAgainSeconds = IniFloat("Walkers", "RiseAgainSeconds", 20.0f, path);
+	rise.end.riseAgainJitterSeconds = IniFloat("Walkers", "RiseAgainRandomSeconds", 10.0f, path);
 	{
-		const int others = GetPrivateProfileIntA("Zombies", "OthersEndPercent", 100, path);
+		const int others = IniInt("Walkers", "OthersKillsEndPercent", 100, path);
 		rise.end.othersEndPercent = static_cast<UInt32>(others < 0 ? 0 : (others > 100 ? 100 : others));
 	}
 	// 4.22 [Invaders] (KindLogic.h): the spawn replacement and the rise follow it.
-	rise.invaders.kind = walkers::KindFromIni(GetPrivateProfileIntA("Invaders", "Mode", 0, path));
-	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(GetPrivateProfileIntA("Invaders", "DaedraPercent", 50, path)))));
-	rise.invaders.summons = GetPrivateProfileIntA("Invaders", "Summons", 0, path) != 0;
+	rise.invaders.kind = walkers::KindFromIni(IniInt("Invaders", "Mode", 0, path));
+	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Invaders", "DaedraPercent", 50, path)))));
+	rise.invaders.summons = IniInt("Invaders", "Summons", 0, path) != 0;
 	// 4.22 step 3 (BandLogic.h): only out of the open gates, and the bands.
-	rise.bands.origin = walkers::OriginFromIni(GetPrivateProfileIntA("Invaders", "OnlyFromOblivionGates", 0, path));
-	rise.bands.everywhereUntilGatesOpen = GetPrivateProfileIntA("Invaders", "EverywhereUntilGatesOpen", 0, path) != 0;
-	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandEveryHours", 12, path)))));
-	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSizeMin", 4, path)))));
-	rise.bands.sizeMax = static_cast<UInt32>(std::max(1, std::min(30, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSizeMax", 9, path)))));
-	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSiegePercent", 5, path)))));
-	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSiegeFadePerDay", 5, path)))));
-	rise.bands.testBandSeconds = static_cast<float>(GetPrivateProfileIntA("Invaders", "TestBandSeconds", 0, path));
-	rise.bands.bandsMost = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kBandsMost), static_cast<int>(GetPrivateProfileIntA("Invaders", "BandsMost", 32, path)))));
-	rise.headshots.arrows = GetPrivateProfileIntA("Headshots", "Arrows", 1, path) != 0;
-	rise.headshots.bolts = GetPrivateProfileIntA("Headshots", "Bolts", 1, path) != 0;
+	rise.bands.origin = walkers::OriginFromIni(IniInt("Invaders", "OnlyFromOblivionGates", 0, path));
+	rise.bands.everywhereUntilGatesOpen = IniInt("Invaders", "EverywhereUntilGatesOpen", 0, path) != 0;
+	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(IniInt("Invaders", "BandEveryHours", 12, path)))));
+	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(IniInt("Invaders", "BandSizeMin", 4, path)))));
+	rise.bands.sizeMax = static_cast<UInt32>(std::max(1, std::min(30, static_cast<int>(IniInt("Invaders", "BandSizeMax", 9, path)))));
+	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegePercent", 5, path)))));
+	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegeFadePerDay", 5, path)))));
+	rise.bands.testBandSeconds = static_cast<float>(IniInt("Invaders", "TestBandSeconds", 0, path));
+	rise.bands.bandsMost = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kBandsMost), static_cast<int>(IniInt("Invaders", "BandsMost", 32, path)))));
+	rise.headshots.arrows = IniInt("Headshots", "Arrows", 1, path) != 0;
+	rise.headshots.bolts = IniInt("Headshots", "Bolts", 1, path) != 0;
 	rise.headshots.headRadius = IniFloat("Headshots", "HeadRadius", 30.0f, path);
-	rise.headshots.overkill = GetPrivateProfileIntA("Headshots", "Overkill", 1, path) != 0;
+	rise.headshots.overkill = IniInt("Headshots", "Overkill", 1, path) != 0;
 	rise.headshots.overkillPercent = std::min(500.0f, std::max(10.0f, IniFloat("Headshots", "OverkillPercent", 100.0f, path)));
-	rise.headshots.fire = GetPrivateProfileIntA("Headshots", "Fire", 1, path) != 0;
+	rise.headshots.fire = IniInt("Headshots", "Fire", 1, path) != 0;
 	rise.headshots.fireSeconds = IniFloat("Headshots", "FireSeconds", 6.0f, path);
-	rise.corpses.enabled = GetPrivateProfileIntA("Corpses", "Enabled", 1, path) != 0;
-	rise.corpses.units = IniFloat("Corpses", "CorpseUnits", 4000.0f, path);
-	rise.corpses.lootUnits = IniFloat("Corpses", "CorpseLootUnits", 8000.0f, path);
+	rise.corpses.enabled = IniInt("Corpses", "Enabled", 1, path) != 0;
+	rise.corpses.units = IniFloat("Corpses", "TakeAwayBeyond", 4000.0f, path);
+	rise.corpses.lootUnits = IniFloat("Corpses", "TakeAwayWithThingsBeyond", 8000.0f, path);
 	rise.corpses.countSeconds = IniFloat("Corpses", "LogSeconds", 60.0f, path);
 	if (rise.end.riseAgainSeconds < 0.0f) {
 		rise.end.riseAgainSeconds = 0.0f;
@@ -260,27 +290,27 @@ bool ReadSettings(walkers::Settings* settings) {
 		rise.end.riseAgainJitterSeconds = 0.0f;
 	}
 	walkers::ReplaceSettings& replace = settings->replace;
-	replace.enabled = GetPrivateProfileIntA("Replace", "Enabled", 1, path) != 0;
-	replace.keepQuestLists = GetPrivateProfileIntA("Replace", "KeepQuestLists", 1, path) != 0;
-	replace.bosses.keepBosses = GetPrivateProfileIntA("Replace", "KeepBosses", 1, path) != 0;
-	replace.bosses.keepHard = GetPrivateProfileIntA("Replace", "KeepHardLists", 0, path) != 0;
-	replace.bosses.keepHigh = GetPrivateProfileIntA("Replace", "KeepHighLists", 0, path) != 0;
-	GetPrivateProfileStringA("Replace", "BossListWords", replace.bosses.listWords, replace.bosses.listWords,
+	replace.enabled = IniInt("Replace", "Enabled", 1, path) != 0;
+	replace.keepQuestLists = IniInt("Replace", "KeepQuestLists", 1, path) != 0;
+	replace.bosses.keepBosses = IniInt("Replace", "KeepBosses", 1, path) != 0;
+	replace.bosses.keepHard = IniInt("Replace", "KeepHardLists", 0, path) != 0;
+	replace.bosses.keepHigh = IniInt("Replace", "KeepHighLists", 0, path) != 0;
+	IniString("Replace", "BossListWords", replace.bosses.listWords, replace.bosses.listWords,
 	                         sizeof(replace.bosses.listWords), path);
-	GetPrivateProfileStringA("Replace", "BossActorWords", replace.bosses.actorWords, replace.bosses.actorWords,
+	IniString("Replace", "BossActorWords", replace.bosses.actorWords, replace.bosses.actorWords,
 	                         sizeof(replace.bosses.actorWords), path);
 	replace.headlessWalkers = walkers::SpawnsHeadless(rise.end.dieOnlyBeheaded);
-	const int least = GetPrivateProfileIntA("Replace", "MinCount", 1, path);
-	const int most = GetPrivateProfileIntA("Replace", "MaxCount", 10, path);
+	const int least = IniInt("Replace", "WalkersPerSpawnMin", 1, path);
+	const int most = IniInt("Replace", "WalkersPerSpawnMax", 10, path);
 	replace.minCount = least < 1 ? 1u : static_cast<UInt32>(least);
 	replace.maxCount = most < 1 ? 1u : static_cast<UInt32>(most);
-	const int extra = GetPrivateProfileIntA("Replace", "ExtraPercent", 0, path);
+	const int extra = IniInt("Replace", "ExtraSpawnPercent", 0, path);
 	replace.extraPercent = extra < 0 ? 0u : static_cast<UInt32>(extra);
 	char categories[1024];
 	UInt32 categoriesUsed = 0;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
 		const walkers::ReplaceCategory& c = walkers::kReplaceCategories[k];
-		replace.categories[k] = GetPrivateProfileIntA("ReplaceCategories", c.key, c.defaultOn ? 1 : 0, path) != 0;
+		replace.categories[k] = IniInt("ReplaceCategories", c.key, c.defaultOn ? 1 : 0, path) != 0;
 		const int n = std::snprintf(categories + categoriesUsed, sizeof(categories) - categoriesUsed, "%s%s=%d",
 		                            k == 0 ? "" : " ", c.key, replace.categories[k] ? 1 : 0);
 		if (n > 0 && categoriesUsed + static_cast<UInt32>(n) < sizeof(categories)) {
@@ -295,56 +325,56 @@ bool ReadSettings(walkers::Settings* settings) {
 	if (rise.dropSeconds < 0.0f) {
 		rise.dropSeconds = 0.0f;
 	}
-	const int match = GetPrivateProfileIntA("Rise", "MatchCorpse", 2, path);
+	const int match = IniInt("Rise", "MatchCorpse", 2, path);
 	rise.matchCorpse = static_cast<UInt8>(walkers::MatchCorpseFrom(match));
 	rise.settleSeconds = IniFloat("Rise", "SettleSeconds", 1.5f, path);
 	if (!(rise.settleSeconds >= 0.0f)) {
 		rise.settleSeconds = 0.0f;
 	}
-	rise.hideCorpseAtPose = GetPrivateProfileIntA("Rise", "HideCorpseAtPose", 0, path) != 0;
-	rise.keepCorpseApart = GetPrivateProfileIntA("Rise", "KeepCorpseApart", 1, path) != 0;
-	rise.holdDeathSound = GetPrivateProfileIntA("Rise", "HoldDeathSound", 1, path) != 0;
-	rise.horde.enabled = GetPrivateProfileIntA("Horde", "Enabled", 1, path) != 0;
-	rise.horde.joinRadius = IniFloat("Horde", "JoinRadius", 1500.0f, path);
-	rise.horde.leadUnits = IniFloat("Horde", "LeadUnits", 2000.0f, path);
-	rise.horde.staleSeconds = IniFloat("Horde", "StaleSeconds", 30.0f, path);
+	rise.hideCorpseAtPose = IniInt("Rise", "HideCorpseAtPose", 0, path) != 0;
+	rise.keepCorpseApart = IniInt("Rise", "KeepCorpseApart", 1, path) != 0;
+	rise.holdDeathSound = IniInt("Rise", "HoldDeathSound", 1, path) != 0;
+	rise.horde.enabled = IniInt("Horde", "Enabled", 1, path) != 0;
+	rise.horde.joinRadius = IniFloat("Horde", "JoinDistance", 1500.0f, path);
+	rise.horde.leadUnits = IniFloat("Horde", "LeadDistance", 2000.0f, path);
+	rise.horde.staleSeconds = IniFloat("Horde", "NewHeadingAfterSeconds", 30.0f, path);
 	rise.horde.turnDegrees = IniFloat("Horde", "TurnDegrees", 60.0f, path);
-	rise.horde.towardCities = GetPrivateProfileIntA("Horde", "TowardCities", 1, path) != 0;
+	rise.horde.towardCities = IniInt("Horde", "TowardCities", 1, path) != 0;
 	rise.horde.cityPull = IniFloat("Horde", "CityPull", 0.5f, path);
 	rise.horde.cityPull = rise.horde.cityPull < 0.0f ? 0.0f : (rise.horde.cityPull > 1.0f ? 1.0f : rise.horde.cityPull);
-	rise.horde.cityRange = IniFloat("Horde", "CityRange", 40000.0f, path);
-	rise.horde.gateHoldUnits = IniFloat("Horde", "GateHoldUnits", 800.0f, path);
+	rise.horde.cityRange = IniFloat("Horde", "CityDistance", 40000.0f, path);
+	rise.horde.gateHoldUnits = IniFloat("Horde", "HoldBeforeGateDistance", 800.0f, path);
 	// 4.11c: a gate holds GateHordesMost groups, only with the player within
 	// GateNearUnits; the rest wait out of the loaded grid (LoadedGrid).
-	const int gateHordesMost = GetPrivateProfileIntA("Horde", "GateHordesMost", 1, path);
+	const int gateHordesMost = IniInt("Horde", "HordesPerGateMost", 1, path);
 	rise.horde.gateHordesMost = gateHordesMost < 0 ? 0u : static_cast<UInt32>(gateHordesMost);
-	rise.horde.gateNearUnits = IniFloat("Horde", "GateNearUnits", 8000.0f, path);
-	const int loadedGrid = GetPrivateProfileIntA("Horde", "LoadedGrid", 5, path);
+	rise.horde.gateNearUnits = IniFloat("Horde", "HoldOnlyWithinDistance", 8000.0f, path);
+	const int loadedGrid = IniInt("Horde", "LoadedGrid", 5, path);
 	rise.horde.loadedGrid = loadedGrid < 1 ? 1u : static_cast<UInt32>(loadedGrid);
-	rise.horde.markerOnGround = GetPrivateProfileIntA("Horde", "MarkerOnGround", 1, path) != 0;
-	const int groupMost = GetPrivateProfileIntA("Horde", "GroupMost", 8, path);
+	rise.horde.markerOnGround = IniInt("Horde", "MarkerOnGround", 1, path) != 0;
+	const int groupMost = IniInt("Horde", "WalkersPerLeader", 8, path);
 	rise.horde.groupMost = groupMost < 0 ? 0u : static_cast<UInt32>(groupMost);
 	// 4.20.2: noise draws the hordes.
 	walkers::NoiseSettings& noise = rise.horde.noise;
-	noise.enabled = GetPrivateProfileIntA("Noise", "Enabled", 1, path) != 0;
-	noise.radius = std::max(0.0f, IniFloat("Noise", "Radius", 1200.0f, path));
+	noise.enabled = IniInt("Noise", "Enabled", 1, path) != 0;
+	noise.radius = std::max(0.0f, IniFloat("Noise", "HeardWithin", 1200.0f, path));
 	noise.searchSeconds = std::max(0.0f, IniFloat("Noise", "SearchSeconds", 30.0f, path));
 	noise.travelSeconds = std::max(0.0f, IniFloat("Noise", "TravelSeconds", 60.0f, path));
 	// 4.20.6: the survivors' camps.
 	walkers::CampSettings& camps = rise.camps;
 	const auto whole = [path](const char* key, int fallback, int least, int most) {
-		const int v = GetPrivateProfileIntA("Survivors", key, fallback, path);
+		const int v = IniInt("Survivors", key, fallback, path);
 		return static_cast<UInt32>(v < least ? least : (v > most ? most : v));
 	};
-	camps.enabled = GetPrivateProfileIntA("Survivors", "Enabled", 1, path) != 0;
+	camps.enabled = IniInt("Survivors", "Enabled", 1, path) != 0;
 	camps.campCount = whole("CampCount", static_cast<int>(walkers::kCampMost), 1, static_cast<int>(walkers::kCampMost));
-	camps.spacingUnits = std::max(0.0f, IniFloat("Survivors", "CampSpacingUnits", 10000.0f, path));
+	camps.spacingUnits = std::max(0.0f, IniFloat("Survivors", "CampDistanceApart", 10000.0f, path));
 	camps.peoplePerCamp = whole("PeoplePerCamp", 6, 2, 6);
 	camps.womenPercent = whole("WomenPercent", 50, 0, 100);
-	camps.trader = GetPrivateProfileIntA("Survivors", "Trader", 1, path) != 0;
-	camps.rewardFame = GetPrivateProfileIntA("Survivors", "RewardFame", 1, path) != 0;
+	camps.trader = IniInt("Survivors", "Trader", 1, path) != 0;
+	camps.rewardFame = IniInt("Survivors", "RewardFame", 1, path) != 0;
 	camps.famePoints = whole("FamePoints", 1, 0, 100);
-	camps.rewardGold = GetPrivateProfileIntA("Survivors", "RewardGold", 1, path) != 0;
+	camps.rewardGold = IniInt("Survivors", "RewardGold", 1, path) != 0;
 	camps.gold = whole("Gold", 150, 0, 100000);
 	camps.attackChancePercent = whole("AttackChancePercent", 15, 0, 100);
 	camps.walkersMin = whole("AttackWalkersMin", 6, 1, 100);
@@ -353,99 +383,99 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.refugeeKillsPerHour = std::max(0.0f, IniFloat("Survivors", "RefugeeKillsPerHour", 2.0f, path));
 	camps.lossPercentPerHour = whole("LossPercentPerHour", 25, 0, 100);
 	camps.returnChancePercent = whole("ReturnChancePercent", 10, 0, 100);
-	camps.rewardThings = GetPrivateProfileIntA("Survivors", "RewardThings", 1, path) != 0;
-	camps.escort = GetPrivateProfileIntA("Survivors", "Escort", 1, path) != 0;
+	camps.rewardThings = IniInt("Survivors", "RewardThings", 1, path) != 0;
+	camps.escort = IniInt("Survivors", "Escort", 1, path) != 0;
 	camps.escortFame = whole("EscortFame", 2, 0, 100);
 	camps.escortGold = whole("EscortGold", 300, 0, 100000);
-	camps.escortBehindUnits = static_cast<float>(whole("EscortBehindUnits", 5000, 500, 100000));
+	camps.escortBehindUnits = static_cast<float>(whole("EscortLeftBehindDistance", 5000, 500, 100000));
 	camps.escortStayDays = static_cast<float>(whole("EscortStayDays", 7, 1, 365));
-	camps.escortIntoCity = GetPrivateProfileIntA("Survivors", "EscortIntoCity", 1, path) != 0;
-	camps.leashUnits = std::max(0.0f, IniFloat("Survivors", "LeashUnits", 1500.0f, path));
-	camps.testCamp = GetPrivateProfileIntA("Survivors", "TestCamp", -1, path);
-	camps.testLeash = GetPrivateProfileIntA("Survivors", "TestLeash", -1, path);
-	rise.disguise.enabled = GetPrivateProfileIntA("Disguise", "Enabled", 1, path) != 0;
+	camps.escortIntoCity = IniInt("Survivors", "EscortIntoCity", 1, path) != 0;
+	camps.leashUnits = std::max(0.0f, IniFloat("Survivors", "LeadStraysHomeBeyond", 1500.0f, path));
+	camps.testCamp = IniInt("Survivors", "TestCamp", -1, path);
+	camps.testLeash = IniInt("Survivors", "TestLeash", -1, path);
+	rise.disguise.enabled = IniInt("Disguise", "Enabled", 1, path) != 0;
 	rise.disguise.seconds = std::max(1.0f, IniFloat("Disguise", "Seconds", 180.0f, path));
-	rise.disguiseTest = GetPrivateProfileIntA("Disguise", "Test", 0, path) != 0;
-	camps.testEscort = GetPrivateProfileIntA("Survivors", "TestEscort", -1, path);
-	camps.testEscortBehind = GetPrivateProfileIntA("Survivors", "TestEscortBehind", 0, path) != 0;
+	rise.disguiseTest = IniInt("Disguise", "Test", 0, path) != 0;
+	camps.testEscort = IniInt("Survivors", "TestEscort", -1, path);
+	camps.testEscortBehind = IniInt("Survivors", "TestEscortBehind", 0, path) != 0;
 	camps.escortFollowSeconds = std::max(0.0f, IniFloat("Survivors", "EscortFollowSeconds", 5.0f, path));
-	rise.guards.enabled = GetPrivateProfileIntA("Guards", "Enabled", 1, path) != 0;
+	rise.guards.enabled = IniInt("Guards", "Enabled", 1, path) != 0;
 	rise.guards.healthFactor = IniFloat("Guards", "HealthFactor", 5.0f, path);
 	rise.guards.healthFactor = rise.guards.healthFactor < 0.0f ? 0.0f : rise.guards.healthFactor;
-	const int perGuard = GetPrivateProfileIntA("Guards", "ZombiesPerGuard", 5, path);
+	const int perGuard = IniInt("Guards", "WalkersPerGuard", 5, path);
 	rise.guards.zombiesPerGuard = perGuard < 1 ? 1u : static_cast<UInt32>(perGuard);
-	rise.guards.radius = IniFloat("Guards", "Radius", 4000.0f, path);
-	rise.guards.clearSeconds = IniFloat("Guards", "ClearSeconds", 30.0f, path);
+	rise.guards.radius = IniFloat("Guards", "GateDistance", 4000.0f, path);
+	rise.guards.clearSeconds = IniFloat("Guards", "GoInAfterSeconds", 30.0f, path);
 	rise.guards.testKillSeconds = IniFloat("Guards", "TestKillSeconds", 0.0f, path);
 	walkers::SiegeSettings& siege = rise.siege;
-	siege.enabled = GetPrivateProfileIntA("Siege", "Enabled", 1, path) != 0;
-	siege.walkersAtGate = static_cast<UInt32>(std::max(12, std::min(100, static_cast<int>(GetPrivateProfileIntA("Siege", "WalkersAtGate", 24, path)))));
-	siege.chancePerDayPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(GetPrivateProfileIntA("Siege", "ChancePerDayPercent", 10, path)))));
-	siege.walkersMin = static_cast<UInt32>(std::max(1, static_cast<int>(GetPrivateProfileIntA("Siege", "WalkersMin", 40, path))));
-	siege.walkersMax = static_cast<UInt32>(std::max(1, static_cast<int>(GetPrivateProfileIntA("Siege", "WalkersMax", 120, path))));
+	siege.enabled = IniInt("Siege", "Enabled", 1, path) != 0;
+	siege.walkersAtGate = static_cast<UInt32>(std::max(12, std::min(100, static_cast<int>(IniInt("Siege", "WalkersAtGate", 24, path)))));
+	siege.chancePerDayPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Siege", "ChancePerDayPercent", 10, path)))));
+	siege.walkersMin = static_cast<UInt32>(std::max(1, static_cast<int>(IniInt("Siege", "WalkersMin", 40, path))));
+	siege.walkersMax = static_cast<UInt32>(std::max(1, static_cast<int>(IniInt("Siege", "WalkersMax", 120, path))));
 	siege.pauseDays = std::max(0.0f, IniFloat("Siege", "PauseDays", 3.0f, path));
 	siege.guardKillsPerHour = std::max(0.0f, IniFloat("Siege", "GuardKillsPerHour", 2.0f, path));
-	siege.testGate = static_cast<int>(GetPrivateProfileIntA("Siege", "TestGate", -1, path));
+	siege.testGate = static_cast<int>(IniInt("Siege", "TestGate", -1, path));
 	siege.testGate = siege.testGate >= static_cast<int>(walkers::kCityGateCount) ? -1 : siege.testGate;
 	siege.testEndSeconds = std::max(0.0f, IniFloat("Siege", "TestEndSeconds", 0.0f, path));
 	char door[16] = {};
-	GetPrivateProfileStringA("Siege", "TestReadDoor", "0", door, sizeof(door), path);
+	IniString("Siege", "TestReadDoor", "0", door, sizeof(door), path);
 	siege.testReadDoor = static_cast<UInt32>(std::strtoul(door, nullptr, 16));
-	rise.safeguard.enabled = GetPrivateProfileIntA("Safeguard", "Enabled", 1, path) != 0;
-	rise.safeguard.raiseAtHome = GetPrivateProfileIntA("Safeguard", "RaiseAtHome", 1, path) != 0;
+	rise.safeguard.enabled = IniInt("Safeguard", "Enabled", 1, path) != 0;
+	rise.safeguard.raiseAtHome = IniInt("Safeguard", "RaiseAtHome", 1, path) != 0;
 	walkers::NightSettings& night = rise.night;
-	night.enabled = GetPrivateProfileIntA("Night", "Enabled", 1, path) != 0;
+	night.enabled = IniInt("Night", "Enabled", 1, path) != 0;
 	night.speedMultiplier = std::max(0.1f, std::min(5.0f, IniFloat("Night", "SpeedMultiplier", 1.3f, path)));
-	night.spawnPercent = static_cast<UInt32>(std::max(10, std::min(500, static_cast<int>(GetPrivateProfileIntA("Night", "SpawnPercent", 150, path)))));
-	night.hordeLeadPercent = static_cast<UInt32>(std::max(10, std::min(500, static_cast<int>(GetPrivateProfileIntA("Night", "HordeLeadPercent", 150, path)))));
+	night.spawnPercent = static_cast<UInt32>(std::max(10, std::min(500, static_cast<int>(IniInt("Night", "SpawnPercent", 150, path)))));
+	night.hordeLeadPercent = static_cast<UInt32>(std::max(10, std::min(500, static_cast<int>(IniInt("Night", "HordeRoamPercent", 150, path)))));
 	night.startHour = IniFloat("Night", "StartHour", 20.0f, path);
 	night.endHour = IniFloat("Night", "EndHour", 6.0f, path);
-	night.rampHours = std::max(0.0f, IniFloat("Night", "RampHours", 1.0f, path));
+	night.rampHours = std::max(0.0f, IniFloat("Night", "TwilightHours", 1.0f, path));
 	char victim[16] = {};
-	GetPrivateProfileStringA("Safeguard", "TestVictim", "0", victim, sizeof(victim), path);
+	IniString("Safeguard", "TestVictim", "0", victim, sizeof(victim), path);
 	rise.safeguard.testVictim = static_cast<UInt32>(std::strtoul(victim, nullptr, 16));
 	rise.safeguard.afterSeconds = IniFloat("Safeguard", "AfterSeconds", 15.0f, path);
 	rise.safeguard.afterSeconds = rise.safeguard.afterSeconds < 0.0f ? 0.0f : rise.safeguard.afterSeconds;
-	rise.safeguard.radius = IniFloat("Safeguard", "Radius", 3000.0f, path);
-	rise.news.courier = GetPrivateProfileIntA("News", "Courier", 1, path) != 0;
+	rise.safeguard.radius = IniFloat("Safeguard", "NoWalkerWithin", 3000.0f, path);
+	rise.news.courier = IniInt("News", "Courier", 1, path) != 0;
 	rise.news.recentDays = IniFloat("News", "RecentDays", 3.0f, path);
 	rise.news.recentDays = rise.news.recentDays < 0.0f ? 0.0f : rise.news.recentDays;
 	rise.news.headingHoldDays = IniFloat("News", "HeadingHoldDays", 0.5f, path);
 	rise.news.headingHoldDays = rise.news.headingHoldDays < 0.0f ? 0.0f : rise.news.headingHoldDays;
-	rise.grab.enabled = GetPrivateProfileIntA("Grab", "Enabled", 1, path) != 0;
-	const int grabChance = GetPrivateProfileIntA("Grab", "ChancePercent", 66, path);
+	rise.grab.enabled = IniInt("Grab", "Enabled", 1, path) != 0;
+	const int grabChance = IniInt("Grab", "ChancePercent", 66, path);
 	rise.grab.chancePercent = grabChance < 0 ? 0u : (grabChance > 100 ? 100u : static_cast<UInt32>(grabChance));
-	const int bites = GetPrivateProfileIntA("Grab", "BitesToDie", 3, path);
+	const int bites = IniInt("Grab", "BitesToDie", 3, path);
 	rise.grab.bitesToDie = bites < 1 ? 1u : static_cast<UInt32>(bites);
 	rise.grab.biteSeconds = IniFloat("Grab", "BiteSeconds", 4.0f, path);
 	rise.grab.biteSeconds = rise.grab.biteSeconds < 0.5f ? 0.5f : rise.grab.biteSeconds;
-	const int biteHealth = GetPrivateProfileIntA("Grab", "BiteHealthPercent", 20, path);
+	const int biteHealth = IniInt("Grab", "BiteHealthPercent", 20, path);
 	rise.grab.biteHealthPercent = biteHealth < 0 ? 0u : (biteHealth > 100 ? 100u : static_cast<UInt32>(biteHealth));
-	const int struggle = GetPrivateProfileIntA("Grab", "StruggleHits", 2, path);
+	const int struggle = IniInt("Grab", "StruggleHits", 2, path);
 	rise.grab.struggleHits = struggle < 1 ? 1u : static_cast<UInt32>(struggle);
 	rise.grab.tearFreeDistance = IniFloat("Grab", "TearFreeDistance", 1000.0f, path);
 	rise.grab.reachUnits = std::max(0.0f, IniFloat("Grab", "ReachUnits", 37.0f, path));
 	rise.grab.lungeUnits = std::max(0.0f, IniFloat("Grab", "LungeUnits", 100.0f, path));
 	rise.grab.lungeSeconds = std::max(0.0f, IniFloat("Grab", "LungeSeconds", 0.3f, path));
-	rise.grab.biteResetSeconds = IniFloat("Grab", "BiteResetSeconds", 30.0f, path);
+	rise.grab.biteResetSeconds = IniFloat("Grab", "BitesForgottenAfterSeconds", 30.0f, path);
 	rise.grab.testGrabSeconds = IniFloat("Grab", "TestGrabSeconds", 0.0f, path);
-	const int shock = GetPrivateProfileIntA("Grab", "ShockSound", 1, path);
+	const int shock = IniInt("Grab", "ShockSound", 1, path);
 	rise.grab.shockSound = shock < 0 ? 0u : (shock > 3 ? 3u : static_cast<UInt32>(shock));
-	const int presses = GetPrivateProfileIntA("Grab", "StrugglePresses", 4, path);
+	const int presses = IniInt("Grab", "StrugglePresses", 4, path);
 	rise.grab.strugglePresses = presses < 0 ? 0u : static_cast<UInt32>(presses);
-	rise.grab.struggleGapSeconds = IniFloat("Grab", "StruggleGapSeconds", 0.8f, path);
-	rise.grab.struggleCrowdStep = IniFloat("Grab", "StruggleCrowdStep", 0.5f, path);
-	rise.grab.struggleCrowdMost = IniFloat("Grab", "StruggleCrowdMost", 3.0f, path);
+	rise.grab.struggleGapSeconds = IniFloat("Grab", "SecondsBetweenPresses", 0.8f, path);
+	rise.grab.struggleCrowdStep = IniFloat("Grab", "HarderPerWalkerPercent", 0.5f, path);
+	rise.grab.struggleCrowdMost = IniFloat("Grab", "CrowdMost", 3.0f, path);
 	rise.grab.struggleCrowdMost = rise.grab.struggleCrowdMost < 1.0f ? 1.0f : rise.grab.struggleCrowdMost;
-	rise.grab.struggleCrowdRadius = IniFloat("Grab", "StruggleCrowdRadius", 300.0f, path);
+	rise.grab.struggleCrowdRadius = IniFloat("Grab", "CrowdDistance", 300.0f, path);
 	rise.grab.struggleFatigue = IniFloat("Grab", "StruggleFatigue", 5.0f, path);
-	rise.grab.messages = GetPrivateProfileIntA("Grab", "Messages", 1, path) != 0;
-	const int strokes = GetPrivateProfileIntA("Grab", "ShakeStrokes", 6, path);
+	rise.grab.messages = IniInt("Grab", "Messages", 1, path) != 0;
+	const int strokes = IniInt("Grab", "ShakeStrokes", 6, path);
 	rise.grab.shakeStrokes = strokes < 0 ? 0u : static_cast<UInt32>(strokes);
 	rise.grab.shakeFatigue = IniFloat("Grab", "ShakeFatigue", 2.0f, path);
-	const int control = GetPrivateProfileIntA("Grab", "StruggleControl", 6, path);
+	const int control = IniInt("Grab", "StruggleControl", 6, path);
 	rise.grab.struggleControl = control < 0 || control > 28 ? 6u : static_cast<UInt32>(control);
-	const int getUpSound = GetPrivateProfileIntA("Rise", "SoundAtGetUpPercent", 60, path);
+	const int getUpSound = IniInt("Rise", "GroanChancePercent", 60, path);
 	rise.soundAtGetUpPercent = getUpSound < 0 ? 0u : static_cast<UInt32>(getUpSound);
 	rise.lieSeconds = IniFloat("Rise", "LieSeconds", 1.0f, path);
 	if (rise.lieSeconds < 0.0f) {

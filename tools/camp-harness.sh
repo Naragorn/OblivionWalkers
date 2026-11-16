@@ -28,7 +28,7 @@ if grep -q '^\[Survivors\]' "$ini"; then
 else
 	printf "\n[Survivors]\n$keys\n" >> "$ini"
 fi
-# CAMP_ENDS=1: [Zombies] DieOnlyBeheaded=0 too, so the refugees' kills end
+# CAMP_ENDS=1: [Walkers] DieOnlyBeheaded=0 too, so the refugees' kills end
 # the walkers and the attack reaches its end (with OBVR cutting heads only
 # the player's cut ends one - the run of 14:56).
 # The held dungeons off for the run: their runner's news opens the journal's
@@ -45,8 +45,13 @@ if [[ "$scenario" == escort-dead ]]; then
 	sed -i '0,/^\[Rise\]\r\?$/s//[Rise]\nEnabled=0/' "$ini"
 fi
 if [[ "${CAMP_ENDS:-0}" == 1 ]]; then
-	grep -q '^\[Zombies\]' "$ini" || { echo "no [Zombies] section in $ini"; exit 1; }
-	sed -i '0,/^\[Zombies\]\r\?$/s//[Zombies]\nDieOnlyBeheaded=0/' "$ini"
+	# [Walkers] (named [Zombies] until 2026-11-16; the plugin reads the new
+	# name first - IniNames.h): added when the INI has no such section yet.
+	if grep -q '^\[Walkers\]' "$ini"; then
+		sed -i '0,/^\[Walkers\]\r\?$/s//[Walkers]\nDieOnlyBeheaded=0/' "$ini"
+	else
+		printf "\n[Walkers]\nDieOnlyBeheaded=0\n" >> "$ini"
+	fi
 fi
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/camp-$scenario.txt" --headless \
 	--artifact-root "$root/artifacts/hand-script")

@@ -74,7 +74,7 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
                    # siege: a day on, the refuge is attacked again (the quest opened anew)
                    ("AttackChancePercent", "100" if mode == "siege" else "0")):
     text = put(text, "Dungeons", key, value)
-text = put(text, "Zombies", "DieOnlyBeheaded", behead)
+text = put(text, "Walkers", "DieOnlyBeheaded", behead)  # [Zombies] until 2026-11-16 (IniNames.h)
 text = put(text, "Debug", "StepTiming", "1")
 # the journal's SetStage looked inside (SamplerLogic.h): where its 20 to 40 ms go
 text = put(text, "Debug", "SampleLine", "SetStage")

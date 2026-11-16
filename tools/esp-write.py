@@ -14,7 +14,7 @@ index at runtime):
          animation folder (4.4) comes later on these records.
   0x805  LVLC WalkersZombieVariant - VARIANT_SLOTS entries at level 1, each
          the any-walker list (0x94A) at counts 1..10, which the plugin
-         rewrites from [Replace] MinCount and MaxCount at the start; no
+         rewrites from [Replace] WalkersPerSpawnMin and WalkersPerSpawnMax at the start; no
          chance none, flags 0, like LL0ZombieVariant (00034095): what 4.6
          puts in place of a creature.
   0x94A  LVLC WalkersAnyWalker - every walker at level 1, count 1, twice, a
@@ -1006,7 +1006,7 @@ def cell_groups(cell_form: int, cell: bytes, markers: bytes) -> bytes:
 
 def variant_entries(any_walker: int) -> list[tuple[int, int]]:
     """VARIANT_SLOTS entries, each the any-walker list, at the counts
-    1..slots - the plugin writes them anew from MinCount and MaxCount."""
+    1..slots - the plugin writes them anew from WalkersPerSpawnMin and WalkersPerSpawnMax."""
     return [(any_walker, slot + 1) for slot in range(VARIANT_SLOTS)]
 
 
