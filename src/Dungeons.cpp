@@ -663,6 +663,26 @@ void Carry(const DungeonEvent* ev, UInt32 n, DungeonSite& d, const DungeonSite& 
 	}
 }
 
+// The player's last place in Tamriel (outdoors; inside, the one before going
+// in) - what is near the player for the news and the new places (4.20.7a).
+float g_playerX = 0.0f;
+float g_playerY = 0.0f;
+bool g_playerKnown = false;
+
+void NotePlayerPlace(UInt32 player) {
+	const UInt32 cell = LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0;
+	if (!LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0) {
+		return;
+	}
+	const UInt32 world = Read(cell + kCellWorldspaceOffset);
+	if (!LooksLikeObject(world) || FormIdOf(world) != kTamriel) {
+		return;
+	}
+	g_playerX = FloatAt(player + kRefPositionOffset);
+	g_playerY = FloatAt(player + kRefPositionOffset + 4);
+	g_playerKnown = true;
+}
+
 float Closeness(const DungeonCandidate& c, UInt32 player) {
 	const UInt32 cell = LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0;
 	if (!LooksLikeObject(cell)) {
@@ -1451,6 +1471,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 	if (!(now > 0.0f) || !LooksLikeObject(player)) {
 		return;
 	}
+	NotePlayerPlace(player);
 	if (g_siteSettings->enabled) {
 		// [Dungeons] TestSite: that candidate a refuge, whatever the save held.
 		if (g_testSite[0] != '\0') {
@@ -1481,7 +1502,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		}
 		DropFreeSites(g_sites);
 		const UInt32 n = FillDungeons(g_sites, *g_siteSettings, kDungeonCandidates, kDungeonCandidateCount, g_inPool,
-		                              now, roll, ev, kEventsMost);
+		                              now, roll, ev, kEventsMost, g_playerX, g_playerY, g_playerKnown);
 		for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
 			LogEvents(ev + k, 1, g_sites.sites[ev[k].site], log);
 		}
@@ -1521,7 +1542,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			    "4 their thanks)", talk);
 		}
 		const bool hears = g_siteSettings->enabled && g_siteSettings->journal && g_siteSettings->rumors;
-		int news = hears ? DungeonNewsSite(g_sites) : -1;
+		int news = hears ? DungeonNewsSiteNear(g_sites, kDungeonCandidates, kDungeonCandidateCount, g_playerX, g_playerY, g_playerKnown) : -1;
 		// A paper of ours newly opened - the Courier's edition on the held
 		// dungeons, the notice - is read: it tells as a rumor does.
 		const UInt32 book = BookOpen();
@@ -1545,7 +1566,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			if (news >= 0) {
 				DungeonSite& d = g_sites.sites[news];
 				Tell(d, JournalHeard(d.journal, d.state), "heard", log);
-				news = DungeonNewsSite(g_sites);
+				news = DungeonNewsSiteNear(g_sites, kDungeonCandidates, kDungeonCandidateCount, g_playerX, g_playerY, g_playerKnown);
 			}
 		}
 		const UInt8 kind = DungeonNewsKind(g_sites, news);

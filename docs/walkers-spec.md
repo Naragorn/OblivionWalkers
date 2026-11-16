@@ -5144,7 +5144,8 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | Bands across a save and a load ('BAND'), the leader two ranks above, the band broken up when he falls | `daedra-save.txt` (`daedra-harness.sh save 1`); the break-up: kill the leader by console |
 | 2026-11-16 | A band that reaches its city raising the siege chance | new: a far band driven to its city by a fast `UnitsPerHour` test switch, the next day's siege roll logged |
 | 2026-11-16 | Mode 2's fallen as fuel: a bandit a Churl kills rises | `daedra-fuel.txt` (`daedra-harness.sh fuel 2`) |
-| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 44 with 219 variables | `link-page.txt` (`tools/link-page.sh`, expects 219) and a run on an old INI |
+| 2026-11-16 | News of the nearest held place, new places rolled near the player (4.20.7a) | new: `dungeon-sites-near.txt` - TestSite off, the player moved by coc far from the save's places, a day waited: the log's rolled sites within NewPlacesWithin, the rumor's site the nearest |
+| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 45 with 220 variables | `link-page.txt` (`tools/link-page.sh`, expects 220) and a run on an old INI |
 
 
 ### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; not built)
@@ -5180,7 +5181,7 @@ names what it takes of them.
   Idea 10, the Legion's answer from the gate guards' pool. Idea 9, the
   weather, last and off by default.
 
-### 4.20.7a News of places near the player (Nadi, 2026-11-16, the last Windows run: rumors and quests of refugee places at the other end of the world; design, not built)
+### 4.20.7a News of places near the player (Nadi, 2026-11-16, the last Windows run: rumors and quests of refugee places at the other end of the world; A and B BUILT 2026-11-16, "go a b")
 
 Read 2026-11-16: the held dungeons' sites are rolled from all candidates
 alike (`FillDungeons`: one of the free ones at random, anywhere in
@@ -5197,3 +5198,12 @@ candidates within `RollWithinUnits` (say 60000, some 860 m) of the player, any
 only when none is that near (small to medium; the far ones go on and run
 out by LeaveAfterDays). Recommended A and B together. Both unit flows; the
 game's proof is a harness run (8c) when the walkers may run again.
+
+**Built 2026-11-16:** (A) `DungeonNewsSiteNear`: the nearest site with
+news, the kind breaking a tie; the player's place is the last one known in
+Tamriel (outdoors; inside, the one before going in), none known - the old
+order. The rumors, the notice, the Courier's edition and the runner all
+take it. (B) `FillDungeons` rolls among the free candidates within
+`[Dungeons] NewPlacesWithin` (60000) of that place, anywhere only when
+none is that near; 0 anywhere. LINK `ini_dungeons_new_within` (version
+45, 220 variables). DungeonQuestLogicTest, DungeonSiteLogicTest.

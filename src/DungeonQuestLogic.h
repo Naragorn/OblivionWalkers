@@ -344,6 +344,44 @@ inline int DungeonNewsSite(const DungeonSitesState& st) {
 	return -1;
 }
 
+// The site there is news of, nearest the player first (Nadi, 2026-11-16:
+// the rumors and quests named places at the other end of the world); the
+// kind (DungeonNewsSite's order) only breaks a tie. `playerKnown` false:
+// DungeonNewsSite's order alone. `px`, `py` the player's place in Tamriel
+// (the last one known while inside).
+inline int DungeonNewsSiteNear(const DungeonSitesState& st, const DungeonCandidate* all, UInt32 count, float px,
+                               float py, bool playerKnown) {
+	if (!playerKnown) {
+		return DungeonNewsSite(st);
+	}
+	auto rank = [](DungeonState state) {
+		switch (state) {
+			case DungeonState::Besieged: return 0;
+			case DungeonState::ToClear: return 1;
+			case DungeonState::WalkerDungeon: return 2;
+			case DungeonState::Refuge: return 3;
+			default: return 4;
+		}
+	};
+	int best = -1;
+	float bestD = 0.0f;
+	for (UInt32 i = 0; i < st.count && i < kDungeonActiveMost; ++i) {
+		const DungeonSite& d = st.sites[i];
+		if (d.candidate == kDungeonNoCandidate || d.candidate >= count || rank(d.state) > 3 ||
+		    JournalHeard(d.journal, d.state) == kJournalNone) {
+			continue;
+		}
+		const float dx = all[d.candidate].x - px;
+		const float dy = all[d.candidate].y - py;
+		const float dist = dx * dx + dy * dy;
+		if (best < 0 || dist < bestD || (dist == bestD && rank(d.state) < rank(st.sites[best].state))) {
+			best = static_cast<int>(i);
+			bestD = dist;
+		}
+	}
+	return best;
+}
+
 // The news' kind for the rumors' global: 1 a refuge, 2 a siege, 3 a place
 // to clear, 4 a fallen place; 0 none.
 inline UInt8 DungeonNewsKind(const DungeonSitesState& st, int site) {

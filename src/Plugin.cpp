@@ -227,6 +227,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.dungeons.weightToClear = static_cast<UInt32>(IniInt("Dungeons", "WeightToClear", 25, path));
 	rise.dungeons.weightWalkerDungeon = static_cast<UInt32>(IniInt("Dungeons", "WeightWalkerDungeon", 25, path));
 	rise.dungeons.spacingUnits = IniFloat("Dungeons", "DistanceApart", 15000.0f, path);
+	rise.dungeons.newPlacesWithin = std::max(0.0f, IniFloat("Dungeons", "NewPlacesWithin", 60000.0f, path));
 	rise.dungeons.peopleMin = static_cast<UInt32>(IniInt("Dungeons", "PeopleMin", 3, path));
 	rise.dungeons.peopleMax = static_cast<UInt32>(IniInt("Dungeons", "PeopleMax", 6, path));
 	rise.dungeons.attackChancePercent = static_cast<UInt32>(IniInt("Dungeons", "AttackChancePercent", 15, path));

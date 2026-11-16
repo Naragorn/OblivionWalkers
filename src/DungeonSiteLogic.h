@@ -55,6 +55,11 @@ struct DungeonSiteSettings {
 	bool rumors = true;                  // Rumors: people tell of the places (it needs the journal)
 	float messengerHours = 24.0f;        // MessengerHours: a runner for help this far apart at the soonest; 0 never
 	UInt32 beds = 3;                     // Beds: bedrolls laid out in a held place (4 at most); 0 none
+	// NewPlacesWithin (Nadi, 2026-11-16: the places were at the other end of
+	// the world): a new place is rolled among the free ones within this many
+	// units of the player (60000, some 860 m), anywhere only when none is
+	// that near; 0 anywhere.
+	float newPlacesWithin = 60000.0f;
 };
 
 // The ESP's pool of walkers for the place the player is at (DungeonKitLogic.h).
@@ -178,7 +183,8 @@ inline UInt32 ActiveTarget(const DungeonSiteSettings& s, UInt32 roll) {
 // people and walkers rolled. Returns the events (Rolled).
 template <typename RollFn>
 UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const DungeonCandidate* all, UInt32 count,
-                    const bool* inPool, float now, RollFn& roll, DungeonEvent* out, UInt32 most) {
+                    const bool* inPool, float now, RollFn& roll, DungeonEvent* out, UInt32 most, float px = 0.0f,
+                    float py = 0.0f, bool playerKnown = false) {
 	if (!s.enabled) {
 		return 0;
 	}
@@ -189,11 +195,13 @@ UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const D
 	while (st.count < st.target) {
 		UInt32 open = 0;
 		UInt32 pick = kDungeonNoCandidate;
+		// Near the player first (NewPlacesWithin), anywhere when none is.
+		bool nearOnly = playerKnown && s.newPlacesWithin > 0.0f;
 		for (UInt32 pass = 0; pass < 2; ++pass) {
 			const UInt32 chosen = pass == 1 && open > 0 ? roll() % open : 0;
 			UInt32 seen = 0;
 			for (UInt32 c = 0; c < count && c < kDungeonNoCandidate; ++c) {
-				bool free = inPool[c];
+				bool free = inPool[c] && (!nearOnly || std::hypot(all[c].x - px, all[c].y - py) <= s.newPlacesWithin);
 				for (UInt32 k = 0; free && k < st.count; ++k) {
 					const DungeonCandidate& a = all[st.sites[k].candidate];
 					free = st.sites[k].candidate != c &&
@@ -210,6 +218,11 @@ UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const D
 			}
 			if (pass == 0) {
 				open = seen;
+				if (open == 0 && nearOnly) {
+					nearOnly = false;  // none that near: anywhere
+					pass = static_cast<UInt32>(-1);
+					continue;
+				}
 				if (open == 0) {
 					break;
 				}

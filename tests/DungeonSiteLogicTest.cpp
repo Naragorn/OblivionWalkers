@@ -97,6 +97,38 @@ void TestFill() {
 	off.enabled = false;
 	DungeonSitesState offSt;
 	Check(walkers::FillDungeons(offSt, off, kAll, kCount, inPool, 1.0f, rolls, ev, 16) == 0, "Enabled=0: none");
+	// New places near the player (Nadi, 2026-11-16): within NewPlacesWithin
+	// of the player first, anywhere only when none is that near.
+	DungeonSiteSettings nearS = s;
+	nearS.activeMin = 1;
+	nearS.activeMax = 1;
+	Check(s.newPlacesWithin == 60000.0f, "NewPlacesWithin 60000 by default (some 860 m)");
+	const UInt32 zero[] = {0, 0, 0, 0, 0, 0};
+	bool all6[kCount] = {true, true, true, true, true, true};
+	DungeonSitesState byF;
+	Rolls rz{zero, 6};
+	walkers::FillDungeons(byF, nearS, kAll, kCount, all6, 1.0f, rz, ev, 16, 120000.0f, 0.0f, true);
+	Check(byF.count == 1 && (byF.sites[0].candidate == 3 || byF.sites[0].candidate == 4 || byF.sites[0].candidate == 5),
+	      "the player at F (120000): one of D, E, F - none of A, B, C");
+	const UInt32 last[] = {0, 2, 0, 0, 0, 0};
+	DungeonSitesState byF2;
+	Rolls rl{last, 6};
+	walkers::FillDungeons(byF2, nearS, kAll, kCount, all6, 1.0f, rl, ev, 16, 120000.0f, 0.0f, true);
+	Check(byF2.count == 1 && byF2.sites[0].candidate == 5, "the third near one by the roll: F itself");
+	DungeonSitesState far;
+	Rolls rf{zero, 6};
+	walkers::FillDungeons(far, nearS, kAll, kCount, all6, 1.0f, rf, ev, 16, 900000.0f, 0.0f, true);
+	Check(far.count == 1 && far.sites[0].candidate == 0, "none that near: anywhere, as before");
+	DungeonSitesState unknown;
+	Rolls ru{zero, 6};
+	walkers::FillDungeons(unknown, nearS, kAll, kCount, all6, 1.0f, ru, ev, 16);
+	Check(unknown.count == 1 && unknown.sites[0].candidate == 0, "the player not known: anywhere");
+	DungeonSiteSettings anywhere = nearS;
+	anywhere.newPlacesWithin = 0.0f;
+	DungeonSitesState any;
+	Rolls ra{zero, 6};
+	walkers::FillDungeons(any, anywhere, kAll, kCount, all6, 1.0f, ra, ev, 16, 120000.0f, 0.0f, true);
+	Check(any.count == 1 && any.sites[0].candidate == 0, "NewPlacesWithin 0: anywhere");
 	DungeonSiteSettings range = s;
 	range.activeMin = 3;
 	range.activeMax = 5;

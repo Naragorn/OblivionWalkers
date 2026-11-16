@@ -167,6 +167,35 @@ void TestNews() {
 	Check(DungeonNewsKind(st, 9) == 0, "a site past the list: no kind");
 }
 
+void TestNewsNear() {
+	std::printf("the place that is news: the nearest (Nadi, 2026-11-16)\n");
+	using walkers::DungeonCandidate;
+	using walkers::DungeonKind;
+	static const DungeonCandidate all[] = {
+	    {"Far siege", DungeonKind::Cave, {1, 0, 0, 0}, 1, 0, 0, true, 200000.0f, 0.0f},
+	    {"Near refuge", DungeonKind::Cave, {2, 0, 0, 0}, 1, 0, 0, true, 5000.0f, 0.0f},
+	    {"Near clear", DungeonKind::Cave, {3, 0, 0, 0}, 1, 0, 0, true, 0.0f, 5000.0f},
+	};
+	DungeonSitesState st;
+	st.count = 3;
+	st.sites[0].candidate = 0;
+	st.sites[0].state = DungeonState::Besieged;
+	st.sites[1].candidate = 1;
+	st.sites[1].state = DungeonState::Refuge;
+	st.sites[2].candidate = 2;
+	st.sites[2].state = DungeonState::ToClear;
+	Check(DungeonNewsSiteNear(st, all, 3, 0.0f, 0.0f, true) == 2,
+	      "the two near ones as near: the place to clear before the refuge; the far siege not");
+	Check(DungeonNewsSiteNear(st, all, 3, 9000.0f, 0.0f, true) == 1, "nearer the refuge: the refuge");
+	Check(DungeonNewsSiteNear(st, all, 3, 190000.0f, 0.0f, true) == 0, "by the far place: the siege there");
+	Check(DungeonNewsSiteNear(st, all, 3, 0.0f, 0.0f, false) == DungeonNewsSite(st),
+	      "where the player is not known: as before, the most pressing first");
+	st.sites[2].journal = kJournalToClear;
+	Check(DungeonNewsSiteNear(st, all, 3, 0.0f, 0.0f, true) == 1, "one heard of: the next nearest");
+	st.sites[1].candidate = 9;
+	Check(DungeonNewsSiteNear(st, all, 3, 0.0f, 0.0f, true) == 0, "a candidate past the table: never news");
+}
+
 void TestTelling() {
 	std::printf("telling a stage\n");
 	Check(JournalUncompletesFirst(kJournalNone, kJournalHeard) && JournalUncompletesFirst(kJournalNone, kJournalBesieged),
@@ -366,6 +395,7 @@ int main() {
 	TestEvents();
 	TestHeard();
 	TestNews();
+	TestNewsNear();
 	TestTelling();
 	TestTalk();
 	TestMessenger();
