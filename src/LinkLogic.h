@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 46.0;  // 46: the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 47.0;  // 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -538,6 +538,24 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_invaders_after_main_quest", "Invaders: Daedra after the main quest",
 	 "On: the Daedra keep coming once the main quest is done. Off: they stop then, and only walkers come.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_guards_legion_distance", "Guards: the Legion meets the Daedra",
+	 "A Daedra band this near a city's gate brings its guards out on foot to meet it (units; 70 are about 1 m). 0: only Daedra at the gate.",
+	 LinkKind::Slider, 0, 40000, 1000, 0, false, LinkEffect::Live},
+	{"ini_disguise_daedric", "Disguise: Daedric armor",
+	 "On: in a full set of Daedric armor the Daedra take you for one of theirs - until you strike one or come too close.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_disguise_daedric_near", "Disguise: Daedra see through it within",
+	 "Closer than this, the Daedra see through your armor (units; 70 are about 1 m).",
+	 LinkKind::Slider, 0, 1000, 50, 0, false, LinkEffect::Live},
+	{"ini_disguise_daedric_forget", "Disguise: the Daedra forget you after",
+	 "Seconds with no Daedra near before they forget you and the armor fools them again.",
+	 LinkKind::Slider, 0, 600, 10, 0, false, LinkEffect::Live},
+	{"ini_invaders_march_weather", "Invaders: the red sky marches with them",
+	 "On: a Daedra band near you brings the Oblivion gates' red sky. It fights weather mods, so it is off by default.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_invaders_march_weather_distance", "Invaders: the red sky within",
+	 "A Daedra band this near you brings the red sky (units; 70 are about 1 m).",
+	 LinkKind::Slider, 2000, 40000, 1000, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -738,6 +756,12 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 222: return rise.siege.daedraMax;
 		case 223: return rise.banish.seconds;
 		case 224: return rise.invaders.afterMainQuest ? 1.0 : 0.0;
+		case 225: return rise.guards.legionUnits;
+		case 226: return rise.daedric.enabled ? 1.0 : 0.0;
+		case 227: return rise.daedric.nearUnits;
+		case 228: return rise.daedric.forgetSeconds;
+		case 229: return rise.march.enabled ? 1.0 : 0.0;
+		case 230: return rise.march.units;
 		default: return 0.0;
 	}
 }
@@ -949,6 +973,12 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 222: rise.siege.daedraMax = whole; break;
 		case 223: rise.banish.seconds = static_cast<float>(whole); break;
 		case 224: rise.invaders.afterMainQuest = on; break;
+		case 225: rise.guards.legionUnits = fraction; break;
+		case 226: rise.daedric.enabled = on; break;
+		case 227: rise.daedric.nearUnits = fraction; break;
+		case 228: rise.daedric.forgetSeconds = fraction; break;
+		case 229: rise.march.enabled = on; break;
+		case 230: rise.march.units = fraction; break;
 		default: return false;
 	}
 	return true;

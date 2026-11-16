@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 225,
-	      "225 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
+	Check(kLinkSettingCount == 231,
+	      "231 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest, LegionDistance, the Daedric disguise's three, the marching weather's two - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 46\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 47\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -718,7 +718,31 @@ void TestInvaders() {
 	Check(within == 219 && walkers::LinkValue(rise, replace, within) == 60000.0 &&
 	          walkers::SetLinkValue(rise, replace, within, 20000.0) && rise.dungeons.newPlacesWithin == 20000.0f,
 	      "NewPlacesWithin at 219, 60000 by default, set from the menu");
-	Check(walkers::kLinkVersion == 46.0, "the version 46");
+	const int legion = IndexOf("ini_guards_legion_distance");
+	const int daedric = IndexOf("ini_disguise_daedric");
+	const int nearer = IndexOf("ini_disguise_daedric_near");
+	const int forget = IndexOf("ini_disguise_daedric_forget");
+	const int march = IndexOf("ini_invaders_march_weather");
+	const int marchUnits = IndexOf("ini_invaders_march_weather_distance");
+	Check(legion == 225 && daedric == 226 && nearer == 227 && forget == 228 && march == 229 && marchUnits == 230,
+	      "4.22 ideas 10, 7 and 9 after them, 225 to 230");
+	Check(walkers::LinkValue(rise, replace, legion) == 16000.0 && walkers::LinkValue(rise, replace, daedric) == 1.0 &&
+	          walkers::LinkValue(rise, replace, nearer) == 200.0 && walkers::LinkValue(rise, replace, forget) == 60.0 &&
+	          walkers::LinkValue(rise, replace, march) == 0.0 && walkers::LinkValue(rise, replace, marchUnits) == 12000.0,
+	      "the defaults: the Legion at 16000, the disguise on at 200 and 60 s, the weather off at 12000");
+	Check(walkers::SetLinkValue(rise, replace, legion, 8000.0) && rise.guards.legionUnits == 8000.0f &&
+	          walkers::SetLinkValue(rise, replace, daedric, 0.0) && !rise.daedric.enabled &&
+	          walkers::SetLinkValue(rise, replace, nearer, 300.0) && rise.daedric.nearUnits == 300.0f &&
+	          walkers::SetLinkValue(rise, replace, forget, 30.0) && rise.daedric.forgetSeconds == 30.0f &&
+	          walkers::SetLinkValue(rise, replace, march, 1.0) && rise.march.enabled &&
+	          walkers::SetLinkValue(rise, replace, marchUnits, 6000.0) && rise.march.units == 6000.0f,
+	      "each set from the menu");
+	bool live = true;
+	for (int i = legion; i <= marchUnits; ++i) {
+		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
+	}
+	Check(live, "all six read live");
+	Check(walkers::kLinkVersion == 47.0, "the version 47");
 }
 
 void TestPageTest() {

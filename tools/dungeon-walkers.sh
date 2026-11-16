@@ -128,7 +128,7 @@ if mode not in ("notice", "runner-dead"):
           "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
 rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
 link = [l for l in lines if "variables" in l and "LINK" in l]
-check(any("225 of 225" in l for l in link), "LINK holds the 225 variables" + (f" ({link[-1][:90]})" if link else ""))
+check(any("231 of 231" in l for l in link), "LINK holds the 231 variables" + (f" ({link[-1][:90]})" if link else ""))
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
 again = next((k for k, l in enumerate(d) if "site 0 Fort Ash (fort) attacked" in l), len(d))
 into = [l for l in d[:again] if re.search(r"walker \w+ into Fort Ash", l)]
