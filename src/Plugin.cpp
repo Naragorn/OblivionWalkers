@@ -233,7 +233,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(GetPrivateProfileIntA("Invaders", "DaedraPercent", 50, path)))));
 	rise.invaders.summons = GetPrivateProfileIntA("Invaders", "Summons", 0, path) != 0;
 	// 4.22 step 3 (BandLogic.h): only out of the open gates, and the bands.
-	rise.bands.origin = walkers::OriginFromIni(GetPrivateProfileIntA("Invaders", "OnlyFromGates", 0, path));
+	rise.bands.origin = walkers::OriginFromIni(GetPrivateProfileIntA("Invaders", "OnlyFromOblivionGates", 0, path));
 	rise.bands.everywhereUntilGatesOpen = GetPrivateProfileIntA("Invaders", "EverywhereUntilGatesOpen", 0, path) != 0;
 	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandEveryHours", 12, path)))));
 	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSizeMin", 4, path)))));

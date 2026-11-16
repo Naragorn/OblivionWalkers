@@ -1,12 +1,12 @@
 #pragma once
 
 // War bands out of the open Oblivion gates - step 3 of docs/walkers-spec.md
-// 4.22 (`[Invaders] OnlyFromGates=1`), process-free; built 2026-11-15 (Nadi: "go
+// 4.22 (`[Invaders] OnlyFromOblivionGates=1`), process-free; built 2026-11-15 (Nadi: "go
 // 1-7"), not wired into the game yet - the wiring reads the gates' flags
 // (GateLogic.h) and places a band's actors, which needs a harness run.
 //
-// OnlyFromGates 0: the invaders come everywhere, through the spawn replacement, as
-// now. OnlyFromGates 1: the world keeps the game's spawns; every open gate sends a
+// OnlyFromOblivionGates 0: the invaders come everywhere, through the spawn replacement, as
+// now. OnlyFromOblivionGates 1: the world keeps the game's spawns; every open gate sends a
 // band every BandEveryHours game hours toward the nearest city. A band far
 // from the player is a number only (the performance rule, 4.11c): its gate,
 // its city, its size and where it has got to. Within NearUnits of the player
@@ -15,7 +15,7 @@
 // pressure (Arrived). Closing a gate ends its far bands (Ended) and its
 // clock - every gate closed is one source less (4.22). Before any gate is
 // open nothing comes (a), or, with EverywhereUntilGatesOpen=1, the spawn
-// replacement as with OnlyFromGates 0 (c).
+// replacement as with OnlyFromOblivionGates 0 (c).
 
 #include <cmath>
 
@@ -59,7 +59,7 @@ inline void BandPlaceOffset(float bx, float by, float px, float py, float& dx, f
 }
 
 struct BandSettings {
-	InvaderOrigin origin = InvaderOrigin::Everywhere;  // OnlyFromGates (named Origin until 2026-11-16)
+	InvaderOrigin origin = InvaderOrigin::Everywhere;  // OnlyFromOblivionGates (named Origin, then OnlyFromGates, until 2026-11-16)
 	bool everywhereUntilGatesOpen = false;              // EverywhereUntilGatesOpen (Nadi, 2026-11-14)
 	float everyHours = 12.0f;                           // BandEveryHours: game hours between a gate's bands
 	UInt32 sizeMin = 4;                                 // BandSizeMin
@@ -79,13 +79,13 @@ struct BandSettings {
 	float testBandSeconds = 0.0f;
 };
 
-// The spawn replacement on: OnlyFromGates 0, or 1 with no gate open and the
+// The spawn replacement on: OnlyFromOblivionGates 0, or 1 with no gate open and the
 // fallback (c) chosen.
 inline bool ReplacementOn(const BandSettings& s, UInt32 openGates) {
 	return s.origin == InvaderOrigin::Everywhere || (s.everywhereUntilGatesOpen && openGates == 0);
 }
 
-// Bands out of the gates: OnlyFromGates 1 and at least one gate open.
+// Bands out of the gates: OnlyFromOblivionGates 1 and at least one gate open.
 inline bool BandsOn(const BandSettings& s, UInt32 openGates) {
 	return s.origin == InvaderOrigin::Gates && openGates > 0;
 }

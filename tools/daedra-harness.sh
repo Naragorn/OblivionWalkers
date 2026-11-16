@@ -6,7 +6,7 @@
 #
 #   tools/daedra-harness.sh spawn [Kind]     harness/daedra-spawn.txt, Kind 1 by default
 #   tools/daedra-harness.sh fight [Mode]     harness/daedra-fight.txt: a walker and a Churl
-#   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: OnlyFromGates=1, a band placed and led
+#   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: OnlyFromOblivionGates=1, a band placed and led
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -46,7 +46,7 @@ def set_key(text, section, key, value):
 
 text = set_key(text, "Invaders", "Mode", kind)
 if scenario == "band":
-    text = set_key(text, "Invaders", "OnlyFromGates", "1")
+    text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
 # the dungeons' runner off, as in the other wrappers: nobody of the plugin's own beside the player
 text = set_key(text, "Dungeons", "Enabled", "0")

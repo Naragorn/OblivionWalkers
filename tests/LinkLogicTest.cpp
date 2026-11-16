@@ -686,7 +686,7 @@ void TestInvaders() {
 	          kLinkSettings[share].effect == walkers::LinkEffect::Spawns &&
 	          kLinkSettings[summons].effect == walkers::LinkEffect::Spawns,
 	      "all three change the spawns: the lists written anew");
-	const int origin = IndexOf("ini_invaders_only_from_gates");
+	const int origin = IndexOf("ini_invaders_only_from_oblivion_gates");
 	const int until = IndexOf("ini_invaders_everywhere_until_gates");
 	const int hours = IndexOf("ini_invaders_band_hours");
 	const int smallest = IndexOf("ini_invaders_band_min");
@@ -701,7 +701,7 @@ void TestInvaders() {
 	          walkers::SetLinkValue(rise, replace, hours, 6.0) && rise.bands.everyHours == 6.0f,
 	      "only out of gates, every 6 hours, from the menu");
 	Check(kLinkSettings[origin].effect == walkers::LinkEffect::Spawns && kLinkSettings[hours].effect == walkers::LinkEffect::Live,
-	      "OnlyFromGates rewrites the lists (the replacement off or on), the bands' numbers are read live");
+	      "OnlyFromOblivionGates rewrites the lists (the replacement off or on), the bands' numbers are read live");
 	Check(walkers::kLinkVersion == 43.0, "the version 43");
 }
 
