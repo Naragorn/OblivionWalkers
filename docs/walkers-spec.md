@@ -5145,3 +5145,55 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | A band that reaches its city raising the siege chance | new: a far band driven to its city by a fast `UnitsPerHour` test switch, the next day's siege roll logged |
 | 2026-11-16 | Mode 2's fallen as fuel: a bandit a Churl kills rises | `daedra-fuel.txt` (`daedra-harness.sh fuel 2`) |
 | 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 44 with 219 variables | `link-page.txt` (`tools/link-page.sh`, expects 219) and a run on an old INI |
+
+
+### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; not built)
+
+The ESP holds 14 free IDs the plugin can look up (0xA96..0xAA3); each part
+names what it takes of them.
+
+- **5, Daedra in sieges, camps and dungeons.** A Daedra siege's foes come by
+  `PlaceAtMe` of the Daedra list at its start (Mode 2 and 3 mixed by
+  DaedraPercent) and are deleted at its end - no new pool. The camps' and
+  the held dungeons' attacks the same way. An overrun dungeon becomes a
+  Daedra outpost with a boss - a Dremora three ranks above the level - and
+  **a boss chest of its own** (1-2 IDs). Idea 8: a dead Daedra goes back to
+  Oblivion after some 10 s with the game's summon-end shader (to be read
+  off the EXE), its things left in a small pile - fewer bodies, cheaper
+  frames. Order: sieges, banishing, camps and dungeons.
+- **6, the news.** One Daedra broadsheet ("Daedra at the gates of ...",
+  1 ID) on the cities' news logic. **Rumors from everyone** - the general
+  Rumors topic any person says, not only beggars and guards (1-2 IDs): the
+  gate that feeds a city's attacks, its direction from the coordinates.
+  "Close the gate" as a journal quest with the camps' reward, its target
+  the gate's map marker, done when the door reads destroyed (1 ID).
+  `DaedraAfterMainQuest=0`: with the spawn replacement the Daedra stop when
+  the main quest ends (with OnlyFromOblivionGates they stop anyway - the
+  quest shuts every gate). Reopening gates afterwards: not built (their
+  script not read, a risk to the main quest).
+- **7, the looks.** Idea 3 through the main quest's own city gates (4.22
+  idea 3's note): once the quest has opened a city's gate, a Daedra siege
+  of that city starts from it; before that no gate - opening it ourselves
+  would trouble MQ11's count. No prop of our own. Idea 7, the Daedric
+  disguise (a full Daedric set: the Daedra take the player for one of
+  theirs until he strikes or comes very near), on the walkers' disguise.
+  Idea 10, the Legion's answer from the gate guards' pool. Idea 9, the
+  weather, last and off by default.
+
+### 4.20.7a News of places near the player (Nadi, 2026-11-16, the last Windows run: rumors and quests of refugee places at the other end of the world; design, not built)
+
+Read 2026-11-16: the held dungeons' sites are rolled from all candidates
+alike (`FillDungeons`: one of the free ones at random, anywhere in
+Tamriel), and the news names the first site of the most pressing kind
+(`DungeonNewsSite`: a siege first, then a place to clear, a fallen place,
+a refuge - the first in the list of each), whatever the distance. The
+rumor, the notice, the Courier's edition and the runner all tell that one.
+The camps' rumor names no place (their kits stand near the player already).
+
+Options: (A) the news names the nearest site with news - the kind only
+breaks a tie (small: the sites' doors are known, DungeonNewsSite takes the
+player's place). (B) new sites are rolled near the player: among the free
+candidates within `RollWithinUnits` (say 60000, some 860 m) of him, any
+only when none is that near (small to medium; the far ones go on and run
+out by LeaveAfterDays). Recommended A and B together. Both unit flows; the
+game's proof is a harness run (8c) when the walkers may run again.
