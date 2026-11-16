@@ -3824,7 +3824,15 @@ Oblivion) but allowed, as Nadi said "for all".
    their gate or break up. [small on the horde's leader logic]
 2. The fallen as fuel (Kind 2): whoever the Daedra kill rises as a walker;
    a band leaves a trail of walkers on its road. [cheap - the rise is there]
-3. A siege gate: during a Daedra siege a small Oblivion gate burns before
+3. (Nadi, 2026-11-16: the main quest opens a gate before every city
+   anyway, even if farther out. Read off OblivionGates.h the same day: the
+   city gates of MQ11 stand 104 m (Bravil), 112 m (Leyawiin), 115 m
+   (Chorrol), 116 m (Cheydinhal), 176 m (Anvil) and 187 m (Skingrad) before
+   the city, Bruma's quest gates 74-196 m, Kvatch's 646 m from Anvil; the
+   Imperial City has none. They count as open gates for step 3 once the
+   quest enables them - a band then comes out of them toward their city.
+   Design open below, 2026-11-16.)
+   A siege gate: during a Daedra siege a small Oblivion gate burns before
    the city gate (a prop of the ESP at each of the 21 gates, disabled
    until then - the camps' props show how); no way in, only the look and
    the red sky. [medium; the sky and the music near it not read]
