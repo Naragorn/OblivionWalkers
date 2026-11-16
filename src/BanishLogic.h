@@ -21,6 +21,7 @@
 // picks one, by default effectEnchantConjuration (0018B576), the school's
 // own.
 
+#include "Bytes.h"
 #include "Types.h"
 
 namespace walkers {
@@ -131,5 +132,71 @@ inline UInt32 NextBagScan(UInt32 from, UInt32 corpse, UInt32 bag) {
 // Whether a pile goes now: the player this far or farther (-1: not known,
 // it stays).
 inline bool PileGoes(const BanishSettings& s, float distance) { return distance >= 0.0f && distance >= s.pileUnits; }
+
+// The piles in the world (Banish.cpp): each bag's ID and whether it was
+// looked into a second after (an empty one is taken away at once). They go
+// into the co-save ('PILE'; Nadi, 2026-11-16: "die beutesäcke ... lücke") -
+// read back after a load, they go once the player is far, as before.
+inline constexpr UInt32 kPilesMost = 64;
+
+struct PileList {
+	UInt32 ids[kPilesMost] = {};
+	bool checked[kPilesMost] = {};
+	UInt32 count = 0;
+};
+
+// A bag made in the game (FF), not noted yet; false when full.
+inline bool NotePile(PileList& p, UInt32 id, bool checked) {
+	if ((id >> 24) != 0xFF || p.count >= kPilesMost) {
+		return false;
+	}
+	for (UInt32 i = 0; i < p.count; ++i) {
+		if (p.ids[i] == id) {
+			return false;
+		}
+	}
+	p.checked[p.count] = checked;
+	p.ids[p.count++] = id;
+	return true;
+}
+
+// Pile `at` taken off the list, the rest kept in order.
+inline void DropPile(PileList& p, UInt32 at) {
+	if (at >= p.count) {
+		return;
+	}
+	for (UInt32 i = at + 1; i < p.count; ++i) {
+		p.ids[i - 1] = p.ids[i];
+		p.checked[i - 1] = p.checked[i];
+	}
+	--p.count;
+}
+
+inline constexpr UInt32 kPileRecordType = 0x50494C45;  // 'PILE'
+inline constexpr UInt32 kPileRecordVersion = 1;
+inline constexpr UInt32 kPileImageMost = 4 * kPilesMost;
+
+// The bags' IDs, a word each, as many as fit.
+inline UInt32 PileImage(const PileList& p, UInt8* out, UInt32 capacity) {
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < p.count && 4 * (n + 1) <= capacity; ++i) {
+		Put32(out + 4 * n++, p.ids[i]);
+	}
+	return 4 * n;
+}
+
+// After a load: each bag by its loaded ID (`resolve`, the co-save's
+// ResolveRefID; false: gone from the game), checked. How many were read.
+inline UInt32 ReadPileImage(PileList& p, const UInt8* in, UInt32 length, bool (*resolve)(UInt32, UInt32&)) {
+	p = PileList{};
+	UInt32 read = 0;
+	for (UInt32 at = 0; at + 4 <= length; at += 4) {
+		UInt32 id = 0;
+		if (resolve(Get32(in + at), id) && NotePile(p, id, true)) {
+			++read;
+		}
+	}
+	return read;
+}
 
 }  // namespace walkers

@@ -3522,6 +3522,11 @@ void OnSave(void*) {
 	                           g_serialization->WriteRecordData(placed, placedLength);
 	g_log("Co-save: %u placed Daedra still in the world %s", placedLength / 4,
 	      placedWritten ? "written (deleted after the load)" : "could not be written");
+	static UInt8 piles[kPileImageMost];
+	const UInt32 pilesLength = BanishPileImage(piles, sizeof(piles));
+	const bool pilesWritten = g_serialization->OpenRecord(kPileRecordType, kPileRecordVersion) &&
+	                          g_serialization->WriteRecordData(piles, pilesLength);
+	g_log("Co-save: %u piles of banished Daedra %s", pilesLength / 4, pilesWritten ? "written" : "could not be written");
 	UInt8 gateQuest[kGateQuestImageBytes];
 	const UInt32 gateQuestLength = GateQuestImageNow(gateQuest, sizeof(gateQuest));
 	const bool gateQuestWritten = g_serialization->OpenRecord(kGateQuestRecordType, kGateQuestRecordVersion) &&
@@ -3591,6 +3596,15 @@ void OnLoad(void*) {
 			                        : 0;
 			ReadGateQuestNow(gateQuest, read);
 			g_log("Co-save: the gate quest read - gate %d", GateQuestGate());
+			continue;
+		}
+		if (type == kPileRecordType) {
+			static UInt8 piles[kPileImageMost];
+			const UInt32 read = version == kPileRecordVersion && length <= sizeof(piles)
+			                        ? g_serialization->ReadRecordData(piles, length)
+			                        : 0;
+			const UInt32 piled = ReadBanishPileImage(piles, read, &ResolveSaved);
+			g_log("Co-save: %u piles of banished Daedra read (%u bytes) - taken away once the player is far", piled, read);
 			continue;
 		}
 		if (type == kPlaceRecordType) {

@@ -89,12 +89,47 @@ void TestPile() {
 
 }  // namespace
 
+bool ResolveAll(UInt32 saved, UInt32& loaded) {
+	loaded = saved == 0xFF000077 ? 0xFF000177 : saved;  // one renumbered by the load
+	return saved != 0xFF000099;                         // one gone from the game
+}
+
+void TestPileSave() {
+	std::printf("The piles across a save ('PILE')\n");
+	walkers::PileList p;
+	Check(walkers::NotePile(p, 0xFF000010, false) && p.count == 1, "a bag noted");
+	Check(!walkers::NotePile(p, 0xFF000010, true), "twice: once");
+	Check(!walkers::NotePile(p, 0x0001A2B3, false), "not one made in the game: refused");
+	Check(!walkers::NotePile(p, 0, false), "none: refused");
+	walkers::NotePile(p, 0xFF000077, true);
+	walkers::NotePile(p, 0xFF000099, true);
+	UInt8 image[64];
+	const UInt32 n = walkers::PileImage(p, image, sizeof(image));
+	Check(n == 12, "three bags: twelve bytes");
+	Check(walkers::PileImage(p, image, 7) == 4, "room for one: one");
+	walkers::PileList back;
+	const UInt32 read = walkers::ReadPileImage(back, image, n, &ResolveAll);
+	Check(read == 2 && back.count == 2, "read back: the one gone from the game dropped");
+	Check(back.ids[1] == 0xFF000177, "a renumbered one by its new ID");
+	Check(back.checked[0] && back.checked[1], "read back: checked (they held things when saved)");
+	walkers::PileList cut;
+	Check(walkers::ReadPileImage(cut, image, 6, &ResolveAll) == 1, "a record cut short: the whole words only");
+	walkers::PileList full;
+	for (UInt32 i = 0; i < walkers::kPilesMost; ++i) {
+		walkers::NotePile(full, 0xFF003000 + i, true);
+	}
+	Check(!walkers::NotePile(full, 0xFF00FFFF, true), "full: refused");
+	walkers::DropPile(p, 1);
+	Check(p.count == 2 && p.ids[1] == 0xFF000099, "one taken away: the rest kept in order");
+}
+
 int main() {
 	TestWatch();
 	TestStep();
 	TestDrop();
 	TestBagScan();
 	TestPile();
+	TestPileSave();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

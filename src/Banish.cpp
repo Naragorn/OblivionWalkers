@@ -18,16 +18,13 @@ using namespace engine;
 constexpr UInt32 kRefPositionOffset = 0x2C;
 constexpr UInt32 kRefParentCellOffset = 0x40;
 constexpr float kStepSeconds = 1.0f;
-constexpr UInt32 kPilesMost = 64;
 
 const BanishSettings* g_settings = nullptr;
 ConsoleFn g_console = nullptr;
 DeadFn g_dead = nullptr;
 LogFn g_log = nullptr;
 BanishList g_list;
-UInt32 g_piles[kPilesMost] = {};
-UInt32 g_pileCount = 0;
-bool g_pileChecked[kPilesMost] = {};
+PileList g_piles;
 float g_clock = 0.0f;
 UInt32 g_logsLeft = 200;
 
@@ -77,10 +74,7 @@ void Banish(UInt32 refId, UInt32 corpse) {
 		g_console(corpse, line);
 		const UInt32 bagRef = LookupForm(bag);
 		held = LooksLikeObject(bagRef) ? NumItems(bagRef) : -1.0;
-		if (g_pileCount < kPilesMost) {
-			g_pileChecked[g_pileCount] = false;
-			g_piles[g_pileCount++] = bag;
-		} else {
+		if (!NotePile(g_piles, bag, false)) {
 			RetirePlaced(bag);
 		}
 	}
@@ -116,33 +110,34 @@ float DistanceFromPlayer(UInt32 ref) {
 }
 
 void StepPiles() {
-	UInt32 kept = 0;
-	for (UInt32 i = 0; i < g_pileCount; ++i) {
-		const UInt32 bag = LookupForm(g_piles[i]);
+	for (UInt32 i = 0; i < g_piles.count;) {
+		const UInt32 id = g_piles.ids[i];
+		const UInt32 bag = LookupForm(id);
 		if (!LooksLikeObject(bag)) {
+			DropPile(g_piles, i);
 			continue;
 		}
-		if (!g_pileChecked[i]) {
+		if (!g_piles.checked[i]) {
 			const double held = NumItems(bag);
 			if (g_logsLeft > 0) {
 				--g_logsLeft;
-				g_log("Banish: bag %08X holds %.0f kinds a second later%s", g_piles[i], held,
+				g_log("Banish: bag %08X holds %.0f kinds a second later%s", id, held,
 				      held == 0.0 ? " - empty, taken away" : "");
 			}
 			if (held == 0.0) {
-				RetirePlaced(g_piles[i]);  // nothing came over (a creature's own things only): no empty sack
+				RetirePlaced(id);  // nothing came over (a creature's own things only): no empty sack
+				DropPile(g_piles, i);
 				continue;
 			}
+			g_piles.checked[i] = true;
 		}
-		g_pileChecked[i] = true;
 		if (PileGoes(*g_settings, DistanceFromPlayer(bag))) {
-			RetirePlaced(g_piles[i]);
+			RetirePlaced(id);
+			DropPile(g_piles, i);
 			continue;
 		}
-		g_pileChecked[kept] = true;
-		g_piles[kept++] = g_piles[i];
+		++i;
 	}
-	g_pileCount = kept;
 }
 
 }  // namespace
@@ -200,9 +195,17 @@ void StepBanishInGame(float dt) {
 	StepPiles();
 }
 
+UInt32 BanishPileImage(UInt8* out, UInt32 capacity) { return PileImage(g_piles, out, capacity); }
+
+UInt32 ReadBanishPileImage(const UInt8* in, UInt32 length, bool (*resolve)(UInt32, UInt32&)) {
+	return ReadPileImage(g_piles, in, length, resolve);
+}
+
+UInt32 BanishPileCount() { return g_piles.count; }
+
 void ResetBanish() {
 	g_list = BanishList{};
-	g_pileCount = 0;
+	g_piles = PileList{};
 	g_clock = 0.0f;
 	g_scanFrom = 0xFF000000;
 }
