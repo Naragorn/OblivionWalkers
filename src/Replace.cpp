@@ -206,6 +206,149 @@ bool CarriesQuestItem(UInt32 actorBase) {
 	return false;
 }
 
+// The boss guard (4.6c, PluginScanLogic.h): the lists and the creatures and
+// people kept by their editor IDs, read once off the loaded plugin files.
+std::unordered_set<UInt32> g_bossLists;
+std::unordered_set<UInt32> g_bossActors;
+bool g_bossesScanned = false;
+constexpr const char* kKeepListsSection = "ReplaceKeepLists";
+
+bool SameFileName(const char* a, const char* b) {
+	for (; *a != '\0' && *b != '\0'; ++a, ++b) {
+		if (LowerAscii(*a) != LowerAscii(*b)) {
+			return false;
+		}
+	}
+	return *a == *b;
+}
+
+UInt8 LoadIndexOf(const char* name) {
+	for (UInt32 i = 0; i <= 0xFE; ++i) {
+		const char* mod = ModNameAt(i);
+		if (mod == nullptr) {
+			return 0xFF;
+		}
+		if (SameFileName(mod, name)) {
+			return static_cast<UInt8>(i);
+		}
+	}
+	return 0xFF;
+}
+
+void ScanBosses(const ReplaceSettings& settings, const char* iniPath, LogFn log) {
+	g_bossesScanned = true;
+	char data[260];
+	std::snprintf(data, sizeof(data), "%s", iniPath != nullptr ? iniPath : "");
+	for (int up = 0; up < 3; ++up) {
+		char* slash = std::strrchr(data, '\\');
+		if (slash == nullptr) {
+			log("Bosses: no Data folder above %s - no boss guard", iniPath != nullptr ? iniPath : "(none)");
+			return;
+		}
+		*slash = '\0';
+	}
+	std::vector<char> keepSection(1u << 16, '\0');
+	GetPrivateProfileSectionA(kKeepListsSection, keepSection.data(), static_cast<DWORD>(keepSection.size()), iniPath);
+	// By the game's form ID: kept or not, the last file's name deciding (a
+	// later plugin's override renames nothing in practice, but it may).
+	std::unordered_map<UInt32, bool> lists;
+	std::unordered_map<UInt32, bool> actors;
+	std::vector<UInt8> group;
+	UInt32 filesRead = 0;
+	UInt32 compressedTotal = 0;
+	for (UInt32 i = 0; i <= 0xFE; ++i) {
+		const char* mod = ModNameAt(i);
+		if (mod == nullptr) {
+			break;
+		}
+		char path[400];
+		std::snprintf(path, sizeof(path), "%s\\%s", data, mod);
+		FILE* file = std::fopen(path, "rb");
+		if (file == nullptr) {
+			log("Bosses: %s not readable - its lists not looked at", path);
+			continue;
+		}
+		UInt8 header[kRecordHeaderBytes];
+		PluginMasters masters;
+		bool ok = std::fread(header, 1, sizeof(header), file) == sizeof(header) && std::memcmp(header, "TES4", 4) == 0;
+		if (ok) {
+			std::vector<UInt8> tes4(Le32(header + 4));
+			ok = tes4.empty() || std::fread(tes4.data(), 1, tes4.size(), file) == tes4.size();
+			ok = ok && ReadMasters(tes4.data(), static_cast<UInt32>(tes4.size()), masters);
+		}
+		UInt8 masterIndex[kMastersMost];
+		for (UInt32 m = 0; m < masters.count; ++m) {
+			masterIndex[m] = LoadIndexOf(masters.names[m]);
+		}
+		UInt32 compressed = 0;
+		UInt32 listsHere = 0;
+		UInt32 actorsHere = 0;
+		while (ok && std::fread(header, 1, sizeof(header), file) == sizeof(header)) {
+			if (std::memcmp(header, "GRUP", 4) != 0) {
+				break;
+			}
+			const UInt32 size = Le32(header + 4);
+			if (size < kRecordHeaderBytes) {
+				break;
+			}
+			const bool isList = std::memcmp(header + 8, "LVLC", 4) == 0;
+			const bool isActor = std::memcmp(header + 8, "CREA", 4) == 0 || std::memcmp(header + 8, "NPC_", 4) == 0;
+			if (!isList && !isActor) {
+				if (std::fseek(file, static_cast<long>(size - kRecordHeaderBytes), SEEK_CUR) != 0) {
+					break;
+				}
+				continue;
+			}
+			group.resize(size - kRecordHeaderBytes);
+			if (std::fread(group.data(), 1, group.size(), file) != group.size()) {
+				break;
+			}
+			WalkGroupRecords(group.data(), static_cast<UInt32>(group.size()), compressed,
+			                 [&](const char*, UInt32 fileId, const char* edid) {
+				                 const UInt32 id = ResolveFormId(fileId, masterIndex, masters.count, static_cast<UInt8>(i));
+				                 if (id == 0) {
+					                 return;
+				                 }
+				                 if (isList) {
+					                 const char* owner = ModNameAt(id >> 24);
+					                 const int line = owner != nullptr ? FindReplaceSwitch(keepSection.data(), owner, id) : -1;
+					                 const bool keep = KeepList(settings.bosses, edid, line);
+					                 lists[id] = keep;
+					                 listsHere += keep ? 1 : 0;
+				                 } else {
+					                 const bool keep = KeepActor(settings.bosses, edid);
+					                 actors[id] = keep;
+					                 actorsHere += keep ? 1 : 0;
+				                 }
+			                 });
+		}
+		std::fclose(file);
+		++filesRead;
+		compressedTotal += compressed;
+		if (listsHere > 0 || actorsHere > 0 || compressed > 0) {
+			log("Bosses: %s - %u lists and %u creatures or people named bosses%s", mod, listsHere, actorsHere,
+			    compressed > 0 ? " (some records compressed, not read)" : "");
+			if (compressed > 0) {
+				log("Bosses: %s - %u compressed records passed over", mod, compressed);
+			}
+		}
+	}
+	for (const auto& l : lists) {
+		if (l.second) {
+			g_bossLists.insert(l.first);
+		}
+	}
+	for (const auto& a : actors) {
+		if (a.second) {
+			g_bossActors.insert(a.first);
+		}
+	}
+	log("Bosses: KeepBosses=%d (lists by \"%s\", creatures and people by \"%s\") - %u files read, %u lists and %u "
+	    "creatures or people kept from the replacement, %u compressed records passed over",
+	    settings.bosses.keepBosses ? 1 : 0, settings.bosses.listWords, settings.bosses.actorWords, filesRead,
+	    static_cast<UInt32>(g_bossLists.size()), static_cast<UInt32>(g_bossActors.size()), compressedTotal);
+}
+
 CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
 	CreatureFacts facts;
 	facts.type = Read8(creature + kCreatureTypeOffset);
@@ -215,6 +358,7 @@ CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
 	facts.questItem = CarriesQuestItem(creature);
 	facts.questNamed = g_questBases.count(creature) != 0;
 	facts.ours = IsEspForm(espBase, FormIdOf(creature));
+	facts.boss = g_bossActors.count(FormIdOf(creature)) != 0;
 	facts.person = Read8(creature + kFormTypeOffset) == kFormTypeNpc;
 	return facts;
 }
@@ -551,6 +695,9 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
                      const char* iniPath, bool mooLoaded, LogFn log) {
 	CollectQuestNames(log);
+	if (!g_bossesScanned) {
+		ScanBosses(settings, iniPath, log);
+	}
 	if (espBase == kNoEsp) {
 		log("Spawns: no ESP, the lists as they are");
 		return 0;
@@ -622,6 +769,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	UInt32 questListsSeen = 0;
 	UInt32 questEntriesKept = 0;
 	UInt32 daedraEntries = 0;
+	UInt32 bossListsSeen = 0;
+	UInt32 bossEntriesKept = 0;
 	UInt32 daedraKept = 0;
 	for (UInt32 b = 0; LooksLikeObject(buckets) && b < bucketCount; ++b) {
 		for (UInt32 entry = Read(buckets + b * 4); LooksLikeObject(entry); entry = Read(entry)) {
@@ -632,6 +781,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 			}
 			++lists;
 			const bool questList = g_questLists.count(form) != 0;
+			const bool bossList = g_bossLists.count(FormIdOf(form)) != 0;
+			bossListsSeen += bossList ? 1 : 0;
 			questListsSeen += questList ? 1 : 0;
 			bool touched = false;
 			UInt32 kept = 0;
@@ -672,7 +823,10 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 				const Known& known = Learn(own, espBase, settings, section.data(), exceptions.data(), added,
 				                           addedUsed, newLines, log);
 				const bool listed =
-				    ReplaceInList(settings, questList, known.facts, known.category, known.line, known.exception);
+				    ReplaceInList(settings, questList, known.facts, known.category, known.line, known.exception, bossList);
+				if (bossList && ReplaceOn(settings, known.facts, known.category, known.line, known.exception)) {
+					++bossEntriesKept;
+				}
 				// The Daedra in play keep their own categories (KindLogic.h).
 				const bool daedraKeeps = listed && !CategoryReplaced(invaders.kind, known.category, true);
 				daedraKept += daedraKeeps ? 1 : 0;
@@ -698,7 +852,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 			// Extra walkers only where something of the list's own stays: a
 			// list all walkers has nothing to add to, one of lists only feeds
 			// its nested lists, which get theirs.
-			if (settings.extraPercent > 0 && kept > 0 && !(questList && settings.keepQuestLists)) {
+			if (settings.extraPercent > 0 && kept > 0 && !(questList && settings.keepQuestLists) && !bossList) {
 				const UInt32 extraTarget = targetOf(form);
 				const UInt32 more = extraTarget == 0 ? 0 : AddExtraEntries(form, extraTarget, settings.extraPercent);
 				extraAdded += more;
@@ -721,6 +875,8 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 		    static_cast<UInt32>(invaders.kind), invaders.daedraPercent, invaders.summons ? 1 : 0, daedraEntries,
 		    daedraList != 0 ? FormIdOf(daedraList) : 0u, daedraKept);
 	}
+	log("Spawns: KeepBosses=%d - %u of the lists are bosses'; %u entries in them that would be replaced stay their own",
+	    settings.bosses.keepBosses ? 1 : 0, bossListsSeen, bossEntriesKept);
 	log("Spawns: KeepQuestLists=%d - %u of the lists are a quest's; %u entries in them that would be walkers stay "
 	    "their own",
 	    settings.keepQuestLists ? 1 : 0, questListsSeen, questEntriesKept);

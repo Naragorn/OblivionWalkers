@@ -260,6 +260,11 @@ bool ReadSettings(walkers::Settings* settings) {
 	walkers::ReplaceSettings& replace = settings->replace;
 	replace.enabled = GetPrivateProfileIntA("Replace", "Enabled", 1, path) != 0;
 	replace.keepQuestLists = GetPrivateProfileIntA("Replace", "KeepQuestLists", 1, path) != 0;
+	replace.bosses.keepBosses = GetPrivateProfileIntA("Replace", "KeepBosses", 1, path) != 0;
+	GetPrivateProfileStringA("Replace", "BossListWords", replace.bosses.listWords, replace.bosses.listWords,
+	                         sizeof(replace.bosses.listWords), path);
+	GetPrivateProfileStringA("Replace", "BossActorWords", replace.bosses.actorWords, replace.bosses.actorWords,
+	                         sizeof(replace.bosses.actorWords), path);
 	replace.headlessWalkers = walkers::SpawnsHeadless(rise.end.dieOnlyBeheaded);
 	const int least = GetPrivateProfileIntA("Replace", "MinCount", 1, path);
 	const int most = GetPrivateProfileIntA("Replace", "MaxCount", 10, path);

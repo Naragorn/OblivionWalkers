@@ -11,6 +11,7 @@
 
 #include "CategoryLogic.h"
 #include "CreatureFlags.h"
+#include "PluginScanLogic.h"
 #include "RiseLogic.h"
 #include "Types.h"
 
@@ -35,6 +36,9 @@ struct ReplaceSettings {
 	// names - itself or through a placed reference of it - and a creature or
 	// person a quest names stay their own.
 	bool keepQuestLists = true;
+	// [Replace] KeepBosses, BossListWords, BossActorWords (4.6c; Nadi,
+	// 2026-11-16): the bosses' lists and the bosses stay the game's.
+	BossGuard bosses;
 
 	ReplaceSettings() {
 		for (UInt32 k = 0; k < kReplaceCategoryCount; ++k) {
@@ -62,6 +66,9 @@ struct CreatureFacts {
 	// A quest names it in its script, a stage's result script or a target
 	// (MG01Destruct's zombies; Replace.cpp CollectQuestNames).
 	bool questNamed = false;
+	// Its editor ID names it a boss (PluginScanLogic.h KeepActor, read off the
+	// plugin files; [Replace] KeepBosses): it stays the game's (4.6c).
+	bool boss = false;
 	bool ours = false;    // a record of OblivionWalkers.esp
 	bool person = false;  // an NPC_ record, no creature
 };
@@ -70,7 +77,7 @@ struct CreatureFacts {
 // its line; harmless animals and all people start at 0. A creature with a
 // script stays too: a quest or the arena may count on it; one that only
 // swims would stand at the bottom of a lake.
-enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker, QuestItem, QuestNamed };
+enum class CreatureKind : UInt8 { Replace, HarmlessAnimal, SwimsOnly, Scripted, Person, Walker, QuestItem, QuestNamed, Boss };
 
 inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	if (facts.ours) {
@@ -84,6 +91,9 @@ inline CreatureKind ClassifyCreature(const CreatureFacts& facts) {
 	}
 	if (facts.questNamed) {
 		return CreatureKind::QuestNamed;
+	}
+	if (facts.boss) {
+		return CreatureKind::Boss;
 	}
 	if (facts.scripted) {
 		return CreatureKind::Scripted;
@@ -117,6 +127,9 @@ inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& give
 	if (exception >= 0) {
 		return exception != 0;
 	}
+	if (facts.boss) {
+		return false;
+	}
 	if (category < kReplaceCategoryCount) {
 		return settings.categories[category] && !facts.scripted && !facts.questItem && !facts.questNamed &&
 		       !SwimsOnly(facts.flags);
@@ -129,10 +142,12 @@ inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& give
 
 // An entry of a leveled list: in a list a quest names (KeepQuestLists on)
 // it stays its own whatever else says - the quest's spawn is the quest's;
-// in any other as ReplaceOn says.
+// in any other as ReplaceOn says. A boss list (`bossList`, PluginScanLogic.h
+// KeepList - its name or [ReplaceKeepLists]) keeps its entries the same way
+// (4.6c).
 inline bool ReplaceInList(const ReplaceSettings& settings, bool questList, const CreatureFacts& facts,
-                          UInt8 category, int line, int exception) {
-	if (questList && settings.keepQuestLists) {
+                          UInt8 category, int line, int exception, bool bossList = false) {
+	if ((questList && settings.keepQuestLists) || bossList) {
 		return false;
 	}
 	return ReplaceOn(settings, facts, category, line, exception);
@@ -176,6 +191,8 @@ inline const char* KindNote(CreatureKind kind) {
 			return " carries a quest item";
 		case CreatureKind::QuestNamed:
 			return " named by a quest";
+		case CreatureKind::Boss:
+			return " a boss";
 		default:
 			return "";
 	}

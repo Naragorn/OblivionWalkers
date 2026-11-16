@@ -269,6 +269,20 @@ void TestQuestNames() {
 	disabled.enabled = false;
 	Check(!walkers::ReplaceInList(disabled, false, Facts(), goblins, -1, 1), "[Replace] Enabled=0: kept, as before");
 
+	// The boss guard (4.6c; Nadi, 2026-11-16): a boss list's entries and a
+	// boss by its own name stay the game's.
+	Check(!walkers::ReplaceInList(on, false, Facts(), goblins, -1, -1, true),
+	      "a goblin in a boss list (LL1GoblinBossLvl100): kept though Goblins is on");
+	Check(!walkers::ReplaceInList(on, false, Facts(), goblins, -1, 1, true),
+	      "even with an exception of 1: the boss list stays its own ([ReplaceKeepLists] decides over a list)");
+	CreatureFacts boss = Facts();
+	boss.boss = true;
+	Check(!walkers::ReplaceOn(on, boss, goblins, -1, -1), "a boss by its own name (BanditBossMale1): kept");
+	Check(walkers::ReplaceOn(on, boss, goblins, -1, 1), "unless its [ReplaceExceptions] line says 1");
+	Check(walkers::ClassifyCreature(boss) == walkers::CreatureKind::Boss &&
+	          std::strcmp(walkers::KindNote(walkers::CreatureKind::Boss), " a boss") == 0,
+	      "a new INI line names it a boss");
+
 	CreatureFacts named = Facts();
 	named.questNamed = true;
 	Check(!walkers::ReplaceOn(on, named, IndexOf("Zombies"), -1, -1),

@@ -857,6 +857,49 @@ before.
 Cost: **medium** (as rated): the table and decision new and unit-tested,
 the engine reads two offsets of xOBSE's layout, the pass reused.
 
+
+### 4.6c The bosses stay - `[Replace] KeepBosses=1`, `BossListWords`, `BossActorWords`, `[ReplaceKeepLists]` (Nadi, 2026-11-16: "ja A bauen"; built 2026-11-16)
+
+The question (Nadi): how do the walkers and the Daedra not take the place of
+the bosses of the game, Ascension and MOO? The replacement points entries of
+leveled lists at the walkers or the Daedra; a dungeon's boss comes out of a
+boss list (LL1GoblinBossLvl100) and was replaced like any goblin.
+
+Read off Nadi's Linux files 2026-11-16: the bosses' lists say so in their
+editor IDs - Oblivion.esm 59 of 682 lists with "Boss", MOO 325 of 1894,
+Ascension 13 of 271 (overrides of the game's; its 28 new lists are packs,
+"...Group100"; it adds one creature and no boss, its INI no boss feature,
+its 243 overrides change levels in 165 lists and flags in 18, and none puts
+a boss-only form into an ordinary list). MOO names bosses also Champion (22
+lists), Leader (8) and Lord (4); its "Hard" (23) are harder common foes,
+"High" (28) the High Elves and the Highlands. 384 boss lists hold 926 direct
+entries; 39 lists inside boss lists are also inside ordinary ones
+(LL0Skeleton100, LL0Wraith100, MOO's wisps).
+
+Built: the game keeps no editor IDs of lists in memory, so the plugin reads
+them off the loaded plugin files once, at the first pass of the replacement
+(`PluginScanLogic.h`, `Replace.cpp ScanBosses`): each file's masters, its
+LVLC, CREA and NPC_ groups, every other group passed over by its size; a
+file's form IDs turned into the game's by the masters' load order. A list
+whose name holds one of `BossListWords` (Boss, Champion, Leader, Lord, Chief)
+keeps all its entries (`ReplaceInList`'s `bossList`, no extra entries
+either); `[ReplaceKeepLists]` (`Name [Mod.esp 0340BA]=1|0`) decides over the
+name. A creature whose name holds one of `BossActorWords` (Boss) stays
+itself everywhere unless its `[ReplaceExceptions]` line says 1 (a Minotaur
+Lord or a Goblin Warlord is a common foe of the higher levels). The
+Daedra's replacement takes the same path, so the guard holds for them.
+Run natively against the files (the header's code): Oblivion.esm 64 lists
+and 22 creatures kept, MOO 359 and 4, Ascension 13 and 0.
+
+Limits: every NPC_ record of all three files is compressed (2482, 2605,
+126) and the plugin reads no compressed record (no zlib) - people are kept
+through their boss lists only; a person's own "Boss" name is not read
+(miniz, a single-file inflate under the MIT licence, would close it - small,
+not built). The 39 shared lists stay replaced as ordinary ones (a copy per
+boss list at run time would close it - large, not built). Not seen in the
+game yet: the harness run (a placed LL1GoblinBossLvl100 stays goblins) waits
+for the walkers to be allowed into the game again.
+
 ### 4.7 Zombies avoid chapels - `[Zombies] AvoidChapels=1`
 
 What: no walker spawns or rises in a chapel cell, and hordes do not path
