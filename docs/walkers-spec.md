@@ -5153,7 +5153,7 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
 | 2026-11-16 | 7: the Daedric disguise ended by a blow (OnHit on a Daedra) - unit flows only; a save made while fooled, loaded (the player out of the factions first); Mode 3's walkers fooled too | `daedra-daedric.txt` with a strike (a VR blow or a spell) and a save/load; `daedra-fight.txt` 3 in the set |
 | 2026-11-16 | 7: Daedric pieces of the DLCs and mods (only Oblivion.esm's 62 are known) | none: a choice - a list per plugin, or the model path read at run time |
-| 2026-11-16 | 9: the marching weather across a save while forced; beside a weather mod (All Natural) | `daedra-legion.txt` with a save/load; a look with the weather mod |
+| 2026-11-16 | 9: the red sky over a Daedra siege (moved from the bands; the force and let-go proven with the band trigger) - the siege's distance read, set at the gate, let go once over; across a save while forced; beside a weather mod (All Natural) | `daedra-siege.txt` (`daedra-harness.sh siege 1`, MarchWeather=1 set by the wrapper); a save/load; a look with the weather mod |
 | 2026-11-16 | 10: the Legion beside walkers at the same gate; a band near a city the player is far from (the pool's guards in an unloaded cell) | `daedra-legion.txt` Mode 2; a band driven past a city out of the loaded grid |
 
 
@@ -5230,19 +5230,17 @@ their city and raise its siege chance, step 3):
   script not read). A Daedra band within `[Guards] LegionDistance` (16000)
   of a city's gate brings that gate's guards out of the pool on foot, sent
   at the band's nearest Daedra (`DaedraNearGate`).
-- Idea 9, the marching weather (`MarchWeatherLogic.h`, `MarchWeather.cpp`,
-  `[Invaders] MarchWeather=0`): a Daedra band within
-  `MarchWeatherDistance` (12000) of the player outdoors sets
+- Idea 9, the red sky (`MarchWeatherLogic.h`, `MarchWeather.cpp`,
+  `[Invaders] MarchWeather=0`): built first for a Daedra band near the
+  player; **moved the same day to the sieges** (Nadi, 2026-11-16: "Idee 9,
+  roter Himmel, nicht bei daedra bande sondern bei belagerung durch daedra
+  der stadt", then "bau das um"): the player outdoors in Tamriel within
+  `MarchWeatherDistance` (12000) of the door of a gate the Daedra besiege
+  (`NearestDaedraSiegeUnits`, any active Daedra siege, shown or not) sets
   OblivionStormTamriel (000836D5) with the override flag; 20 s after the
-  last one went, or at once inside, ReleaseWeatherOverride and the weather
-  before set again.
-  **For later, not built** (Nadi, 2026-11-16: "Idee 9, roter Himmel, nicht
-  bei daedra bande sondern bei belagerung durch daedra der stadt"): the red
-  sky over a city the Daedra besiege, not with a band on the march. Small:
-  the switch and the force/let-go of `MarchWeather.cpp` stay; the trigger
-  becomes a Daedra siege shown at a gate within the distance (Siege.cpp's
-  shown gate, `CitySiege.daedra`) instead of the nearest band member; the
-  band trigger dropped. Proof: `daedra-siege.txt` with MarchWeather=1.
+  siege ends or he leaves, or at once inside - the city's streets too, its
+  own worldspace - ReleaseWeatherOverride and the weather before set again.
+  The band trigger is gone.
 - LINK 47, 231 variables (the six new keys). Found on the way: the Dremora
   race check read 0003E9A6 - DremoraFaction's ID; the race is 00038010
   (fixed, RiseLogicTest).
@@ -5256,7 +5254,7 @@ guards out for 4 Daedra, the Main and Dock gates shut (the first run had
 all three out - the siege's now only within GateDistance). `daedra-legion.txt`
 - a band 5000 before Anvil: the three gates' guards out for 5-8 Daedra,
 sent at them; the sky read 000836D5, after letting go 00038EEC (the weather
-before). `daedra-piles.txt` - 4 piles written, the same 4 read after the
+before) - the band trigger, since moved to the sieges (8c). `daedra-piles.txt` - 4 piles written, the same 4 read after the
 load.
 
 **Harness PASS 2026-11-16 (Linux, Walkers in for the runs only):**

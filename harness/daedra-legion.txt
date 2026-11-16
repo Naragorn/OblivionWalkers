@@ -1,11 +1,10 @@
-# The Legion's answer and the marching weather (docs/walkers-spec.md 4.22
-# ideas 10 and 9). With [Invaders] OnlyFromOblivionGates=1 TestBandSeconds=20
-# MarchWeather=1 and [Guards] LegionDistance=16000 (tools/daedra-harness.sh
+# The Legion's answer (docs/walkers-spec.md 4.22 idea 10). With [Invaders]
+# OnlyFromOblivionGates=1 TestBandSeconds=20 and [Guards] LegionDistance=16000 (tools/daedra-harness.sh
 # legion) the player stands 5000 units before Anvil's Castle Gate (its door
 # 00006FBA), unseen: 20 s after the load a Daedra band is placed 3000 units
 # before him - within 16000 of the gate, the gate's guards come out and are
-# sent at it; within 12000 of him, outdoors, the red sky (000836D5) is set.
-# killall ends the band (and the guards); 20 s later the sky is let go.
+# sent at it. killall ends the band (and the guards). (The red sky moved to
+# the sieges 2026-11-16: daedra-siege.txt.)
 
 ini Hands Enabled=1
 ini Debug GripTrace=0

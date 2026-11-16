@@ -1,8 +1,8 @@
 #pragma once
 
 // The marching weather in the game (MarchWeatherLogic.h; docs/walkers-spec.md
-// 4.22 idea 9): the gates' red sky set while a Daedra band is near the
-// player outdoors, the weather before set again when it goes.
+// 4.22 idea 9): the gates' red sky set while a Daedra siege is near the
+// player outdoors in Tamriel, the weather before set again when it goes.
 
 #include "Horde.h"
 #include "MarchWeatherLogic.h"

@@ -504,6 +504,23 @@ void StepSiegeInGame(float dt) {
 
 SiegeState& CurrentSieges() { return g_state; }
 
+float NearestDaedraSiegeToPlayer() {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	if (!LooksLikeObject(player)) {
+		return -1.0f;
+	}
+	const UInt32 cell = Read(player + kRefParentCellOffset);
+	if (!LooksLikeObject(cell) || (Read8(cell + kCellFlagsOffset) & 1) != 0) {
+		return -1.0f;
+	}
+	const UInt32 world = Read(cell + kCellWorldspaceOffset);
+	if (!LooksLikeObject(world) || FormIdOf(world) != kTamrielWorldspace) {
+		return -1.0f;  // inside the city's walls (its own worldspace) or elsewhere
+	}
+	return NearestDaedraSiegeUnits(g_state, FloatAt(player + kRefPositionOffset),
+	                               FloatAt(player + kRefPositionOffset + 4));
+}
+
 void ReleaseSiegeLocks() {
 	if (g_console == nullptr) {
 		return;

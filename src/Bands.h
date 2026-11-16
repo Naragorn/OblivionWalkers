@@ -38,10 +38,6 @@ bool IsBandMember(UInt32 refId);
 // A load or a new game: the far bands and the members are forgotten.
 void ResetBands();
 
-// The nearest living member of a Daedra band (one the banishing watches)
-// from the player, -1 none (4.22 idea 9, the marching weather).
-float NearestDaedraBandMember(DeadFn dead);
-
 // The points a city's daily siege chance is up by (BandLogic.h): the bands
 // that reached it lately.
 UInt32 SiegePressureOf(UInt32 city);

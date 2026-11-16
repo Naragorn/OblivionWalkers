@@ -298,6 +298,33 @@ void TestDaedraSiege() {
 	Check(!back.cities[2].daedra, "an older save's pad byte 0: walkers");
 }
 
+void TestRedSky() {
+	std::printf("The red sky over a Daedra siege (4.22 idea 9, 2026-11-16)\n");
+	walkers::SiegeState s;
+	const walkers::CityGate& castle = walkers::kCityGates[1];  // Anvil Castle Gate
+	Check(walkers::NearestDaedraSiegeUnits(s, castle.x, castle.y) < 0.0f, "no siege: none");
+	walkers::CitySiege& anvil = s.cities[static_cast<UInt32>(castle.city)];
+	anvil.active = true;
+	anvil.gate = 1;
+	Check(walkers::NearestDaedraSiegeUnits(s, castle.x, castle.y) < 0.0f, "a walkers' siege: none");
+	anvil.daedra = true;
+	const float d = walkers::NearestDaedraSiegeUnits(s, castle.x + 3000.0f, castle.y + 4000.0f);
+	Check(d > 4999.0f && d < 5001.0f, "a Daedra siege: the distance from its gate's door");
+	walkers::CitySiege& bruma = s.cities[static_cast<UInt32>(walkers::City::Bruma)];
+	bruma.active = true;
+	bruma.daedra = true;
+	for (UInt8 g = 0; g < walkers::kCityGateCount; ++g) {
+		if (walkers::kCityGates[g].city == walkers::City::Bruma) {
+			bruma.gate = g;
+			break;
+		}
+	}
+	const float closest = walkers::NearestDaedraSiegeUnits(s, castle.x, castle.y);
+	Check(closest >= 0.0f && closest < 1.0f, "two sieges: the nearer");
+	anvil.active = false;
+	Check(walkers::NearestDaedraSiegeUnits(s, castle.x, castle.y) > 100000.0f, "the siege over: the other, far");
+}
+
 }  // namespace
 
 int main() {
@@ -311,6 +338,7 @@ int main() {
 	TestSpot();
 	TestImage();
 	TestDaedraSiege();
+	TestRedSky();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

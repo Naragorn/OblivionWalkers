@@ -1,6 +1,8 @@
-// Every flow of the marching weather (docs/walkers-spec.md 4.22 idea 9; Nadi,
-// 2026-11-16: "go 9"): a Daedra band near the player outdoors brings the
-// gates' red sky with it; gone, or the player inside, the sky is let go.
+// Every flow of the red sky (docs/walkers-spec.md 4.22 idea 9; Nadi,
+// 2026-11-16: over a Daedra siege, not a band): a besieged gate near the
+// player outdoors brings the gates' red sky; the siege over, or the player
+// inside, the sky is let go. The distance is the caller's (SiegeLogic.h
+// NearestDaedraSiegeUnits).
 
 #include "MarchWeatherLogic.h"
 

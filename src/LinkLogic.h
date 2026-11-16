@@ -550,11 +550,11 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_disguise_daedric_forget", "Disguise: the Daedra forget you after",
 	 "Seconds with no Daedra near before they forget you and the armor fools them again.",
 	 LinkKind::Slider, 0, 600, 10, 0, false, LinkEffect::Live},
-	{"ini_invaders_march_weather", "Invaders: the red sky marches with them",
-	 "On: a Daedra band near you brings the Oblivion gates' red sky. It fights weather mods, so it is off by default.",
+	{"ini_invaders_march_weather", "Invaders: a red sky over a Daedra siege",
+	 "On: a city the Daedra besiege lies under the Oblivion gates' red sky. It fights weather mods, so it is off by default.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_invaders_march_weather_distance", "Invaders: the red sky within",
-	 "A Daedra band this near you brings the red sky (units; 70 are about 1 m).",
+	 "The red sky within this distance of a gate the Daedra besiege (units; 70 are about 1 m).",
 	 LinkKind::Slider, 2000, 40000, 1000, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);

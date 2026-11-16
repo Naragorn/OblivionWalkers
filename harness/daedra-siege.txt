@@ -6,7 +6,10 @@
 # 500 units out): the placer brings 4 Daedra, killall ends them, 5 s later
 # each goes back to Oblivion and leaves a sack; 2 more come, killall ends
 # them - the siege is over, the Daedra taken out. The city's gate guards come
-# out against the Daedra (the siege's in the guards' count, 2026-11-16).
+# out against the Daedra (the siege's in the guards' count, 2026-11-16). With
+# [Invaders] MarchWeather=1 the red sky (000836D5) lies over the siege, let
+# go some 20 s after it is over (4.22 idea 9, moved from the bands
+# 2026-11-16).
 
 ini Hands Enabled=1
 ini Hands Dismemberment=0
@@ -32,6 +35,6 @@ wait 8
 mark kill2
 wait 14
 mark kill3
-wait 6
+wait 40
 mark end
 wait 1

@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include "Bands.h"
+#include "Siege.h"
 #include "Engine.h"
 
 namespace walkers {
@@ -70,7 +70,7 @@ void StepMarchWeatherInGame(float dt) {
 	const float elapsed = g_clock;
 	g_clock = 0.0f;
 	const bool outdoors = Outdoors();
-	const float nearest = g_state.forced || g_settings->enabled ? NearestDaedraBandMember(g_dead) : -1.0f;
+	const float nearest = g_state.forced || g_settings->enabled ? NearestDaedraSiegeToPlayer() : -1.0f;
 	const MarchWeather step = StepMarchWeather(g_state, *g_settings, outdoors, nearest, elapsed);
 	char line[48];
 	if (g_afterLooks > 0 && step == MarchWeather::None) {
@@ -98,7 +98,7 @@ void StepMarchWeatherInGame(float dt) {
 		const bool said = Say(line);
 		if (g_logsLeft > 0) {
 			--g_logsLeft;
-			g_log("March weather: a Daedra band %.0f away - \"%s\" answered %d (the weather before %08X)", nearest, line,
+			g_log("March weather: a Daedra siege %.0f away - \"%s\" answered %d (the weather before %08X)", nearest, line,
 			      said ? 1 : 0, g_before);
 		}
 	} else if (step == MarchWeather::Release) {
@@ -112,7 +112,7 @@ void StepMarchWeatherInGame(float dt) {
 			--g_logsLeft;
 			g_log("March weather: let go (%s) - ReleaseWeatherOverride answered %d, the weather before %08X set again "
 			      "%d",
-			      outdoors ? "no band near" : "the player inside or switched off", released ? 1 : 0, g_before,
+			      outdoors ? "no Daedra siege near" : "the player inside or switched off", released ? 1 : 0, g_before,
 			      back ? 1 : 0);
 		}
 		g_before = 0;

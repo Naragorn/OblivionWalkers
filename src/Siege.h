@@ -40,6 +40,11 @@ void StepSiegeInGame(float dt);
 // The sieges kept across saves (Rise.cpp's co-save callbacks).
 SiegeState& CurrentSieges();
 
+// The player's distance from the door of the nearest gate the Daedra
+// besiege now, outdoors in Tamriel; -1 none or elsewhere (4.22 idea 9, the
+// red sky).
+float NearestDaedraSiegeToPlayer();
+
 // A new game or a load: the test switches and the clock start again.
 void ResetSiegeInGame();
 

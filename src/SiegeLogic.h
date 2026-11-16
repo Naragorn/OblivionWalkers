@@ -368,4 +368,23 @@ inline bool ReadSiegeImage(SiegeState& st, const UInt8* in, UInt32 length) {
 	return true;
 }
 
+// The red sky (4.22 idea 9; Nadi, 2026-11-16: "nicht bei daedra bande
+// sondern bei belagerung durch daedra der stadt"): the distance from (x, y)
+// - the player outdoors in Tamriel - to the door of the nearest gate the
+// Daedra besiege now, -1 none.
+inline float NearestDaedraSiegeUnits(const SiegeState& s, float x, float y) {
+	float best = -1.0f;
+	for (UInt32 c = 0; c < kSiegeCities; ++c) {
+		const CitySiege& siege = s.cities[c];
+		if (!siege.active || !siege.daedra || siege.gate >= kCityGateCount) {
+			continue;
+		}
+		const float dx = kCityGates[siege.gate].x - x;
+		const float dy = kCityGates[siege.gate].y - y;
+		const float d = std::sqrt(dx * dx + dy * dy);
+		best = best < 0.0f || d < best ? d : best;
+	}
+	return best;
+}
+
 }  // namespace walkers
