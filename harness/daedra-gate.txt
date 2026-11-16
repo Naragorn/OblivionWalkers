@@ -1,0 +1,36 @@
+# "Close the gate" (docs/walkers-spec.md 4.22a step 6): tools/daedra-
+# harness.sh gate sets [Invaders] Mode=1, TestGateOpen=2 and
+# TestGateOpenSeconds=60 - gate 2 of OblivionGates.h reads open for a
+# minute from the first look, then shut. The rumor's global goes to 1 (a
+# gate open, Daedra in play); the scenario sets WalkersGateHeard to 1 as the
+# rumor's result script would; the quest begins at gate 2 (its target
+# rewritten to the gate's door, stage 10, a Message with the way); once the
+# gate reads shut it is done (stage 20) with the camps' reward.
+
+ini Hands Enabled=1
+ini Performance Enabled=0
+console-at ready tgm
+console-at heard set WalkersGateHeard to 1
+console-at close1 CloseAllMenus
+console-at close2 CloseAllMenus
+console-at close3 CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark heard
+wait 8
+mark close1
+wait 3
+mark told
+wait 45
+mark close2
+wait 3
+mark close3
+wait 2
+mark end
+wait 1

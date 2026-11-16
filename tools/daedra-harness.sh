@@ -9,6 +9,7 @@
 #   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: OnlyFromOblivionGates=1, a band placed and led
 #   tools/daedra-harness.sh save [Mode]      harness/daedra-save.txt: the band and its leader across a save and a load
 #   tools/daedra-harness.sh fuel [Mode]      harness/daedra-fuel.txt: a bandit the Daedra kill rises (Mode 2)
+#   tools/daedra-harness.sh gate [Mode]      harness/daedra-gate.txt: "Close the gate" begun and done (4.22a 6)
 #   tools/daedra-harness.sh siege [Mode]     harness/daedra-siege.txt: a Daedra siege at Anvil, its dead banished (4.22a 5a, 5b)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -51,6 +52,9 @@ text = set_key(text, "Invaders", "Mode", kind)
 if scenario in ("band", "save"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
+if scenario == "gate":
+    text = set_key(text, "Invaders", "TestGateOpen", "2")
+    text = set_key(text, "Invaders", "TestGateOpenSeconds", "60")
 if scenario == "siege":
     for key, value in (("TestGate", "1"), ("TestDaedra", "1"), ("DaedraMin", "6"), ("DaedraMax", "6"),
                        ("DaedraAtGate", "4"), ("ChancePerDayPercent", "0")):
@@ -85,7 +89,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "siege"):
+if kind != 0 and scenario not in ("band", "save", "siege", "gate"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -133,6 +137,18 @@ if scenario == "fight":
         check(dead is not None and int(dead.group(1)) >= 1, "Kind 2: one of the two is dead")
     if kind == 3:
         check(dead is not None and int(dead.group(1)) == 0, "Kind 3: neither is dead")
+if scenario == "gate":
+    show("Gate quest: ", 30)
+    check(any("Gate quest: test - gate 2 read open" in l for l in lines), "gate 2 read open by the switch")
+    begun = [l for l in lines if "Gate quest: begun - gate 2" in l]
+    check(bool(begun), "the quest begun at gate 2 once heard")
+    check(any(re.search(r"Gate quest: the target \w+ -> 0001E8A3|Gate quest: the target \w+ -> [0-9A-F]{8}", l) for l in lines),
+          "its target rewritten to the gate's door")
+    check(bool(begun) and re.search(r"flags (\w\w)", begun[0]) is not None and int(re.search(r"flags (\w\w)", begun[0]).group(1), 16) & 1 == 1,
+          "the quest running after SetStage 10")
+    done = [l for l in lines if "Gate quest: done" in l]
+    check(bool(done), "done once the gate read shut")
+    check(bool(done) and int(re.search(r"flags (\w\w)", done[0]).group(1), 16) & 2 == 2, "the quest completed (stage 20)")
 if scenario == "siege":
     show("Siege: ", 40)
     show("Placer: ", 30)

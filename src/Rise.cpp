@@ -5,6 +5,7 @@
 #include "Grab.h"
 #include "Bands.h"
 #include "Banish.h"
+#include "GateQuestLogic.h"
 #include "Placer.h"
 #include "Horde.h"
 #include "LevelingLogic.h"
@@ -2764,9 +2765,36 @@ void StepNight(float dt) {
 
 // The spawn replacement as it runs now: off with [Invaders] OnlyFromOblivionGates=1 while
 // the bands come out of the gates (Bands.h BandsWantReplacement).
+// [Invaders] as they stand now (4.22a step 6): with DaedraAfterMainQuest=0
+// the Daedra stop once MQ16 is completed - every new side the walkers'
+// (KindLogic.h InvadersNow). Read at most once a second.
+InvaderSettings g_invadersNow;
+bool g_daedraStopped = false;
+float g_invadersClock = 1.0f;
+
+bool MainQuestDone() {
+	const UInt32 quest = LookupForm(kMainQuestEnd);
+	return LooksLikeObject(quest) && (Read8(quest + 0x3C) & kQuestCompleted) != 0;
+}
+
+// True when the stop changed since the last look.
+bool UpdateInvadersNow() {
+	const bool stopped = DaedraStopped(g_settings.invaders.afterMainQuest, MainQuestDone() ? kQuestCompleted : 0);
+	const bool changed = stopped != g_daedraStopped;
+	g_daedraStopped = stopped;
+	g_invadersNow = InvadersNow(g_settings.invaders, stopped);
+	if (changed) {
+		g_log("Invaders: the main quest %s - the Daedra %s (DaedraAfterMainQuest=%d, Mode %u)",
+		      stopped ? "is done" : "is not done", stopped ? "stop: every new side the walkers'" : "come on",
+		      g_settings.invaders.afterMainQuest ? 1 : 0, static_cast<UInt32>(g_settings.invaders.kind));
+	}
+	return changed;
+}
+
 ReplaceSettings EffectiveReplace() {
 	ReplaceSettings r = g_replace;
-	r.enabled = r.enabled && BandsWantReplacement(g_settings.bands);
+	r.enabled = r.enabled && BandsWantReplacement(g_settings.bands) &&
+	            ReplacementRuns(g_settings.invaders, g_daedraStopped);
 	return r;
 }
 bool g_replaceWantedLast = true;
@@ -2781,6 +2809,7 @@ void StepSpawns(float dt) {
 	}
 	if (!g_spawnsDone) {
 		g_spawnsDone = true;
+		UpdateInvadersNow();
 		ScaleWalkerHealth(g_walkers, g_walkerCount, g_settings.healthPercent, g_log);
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
@@ -2790,9 +2819,16 @@ void StepSpawns(float dt) {
 		}
 		g_replaceWantedLast = BandsWantReplacement(g_settings.bands);
 		if (g_replace.enabled) {
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
 		}
 		return;
+	}
+	g_invadersClock -= dt;
+	if (g_invadersClock <= 0.0f) {
+		g_invadersClock = 1.0f;
+		if (UpdateInvadersNow() && g_replace.enabled) {
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
+		}
 	}
 	// OnlyFromOblivionGates=1: a gate opened or closed the replacement's way (BandLogic.h).
 	const bool wanted = BandsWantReplacement(g_settings.bands);
@@ -2801,7 +2837,7 @@ void StepSpawns(float dt) {
 		if (g_replace.enabled) {
 			g_log("Spawns: Invaders OnlyFromOblivionGates=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
 			      OpenGateCount(), wanted ? "on" : "off");
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
 		}
 	}
 	if (g_spawnsAgainSeconds < 0.0f) {
@@ -2810,7 +2846,7 @@ void StepSpawns(float dt) {
 	g_spawnsAgainSeconds -= dt;
 	if (g_spawnsAgainSeconds <= 0.0f) {
 		g_spawnsAgainSeconds = -1.0f;
-		ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+		ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
 	}
 }
 
@@ -2861,8 +2897,9 @@ void ApplyLinkEffect(LinkEffect effect) {
 			ConfigureNews(g_settings.news, FindEspBase(), g_log);
 			break;
 		case LinkEffect::Spawns:
+			UpdateInvadersNow();
 			SetWalkersAllied(g_walkers, g_walkerCount, WalkersJoinDaedra(g_settings.invaders.kind), g_log);
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_settings.invaders, g_iniPath, g_mooLoaded, g_log);
+			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
 			break;
 		default:
 			break;
@@ -3379,7 +3416,7 @@ void Tick() {
 	Timed(7, "walkers", [dt] { StepWalkers(dt); });
 	Timed(8, "grab", [dt] { StepGrabInGame(dt); });
 	Timed(9, "horde", [dt] {
-		StepBandsInGame(dt, g_settings.bands, g_settings.invaders, &ConsoleOn, &IsDead, g_log);
+		StepBandsInGame(dt, g_settings.bands, g_invadersNow, &ConsoleOn, &IsDead, g_log);
 		StepPlacer(dt);
 		StepBanishInGame(dt);
 		StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
@@ -3485,6 +3522,11 @@ void OnSave(void*) {
 	                           g_serialization->WriteRecordData(placed, placedLength);
 	g_log("Co-save: %u placed Daedra still in the world %s", placedLength / 4,
 	      placedWritten ? "written (deleted after the load)" : "could not be written");
+	UInt8 gateQuest[kGateQuestImageBytes];
+	const UInt32 gateQuestLength = GateQuestImageNow(gateQuest, sizeof(gateQuest));
+	const bool gateQuestWritten = g_serialization->OpenRecord(kGateQuestRecordType, kGateQuestRecordVersion) &&
+	                              g_serialization->WriteRecordData(gateQuest, gateQuestLength);
+	g_log("Co-save: the gate quest (gate %d) %s", GateQuestGate(), gateQuestWritten ? "written" : "could not be written");
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -3540,6 +3582,15 @@ void OnLoad(void*) {
 			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved, version);
 			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
 			      whole ? "" : " (the record cut short)");
+			continue;
+		}
+		if (type == kGateQuestRecordType) {
+			UInt8 gateQuest[kGateQuestImageBytes];
+			const UInt32 read = version == kGateQuestRecordVersion && length <= sizeof(gateQuest)
+			                        ? g_serialization->ReadRecordData(gateQuest, length)
+			                        : 0;
+			ReadGateQuestNow(gateQuest, read);
+			g_log("Co-save: the gate quest read - gate %d", GateQuestGate());
 			continue;
 		}
 		if (type == kPlaceRecordType) {
@@ -3788,11 +3839,12 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.otherObvrMessage = &OnObvrHeads;
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
-	ConfigureSiege(&g_settings.siege, &g_settings.invaders, &ConsoleOn, &NextRandom, &IsDead, log);
+	g_invadersNow = g_settings.invaders;
+	ConfigureSiege(&g_settings.siege, &g_invadersNow, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureBanish(&g_settings.banish, &ConsoleOn, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
-	ConfigureCampsInvaders(&g_settings.invaders);
-	ConfigureDungeonsInvaders(&g_settings.invaders);
+	ConfigureCampsInvaders(&g_invadersNow);
+	ConfigureDungeonsInvaders(&g_invadersNow);
 	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);

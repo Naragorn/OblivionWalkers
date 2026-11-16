@@ -264,6 +264,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.invaders.kind = walkers::KindFromIni(IniInt("Invaders", "Mode", 0, path));
 	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Invaders", "DaedraPercent", 50, path)))));
 	rise.invaders.summons = IniInt("Invaders", "Summons", 0, path) != 0;
+	rise.invaders.afterMainQuest = IniInt("Invaders", "DaedraAfterMainQuest", 0, path) != 0;
 	// 4.22 step 3 (BandLogic.h): only out of the open gates, and the bands.
 	rise.bands.origin = walkers::OriginFromIni(IniInt("Invaders", "OnlyFromOblivionGates", 0, path));
 	rise.bands.everywhereUntilGatesOpen = IniInt("Invaders", "EverywhereUntilGatesOpen", 0, path) != 0;
@@ -273,6 +274,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegePercent", 5, path)))));
 	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegeFadePerDay", 5, path)))));
 	rise.bands.testBandSeconds = static_cast<float>(IniInt("Invaders", "TestBandSeconds", 0, path));
+	rise.bands.testGateOpen = static_cast<int>(IniInt("Invaders", "TestGateOpen", -1, path));
+	rise.bands.testGateOpenSeconds = static_cast<float>(IniInt("Invaders", "TestGateOpenSeconds", 0, path));
 	// 4.22a step 5b: the plugin's dead Daedra back to Oblivion.
 	rise.banish.seconds = static_cast<float>(std::max(0, std::min(600, static_cast<int>(IniInt("Invaders", "BanishSeconds", 10, path)))));
 	char shader[16] = {};

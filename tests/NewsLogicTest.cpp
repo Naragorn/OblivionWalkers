@@ -124,14 +124,31 @@ void TestIndex() {
 	mark(Edition{EditionKind::CampSaved, -1});
 	mark(Edition{EditionKind::CampLost, -1});
 	mark(Edition{EditionKind::Refuges, -1});
+	mark(Edition{EditionKind::DaedraSiege, -1});
 	bool all = true;
 	for (bool s : seen) {
 		all = all && s;
 	}
 	Check(unique && inRange && all,
-	      "37 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
-	      "lifted 26-33, the camps' 34 and 35, the held dungeons' 36");
-	Check(walkers::kEditionCount == 37 && walkers::EditionIndex(Edition{EditionKind::Refuges, -1}) == 36 &&
+	      "38 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
+	      "lifted 26-33, the camps' 34 and 35, the held dungeons' 36, the Daedra siege's 37");
+	Check(walkers::kEditionCount == 38 && walkers::EditionLocalId(37) == 0xA97,
+	      "the Daedra siege's book at 0xA97 (after the place marker)");
+	{
+		walkers::NewsState news;
+		walkers::NoteSiegeNews(news, 2, true, 5.0f);
+		walkers::NoteSiegeNews(news, 4, true, 6.0f);
+		bool daedra[walkers::kNewsCities] = {};
+		daedra[4] = true;
+		const Edition d = walkers::ChooseEdition(news, 6.5f, 3.0f, 0.5f, daedra);
+		Check(d.kind == EditionKind::DaedraSiege && d.city == 4, "the newest siege the Daedra's: their broadsheet");
+		daedra[4] = false;
+		daedra[2] = true;
+		Check(walkers::ChooseEdition(news, 6.5f, 3.0f, 0.5f, daedra).kind == EditionKind::Besieged,
+		      "the newest a walkers' siege: the city's own (an older Daedra siege waits)");
+		Check(walkers::ChooseEdition(news, 6.5f, 3.0f, 0.5f).kind == EditionKind::Besieged, "no sides known: the city's");
+	}
+	Check(walkers::kEditionCount == 38 && walkers::EditionIndex(Edition{EditionKind::Refuges, -1}) == 36 &&
 	          walkers::EditionLocalId(36) == 0xA75,
 	      "the held dungeons' book after their rumors (DungeonQuestLogic.h kDungeonEditionLocalId)");
 	{

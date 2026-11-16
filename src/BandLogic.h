@@ -79,6 +79,10 @@ struct BandSettings {
 	// before the player whatever the gates, through the same path as a Near
 	// band. 0: off.
 	float testBandSeconds = 0.0f;
+	// Test switches (harness/gate-quest.txt, 4.22a step 6): this gate read
+	// open for TestGateOpenSeconds from the first look, then shut (-1 none).
+	int testGateOpen = -1;
+	float testGateOpenSeconds = 0.0f;
 	// A band that reaches its city raises that city's daily siege chance
 	// (4.12 ChancePerDayPercent) by this many points - the gates feed the
 	// sieges (Nadi, 2026-11-16: "go 3"); the points fade by

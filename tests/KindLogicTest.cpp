@@ -226,7 +226,24 @@ void TestTwins() {
 
 }  // namespace
 
+void TestAfterMainQuest() {
+	std::printf("After the main quest (4.22a step 6)\n");
+	Check(walkers::DaedraStopped(false, 0x03) && !walkers::DaedraStopped(false, 0x01),
+	      "DaedraAfterMainQuest=0: stopped once MQ16 reads completed, not while it runs");
+	Check(!walkers::DaedraStopped(true, 0x03), "DaedraAfterMainQuest=1: never stopped");
+	walkers::InvaderSettings s;
+	s.kind = walkers::InvaderKind::Both;
+	Check(walkers::InvadersNow(s, true).kind == walkers::InvaderKind::Walkers &&
+	          walkers::InvadersNow(s, false).kind == walkers::InvaderKind::Both,
+	      "stopped: every new side the walkers'");
+	Check(walkers::ReplacementRuns(s, true), "Mode 2 stopped: the replacement keeps its walkers");
+	s.kind = walkers::InvaderKind::Daedra;
+	Check(!walkers::ReplacementRuns(s, true) && walkers::ReplacementRuns(s, false),
+	      "Mode 1 stopped: no replacement (no walkers in Mode 1)");
+}
+
 int main() {
+	TestAfterMainQuest();
 	TestKindFromIni();
 	TestInPlay();
 	TestHostility();

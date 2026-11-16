@@ -47,6 +47,12 @@ UInt32 SiegePressureOf(UInt32 city);
 UInt32 BandsImage(UInt8* out, UInt32 capacity);
 bool ReadBandsImage(const UInt8* in, UInt32 length, UInt32 version, bool (*resolve)(UInt32, UInt32&));
 UInt32 FarBandCount();
+
+// "Close the gate" (4.22a step 6): its co-save record 'GATQ'
+// (GateQuestLogic.h), and the gate it names (-1 none).
+UInt32 GateQuestImageNow(UInt8* out, UInt32 capacity);
+void ReadGateQuestNow(const UInt8* in, UInt32 length);
+int GateQuestGate();
 UInt32 BandMemberCount();
 
 }  // namespace walkers

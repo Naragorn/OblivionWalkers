@@ -171,7 +171,37 @@ def editions() -> list[tuple[str, str, str]]:
     out += [_lifted(key, name, region) for key, name, region in CITIES]
     out += [_camp_saved(), _camp_lost()]
     out.append(_refuges())
+    out.append(_daedra_siege())
     return out
+
+
+def _daedra_siege() -> tuple[str, str, str]:
+    """Daedra besiege a city (4.22a step 6): one sheet for all cities - the
+    edition while the newest siege is the Daedra's."""
+    return (
+        "WalkersCourierDaedraSiege",
+        "Daedra at the Gates!",
+        _sheet(
+            "Daedra at the Gates!",
+            [
+                "It is not only the dead that march on our cities now. Out of the burning gates that have torn open "
+                "across the land come the soldiers of Oblivion - Dremora in black armor, and worse things beside "
+                "them - and they have laid siege to one of our cities.",
+                "The guard holds the walls, but the Courier is told the Daedra are many and do not tire. Those who "
+                "fell to them did not rise again; their bodies vanished in a flash of violet light.",
+                "Travellers say the attackers come from a gate not far off. Whoever can close it will spare the city "
+                "the next wave. Until then, keep your doors barred.",
+            ],
+        ),
+    )
+
+
+def gate_rumor() -> str:
+    """The Rumors topic's line about the Oblivion gate the Daedra march out of
+    (4.22a step 6), said by anyone while a gate stands open and Daedra are in
+    play; heard, the journal quest "Close the Gate" begins."""
+    return ("They say the Daedra who keep coming at us march out of an Oblivion gate not far from here. "
+            "Somebody ought to go in and shut the cursed thing before the next wave.")
 
 
 def _refuges() -> tuple[str, str, str]:

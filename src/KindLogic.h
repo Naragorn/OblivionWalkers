@@ -42,6 +42,7 @@ struct InvaderSettings {
 	InvaderKind kind = InvaderKind::Walkers;  // Kind: 0 by default (decided 2026-11-13)
 	UInt32 daedraPercent = 50;                 // DaedraPercent: Kind 2's share of the replaced spawns
 	bool summons = false;                      // Summons: the summoners keep their summons (idea 11, off)
+	bool afterMainQuest = false;               // DaedraAfterMainQuest (step 6): off - they stop with the main quest
 };
 
 // The INI's number; anything but 1, 2 and 3 is the walkers - as without
@@ -198,6 +199,31 @@ inline UInt32 OutpostBossRank(UInt32 level) {
 }
 inline UInt32 OutpostBossList(const InvaderSettings& s, UInt32 level) {
 	return InvaderForm(s, kDremoraRankLists[OutpostBossRank(level)]);
+}
+
+// [Invaders] DaedraAfterMainQuest (4.22a step 6): off (0, the default), the
+// Daedra stop once the main quest is done - Oblivion.esm's MQ16 (0002A38F)
+// completed (TESQuest::questFlags +0x3C, bit 1). From then on every new
+// side is the walkers' (sieges, camp attacks, held places, bands); the
+// spawn replacement keeps the walkers of Mode 2 and 3 and stops in Mode 1
+// (no walkers there). What stands is fought out. The rise keeps the Mode's
+// own rule (MayRise).
+inline constexpr UInt32 kMainQuestEnd = 0x0002A38F;
+inline constexpr UInt8 kQuestCompleted = 0x02;
+inline bool DaedraStopped(bool afterMainQuest, UInt8 mainQuestEndFlags) {
+	return !afterMainQuest && (mainQuestEndFlags & kQuestCompleted) != 0;
+}
+inline InvaderSettings InvadersNow(const InvaderSettings& s, bool stopped) {
+	InvaderSettings now = s;
+	if (stopped) {
+		now.kind = InvaderKind::Walkers;
+	}
+	return now;
+}
+// Whether the spawn replacement runs at all: Mode 1 has no walkers to put
+// in once the Daedra stopped.
+inline bool ReplacementRuns(const InvaderSettings& s, bool stopped) {
+	return !(stopped && s.kind == InvaderKind::Daedra);
 }
 
 // The outpost's boss chest: Oblivion.esm's DungOblivionBossSack01

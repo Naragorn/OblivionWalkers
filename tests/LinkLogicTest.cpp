@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 224,
-	      "224 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three and BanishSeconds - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
+	Check(kLinkSettingCount == 225,
+	      "225 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {

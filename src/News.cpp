@@ -3,6 +3,7 @@
 #include "CourierRefs.h"
 #include "Engine.h"
 #include "RiseLogic.h"
+#include "Siege.h"
 
 namespace walkers {
 
@@ -142,7 +143,12 @@ void StepNewsInGame(float dt, int headingCity, LogFn log) {
 		return;
 	}
 	NoteHeading(g_news, headingCity, now);
-	const Edition edition = ChooseEdition(g_news, now, g_settings.recentDays, g_settings.headingHoldDays);
+	// 4.22a step 6: the Daedra's sieges carry their own broadsheet.
+	bool daedra[kNewsCities] = {};
+	for (UInt32 c = 0; c < kNewsCities && c < kSiegeCities; ++c) {
+		daedra[c] = CurrentSieges().cities[c].active && CurrentSieges().cities[c].daedra;
+	}
+	const Edition edition = ChooseEdition(g_news, now, g_settings.recentDays, g_settings.headingHoldDays, daedra);
 	const UInt32 index = EditionIndex(edition);
 	const UInt32 book = g_editions[index];
 	UInt32 set = 0;

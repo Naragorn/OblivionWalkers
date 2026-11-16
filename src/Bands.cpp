@@ -5,7 +5,9 @@
 #include <cmath>
 #include <cstdio>
 
+#include "Camps.h"
 #include "CityGates.h"
+#include "GateQuestLogic.h"
 #include "Engine.h"
 #include "GateLogic.h"
 #include "OblivionGates.h"
@@ -149,6 +151,116 @@ UInt32 BandList(Group group, const InvaderSettings& invaders) {
 	return EspFormId(g_espBase, local);
 }
 
+// "Close the gate" (4.22a step 6, GateQuestLogic.h).
+GateQuest g_gateQuest;
+UInt32 g_gateQuestLogs = 60;
+
+UInt32 EspGlobal(UInt32 local) {
+	const UInt32 global = LookupForm(EspFormId(g_espBase, local));
+	return LooksLikeObject(global) && Read8(global + kFormTypeOffset) == kFormTypeGlobal ? global : 0;
+}
+
+void SetEspGlobal(UInt32 local, float value) {
+	const UInt32 global = EspGlobal(local);
+	if (global != 0) {
+		*reinterpret_cast<float*>(global + kGlobalValueOffset) = value;
+	}
+}
+
+const char* const kCityNames[] = {"Anvil", "Bravil", "Bruma", "Cheydinhal", "Chorrol", "Leyawiin", "Skingrad",
+                                  "the Imperial City"};
+
+// The quest's one target set to `gate`'s door: TESQuest::targetList (+0x48,
+// a tList whose first node is inline: its data a TargetEntry), the entry's
+// target reference at +0x0C (xOBSE GameForms.h, read 2026-11-16 through
+// deepwiki). True when written.
+bool AimQuestAt(UInt32 quest, UInt32 door, LogFn log) {
+	const UInt32 entry = Read(quest + 0x48);
+	if (!LooksLikeObject(entry) || !LooksLikeObject(door)) {
+		log("Gate quest: no target entry (%08X) or no door (%08X) - the target stays", entry, door);
+		return false;
+	}
+	const UInt32 before = Read(entry + 0x0C);
+	*reinterpret_cast<UInt32*>(entry + 0x0C) = door;
+	log("Gate quest: the target %08X -> %08X (entry %08X)", FormIdOf(before), FormIdOf(door), entry);
+	return true;
+}
+
+float g_testGateClock = 0.0f;
+
+void StepGateQuestInGame(bool* open, UInt32 n, const BandSettings& bands, const InvaderSettings& invaders, float px,
+                         float py, ConsoleFn console, LogFn log) {
+	if (bands.testGateOpen >= 0 && static_cast<UInt32>(bands.testGateOpen) < n) {
+		g_testGateClock += kGateLookSeconds;
+		open[bands.testGateOpen] = g_testGateClock <= bands.testGateOpenSeconds;
+		if (g_gateQuestLogs > 0) {
+			--g_gateQuestLogs;
+			log("Gate quest: test - gate %d read %s (%.0f of TestGateOpenSeconds=%.0f)", bands.testGateOpen,
+			    open[bands.testGateOpen] ? "open" : "shut", g_testGateClock, bands.testGateOpenSeconds);
+		}
+	}
+	const UInt32 quest = LookupForm(EspFormId(g_espBase, kGateQuestLocalId));
+	if (!LooksLikeObject(quest)) {
+		return;  // an older ESP
+	}
+	static float xs[kBandGatesMost];
+	static float ys[kBandGatesMost];
+	for (UInt32 g = 0; g < n; ++g) {
+		xs[g] = kOblivionGates[g].x;
+		ys[g] = kOblivionGates[g].y;
+	}
+	GateQuestLook look;
+	look.daedraInPlay = InPlay(invaders.kind, Group::Daedra);
+	const UInt32 heardGlobal = EspGlobal(kGateHeardGlobalLocalId);
+	look.heard = heardGlobal != 0 && FloatAt(heardGlobal + kGlobalValueOffset) >= 1.0f;
+	look.gateOpen = g_gateQuest.gate >= 0 && static_cast<UInt32>(g_gateQuest.gate) < n && open[g_gateQuest.gate];
+	look.nearestOpen = NearestOpenGate(xs, ys, open, n, px, py);
+	const GateQuestAction action = StepGateQuest(g_gateQuest, look);
+	SetEspGlobal(kGateRumorGlobalLocalId, GateRumorWanted(g_gateQuest, look) ? 1.0f : 0.0f);
+	const UInt32 player = LookupForm(0x14);
+	char line[200];
+	if (action == GateQuestAction::Start) {
+		SetEspGlobal(kGateHeardGlobalLocalId, 0.0f);
+		const OblivionGateRef& gate = kOblivionGates[g_gateQuest.gate];
+		if ((Read8(quest + 0x3C) & kQuestCompleted) != 0) {
+			console(player, "UncompleteQuest WalkersCloseTheGate");
+		}
+		AimQuestAt(quest, LookupForm(gate.door), log);
+		console(player, "SetStage WalkersCloseTheGate 10");
+		UInt32 city = 0;
+		float best = -1.0f;
+		for (UInt32 c = 0; c < kCityGateCount; ++c) {
+			const float d = (kCityGates[c].outX - gate.x) * (kCityGates[c].outX - gate.x) +
+			                (kCityGates[c].outY - gate.y) * (kCityGates[c].outY - gate.y);
+			if (best < 0.0f || d < best) {
+				best = d;
+				city = static_cast<UInt32>(kCityGates[c].city);
+			}
+		}
+		const CityGate* cityGate = nullptr;
+		for (UInt32 c = 0; c < kCityGateCount && cityGate == nullptr; ++c) {
+			cityGate = static_cast<UInt32>(kCityGates[c].city) == city ? &kCityGates[c] : nullptr;
+		}
+		std::snprintf(line, sizeof(line), "Message \"The Oblivion gate lies %s of %s.\"",
+		              cityGate != nullptr ? CompassWord(gate.x - cityGate->outX, gate.y - cityGate->outY) : "near",
+		              city < sizeof(kCityNames) / sizeof(kCityNames[0]) ? kCityNames[city] : "a city");
+		console(player, line);
+		log("Gate quest: begun - gate %d (%08X), %s (stage 10, the rumor heard; the quest's flags %02X, stage %u)",
+		    g_gateQuest.gate, gate.door, line, Read8(quest + 0x3C), Read8(quest + 0x5C));
+	} else if (action == GateQuestAction::Done) {
+		console(player, "SetStage WalkersCloseTheGate 20");
+		char what[96] = "";
+		GiveRefugeeReward(5, what, sizeof(what));
+		std::snprintf(line, sizeof(line), "Message \"The Oblivion gate is closed%s.\"", what);
+		console(player, line);
+		log("Gate quest: done - its gate shut (stage 20)%s; the quest's flags %02X, stage %u", what, Read8(quest + 0x3C),
+		    Read8(quest + 0x5C));
+	} else if (g_gateQuestLogs > 0 && look.heard && !look.daedraInPlay) {
+		--g_gateQuestLogs;
+		log("Gate quest: heard, but no Daedra in play - not begun");
+	}
+}
+
 void Queue(const BandEvent& e) {
 	if (g_queueCount < sizeof(g_queue) / sizeof(g_queue[0])) {
 		g_queue[g_queueCount++] = e;
@@ -274,6 +386,8 @@ UInt32 AppendBandMembers(HordeCandidate* out, UInt32 count, UInt32 most, DeadFn 
 
 void ResetBands() {
 	g_state = BandState{};
+	g_gateQuest = GateQuest{};
+	g_testGateClock = 0.0f;
 	g_openGates = -1;
 	g_clock = 0.0f;
 	g_lastDays = -1.0;
@@ -300,6 +414,10 @@ bool ReadBandsImage(const UInt8* in, UInt32 length, UInt32 version, bool (*resol
 }
 
 UInt32 FarBandCount() { return g_state.count; }
+
+UInt32 GateQuestImageNow(UInt8* out, UInt32 capacity) { return GateQuestImage(g_gateQuest, out, capacity); }
+void ReadGateQuestNow(const UInt8* in, UInt32 length) { ReadGateQuestImage(g_gateQuest, in, length, kOblivionGateCount); }
+int GateQuestGate() { return g_gateQuest.gate; }
 UInt32 BandMemberCount() { return g_memberCount; }
 
 namespace {
@@ -367,7 +485,8 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 	}
 
 	g_gateClock += elapsed;
-	if (bands.origin == InvaderOrigin::Gates && g_gateClock >= kGateLookSeconds) {
+	const bool gateQuest = InPlay(invaders.kind, Group::Daedra) || g_gateQuest.gate >= 0;
+	if ((bands.origin == InvaderOrigin::Gates || gateQuest) && g_gateClock >= kGateLookSeconds) {
 		g_gateClock = 0.0f;
 		static bool open[kBandGatesMost];
 		static BandGate gates[kBandGatesMost];
@@ -384,6 +503,12 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 			    ReplacementOn(bands, count) ? "on" : "off");
 		}
 		g_openGates = static_cast<int>(count);
+		StepGateQuestInGame(open, n, bands, invaders, px, py, console, log);
+		if (bands.origin != InvaderOrigin::Gates) {
+			BreakUpLeaderless(dead, log);
+			StepPlacing(invaders, console, log);
+			return;  // the gates read for the quest only: no bands
+		}
 		const double days = GameDays();
 		float hours = 0.0f;
 		if (days >= 0.0 && g_lastDays >= 0.0 && days > g_lastDays) {

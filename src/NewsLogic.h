@@ -32,7 +32,7 @@ struct NewsSettings {
 	float headingHoldDays = 0.5f;
 };
 
-enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost, Refuges };
+enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost, Refuges, DaedraSiege };
 
 struct Edition {
 	EditionKind kind = EditionKind::General;
@@ -42,7 +42,7 @@ struct Edition {
 // The edition's number - the order tools/esp-write.py writes the books in:
 // general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25 and
 // lifted 26-33 (4.12), a refugee camp saved 34 and lost 35 (4.20.6).
-inline constexpr UInt32 kEditionCount = 5 + 4 * kNewsCities;
+inline constexpr UInt32 kEditionCount = 6 + 4 * kNewsCities;  // + the Daedra siege (4.22a step 6)
 
 inline UInt32 EditionIndex(const Edition& e) {
 	switch (e.kind) {
@@ -62,6 +62,8 @@ inline UInt32 EditionIndex(const Edition& e) {
 			return 3 + 4 * kNewsCities;
 		case EditionKind::Refuges:
 			return 4 + 4 * kNewsCities;
+		case EditionKind::DaedraSiege:
+			return 5 + 4 * kNewsCities;
 		case EditionKind::General:
 		default:
 			return 0;
@@ -74,7 +76,9 @@ inline UInt32 EditionIndex(const Edition& e) {
 // LOCAL_EDITION_IDS).
 inline UInt32 EditionLocalId(UInt32 index) {
 	// 36, the held dungeons': DungeonQuestLogic.h kDungeonEditionLocalId.
-	return index < 18 ? 0x8FC + index : (index < 34 ? 0x9B7 + (index - 18) : (index < 36 ? 0xA38 + (index - 34) : 0xA75));
+	// 37, the Daedra siege's (4.22a step 6): 0xA97, after the place marker.
+	return index < 18 ? 0x8FC + index
+	                  : (index < 34 ? 0x9B7 + (index - 18) : (index < 36 ? 0xA38 + (index - 34) : (index < 37 ? 0xA75 : 0xA97)));
 }
 
 struct NewsState {
@@ -133,7 +137,11 @@ inline void NoteHeading(NewsState& news, int city, float days) {
 // The edition for game day `now`: several cities attacked lately, else the
 // one attacked, else the city a horde was last seen heading for within
 // `holdDays`, else the outbreak in general.
-inline Edition ChooseEdition(const NewsState& news, float now, float recentDays, float holdDays) {
+// `daedraSiege` (nullptr: none): which cities the Daedra besiege - the
+// newest siege a Daedra one, the one Daedra broadsheet (4.22a step 6; one
+// book for all cities, the ESP's IDs are few).
+inline Edition ChooseEdition(const NewsState& news, float now, float recentDays, float holdDays,
+                             const bool* daedraSiege = nullptr) {
 	// A siege on is the news before all else, the latest begun; then a
 	// siege lifted lately, the latest.
 	int besieged = -1;
@@ -147,6 +155,9 @@ inline Edition ChooseEdition(const NewsState& news, float now, float recentDays,
 		    (lifted < 0 || news.liftedDays[c] > news.liftedDays[static_cast<UInt32>(lifted)])) {
 			lifted = static_cast<int>(c);
 		}
+	}
+	if (besieged >= 0 && daedraSiege != nullptr && daedraSiege[besieged]) {
+		return Edition{EditionKind::DaedraSiege, besieged};
 	}
 	if (besieged >= 0) {
 		return Edition{EditionKind::Besieged, besieged};

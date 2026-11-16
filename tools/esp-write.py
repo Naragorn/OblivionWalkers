@@ -428,7 +428,8 @@ def kit_conditions(kit_refs: list[int], global_form: int, values: tuple) -> byte
     return out
 
 
-def build_news_rumor(quest_form: int, news_global: int, kind: int, text: str, heard_global: int) -> bytes:
+def build_news_rumor(quest_form: int, news_global: int, kind: int, text: str, heard_global: int,
+                     heard_name: str = "WalkersDungeonHeard") -> bytes:
     """A line of the Rumors topic as build_rumor's, said while the news'
     global is `kind`; its result script sets "heard" (SET_GLOBAL_*)."""
     out = subrecord(b"DATA", bytes([1, 0, INFO_RUN_FOR_RUMORS]))
@@ -441,9 +442,48 @@ def build_news_rumor(quest_form: int, news_global: int, kind: int, text: str, he
     out += subrecord(b"CTDA", struct.pack("<B3xfIIII", CONDITION_RUN_ON_TARGET, 1.0, GET_IS_ID, PLAYER_BASE, 0, 0))
     out += subrecord(b"CTDA", struct.pack("<B3xfIIII", 0x00, float(kind), GET_GLOBAL_VALUE, news_global, 0, 0))
     out += subrecord(b"SCHR", SET_GLOBAL_SCHR) + subrecord(b"SCDA", SET_GLOBAL_SCDA)
-    out += subrecord(b"SCTX", b"set WalkersDungeonHeard to 1")
+    out += subrecord(b"SCTX", f"set {heard_name} to 1".encode("latin-1"))
     out += subrecord(b"SCRO", struct.pack("<I", heard_global))
     return out
+
+
+# "Close the Gate" (4.22a step 6, GateQuestLogic.h): its stages - the
+# target, an Oblivion gate's door, rewritten at run time.
+GATE_STAGES = [
+    (10, False, "Word is that the Daedra marching on our cities come out of an Oblivion gate not far off. I should "
+                "find the gate and close it before the next wave comes through."),
+    (20, True, "I closed the Oblivion gate the Daedra came through. The cities will have a little peace - until "
+               "the next gate opens."),
+]
+
+
+def gate_quest_ids() -> dict[str, int]:
+    text = (HERE.parent / "src" / "GateQuestLogic.h").read_text()
+    return {name: int(value, 16) for name, value in
+            re.findall(r"inline constexpr UInt32 (kGate\w+LocalId) = (0x[0-9A-Fa-f]+);", text)}
+
+
+def build_gate_quest(target: int) -> bytes:
+    """WalkersCloseTheGate: repeated stages (it is told again for the next
+    gate), its target without a condition (DUNGEON's note), an Oblivion
+    gate's door the plugin replaces with the gate it names."""
+    out = subrecord(b"EDID", zstring("WalkersCloseTheGate"))
+    out += subrecord(b"FULL", zstring("Close the Gate"))
+    out += subrecord(b"ICON", zstring(QUEST_ICON))
+    out += subrecord(b"DATA", bytes([QUEST_REPEATED_STAGES, 0]))
+    for stage, completes, text in GATE_STAGES:
+        out += subrecord(b"INDX", struct.pack("<H", stage))
+        out += subrecord(b"QSDT", bytes([1 if completes else 0]))
+        out += subrecord(b"CNAM", zstring(text))
+        out += subrecord(b"SCHR", STAGE_SCHR)
+    out += subrecord(b"QSTA", struct.pack("<IB3x", target, 0))
+    return out
+
+
+def first_gate_door() -> int:
+    """src/OblivionGates.h's first gate's door: the quest's target in the file."""
+    text = (HERE.parent / "src" / "OblivionGates.h").read_text()
+    return int(re.search(r"kOblivionGates\[\] = \{\s*\{(0x[0-9A-Fa-f]+)", text).group(1), 16)
 
 
 def dungeon_candidates() -> list[tuple[str, int]]:
@@ -734,12 +774,13 @@ def pool_local_id(city: int, slot: int) -> int:
 
 LOCAL_POOL_IDS = sorted(pool_local_id(c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL))
 BROADSHEET_TEMPLATE = 0x0006D6F3  # Broadsheet01VampireNest
-EDITION_COUNT = 37  # NewsLogic.h kEditionCount
+EDITION_COUNT = 38  # NewsLogic.h kEditionCount
 # The first 18 (4.9) at 0x8FC.., the siege's 16 (4.12) after the siege pool
 # (NewsLogic.h EditionLocalId).
 LOCAL_EDITION_IDS = ([0x8FC + i for i in range(18)] + [0x9B7 + i for i in range(16)]
                      + [0xA38, 0xA39]  # the camps' two: CampLogic.h kCampExtraFirstLocalId
-                     + [0xA75])  # the held dungeons': DungeonQuestLogic.h kDungeonEditionLocalId
+                     + [0xA75]  # the held dungeons': DungeonQuestLogic.h kDungeonEditionLocalId
+                     + [0xA97])  # the Daedra siege's (4.22a step 6), after the place marker
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
@@ -1617,6 +1658,15 @@ def main() -> int:
     for k, (kind, text) in enumerate(DUNGEON_RUMORS):
         rumors += record(b"INFO", index | (talk["kDungeonRumorFirstLocalId"] + k),
                          build_news_rumor(talk_quest_form, news_global, kind, text, heard_global))
+    # "Close the Gate" (4.22a step 6): the rumor, said while its global is 1,
+    # sets the heard global; the quest.
+    gate = gate_quest_ids()
+    gate_rumor_global = index | gate["kGateRumorGlobalLocalId"]
+    gate_heard_global = index | gate["kGateHeardGlobalLocalId"]
+    gate_quest_form = index | gate["kGateQuestLocalId"]
+    rumors += record(b"INFO", index | gate["kGateRumorLocalId"],
+                     build_news_rumor(gate_quest_form, gate_rumor_global, 1, load_editions_module().gate_rumor(),
+                                      gate_heard_global, "WalkersGateHeard"))
     # The runner: his base off the camps' first man, named for what he is; his
     # reference in the holding cell; his greetings.
     runner_form = index | talk["kDungeonMessengerBaseLocalId"]
@@ -1680,7 +1730,9 @@ def main() -> int:
     globals_group = group(b"GLOB", globals_records
                           + record(b"GLOB", talk_global, build_global("WalkersDungeonTalk"))
                           + record(b"GLOB", news_global, build_global("WalkersDungeonNews"))
-                          + record(b"GLOB", heard_global, build_global("WalkersDungeonHeard")))
+                          + record(b"GLOB", heard_global, build_global("WalkersDungeonHeard"))
+                          + record(b"GLOB", gate_rumor_global, build_global("WalkersGateRumor"))
+                          + record(b"GLOB", gate_heard_global, build_global("WalkersGateHeard")))
     dial_group = group(b"DIAL", record(b"DIAL", RUMORS_TOPIC, dial_data) + topic_group(RUMORS_TOPIC, rumors)
                        + record(b"DIAL", GREETING_TOPIC, greeting_data) + topic_group(GREETING_TOPIC, greetings)
                        + record(b"DIAL", topic_form, topic_data) + topic_group(topic_form, yes)
@@ -1720,7 +1772,8 @@ def main() -> int:
                     + record(b"QUST", escort_quest_form, build_escort_quest())
                     + record(b"QUST", talk_quest_form, subrecord(b"EDID", zstring("WalkersDungeonTalk"))
                              + subrecord(b"DATA", bytes([1, DUNGEON_TALK_PRIORITY])))
-                    + dungeon_quests)
+                    + dungeon_quests
+                    + record(b"QUST", gate_quest_form, build_gate_quest(first_gate_door())))
             + group(b"PACK", packages) + group(b"IDLE", idles))
     groups = 5 + 5 + 1 + 2 + 1 + 1 + 2 + 4 + 1 + 2 + 1 + exterior_groups_count  # + the SPEL group  # + the escort's two topic groups
     groups += 3  # the held dungeons' three topics' groups
@@ -1732,6 +1785,7 @@ def main() -> int:
                + 2  # the invaders' two Daedra lists (4.22 step 1)
                + 1  # the war bands' marker (step 3)
                + 1  # the place marker (step 5)
+               + 2 + 1 + 1  # the gate quest's two globals, its rumor, the quest (step 6; its book is an edition)
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
                + 1  # the escort's quest
