@@ -5146,11 +5146,10 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | Mode 2's fallen as fuel: a bandit a Churl kills rises | `daedra-fuel.txt` (`daedra-harness.sh fuel 2`) |
 | 2026-11-16 | News of the nearest held place, new places rolled near the player (4.20.7a) | new: `dungeon-sites-near.txt` - TestSite off, the player moved by coc far from the save's places, a day waited: the log's rolled sites within NewPlacesWithin, the rumor's site the nearest |
 | 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 46 with 225 variables | `link-page.txt` (`tools/link-page.sh`, expects 225) and a run on an old INI |
-| 2026-11-16 | 5a: a Daedra siege - the placer's marker, PlaceAtMe of the Daedra list before the gate, the fallen counted off, the rest deleted (DeleteReference on disabled actors) when the player leaves or it ends | `daedra-siege.txt` (`daedra-harness.sh siege 1`) |
-| 2026-11-16 | 5b: a dead Daedra banished - the shader (effectEnchantConjuration, a pick: the game has no summon-end shader by ID), its things in a LootBag read back through `placed_ref` (a ref variable set by a console line - not proven that the console fills it), the body deleted; the bags taken away at 8000 units | `daedra-siege.txt` (the same run); the bag's ID line `Banish: ... placed_ref reads` decides |
-| 2026-11-16 | 5c: a camp attack by Daedra - placed on the ring, led in by the bank's travel package, counted off, held or overrun (none stay among the tents) | `camp-daedra.txt` (`CAMP_SCENARIO=daedra tools/camp-harness.sh`) |
-| 2026-11-16 | 5c: a Daedra outpost - its Daedra in the first cell, the boss three ranks above deep inside, the boss chest (DungOblivionBossSack01) at its feet, cleared once all and the boss fell | `dungeon-daedra.txt` (`tools/dungeon-walkers.sh outpost`) |
-| 2026-11-16 | 6: the Daedra broadsheet; the gate rumor said by anyone (dialogue not seen - only the global); "Close the gate" begun at the nearest open gate, its target rewritten (TESQuest +0x48 entry +0x0C), done when the gate shuts | `daedra-gate.txt` (`daedra-harness.sh gate 1`, a gate opened by TestGateOpen); the rumor and the compass marker need a look in the game |
+| 2026-11-16 | 5/6 across a save: the placed Daedra in 'PLAC' deleted after a load, 'GATQ' read back, a camp's or a held place's Daedra side in their records | new: `daedra-siege.txt` with a save and a load while the Daedra stand |
+| 2026-11-16 | 5b: which things stay on a banished body - of 1-4 kinds on a body 0-2 reached the bag (RemoveAllItems); not read which kinds stay (creature parts? equipped armor?) | a look: GetInventoryObject on a Dremora before and after |
+| 2026-11-16 | 5c: a camp's reward line says "the walkers are beaten" after a Daedra attack (the side is forgotten at Held before the text) | fix, then `camp-daedra.txt` |
+| 2026-11-16 | 6: the gate rumor said in dialogue, the compass pointing at the rewritten target, the Daedra broadsheet on a sheet | a look in the game |
 | 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
 
 
@@ -5199,6 +5198,30 @@ whole: every change that needs the game adds its line the day it is built.
   `DaedraAfterMainQuest` (INI, LINK): off, MQ16 completed stops the Daedra -
   every new side the walkers', Mode 1's spawn replacement off.
 - IDs used: 0xA96..0xA9B (6); 0xA9C..0xAA3 free (8).
+
+**Harness PASS 2026-11-16 (Linux, Walkers in for the runs only):**
+`daedra-siege.txt` (Mode 1): 4 Daedra placed before Anvil's Castle Gate,
+refilled 1 and 1, all 6 counted off, the siege over, the bodies deleted
+(DeleteReference answered for each); the bags found by their ID (a console
+line cannot hand a reference back: `set Walkers.placed_ref to PlaceAtMe`
+left the variable 0 - so the newest LootBag reference past the last ID is
+taken), 0-2 kinds in each, empty bags taken away. `daedra-gate.txt`: gate 2
+read open by TestGateOpen, the heard global set, the target rewritten
+0001E8A3 -> 00026EBE, stage 10 (flags 09), "north-east of Bravil", shut
+after 60 s - stage 20 (flags 0B), the camps' reward. `camp-daedra.txt`: camp
+07 attacked by 4 Daedra, placed on the ring and led in (AddScriptPackage),
+all 4 counted off, defended with the reward. `dungeon-daedra.txt`
+(Toadstool Hollow - see below): 4 Daedra inside, the boss rank 4 of 7 at
+level 1, the chest FF000FBD at its feet, all fell, the boss's fall last -
+cleared, taken, the reward; the dead banished.
+
+**Found on the way (not built):** the Linux list of 2026-11-16 has 80 of the
+91 dungeon candidates out "by a loaded quest" (658 quests, 984 cells named -
+on 2026-11-14 606 quests, 718 cells, all 91 in); the 11 left are the
+alphabetically last ones (Outlaw Endre's Cave, Sardavar Leed ... Yellow
+Tick Cave) except Fort Ash's neighbours - new since: the three Infinitum
+plugins in the load order. Not read why; Fort Ash, the harness's place, is
+out, so the outpost run took Toadstool Hollow.
 
 
 The ESP holds 14 free IDs the plugin can look up (0xA96..0xAA3); each part

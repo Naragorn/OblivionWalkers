@@ -1062,14 +1062,13 @@ def link_variables() -> list[str]:
     """The LINK settings' variable names, read off src/LinkLogic.h's
     kLinkSettings in its order, then ini_version, then the siege's door
     read-back (siege_lock, siege_lock_level: GetLocked and GetLockLevel asked
-    into them, 4.12), then placed_ref (a ref: the banished Daedra's pile, the
-    LootBag a PlaceAtMe made, 4.22a step 5b) - one list for the plugin and the ESP."""
+    into them, 4.12) - one list for the plugin and the ESP."""
     text = (Path(__file__).resolve().parent.parent / "src" / "LinkLogic.h").read_text()
     table = text[text.index("kLinkSettings[] = {"):text.index("kLinkSettingCount")]
     names = re.findall(r'\{"(ini_[a-z_]+)"', table)
     if len(names) != len(set(names)) or not names:
         raise SystemExit("LinkLogic.h's settings are not readable")
-    return names + ["ini_version", "siege_lock", "siege_lock_level", "placed_ref"]
+    return names + ["ini_version", "siege_lock", "siege_lock_level"]
 
 
 def build_link_script(names: list[str]) -> bytes:

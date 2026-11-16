@@ -37,6 +37,12 @@ void StepPlacer(float dt);
 // process list.
 UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most);
 
+// The newest reference made in the game (FF) of base `baseFormId` at or
+// past `fromId`: a console line cannot hand a PlaceAtMe's reference back,
+// the game numbers the ones it makes upward - scanned until kBagMissesMost
+// IDs in a row hold nothing (BanishLogic.h). 0 none.
+UInt32 NewestPlacedOf(UInt32 baseFormId, UInt32 fromId);
+
 // The co-save record 'PLAC': the placed ones still in the world.
 inline constexpr UInt32 kPlaceRecordType = 0x504C4143;  // 'PLAC'
 inline constexpr UInt32 kPlaceRecordVersion = 1;

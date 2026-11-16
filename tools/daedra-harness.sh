@@ -158,7 +158,7 @@ if scenario == "siege":
     check(sum(came) >= 4, "the placer brought the Daedra (%s)" % came)
     check(sum(1 for l in lines if "a Daedra fell before Anvil Castle Gate" in l) >= 4, "the fallen counted off")
     check(any("back to Oblivion" in l for l in lines), "a dead Daedra banished")
-    bags = [l for l in lines if re.search(r"into bag FF[0-9A-F]{6} \(1\)", l)]
+    bags = [l for l in lines if re.search(r"bag FF[0-9A-F]{6} holds [1-9]", l)]
     check(bool(bags), "its things into a sack (%d)" % len(bags))
     check(any("handed to DeleteReference" in l for l in lines), "bodies deleted")
     check(any("Anvil Castle Gate is over" in l or "the siege at Anvil Castle Gate is over" in l for l in lines),

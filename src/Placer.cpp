@@ -2,6 +2,7 @@
 
 #include <cstdio>
 
+#include "BanishLogic.h"
 #include "Bytes.h"
 #include "Engine.h"
 #include "RiseLogic.h"
@@ -212,6 +213,24 @@ UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most)
 		}
 	}
 	return n;
+}
+
+UInt32 NewestPlacedOf(UInt32 baseFormId, UInt32 fromId) {
+	UInt32 found = 0;
+	UInt32 misses = 0;
+	UInt32 id = fromId < 0xFF000000 ? 0xFF000000 : fromId;
+	for (UInt32 n = 0; n < kBagScanMost && misses < kBagMissesMost; ++n, ++id) {
+		const UInt32 ref = LookupForm(id);
+		if (!LooksLikeObject(ref)) {
+			++misses;
+			continue;
+		}
+		misses = 0;
+		if (FormIdOf(Read(ref + 0x1C)) == baseFormId) {
+			found = id;
+		}
+	}
+	return found;
 }
 
 UInt32 PlacerImage(UInt8* out, UInt32 capacity) {

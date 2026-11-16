@@ -2,8 +2,8 @@
 
 // Dead Daedra of the plugin's back to Oblivion in the game (BanishLogic.h;
 // docs/walkers-spec.md 4.22 idea 8, 4.22a step 5b): the shader played, the
-// things moved into a LootBag placed at the body (its reference read off the
-// ESP quest's placed_ref), the body taken out through the placer (disabled,
+// things moved into a LootBag placed at the body (its reference found by
+// its ID, Banish.cpp PlaceBag), the body taken out through the placer (disabled,
 // deleted); the bags taken away once the player is far.
 
 #include "BanishLogic.h"
@@ -14,8 +14,8 @@ namespace walkers {
 
 void ConfigureBanish(const BanishSettings* settings, ConsoleFn console, DeadFn dead, LogFn log);
 
-// The ESP's base (RiseLogic.h EspFormId): the quest whose placed_ref reads
-// the bag back.
+// The ESP's base: its quest's siege_lock reads how many things a body and
+// its bag hold (the log's proof).
 void ConfigureBanishEsp(UInt32 espBase);
 
 // A Daedra the plugin placed: banished once dead.

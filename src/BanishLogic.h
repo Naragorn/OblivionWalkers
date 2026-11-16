@@ -114,19 +114,18 @@ inline void DropBanished(BanishList& b, const bool* drop) {
 	b.count = kept;
 }
 
-// A form ID a script's variable got from a reference function, read off the
-// variable's double: the game keeps a reference's ID in its low four bytes
-// (OBSE's ScriptEventList::Var), a float variable a number - whichever reads
-// as a placed reference (FF) is taken; 0 neither.
-inline UInt32 RefFromVariable(UInt64 bits, double value) {
-	const UInt32 low = static_cast<UInt32>(bits & 0xFFFFFFFFu);
-	if ((low >> 24) == 0xFF) {
-		return low;
+// The bag found by its ID (Banish.cpp PlaceBag): scanned from the newest ID
+// seen, at most kBagScanMost, until kBagMissesMost IDs in a row are empty.
+inline constexpr UInt32 kBagScanMost = 4096;
+inline constexpr UInt32 kBagMissesMost = 64;
+inline bool IsBagRef(UInt32 baseFormId) { return baseFormId == kLootBag; }
+// Where the next scan starts: past the bag found, else at the newest of the
+// last start and the corpse's ID.
+inline UInt32 NextBagScan(UInt32 from, UInt32 corpse, UInt32 bag) {
+	if (bag != 0) {
+		return bag + 1;
 	}
-	if (value >= 4278190080.0 && value < 4294967296.0) {  // FF000000..FFFFFFFF as a number
-		return static_cast<UInt32>(value);
-	}
-	return 0;
+	return from > corpse ? from : corpse;
 }
 
 // Whether a pile goes now: the player this far or farther (-1: not known,

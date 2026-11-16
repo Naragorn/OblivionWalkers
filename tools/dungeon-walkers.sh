@@ -26,7 +26,7 @@ case "$mode" in
 	notice) state=1; walkers=8; behead=0; scenario=dungeon-notice; site="Fort Ash" ;;
 	runner-dead) state=2; walkers=8; behead=0; scenario=dungeon-runner-dead; site="Fort Ash" ;;
 	beds) state=1; walkers=8; behead=0; scenario=dungeon-beds; site="Fort Ash" ;;
-	outpost) state=4; walkers=4; behead=0; scenario=dungeon-daedra; site="Fort Ash" ;;
+	outpost) state=4; walkers=4; behead=0; scenario=dungeon-daedra; site="Toadstool Hollow" ;;
 	*) echo "mode: siege | siege-outside | siege-past | taken | fight | fight-door | clear | talk | runner | runner-city | runner-dead | paper | notice | beds | outpost" >&2; exit 2 ;;
 esac
 # fight, fight-door: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
@@ -128,7 +128,7 @@ if mode not in ("notice", "runner-dead"):
           "the place's map marker shown once, visible after" + (f" (flags {shown[0].group(1)}, {shown[0].group(2)} before)" if shown else ""))
 rewards = [l for l in d if l.startswith("Dungeons: reward - ")]
 link = [l for l in lines if "variables" in l and "LINK" in l]
-check(any("197 of 197" in l for l in link), "LINK holds the 197 variables" + (f" ({link[-1][:90]})" if link else ""))
+check(any("225 of 225" in l for l in link), "LINK holds the 225 variables" + (f" ({link[-1][:90]})" if link else ""))
 pool = [l for l in d if "the pool to site" in l and "Fort Ash" in l]
 again = next((k for k, l in enumerate(d) if "site 0 Fort Ash (fort) attacked" in l), len(d))
 into = [l for l in d[:again] if re.search(r"walker \w+ into Fort Ash", l)]
@@ -272,15 +272,15 @@ elif mode == "talk":
 elif mode == "outpost":
     for l in [l for l in lines if l.startswith(("Placer:", "Banish:")) or "Daedra" in l or "boss" in l][:60]:
         print("        " + l[:220])
-    check(any("Fort Ash - Daedra hold it: an outpost" in l for l in d) or any("TestSite=Fort Ash" in l for l in d),
-          "Fort Ash an outpost")
-    came = [int(m.group(1)) for m in (re.search(r"Dungeons: (\d+) Daedra came to Fort Ash", l) for l in d) if m]
+    check(any("Toadstool Hollow - Daedra hold it: an outpost" in l for l in d) or any("TestSite=Toadstool Hollow" in l for l in d),
+          "Toadstool Hollow an outpost")
+    came = [int(m.group(1)) for m in (re.search(r"Dungeons: (\d+) Daedra came to Toadstool Hollow", l) for l in d) if m]
     check(sum(came) >= 4, "its Daedra placed inside (%s)" % came)
-    check(any("Dungeons: 1 boss came to Fort Ash" in l for l in d), "its boss placed")
-    check(any("boss chest set down at Fort Ash" in l and "answered 1" in l for l in d), "the boss chest set down")
-    check(sum(1 for l in d if "Fort Ash - a Daedra fell" in l) >= 4, "the Daedra counted off")
+    check(any("Dungeons: 1 boss came to Toadstool Hollow" in l for l in d), "its boss placed")
+    check(any(re.search(r"boss chest set down at Toadstool Hollow .* chest FF[0-9A-F]{6}", l) for l in d), "the boss chest set down")
+    check(sum(1 for l in d if "Toadstool Hollow - a Daedra fell" in l) >= 4, "the Daedra counted off")
     check(any("the outpost's boss fell" in l for l in d), "the boss's fall counted")
-    check(any("Fort Ash is cleared" in l for l in rewards) or any("taken" in l and "Fort Ash" in l for l in d),
+    check(any("Toadstool Hollow is cleared" in l for l in rewards) or any("taken" in l and "Toadstool Hollow" in l for l in d),
           "the outpost cleared and taken")
     check(any("back to Oblivion" in l for l in lines), "a dead Daedra banished")
 elif mode in ("fight", "fight-door"):

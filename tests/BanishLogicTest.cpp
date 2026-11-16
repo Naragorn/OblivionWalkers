@@ -72,21 +72,12 @@ void TestDrop() {
 	Check(b.count == 1 && b.items[0].ref == 0xFF000002, "the banished and the forgotten off, the rest kept");
 }
 
-void TestVariable() {
-	std::printf("The pile's reference out of a script variable\n");
-	double asRef = 0.0;
-	const UInt64 refBits = 0xFF000ABCull;
-	std::memcpy(&asRef, &refBits, sizeof(asRef));
-	Check(walkers::RefFromVariable(refBits, asRef) == 0xFF000ABC, "a reference's ID in the low four bytes");
-	const double number = 4278192828.0;  // 0xFF000ABC as a number
-	UInt64 numberBits = 0;
-	std::memcpy(&numberBits, &number, sizeof(numberBits));
-	Check(walkers::RefFromVariable(numberBits, number) == 0xFF000ABC, "a float variable: the number");
-	Check(walkers::RefFromVariable(0, 0.0) == 0, "nothing: 0");
-	const double minus = -1.0;
-	UInt64 minusBits = 0;
-	std::memcpy(&minusBits, &minus, sizeof(minusBits));
-	Check(walkers::RefFromVariable(minusBits, minus) == 0, "-1 (the line did not run): 0");
+void TestBagScan() {
+	std::printf("The bag found by its ID\n");
+	Check(walkers::IsBagRef(0x0000000E) && !walkers::IsBagRef(0x00037680), "the game's LootBag, nothing else");
+	Check(walkers::NextBagScan(0xFF000000, 0xFF000F94, 0xFF000FB2) == 0xFF000FB3, "found: the next scan past it");
+	Check(walkers::NextBagScan(0xFF000F00, 0xFF000F94, 0) == 0xFF000F94, "none: from the corpse, the newer");
+	Check(walkers::NextBagScan(0xFF001000, 0xFF000F94, 0) == 0xFF001000, "none: the last start, the newer");
 }
 
 void TestPile() {
@@ -102,7 +93,7 @@ int main() {
 	TestWatch();
 	TestStep();
 	TestDrop();
-	TestVariable();
+	TestBagScan();
 	TestPile();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

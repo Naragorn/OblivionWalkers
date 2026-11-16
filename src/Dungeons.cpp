@@ -1091,11 +1091,12 @@ void OnDungeonPlaced(UInt8 tag, const UInt32* refs, UInt32 count) {
 			if (!d.chestPlaced) {
 				char line[48];
 				std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1", kOutpostBossChest);
-				const bool placed = Say(LookupForm(refs[k]), line);
+				Say(LookupForm(refs[k]), line);
 				d.chestPlaced = true;
+				const UInt32 chest = NewestPlacedOf(kOutpostBossChest, refs[k]);
 				if (g_daedraLog != nullptr) {
-					g_daedraLog("Dungeons: the outpost's boss chest set down at %s (%s answered %d)",
-					            kDungeonCandidates[candidate].name, line, placed ? 1 : 0);
+					g_daedraLog("Dungeons: the outpost's boss chest set down at %s (%s - chest %08X)",
+					            kDungeonCandidates[candidate].name, line, chest);
 				}
 			}
 		} else if (site >= 0 && !boss && g_siteDaedraCount < kDungeonPool) {

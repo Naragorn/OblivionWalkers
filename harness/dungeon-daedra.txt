@@ -1,7 +1,7 @@
 # A Daedra outpost (docs/walkers-spec.md 4.22a step 5c): tools/dungeon-
-# walkers.sh outpost makes Fort Ash a walker dungeon held by 4 Daedra
+# walkers.sh outpost makes Toadstool Hollow (in the pool on the Linux list of 2026-11-16, Fort Ash is not) a walker dungeon held by 4 Daedra
 # ([Dungeons] TestSite, TestSiteState=4, TestDaedra=1), its dead banished
-# after 5 s. The player goes in (coc FortAsh01, the first cell): the placer
+# after 5 s. The player goes in (coc ToadstoolHollow, the first cell): the placer
 # brings the 4 Daedra by the door and the boss - a Dremora three ranks above
 # - deep inside, its boss chest at its feet. killall twice: the Daedra and
 # the boss fall, the place is cleared and taken; the dead go back to
@@ -15,7 +15,7 @@ console-at ready tgm
 console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready fw 00038EEE
-console-at inside coc FortAsh01
+console-at inside coc ToadstoolHollow
 console-at kill1 killall
 console-at kill2 killall
 console-at close CloseAllMenus

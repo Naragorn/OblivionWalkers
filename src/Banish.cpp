@@ -24,43 +24,61 @@ const BanishSettings* g_settings = nullptr;
 ConsoleFn g_console = nullptr;
 DeadFn g_dead = nullptr;
 LogFn g_log = nullptr;
-UInt32 g_quest = 0;
 BanishList g_list;
 UInt32 g_piles[kPilesMost] = {};
 UInt32 g_pileCount = 0;
+bool g_pileChecked[kPilesMost] = {};
 float g_clock = 0.0f;
 UInt32 g_logsLeft = 200;
 
-// The bag a PlaceAtMe on `corpse` made, read back through placed_ref; 0
-// when the line did not run or the variable holds none.
-UInt32 PlaceBag(UInt32 corpse) {
-	double* var = g_quest != 0 ? QuestVariable(g_quest, "placed_ref") : nullptr;
-	if (var == nullptr) {
-		return 0;
-	}
-	*var = 0.0;
-	char line[80];
-	std::snprintf(line, sizeof(line), "set Walkers.placed_ref to PlaceAtMe %08X 1", kLootBag);
-	g_console(corpse, line);
-	UInt64 bits = 0;
-	std::memcpy(&bits, var, sizeof(bits));
-	const UInt32 bag = RefFromVariable(bits, *var);
+// The bag a PlaceAtMe on `corpse` made. A console line cannot hand a
+// reference back (harness daedra-siege.txt 2026-11-16: "set Walkers.placed_ref
+// to PlaceAtMe ..." left the variable 0), so the new reference is found by
+// its ID: the game numbers the references it makes upward (FF000F94, F95,
+// ... read in the same run), so the bag is the newest LootBag reference at
+// or past the last ID seen - scanned upward until kBagMissesMost IDs in a row
+// hold nothing (BanishLogic.h NextBagScan).
+UInt32 g_scanFrom = 0xFF000000;
+
+UInt32 PlaceBag(UInt32 refId, UInt32 corpse) {
+	char line[48];
+	std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1", kLootBag);
+	const bool placed = g_console(corpse, line);
+	const UInt32 bag = NewestPlacedOf(kLootBag, g_scanFrom > refId ? g_scanFrom : refId);
+	g_scanFrom = NextBagScan(g_scanFrom, refId, bag);
 	if (g_logsLeft > 0) {
 		--g_logsLeft;
-		g_log("Banish: \"%s\" - placed_ref reads %.0f (bits %08X%08X): bag %08X", line, *var,
-		      static_cast<UInt32>(bits >> 32), static_cast<UInt32>(bits), bag);
+		g_log("Banish: \"%s\" on %08X answered %d - bag %08X found by its ID", line, refId, placed ? 1 : 0, bag);
 	}
 	return bag;
 }
 
+// How many kinds of things `ref` holds (xOBSE GetNumItems, asked into the
+// ESP quest's siege_lock as Siege.cpp asks a door), -1 not read.
+UInt32 g_quest = 0;
+double NumItems(UInt32 ref) {
+	double* var = g_quest != 0 ? QuestVariable(g_quest, "siege_lock") : nullptr;
+	if (var == nullptr) {
+		return -1.0;
+	}
+	*var = -1.0;
+	g_console(ref, "set Walkers.siege_lock to GetNumItems");
+	return *var;
+}
+
 void Banish(UInt32 refId, UInt32 corpse) {
-	const UInt32 bag = PlaceBag(corpse);
-	bool moved = false;
+	const UInt32 bag = PlaceBag(refId, corpse);
+	double had = -1.0;
+	double held = -1.0;
 	if (bag != 0) {
 		char line[48];
 		std::snprintf(line, sizeof(line), "RemoveAllItems %08X", bag);
-		moved = g_console(corpse, line);
+		had = NumItems(corpse);
+		g_console(corpse, line);
+		const UInt32 bagRef = LookupForm(bag);
+		held = LooksLikeObject(bagRef) ? NumItems(bagRef) : -1.0;
 		if (g_pileCount < kPilesMost) {
+			g_pileChecked[g_pileCount] = false;
 			g_piles[g_pileCount++] = bag;
 		} else {
 			RetirePlaced(bag);
@@ -69,8 +87,9 @@ void Banish(UInt32 refId, UInt32 corpse) {
 	RetirePlaced(refId);
 	if (g_logsLeft > 0) {
 		--g_logsLeft;
-		g_log("Banish: Daedra %08X back to Oblivion - its things into bag %08X (%d), the body taken out", refId, bag,
-		      moved ? 1 : 0);
+		g_log("Banish: Daedra %08X back to Oblivion - its things into bag %08X (%.0f kinds on the body, %.0f in the "
+		      "bag after), the body taken out",
+		      refId, bag, had, held);
 	}
 }
 
@@ -103,10 +122,24 @@ void StepPiles() {
 		if (!LooksLikeObject(bag)) {
 			continue;
 		}
+		if (!g_pileChecked[i]) {
+			const double held = NumItems(bag);
+			if (g_logsLeft > 0) {
+				--g_logsLeft;
+				g_log("Banish: bag %08X holds %.0f kinds a second later%s", g_piles[i], held,
+				      held == 0.0 ? " - empty, taken away" : "");
+			}
+			if (held == 0.0) {
+				RetirePlaced(g_piles[i]);  // nothing came over (a creature's own things only): no empty sack
+				continue;
+			}
+		}
+		g_pileChecked[i] = true;
 		if (PileGoes(*g_settings, DistanceFromPlayer(bag))) {
 			RetirePlaced(g_piles[i]);
 			continue;
 		}
+		g_pileChecked[kept] = true;
 		g_piles[kept++] = g_piles[i];
 	}
 	g_pileCount = kept;
@@ -121,6 +154,7 @@ void ConfigureBanish(const BanishSettings* settings, ConsoleFn console, DeadFn d
 	g_log = log;
 	log("Banish: [Invaders] BanishSeconds=%.0f BanishShader=%08X", settings->seconds, settings->shader);
 }
+
 
 void ConfigureBanishEsp(UInt32 espBase) { g_quest = espBase == kNoEsp ? 0 : EspFormId(espBase, kLinkQuestLocalId); }
 
@@ -170,6 +204,7 @@ void ResetBanish() {
 	g_list = BanishList{};
 	g_pileCount = 0;
 	g_clock = 0.0f;
+	g_scanFrom = 0xFF000000;
 }
 
 }  // namespace walkers
