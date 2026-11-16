@@ -384,6 +384,21 @@ UInt32 AppendBandMembers(HordeCandidate* out, UInt32 count, UInt32 most, DeadFn 
 	return count;
 }
 
+float NearestDaedraBandMember(DeadFn dead) {
+	float best = -1.0f;
+	for (UInt32 i = 0; i < g_memberCount; ++i) {
+		const UInt32 ref = LookupForm(g_members[i].ref);
+		if (!LooksLikeObject(ref) || !IsWatchedDaedra(g_members[i].ref) || (dead != nullptr && dead(ref))) {
+			continue;
+		}
+		const float d = DistanceFromPlayer(ref);
+		if (d >= 0.0f && d < 1.0e8f && (best < 0.0f || d < best)) {
+			best = d;
+		}
+	}
+	return best;
+}
+
 void ResetBands() {
 	g_state = BandState{};
 	g_gateQuest = GateQuest{};

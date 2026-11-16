@@ -16,6 +16,7 @@
 #include "CorpseLogic.h"
 #include "DaedricDisguiseLogic.h"
 #include "DisguiseLogic.h"
+#include "MarchWeatherLogic.h"
 #include "DungeonSiteLogic.h"
 #include "EndLogic.h"
 #include "GrabLogic.h"
@@ -206,6 +207,8 @@ struct RiseSettings {
 	DisguiseSettings disguise;
 	// 4.22 idea 7: the Daedric disguise ([Disguise] Daedric...).
 	DaedricSettings daedric;
+	// 4.22 idea 9: the marching weather ([Invaders] MarchWeather...).
+	MarchWeatherSettings march;
 	// [Dungeons] OnlyChosen (4.20.7; Nadi, 2026-11-13: the player chooses,
 	// all candidates the default): 1 keeps the chosen dungeons only.
 	bool dungeonsOnlyChosen = false;

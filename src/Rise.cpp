@@ -6,6 +6,7 @@
 #include "Bands.h"
 #include "Banish.h"
 #include "DaedricDisguise.h"
+#include "MarchWeather.h"
 #include "GateQuestLogic.h"
 #include "Placer.h"
 #include "Horde.h"
@@ -3422,6 +3423,7 @@ void Tick() {
 		StepBandsInGame(dt, g_settings.bands, g_invadersNow, &ConsoleOn, &IsDead, g_log);
 		StepPlacer(dt);
 		StepBanishInGame(dt);
+		StepMarchWeatherInGame(dt);
 		StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
 	});
 	Timed(10, "safeguard", [dt] { StepSafeguardInGame(dt); });
@@ -3576,6 +3578,7 @@ void OnLoad(void*) {
 	ResetDungeonsInGame();
 	ResetDisguise();
 	ResetDaedricDisguise();
+	ResetMarchWeather();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -3764,6 +3767,7 @@ void OnNewGame(void*) {
 	ResetDungeonsInGame();
 	ResetDisguise();
 	ResetDaedricDisguise();
+	ResetMarchWeather();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -3870,6 +3874,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
+	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }

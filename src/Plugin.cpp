@@ -265,6 +265,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Invaders", "DaedraPercent", 50, path)))));
 	rise.invaders.summons = IniInt("Invaders", "Summons", 0, path) != 0;
 	rise.invaders.afterMainQuest = IniInt("Invaders", "DaedraAfterMainQuest", 0, path) != 0;
+	rise.march.enabled = IniInt("Invaders", "MarchWeather", 0, path) != 0;
+	rise.march.units = std::max(0.0f, IniFloat("Invaders", "MarchWeatherDistance", 12000.0f, path));
 	// 4.22 step 3 (BandLogic.h): only out of the open gates, and the bands.
 	rise.bands.origin = walkers::OriginFromIni(IniInt("Invaders", "OnlyFromOblivionGates", 0, path));
 	rise.bands.everywhereUntilGatesOpen = IniInt("Invaders", "EverywhereUntilGatesOpen", 0, path) != 0;
