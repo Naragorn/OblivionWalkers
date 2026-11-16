@@ -407,6 +407,9 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.testLeash = IniInt("Survivors", "TestLeash", -1, path);
 	rise.disguise.enabled = IniInt("Disguise", "Enabled", 1, path) != 0;
 	rise.disguise.seconds = std::max(1.0f, IniFloat("Disguise", "Seconds", 180.0f, path));
+	rise.daedric.enabled = IniInt("Disguise", "Daedric", 1, path) != 0;
+	rise.daedric.nearUnits = std::max(0.0f, IniFloat("Disguise", "DaedricNearDistance", 200.0f, path));
+	rise.daedric.forgetSeconds = std::max(0.0f, IniFloat("Disguise", "DaedricForgetSeconds", 60.0f, path));
 	rise.disguiseTest = IniInt("Disguise", "Test", 0, path) != 0;
 	camps.testEscort = IniInt("Survivors", "TestEscort", -1, path);
 	camps.testEscortBehind = IniInt("Survivors", "TestEscortBehind", 0, path) != 0;

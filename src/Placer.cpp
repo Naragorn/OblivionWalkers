@@ -1,5 +1,6 @@
 #include "Placer.h"
 
+#include <cmath>
 #include <cstdio>
 
 #include "BanishLogic.h"
@@ -13,6 +14,7 @@ namespace {
 using namespace engine;
 
 constexpr UInt32 kRefPositionOffset = 0x2C;
+constexpr UInt32 kRefParentCellOffset = 0x40;
 constexpr UInt32 kVtblCharacter = 0x00A6FC9C;  // Rise.cpp
 constexpr UInt32 kVtblCreature = 0x00A710F4;
 constexpr UInt32 kActorProcessManager = 0x00B3BD00;
@@ -184,7 +186,7 @@ void StepPlacer(float dt) {
 	StepStages();
 }
 
-UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most) {
+UInt32 ActorsOnHighList(UInt32* out, UInt32 most) {
 	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
 	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
 	struct Node {
@@ -199,9 +201,19 @@ UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most)
 		}
 		const UInt32 actor = reinterpret_cast<UInt32>(node->data);
 		node = node->next;
-		if (!LooksLikeObject(actor) || (Read(actor) != kVtblCreature && Read(actor) != kVtblCharacter)) {
-			continue;
+		if (LooksLikeObject(actor) && (Read(actor) == kVtblCreature || Read(actor) == kVtblCharacter)) {
+			out[n++] = actor;
 		}
+	}
+	return n;
+}
+
+UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most) {
+	static UInt32 actors[1024];
+	const UInt32 count = ActorsOnHighList(actors, 1024);
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < count && n < most; ++i) {
+		const UInt32 actor = actors[i];
 		const UInt32 id = Read(actor + kFormIdOffset);
 		if ((id >> 24) != 0xFF) {
 			continue;
@@ -214,6 +226,29 @@ UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most)
 	}
 	return n;
 }
+
+// Distance from the player in the same cell or worldspace's open air; -1
+// when not comparable (another cell, no cell).
+float DistanceFromPlayer(UInt32 ref) {
+	const UInt32 player = LookupForm(0x14);
+	if (!LooksLikeObject(player) || !LooksLikeObject(ref)) {
+		return -1.0f;
+	}
+	const UInt32 cell = Read(ref + kRefParentCellOffset);
+	const UInt32 playerCell = Read(player + kRefParentCellOffset);
+	if (!LooksLikeObject(cell) || !LooksLikeObject(playerCell)) {
+		return -1.0f;
+	}
+	const bool interior = (Read8(cell + 0x24) & 1) != 0;
+	const bool playerInterior = (Read8(playerCell + 0x24) & 1) != 0;
+	if (interior != playerInterior || (interior && cell != playerCell)) {
+		return interior ? 1.0e9f : -1.0f;  // the player left that interior: far
+	}
+	const float dx = FloatAt(ref + kRefPositionOffset) - FloatAt(player + kRefPositionOffset);
+	const float dy = FloatAt(ref + kRefPositionOffset + 4) - FloatAt(player + kRefPositionOffset + 4);
+	return std::sqrt(dx * dx + dy * dy);
+}
+
 
 UInt32 NewestPlacedOf(UInt32 baseFormId, UInt32 fromId) {
 	UInt32 found = 0;

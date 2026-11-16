@@ -1,6 +1,5 @@
 #include "Banish.h"
 
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -15,8 +14,6 @@ namespace {
 
 using namespace engine;
 
-constexpr UInt32 kRefPositionOffset = 0x2C;
-constexpr UInt32 kRefParentCellOffset = 0x40;
 constexpr float kStepSeconds = 1.0f;
 
 const BanishSettings* g_settings = nullptr;
@@ -85,28 +82,6 @@ void Banish(UInt32 refId, UInt32 corpse) {
 		      "bag after), the body taken out",
 		      refId, bag, had, held);
 	}
-}
-
-// Distance from the player in the same cell or worldspace's open air; -1
-// when not comparable (another cell, no cell).
-float DistanceFromPlayer(UInt32 ref) {
-	const UInt32 player = LookupForm(0x14);
-	if (!LooksLikeObject(player) || !LooksLikeObject(ref)) {
-		return -1.0f;
-	}
-	const UInt32 cell = Read(ref + kRefParentCellOffset);
-	const UInt32 playerCell = Read(player + kRefParentCellOffset);
-	if (!LooksLikeObject(cell) || !LooksLikeObject(playerCell)) {
-		return -1.0f;
-	}
-	const bool interior = (Read8(cell + 0x24) & 1) != 0;
-	const bool playerInterior = (Read8(playerCell + 0x24) & 1) != 0;
-	if (interior != playerInterior || (interior && cell != playerCell)) {
-		return interior ? 1.0e9f : -1.0f;  // the player left that interior: far
-	}
-	const float dx = FloatAt(ref + kRefPositionOffset) - FloatAt(player + kRefPositionOffset);
-	const float dy = FloatAt(ref + kRefPositionOffset + 4) - FloatAt(player + kRefPositionOffset + 4);
-	return std::sqrt(dx * dx + dy * dy);
 }
 
 void StepPiles() {

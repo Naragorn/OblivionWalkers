@@ -33,6 +33,15 @@ void RetirePlaced(UInt32 refId);
 // Once a frame; the stages are carried on once a second.
 void StepPlacer(float dt);
 
+// The actors on the high process list (creatures and characters), at most
+// `most`.
+UInt32 ActorsOnHighList(UInt32* out, UInt32 most);
+
+// A reference's distance from the player: in the open air of either the
+// 2D distance, in the player's interior the same; another interior far
+// (1e9); -1 when not comparable (the player inside, it out; no cell).
+float DistanceFromPlayer(UInt32 ref);
+
 // The FF actors (placed at run time) within `units` of x, y on the high
 // process list.
 UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most);

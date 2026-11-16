@@ -5,6 +5,7 @@
 #include "Grab.h"
 #include "Bands.h"
 #include "Banish.h"
+#include "DaedricDisguise.h"
 #include "GateQuestLogic.h"
 #include "Placer.h"
 #include "Horde.h"
@@ -567,6 +568,8 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	GrabOnHit(g_lastHit.target, g_lastHit.attacker);
 	// 4.20.1: the player striking a walker ends the disguise.
 	NoteDisguiseHit(g_lastHit.target, g_lastHit.attacker);
+	// 4.22 idea 7: the player striking a Daedra ends the Daedric disguise.
+	NoteDaedricHit(g_lastHit.target, g_lastHit.attacker);
 	// 4.20.2: a blow that lands is heard where it lands.
 	HordeNoiseAtRef(g_lastHit.target, "a blow");
 	// 4.17b: an arrow in a walker's head ends it.
@@ -3425,7 +3428,10 @@ void Tick() {
 	Timed(11, "news", [dt] { StepNewsInGame(dt, HordeHeadingCity(), g_log); });
 	Timed(12, "siege", [dt] { StepSiegeInGame(dt); });
 	Timed(13, "camps", [dt] { StepCampsInGame(dt); });
-	Timed(14, "disguise", [dt] { StepDisguiseInGame(dt); });
+	Timed(14, "disguise", [dt] {
+		StepDisguiseInGame(dt);
+		StepDaedricDisguiseInGame(dt);
+	});
 	Timed(15, "heads", [] {
 		StepHeads();
 		SendCuts();
@@ -3569,6 +3575,7 @@ void OnLoad(void*) {
 	ResetCampsInGame();
 	ResetDungeonsInGame();
 	ResetDisguise();
+	ResetDaedricDisguise();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -3756,6 +3763,7 @@ void OnNewGame(void*) {
 	ResetCampsInGame();
 	ResetDungeonsInGame();
 	ResetDisguise();
+	ResetDaedricDisguise();
 	g_banished.clear();
 	if (g_replace.enabled) {
 		g_spawnsAgainSeconds = 5.0f;
@@ -3861,6 +3869,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureDungeonsInvaders(&g_invadersNow);
 	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
+	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }

@@ -14,6 +14,7 @@
 #include "Bytes.h"
 #include "CampLogic.h"
 #include "CorpseLogic.h"
+#include "DaedricDisguiseLogic.h"
 #include "DisguiseLogic.h"
 #include "DungeonSiteLogic.h"
 #include "EndLogic.h"
@@ -203,6 +204,8 @@ struct RiseSettings {
 	SlowAggressionSettings slowAggression;
 	// 4.20.1 walker blood as a disguise.
 	DisguiseSettings disguise;
+	// 4.22 idea 7: the Daedric disguise ([Disguise] Daedric...).
+	DaedricSettings daedric;
 	// [Dungeons] OnlyChosen (4.20.7; Nadi, 2026-11-13: the player chooses,
 	// all candidates the default): 1 keeps the chosen dungeons only.
 	bool dungeonsOnlyChosen = false;
