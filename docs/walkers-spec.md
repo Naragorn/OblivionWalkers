@@ -5120,3 +5120,20 @@ LieSeconds, MatchCorpse, SettleSeconds, KeepCorpseApart, CloneBase,
 LookAfterSeconds - proof and tuning switches), and the test switches. The
 harness wrappers write the new names (camp-harness.sh, dungeon-walkers.sh,
 night-harness.sh); the scenarios' comments keep the names of their day.
+
+## 8c Harness runs owed (Nadi, 2026-11-16: "walkers darf erstmal keine harness runs machen. notiere dir in specs immer was noch einen harness run braucht")
+
+The walkers make no harness runs until Nadi allows them again. Everything
+built since that is not seen in the game stands here, with its scenario;
+a run that passes moves its line into the section it proves. Keep this list
+whole: every change that needs the game adds its line the day it is built.
+
+| built | what is not seen in the game | scenario (wrapper) |
+|---|---|---|
+| 2026-11-16 | Mode 3: walkers and Daedra as allies - 45 s side by side, nobody died, but not shown that they saw each other | `daedra-fight.txt` 3, longer, with a look at their combat targets |
+| 2026-11-16 | The gates looked at every 5 s (was 1 s); the key `OnlyFromOblivionGates` read | `daedra-band.txt` 1 (`tools/daedra-harness.sh band 1`) |
+| 2026-11-16 | Boss guard: the plugin files read in the game (MO2's VFS too), a placed LL1GoblinBossLvl100 stays goblins, `KeepHardLists`/`KeepHighLists` from LINK | new: `boss-guard.txt` (place 000340BA, expect a goblin, the log's "Bosses: ... kept") |
+| 2026-11-16 | Bands across a save and a load ('BAND'), the leader two ranks above, the band broken up when he falls | `daedra-save.txt` (`daedra-harness.sh save 1`); the break-up: kill the leader by console |
+| 2026-11-16 | A band that reaches its city raising the siege chance | new: a far band driven to its city by a fast `UnitsPerHour` test switch, the next day's siege roll logged |
+| 2026-11-16 | Mode 2's fallen as fuel: a bandit a Churl kills rises | `daedra-fuel.txt` (`daedra-harness.sh fuel 2`) |
+| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 44 with 219 variables | `link-page.txt` (`tools/link-page.sh`, expects 219) and a run on an old INI |
