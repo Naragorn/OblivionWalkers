@@ -499,8 +499,11 @@ struct Fallen {
 	bool daedra = false;        // a Dremora (IsDremoraRace): never a walker, whatever the kind (4.22)
 };
 
-// Oblivion.esm's Dremora race (0003E9A6, read 2026-11-13; 4.22).
-inline bool IsDremoraRace(UInt32 raceId) { return raceId == 0x0003E9A6; }
+// Oblivion.esm's Dremora race (00038010, RACE "Dremora", read 2026-11-16;
+// 4.22). Until 2026-11-16 this read 0003E9A6 - DremoraFaction's ID, no race:
+// no Dremora was ever told by its race.
+inline constexpr UInt32 kDremoraRace = 0x00038010;
+inline bool IsDremoraRace(UInt32 raceId) { return raceId == kDremoraRace; }
 
 // A chapel (4.7): a cell the Nine Divines own (Oblivion.esm's NineDivines
 // faction, 000223BC - the city chapels, their halls and undercrofts), or one

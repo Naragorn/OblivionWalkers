@@ -180,7 +180,8 @@ void TestInvaderKinds() {
 		      what);
 	}
 	Check(std::strcmp(walkers::VerdictText(DeathVerdict::NotForInvaders), "?") != 0, "the verdict has its text");
-	Check(walkers::IsDremoraRace(0x0003E9A6) && !walkers::IsDremoraRace(0x00000907), "the Dremora race, by its ID");
+	Check(walkers::IsDremoraRace(0x00038010) && !walkers::IsDremoraRace(0x00000907), "the Dremora race, by its ID");
+	Check(!walkers::IsDremoraRace(0x0003E9A6), "DremoraFaction's ID is no race (the old check's mistake)");
 }
 
 void TestTick() {

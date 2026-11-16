@@ -3697,7 +3697,7 @@ come only out of Oblivion gates and wander to the cities.
 **What the game has** (read off Oblivion.esm 2026-11-13, tools/esm-spawns.py
 and a look at Tamriel's references; UESP "Oblivion:Oblivion Gates", read
 the same day):
-- The Daedra: Dremora are NPCs of the race Dremora (0003E9A6; 96 NPC_
+- The Daedra: Dremora are NPCs of the race Dremora (00038010 - 0003E9A6 is DremoraFaction, corrected 2026-11-16; 96 NPC_
   records with "Dremora" in their editor ID), in seven ranks - Churl,
   Caitiff, Kynval, Kynreeve, Kynmarcher, Markynaz, Valkynaz - each as
   melee, archer and mage, and leveled lists of them
@@ -3958,7 +3958,7 @@ B without harness runs, then C; nothing wired into the game):
   its address - a LINK change moves only the entries it must); the extra
   entries (4.13) follow the same roll. The Daedra's own categories stay
   the game's. The rise: `NoteDeath` asks `MayRise` - Kind 1 nobody, a
-  Dremora (race 0003E9A6) never ("stays down (Invaders Kind ...)"). The
+  Dremora (race 00038010; until 2026-11-16 the check read 0003E9A6, DremoraFaction's ID) never ("stays down (Invaders Kind ...)"). The
   "is a walker" tests need no second answer for step 1: a Daedra of the
   lists is none of the walker records, so the head rule, the grab, the
   pace and the disguise never touch it.
