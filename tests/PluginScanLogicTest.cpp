@@ -140,6 +140,26 @@ void TestDecision() {
 	Check(walkers::KeepList(guard, "LL1Goblin100", 1), "but a list the INI names still kept");
 }
 
+void TestHardHigh() {
+	std::printf("MOO's Hard and the High lists\n");
+	walkers::BossGuard guard;
+	Check(!guard.keepHard && !guard.keepHigh, "both off by default (Nadi, 2026-11-16)");
+	Check(!walkers::KeepList(guard, "MOOLL0GoblinBHard", -1) && !walkers::KeepList(guard, "MOOLL1RoadHighlands", -1),
+	      "off: replaced like any list");
+	guard.keepHard = true;
+	Check(walkers::KeepList(guard, "MOOLL0GoblinBHard", -1) && !walkers::KeepList(guard, "MOOLL1RoadHighlands", -1),
+	      "KeepHardLists=1: the Hard ones kept, the High ones not");
+	guard.keepHigh = true;
+	Check(walkers::KeepList(guard, "MOOLL2UndeadZombie0HighElf", -1), "KeepHighLists=1: the High ones too");
+	guard.keepBosses = false;
+	Check(!walkers::KeepList(guard, "LL1GoblinBossLvl100", -1) && walkers::KeepList(guard, "MOOLL0GoblinBHard", -1),
+	      "each switch on its own: KeepBosses=0 lets the bosses go, the Hard ones stay");
+	const UInt8 bits = walkers::ListNameBits(guard, "MOOLL0HighBossHard");
+	Check(bits == (walkers::kListNameBoss | walkers::kListNameHard | walkers::kListNameHigh),
+	      "a name may say all three");
+	Check(!walkers::KeepListByBits(guard, bits, 0), "[ReplaceKeepLists]=0 over all of them");
+}
+
 }  // namespace
 
 int main() {
@@ -148,6 +168,7 @@ int main() {
 	TestResolve();
 	TestGroup();
 	TestDecision();
+	TestHardHigh();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

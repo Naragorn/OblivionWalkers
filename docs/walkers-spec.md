@@ -891,6 +891,20 @@ Daedra's replacement takes the same path, so the guard holds for them.
 Run natively against the files (the header's code): Oblivion.esm 64 lists
 and 22 creatures kept, MOO 359 and 4, Ascension 13 and 0.
 
+`[Replace] KeepHardLists=0` and `KeepHighLists=0` (Nadi, 2026-11-16: an
+entry each in the INI and LINK, off by default): MOO's "Hard" lists and the
+lists named "High" kept too when on. What a list's name says is read once,
+the decision is taken at every pass - the three LINK switches (version 44)
+rewrite the lists at once.
+
+**Ascension** (its Nexus page, mods/50237, read 2026-11-16): "tough
+creatures such as Liches, Minotaur Lords, Storm Atronachs, etc will now only
+spawn at boss-level points, usually at the end of dungeons" - the game's own
+boss lists (LL1...BossLvl100, which it overrides), with low-level creatures
+in groups elsewhere (its "...Group100" lists). So with Ascension the guard
+keeps exactly its end-of-dungeon bosses, by the "Boss" in those lists'
+names; a patch on Nexus (mods/54309) reverts that design.
+
 Limits: every NPC_ record of all three files is compressed (2482, 2605,
 126) and the plugin reads no compressed record (no zlib) - people are kept
 through their boss lists only; a person's own "Boss" name is not read

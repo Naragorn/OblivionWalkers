@@ -28,6 +28,11 @@ namespace walkers {
 
 struct BossGuard {
 	bool keepBosses = true;                                // [Replace] KeepBosses
+	// MOO's harder variants of common foes ("...Hard", 23 lists) and the
+	// lists named "High" (28: the High Elves, the Highlands) - kept too when
+	// on (Nadi, 2026-11-16: an entry each, off by default).
+	bool keepHard = false;                                 // [Replace] KeepHardLists
+	bool keepHigh = false;                                 // [Replace] KeepHighLists
 	char listWords[128] = "Boss,Champion,Leader,Lord,Chief";  // [Replace] BossListWords
 	char actorWords[64] = "Boss";                          // [Replace] BossActorWords
 };
@@ -68,19 +73,34 @@ inline bool HasAnyWord(const char* name, const char* words) {
 	return false;
 }
 
+// What a list's name says, read once at the start; the decision is taken at
+// every pass, so LINK's switches take at once.
+enum : UInt8 { kListNameBoss = 1, kListNameHard = 2, kListNameHigh = 4 };
+
+inline UInt8 ListNameBits(const BossGuard& g, const char* editorId) {
+	return static_cast<UInt8>((HasAnyWord(editorId, g.listWords) ? kListNameBoss : 0) |
+	                          (HasAnyWord(editorId, "Hard") ? kListNameHard : 0) |
+	                          (HasAnyWord(editorId, "High") ? kListNameHigh : 0));
+}
+
 // A list kept from the replacement: the INI's [ReplaceKeepLists] switch
 // decides (1 kept, 0 never; FindReplaceSwitch's -1 none), else its name.
-inline bool KeepList(const BossGuard& g, const char* editorId, int iniSwitch) {
+inline bool KeepListByBits(const BossGuard& g, UInt8 bits, int iniSwitch) {
 	if (iniSwitch >= 0) {
 		return iniSwitch != 0;
 	}
-	return g.keepBosses && HasAnyWord(editorId, g.listWords);
+	return (g.keepBosses && (bits & kListNameBoss) != 0) || (g.keepHard && (bits & kListNameHard) != 0) ||
+	       (g.keepHigh && (bits & kListNameHigh) != 0);
 }
 
-// A creature or person kept from the replacement by its own name.
-inline bool KeepActor(const BossGuard& g, const char* editorId) {
-	return g.keepBosses && HasAnyWord(editorId, g.actorWords);
+inline bool KeepList(const BossGuard& g, const char* editorId, int iniSwitch) {
+	return KeepListByBits(g, ListNameBits(g, editorId), iniSwitch);
 }
+
+// A creature or person whose own name says boss (read once); kept while
+// KeepBosses is on.
+inline bool ActorNamedBoss(const BossGuard& g, const char* editorId) { return HasAnyWord(editorId, g.actorWords); }
+inline bool KeepActor(const BossGuard& g, const char* editorId) { return g.keepBosses && ActorNamedBoss(g, editorId); }
 
 inline constexpr UInt32 kMastersMost = 32;
 

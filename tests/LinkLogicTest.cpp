@@ -46,9 +46,9 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 216,
-	      "216 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands' - every INI setting but BandsMost, Name, CampSpacingUnits, the corpses' LogSeconds, "
+	Check(kLinkSettingCount == 219,
+	      "219 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 43\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 44\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -702,7 +702,19 @@ void TestInvaders() {
 	      "only out of gates, every 6 hours, from the menu");
 	Check(kLinkSettings[origin].effect == walkers::LinkEffect::Spawns && kLinkSettings[hours].effect == walkers::LinkEffect::Live,
 	      "OnlyFromOblivionGates rewrites the lists (the replacement off or on), the bands' numbers are read live");
-	Check(walkers::kLinkVersion == 43.0, "the version 43");
+	const int bosses = IndexOf("ini_replace_keep_bosses");
+	const int hard = IndexOf("ini_replace_keep_hard");
+	const int high = IndexOf("ini_replace_keep_high");
+	Check(bosses == 216 && hard == 217 && high == 218, "the boss guard's three after them, 216 to 218");
+	Check(walkers::LinkValue(rise, replace, bosses) == 1.0 && walkers::LinkValue(rise, replace, hard) == 0.0 &&
+	          walkers::LinkValue(rise, replace, high) == 0.0,
+	      "the defaults: bosses stay, Hard and High not (Nadi, 2026-11-16)");
+	Check(walkers::SetLinkValue(rise, replace, hard, 1.0) && replace.bosses.keepHard &&
+	          walkers::SetLinkValue(rise, replace, bosses, 0.0) && !replace.bosses.keepBosses,
+	      "set from the menu");
+	Check(kLinkSettings[bosses].effect == walkers::LinkEffect::Spawns && kLinkSettings[high].effect == walkers::LinkEffect::Spawns,
+	      "each rewrites the lists at once");
+	Check(walkers::kLinkVersion == 44.0, "the version 44");
 }
 
 void TestPageTest() {

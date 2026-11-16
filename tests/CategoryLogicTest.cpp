@@ -279,6 +279,9 @@ void TestQuestNames() {
 	boss.boss = true;
 	Check(!walkers::ReplaceOn(on, boss, goblins, -1, -1), "a boss by its own name (BanditBossMale1): kept");
 	Check(walkers::ReplaceOn(on, boss, goblins, -1, 1), "unless its [ReplaceExceptions] line says 1");
+	walkers::ReplaceSettings noBosses;
+	noBosses.bosses.keepBosses = false;
+	Check(walkers::ReplaceOn(noBosses, boss, goblins, -1, -1), "KeepBosses=0: replaced like any goblin");
 	Check(walkers::ClassifyCreature(boss) == walkers::CreatureKind::Boss &&
 	          std::strcmp(walkers::KindNote(walkers::CreatureKind::Boss), " a boss") == 0,
 	      "a new INI line names it a boss");

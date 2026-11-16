@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 43.0;  // 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 44.0;  // 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -511,6 +511,15 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_invaders_band_max", "Invaders: largest band",
 	 "The most in one band.",
 	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_replace_keep_bosses", "Spawns: bosses stay",
+	 "On: the bosses of the game and of your mods stay what they are - lists and creatures named boss, champion, leader, lord or chief.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_replace_keep_hard", "Spawns: MOO's hard foes stay",
+	 "On: MOO's harder variants of common foes stay what they are.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
+	{"ini_replace_keep_high", "Spawns: \"High\" lists stay",
+	 "On: the lists named High stay what they are (in MOO the High Elves' zombies and the Highlands).",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -702,6 +711,9 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 213: return rise.bands.everyHours;
 		case 214: return rise.bands.sizeMin;
 		case 215: return rise.bands.sizeMax;
+		case 216: return replace.bosses.keepBosses ? 1.0 : 0.0;
+		case 217: return replace.bosses.keepHard ? 1.0 : 0.0;
+		case 218: return replace.bosses.keepHigh ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -904,6 +916,9 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 213: rise.bands.everyHours = static_cast<float>(whole); break;
 		case 214: rise.bands.sizeMin = whole; break;
 		case 215: rise.bands.sizeMax = whole; break;
+		case 216: replace.bosses.keepBosses = on; break;
+		case 217: replace.bosses.keepHard = on; break;
+		case 218: replace.bosses.keepHigh = on; break;
 		default: return false;
 	}
 	return true;

@@ -208,7 +208,13 @@ bool CarriesQuestItem(UInt32 actorBase) {
 
 // The boss guard (4.6c, PluginScanLogic.h): the lists and the creatures and
 // people kept by their editor IDs, read once off the loaded plugin files.
-std::unordered_set<UInt32> g_bossLists;
+// By the game's form ID: what each list's name says (kListName*) and its
+// [ReplaceKeepLists] switch (-1 none) - the decision at every pass.
+struct ListName {
+	UInt8 bits;
+	signed char iniSwitch;
+};
+std::unordered_map<UInt32, ListName> g_listNames;
 std::unordered_set<UInt32> g_bossActors;
 bool g_bossesScanned = false;
 constexpr const char* kKeepListsSection = "ReplaceKeepLists";
@@ -251,7 +257,6 @@ void ScanBosses(const ReplaceSettings& settings, const char* iniPath, LogFn log)
 	GetPrivateProfileSectionA(kKeepListsSection, keepSection.data(), static_cast<DWORD>(keepSection.size()), iniPath);
 	// By the game's form ID: kept or not, the last file's name deciding (a
 	// later plugin's override renames nothing in practice, but it may).
-	std::unordered_map<UInt32, bool> lists;
 	std::unordered_map<UInt32, bool> actors;
 	std::vector<UInt8> group;
 	UInt32 filesRead = 0;
@@ -312,11 +317,11 @@ void ScanBosses(const ReplaceSettings& settings, const char* iniPath, LogFn log)
 				                 if (isList) {
 					                 const char* owner = ModNameAt(id >> 24);
 					                 const int line = owner != nullptr ? FindReplaceSwitch(keepSection.data(), owner, id) : -1;
-					                 const bool keep = KeepList(settings.bosses, edid, line);
-					                 lists[id] = keep;
-					                 listsHere += keep ? 1 : 0;
+					                 const UInt8 bits = ListNameBits(settings.bosses, edid);
+					                 g_listNames[id] = ListName{bits, static_cast<signed char>(line)};
+					                 listsHere += KeepListByBits(settings.bosses, bits, line) ? 1 : 0;
 				                 } else {
-					                 const bool keep = KeepActor(settings.bosses, edid);
+					                 const bool keep = ActorNamedBoss(settings.bosses, edid);
 					                 actors[id] = keep;
 					                 actorsHere += keep ? 1 : 0;
 				                 }
@@ -333,10 +338,9 @@ void ScanBosses(const ReplaceSettings& settings, const char* iniPath, LogFn log)
 			}
 		}
 	}
-	for (const auto& l : lists) {
-		if (l.second) {
-			g_bossLists.insert(l.first);
-		}
+	UInt32 keptLists = 0;
+	for (const auto& l : g_listNames) {
+		keptLists += KeepListByBits(settings.bosses, l.second.bits, l.second.iniSwitch) ? 1 : 0;
 	}
 	for (const auto& a : actors) {
 		if (a.second) {
@@ -346,7 +350,7 @@ void ScanBosses(const ReplaceSettings& settings, const char* iniPath, LogFn log)
 	log("Bosses: KeepBosses=%d (lists by \"%s\", creatures and people by \"%s\") - %u files read, %u lists and %u "
 	    "creatures or people kept from the replacement, %u compressed records passed over",
 	    settings.bosses.keepBosses ? 1 : 0, settings.bosses.listWords, settings.bosses.actorWords, filesRead,
-	    static_cast<UInt32>(g_bossLists.size()), static_cast<UInt32>(g_bossActors.size()), compressedTotal);
+	    keptLists, static_cast<UInt32>(g_bossActors.size()), compressedTotal);
 }
 
 CreatureFacts FactsOf(UInt32 creature, UInt32 espBase) {
@@ -781,7 +785,9 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 			}
 			++lists;
 			const bool questList = g_questLists.count(form) != 0;
-			const bool bossList = g_bossLists.count(FormIdOf(form)) != 0;
+			const auto named = g_listNames.find(FormIdOf(form));
+			const bool bossList = named != g_listNames.end() &&
+			                      KeepListByBits(settings.bosses, named->second.bits, named->second.iniSwitch);
 			bossListsSeen += bossList ? 1 : 0;
 			questListsSeen += questList ? 1 : 0;
 			bool touched = false;
@@ -875,8 +881,10 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 		    static_cast<UInt32>(invaders.kind), invaders.daedraPercent, invaders.summons ? 1 : 0, daedraEntries,
 		    daedraList != 0 ? FormIdOf(daedraList) : 0u, daedraKept);
 	}
-	log("Spawns: KeepBosses=%d - %u of the lists are bosses'; %u entries in them that would be replaced stay their own",
-	    settings.bosses.keepBosses ? 1 : 0, bossListsSeen, bossEntriesKept);
+	log("Spawns: KeepBosses=%d KeepHardLists=%d KeepHighLists=%d - %u lists kept by their names; %u entries in them "
+	    "that would be replaced stay their own",
+	    settings.bosses.keepBosses ? 1 : 0, settings.bosses.keepHard ? 1 : 0, settings.bosses.keepHigh ? 1 : 0,
+	    bossListsSeen, bossEntriesKept);
 	log("Spawns: KeepQuestLists=%d - %u of the lists are a quest's; %u entries in them that would be walkers stay "
 	    "their own",
 	    settings.keepQuestLists ? 1 : 0, questListsSeen, questEntriesKept);

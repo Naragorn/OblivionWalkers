@@ -261,6 +261,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	replace.enabled = GetPrivateProfileIntA("Replace", "Enabled", 1, path) != 0;
 	replace.keepQuestLists = GetPrivateProfileIntA("Replace", "KeepQuestLists", 1, path) != 0;
 	replace.bosses.keepBosses = GetPrivateProfileIntA("Replace", "KeepBosses", 1, path) != 0;
+	replace.bosses.keepHard = GetPrivateProfileIntA("Replace", "KeepHardLists", 0, path) != 0;
+	replace.bosses.keepHigh = GetPrivateProfileIntA("Replace", "KeepHighLists", 0, path) != 0;
 	GetPrivateProfileStringA("Replace", "BossListWords", replace.bosses.listWords, replace.bosses.listWords,
 	                         sizeof(replace.bosses.listWords), path);
 	GetPrivateProfileStringA("Replace", "BossActorWords", replace.bosses.actorWords, replace.bosses.actorWords,

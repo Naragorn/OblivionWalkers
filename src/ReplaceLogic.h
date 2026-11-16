@@ -66,8 +66,9 @@ struct CreatureFacts {
 	// A quest names it in its script, a stage's result script or a target
 	// (MG01Destruct's zombies; Replace.cpp CollectQuestNames).
 	bool questNamed = false;
-	// Its editor ID names it a boss (PluginScanLogic.h KeepActor, read off the
-	// plugin files; [Replace] KeepBosses): it stays the game's (4.6c).
+	// Its editor ID names it a boss (PluginScanLogic.h ActorNamedBoss, read
+	// off the plugin files): it stays the game's while [Replace] KeepBosses
+	// is on (4.6c).
 	bool boss = false;
 	bool ours = false;    // a record of OblivionWalkers.esp
 	bool person = false;  // an NPC_ record, no creature
@@ -127,7 +128,7 @@ inline bool ReplaceOn(const ReplaceSettings& settings, const CreatureFacts& give
 	if (exception >= 0) {
 		return exception != 0;
 	}
-	if (facts.boss) {
+	if (facts.boss && settings.bosses.keepBosses) {
 		return false;
 	}
 	if (category < kReplaceCategoryCount) {
