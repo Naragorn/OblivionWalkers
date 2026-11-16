@@ -153,10 +153,41 @@ inline UInt32 EntryRoll(UInt32 entryAddress) {
 	return h % 100;
 }
 
+// Idea 1, a war band's leader (Nadi, 2026-11-16: "go 2"): a Dremora two
+// ranks above the band's men. The seven ranks' lists of Oblivion.esm
+// (LL0Dremora0Churl100 .. LL0Dremora6Valkynaz100) and the player's level at
+// which LL1Dremora100 first gives each (1, 8, 11, 14, 17, 21, 24; read
+// 2026-11-15).
+inline constexpr UInt32 kDremoraRankLists[7] = {0x00092DA6, 0x0003E9D1, 0x0003E9D2, 0x0003E9D3,
+                                                0x0003E9D4, 0x0003E9D5, 0x0003E9D6};
+inline constexpr UInt32 kDremoraRankLevels[7] = {1, 8, 11, 14, 17, 21, 24};
+
+// The rank the game's lists give at `level`: the highest whose level is
+// reached.
+inline UInt32 DremoraRankAt(UInt32 level) {
+	UInt32 rank = 0;
+	for (UInt32 r = 0; r < 7; ++r) {
+		rank = level >= kDremoraRankLevels[r] ? r : rank;
+	}
+	return rank;
+}
+
+// The leader's rank: two above the men's, the seventh at most.
+inline UInt32 LeaderRank(UInt32 level) {
+	const UInt32 r = DremoraRankAt(level) + 2;
+	return r > 6 ? 6 : r;
+}
+
 // The form a Daedra spawn takes: an Oblivion.esm summoner or rank list its
 // NOSUMMON twin while they are held back, any other form itself.
 inline UInt32 InvaderForm(const InvaderSettings& s, UInt32 formId) {
 	return HoldSummonersBack(s) ? NoSummonTwin(formId) : formId;
+}
+
+// The list a band's leader is placed from - its NOSUMMON twin while the
+// summoners are held back (idea 11).
+inline UInt32 LeaderList(const InvaderSettings& s, UInt32 level) {
+	return InvaderForm(s, kDremoraRankLists[LeaderRank(level)]);
 }
 
 }  // namespace walkers

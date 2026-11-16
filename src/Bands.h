@@ -38,4 +38,15 @@ bool IsBandMember(UInt32 refId);
 // A load or a new game: the far bands and the members are forgotten.
 void ResetBands();
 
+// The points a city's daily siege chance is up by (BandLogic.h): the bands
+// that reached it lately.
+UInt32 SiegePressureOf(UInt32 city);
+
+// The co-save record 'BAND' (BandLogic.h BandImage): written on save, read
+// on load after ResetBands; `resolve` xOBSE's ResolveRefID.
+UInt32 BandsImage(UInt8* out, UInt32 capacity);
+bool ReadBandsImage(const UInt8* in, UInt32 length, UInt32 version, bool (*resolve)(UInt32, UInt32&));
+UInt32 FarBandCount();
+UInt32 BandMemberCount();
+
 }  // namespace walkers

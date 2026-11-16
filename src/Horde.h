@@ -21,6 +21,7 @@ struct HordeCandidate {
 	UInt32 ref = 0;      // the reference
 	bool alive = false;  // not dead (Rise.cpp IsDead)
 	bool busy = false;   // in a swap of the rise's: left alone
+	bool leads = false;  // a war band's leader (4.22 idea 1): the highest rank, so it leads
 };
 
 using ConsoleFn = bool (*)(UInt32 ref, const char* line);

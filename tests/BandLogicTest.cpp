@@ -26,7 +26,7 @@ using walkers::InvaderOrigin;
 
 // Two gates and two cities on a line, far from each other.
 const walkers::BandGate kGates[] = {{0.0f, 0.0f}, {100000.0f, 0.0f}};
-const walkers::BandCity kCities[] = {{20000.0f, 0.0f}, {130000.0f, 0.0f}};
+const walkers::BandCity kCities[] = {{20000.0f, 0.0f, 3}, {130000.0f, 0.0f, 5}};
 
 struct Run {
 	BandState state;
@@ -195,6 +195,75 @@ void TestCap() {
 	Check(n == 1 && full.state.count == 2, "the events past the caller's room are dropped, the bands kept");
 }
 
+void TestPressure() {
+	std::printf("A band at its city: the siege's pressure\n");
+	BandSettings s;
+	s.origin = InvaderOrigin::Gates;
+	s.everyHours = 1000.0f;
+	Check(s.siegePercentPerBand == 5 && s.siegeFadePercentPerDay == 5.0f,
+	      "defaults: 5 points a band, 5 points fade a day");
+	Run r;
+	const bool open[] = {true, false};
+	r.Step(s, open, 0.0f, 9e6f, 9e6f);
+	r.Step(s, open, 10.0f, 9e6f, 9e6f);
+	Check(r.Count(walkers::BandEventKind::Arrived) == 1 && walkers::SiegePressure(r.state, 3) == 5 &&
+	          walkers::SiegePressure(r.state, 5) == 0,
+	      "arrived at the gate of city 3: its daily siege chance 5 points up, the other city's not");
+	r.Step(s, open, 24.0f * 0.5f, 9e6f, 9e6f);
+	Check(walkers::SiegePressure(r.state, 3) == 2, "half a day: 2.5 points faded, 2 whole left");
+	r.Step(s, open, 24.0f, 9e6f, 9e6f);
+	Check(walkers::SiegePressure(r.state, 3) == 0, "a day more: none, never below 0");
+	for (int i = 0; i < 40; ++i) {
+		walkers::AddSiegePressure(r.state, s, 3);
+	}
+	Check(walkers::SiegePressure(r.state, 3) == walkers::kSiegePressureMost, "held to 90 points");
+	Check(walkers::SiegePressure(r.state, 200) == 0, "a city past the table: 0");
+}
+
+UInt32 Resolve(UInt32 saved, UInt32& loaded) {
+	if (saved == 0xFF000BAD) {
+		return 0;
+	}
+	loaded = saved + 1;
+	return 1;
+}
+
+void TestImage() {
+	std::printf("The bands in the co-save\n");
+	BandSettings s;
+	s.origin = InvaderOrigin::Gates;
+	s.everyHours = 7.0f;
+	Run r;
+	const bool open[] = {true, true};
+	r.Step(s, open, 0.0f, 9e6f, 9e6f);
+	walkers::AddSiegePressure(r.state, s, 5);
+	walkers::BandMember members[3] = {{0xFF000A01, 0, false}, {0xFF000A02, 0, true}, {0xFF000BAD, 1, false}};
+	UInt8 image[walkers::kBandImageMost];
+	const UInt32 length = walkers::BandImage(r.state, members, 3, image, sizeof(image));
+	Check(length > 0 && length <= walkers::kBandImageMost, "written, within its most");
+	BandState back;
+	walkers::BandMember read[walkers::kBandMembersMost];
+	UInt32 readCount = 0;
+	const bool whole = walkers::ReadBandImage(back, read, readCount, image, length, walkers::kBandImageVersion,
+	                                          [](UInt32 saved, UInt32& loaded) { return Resolve(saved, loaded) != 0; });
+	Check(whole && back.count == 2 && back.bands[1].gate == 1 && back.bands[0].size == r.state.bands[0].size &&
+	          back.bands[0].x == r.state.bands[0].x,
+	      "the far bands back, gate, size and place");
+	Check(back.wasOpen[0] && back.wasOpen[1] && back.hoursToNext[0] == 7.0f,
+	      "the gates' clocks back: no band at once after a load");
+	Check(walkers::SiegePressure(back, 5) == 5, "the pressure back");
+	Check(readCount == 2 && read[0].ref == 0xFF000A02 && read[1].ref == 0xFF000A03 && read[1].leader && read[1].band == 0,
+	      "the members through ResolveRefID, the leader marked; one gone from the game dropped");
+	BandState cut;
+	Check(!walkers::ReadBandImage(cut, read, readCount, image, 10, walkers::kBandImageVersion,
+	                              [](UInt32 saved, UInt32& loaded) { return Resolve(saved, loaded) != 0; }) &&
+	          cut.count == 0 && readCount == 0,
+	      "cut short: nothing, a fresh start");
+	Check(!walkers::ReadBandImage(cut, read, readCount, image, length, 99,
+	                              [](UInt32 saved, UInt32& loaded) { return Resolve(saved, loaded) != 0; }),
+	      "another version: not read");
+}
+
 }  // namespace
 
 int main() {
@@ -207,6 +276,8 @@ int main() {
 	TestPlace();
 	TestClosed();
 	TestCap();
+	TestPressure();
+	TestImage();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

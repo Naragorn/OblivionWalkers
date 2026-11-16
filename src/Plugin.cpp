@@ -238,6 +238,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandEveryHours", 12, path)))));
 	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSizeMin", 4, path)))));
 	rise.bands.sizeMax = static_cast<UInt32>(std::max(1, std::min(30, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSizeMax", 9, path)))));
+	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSiegePercent", 5, path)))));
+	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(GetPrivateProfileIntA("Invaders", "BandSiegeFadePerDay", 5, path)))));
 	rise.bands.testBandSeconds = static_cast<float>(GetPrivateProfileIntA("Invaders", "TestBandSeconds", 0, path));
 	rise.bands.bandsMost = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kBandsMost), static_cast<int>(GetPrivateProfileIntA("Invaders", "BandsMost", 32, path)))));
 	rise.headshots.arrows = GetPrivateProfileIntA("Headshots", "Arrows", 1, path) != 0;

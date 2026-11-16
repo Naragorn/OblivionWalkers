@@ -68,6 +68,20 @@ void TestBegin() {
 	Rolls rollsAgain{again, 1};
 	n = walkers::StepSiegeDays(st, s, 12.1f, rollsAgain, ev, 16);
 	Check(n == 1 && ev[0].city == 1 && st.cities[1].active, "a besieged city rolls no more; the next one does");
+	// The gates' pressure (4.22 step 3, BandLogic.h): points on a city's
+	// daily chance.
+	SiegeState pressed;
+	walkers::StepSiegeDays(pressed, s, 20.0f, quiet, ev, 16);
+	const UInt32 thirty[1] = {30};
+	Rolls high{thirty, 1};
+	UInt32 extra[walkers::kSiegeCities] = {};
+	extra[0] = 25;
+	n = walkers::StepSiegeDays(pressed, s, 21.0f, high, ev, 16, extra);
+	Check(n == 1 && pressed.cities[0].active, "Anvil 25 points up: a roll of 30 under 10 + 25 - besieged");
+	SiegeState plain;
+	walkers::StepSiegeDays(plain, s, 20.0f, quiet, ev, 16);
+	Rolls high2{thirty, 1};
+	Check(walkers::StepSiegeDays(plain, s, 21.0f, high2, ev, 16) == 0, "without the pressure the same roll: not");
 	SiegeState late;
 	walkers::StepSiegeDays(late, s, 3.0f, quiet, ev, 16);
 	const UInt32 many[8] = {99, 99, 99, 99, 99, 99, 99, 99};

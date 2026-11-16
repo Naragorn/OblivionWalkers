@@ -25,9 +25,10 @@ constexpr UInt32 kActorProcessManager = 0x00B3BD00;
 constexpr UInt32 kActorListByLevel = 0x00673A50;
 constexpr UInt32 kGameHourId = 0x00000038;  // News.cpp
 constexpr UInt32 kGameDaysPassedId = 0x00000039;
+constexpr UInt32 kRefBaseOffset = 0x1C;
+constexpr UInt32 kNpcLevelOffset = 0x24 + 0x0E;  // TESActorBaseData's level (Camps.cpp)
 constexpr UInt32 kVariantLocalId = 0x805;  // the walkers' list (Replace.cpp)
 constexpr float kStepSeconds = 1.0f;
-constexpr UInt32 kMembersMost = 128;
 // A member is one of ours when it stands this near the marker the second
 // after the PlaceAtMe and was not there before.
 constexpr float kMemberFoundUnits = 1500.0f;
@@ -44,18 +45,21 @@ UInt32 g_logsLeft = 400;
 float g_testClock = 0.0f;
 bool g_testDone = false;
 
-UInt32 g_members[kMembersMost] = {};
+BandMember g_members[kBandMembersMost] = {};
 UInt32 g_memberCount = 0;
+UInt8 g_nextBand = 0;  // the band count of the session, for its members
 
 // A Near band's placing over three looks: the marker moved, the actors
 // placed, then the new ones found.
-enum class PlaceStage : UInt8 { None, MarkerMoved, Placed };
+enum class PlaceStage : UInt8 { None, MarkerMoved, Placed, LeaderPlaced };
 struct Placing {
 	PlaceStage stage = PlaceStage::None;
 	float dx = 0.0f, dy = 0.0f;
 	UInt32 size = 0;
 	UInt32 list = 0;  // the list's form ID
 	UInt16 gate = 0;
+	bool daedra = false;  // a Daedra band gets a leader (idea 1)
+	UInt8 band = 0;
 	UInt32 before[kNearMost] = {};  // the FF actors near the marker before the PlaceAtMe
 	UInt32 beforeCount = 0;
 };
@@ -81,6 +85,46 @@ double GameDays() {
 		return -1.0;
 	}
 	return std::floor(static_cast<double>(days)) + static_cast<double>(hour) / 24.0;
+}
+
+UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most);
+
+UInt32 PlayerLevel() {
+	const UInt32 player = LookupForm(0x14);
+	const UInt32 base = LooksLikeObject(player) ? Read(player + kRefBaseOffset) : 0;
+	if (!LooksLikeObject(base)) {
+		return 1;
+	}
+	const SInt16 level = *reinterpret_cast<const SInt16*>(base + kNpcLevelOffset);
+	return level < 1 ? 1u : static_cast<UInt32>(level);
+}
+
+// The new FF actors near the marker since `before`, made members of the band
+// under way; returns how many, the last one in `last`.
+UInt32 TakeNewMembers(UInt32 marker, bool leader, UInt32& last) {
+	const float mx = FloatAt(marker + kRefPositionOffset);
+	const float my = FloatAt(marker + kRefPositionOffset + 4);
+	UInt32 now[kNearMost];
+	const UInt32 n = PlacedActorsNear(mx, my, kMemberFoundUnits, now, kNearMost);
+	UInt32 found = 0;
+	for (UInt32 i = 0; i < n && g_memberCount < kBandMembersMost; ++i) {
+		bool old = false;
+		for (UInt32 k = 0; k < g_placing.beforeCount; ++k) {
+			old = old || g_placing.before[k] == now[i];
+		}
+		if (!old && !IsBandMember(now[i])) {
+			g_members[g_memberCount++] = BandMember{now[i], g_placing.band, leader};
+			last = now[i];
+			++found;
+		}
+	}
+	return found;
+}
+
+void NoteBefore(UInt32 marker) {
+	g_placing.beforeCount = PlacedActorsNear(FloatAt(marker + kRefPositionOffset),
+	                                         FloatAt(marker + kRefPositionOffset + 4), kMemberFoundUnits,
+	                                         g_placing.before, kNearMost);
 }
 
 UInt32 Random() {
@@ -174,6 +218,8 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 			g_placing.size = e.size;
 			g_placing.gate = e.gate;
 			g_placing.list = BandList(group, invaders);
+			g_placing.daedra = group == Group::Daedra;
+			g_placing.band = g_nextBand++;
 			std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f %.0f", g_placing.dx, g_placing.dy, dz);
 			const bool moved = console(marker, line);
 			g_placing.stage = PlaceStage::MarkerMoved;
@@ -185,7 +231,7 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 		case PlaceStage::MarkerMoved: {
 			const float mx = FloatAt(marker + kRefPositionOffset);
 			const float my = FloatAt(marker + kRefPositionOffset + 4);
-			g_placing.beforeCount = PlacedActorsNear(mx, my, kMemberFoundUnits, g_placing.before, kNearMost);
+			NoteBefore(marker);
 			std::snprintf(line, sizeof(line), "PlaceAtMe %08X %u", g_placing.list, g_placing.size);
 			const bool placed = console(marker, line);
 			g_placing.stage = PlaceStage::Placed;
@@ -193,23 +239,29 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 			return;
 		}
 		case PlaceStage::Placed: {
-			const float mx = FloatAt(marker + kRefPositionOffset);
-			const float my = FloatAt(marker + kRefPositionOffset + 4);
-			UInt32 now[kNearMost];
-			const UInt32 n = PlacedActorsNear(mx, my, kMemberFoundUnits, now, kNearMost);
-			UInt32 found = 0;
-			for (UInt32 i = 0; i < n && g_memberCount < kMembersMost; ++i) {
-				bool old = false;
-				for (UInt32 k = 0; k < g_placing.beforeCount; ++k) {
-					old = old || g_placing.before[k] == now[i];
-				}
-				if (!old && !IsBandMember(now[i])) {
-					g_members[g_memberCount++] = now[i];
-					++found;
-				}
-			}
+			UInt32 last = 0;
+			const UInt32 found = TakeNewMembers(marker, false, last);
 			log("Bands: %u new members found at the marker (%u asked; %u members this session)", found,
 			    g_placing.size, g_memberCount);
+			if (!g_placing.daedra) {
+				g_placing.stage = PlaceStage::None;
+				return;
+			}
+			// Idea 1: a Dremora two ranks above the men leads them.
+			const UInt32 level = PlayerLevel();
+			const UInt32 list = LeaderList(invaders, level);
+			NoteBefore(marker);
+			std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1", list);
+			const bool placed = console(marker, line);
+			g_placing.stage = PlaceStage::LeaderPlaced;
+			log("Bands: the band's leader - rank %u of 7 at level %u (\"%s\" answered %d)", LeaderRank(level) + 1,
+			    level, line, placed ? 1 : 0);
+			return;
+		}
+		case PlaceStage::LeaderPlaced: {
+			UInt32 last = 0;
+			const UInt32 found = TakeNewMembers(marker, true, last);
+			log("Bands: %s (%08X)", found > 0 ? "the leader found at the marker" : "no leader found", last);
 			g_placing.stage = PlaceStage::None;
 			return;
 		}
@@ -232,7 +284,7 @@ bool BandsWantReplacement(const BandSettings& bands) {
 
 bool IsBandMember(UInt32 refId) {
 	for (UInt32 i = 0; i < g_memberCount; ++i) {
-		if (g_members[i] == refId) {
+		if (g_members[i].ref == refId) {
 			return true;
 		}
 	}
@@ -241,7 +293,7 @@ bool IsBandMember(UInt32 refId) {
 
 UInt32 AppendBandMembers(HordeCandidate* out, UInt32 count, UInt32 most, DeadFn dead) {
 	for (UInt32 i = 0; i < g_memberCount && count < most; ++i) {
-		const UInt32 ref = LookupForm(g_members[i]);
+		const UInt32 ref = LookupForm(g_members[i].ref);
 		if (!LooksLikeObject(ref)) {
 			continue;
 		}
@@ -249,6 +301,7 @@ UInt32 AppendBandMembers(HordeCandidate* out, UInt32 count, UInt32 most, DeadFn 
 		c.ref = ref;
 		c.alive = dead == nullptr || !dead(ref);
 		c.busy = false;
+		c.leads = g_members[i].leader;
 	}
 	return count;
 }
@@ -259,6 +312,7 @@ void ResetBands() {
 	g_clock = 0.0f;
 	g_lastDays = -1.0;
 	g_memberCount = 0;
+	g_nextBand = 0;
 	g_placing = Placing{};
 	g_queueCount = 0;
 	g_testClock = 0.0f;
@@ -266,9 +320,54 @@ void ResetBands() {
 	g_gateClock = kGateLookSeconds;
 }
 
+UInt32 SiegePressureOf(UInt32 city) { return SiegePressure(g_state, city); }
+
+UInt32 BandsImage(UInt8* out, UInt32 capacity) { return BandImage(g_state, g_members, g_memberCount, out, capacity); }
+
+bool ReadBandsImage(const UInt8* in, UInt32 length, UInt32 version, bool (*resolve)(UInt32, UInt32&)) {
+	const bool whole = ReadBandImage(g_state, g_members, g_memberCount, in, length, version, resolve);
+	g_nextBand = 0;
+	for (UInt32 i = 0; i < g_memberCount; ++i) {
+		g_nextBand = g_members[i].band >= g_nextBand ? static_cast<UInt8>(g_members[i].band + 1) : g_nextBand;
+	}
+	return whole;
+}
+
+UInt32 FarBandCount() { return g_state.count; }
+UInt32 BandMemberCount() { return g_memberCount; }
+
+namespace {
+// Idea 1: a band whose leader is dead breaks up - its men are no longer led
+// (the horde lets them go), each to its own AI. Members gone from the game
+// are dropped.
+void BreakUpLeaderless(DeadFn dead, LogFn log) {
+	for (UInt32 i = 0; i < g_memberCount; ++i) {
+		if (!g_members[i].leader) {
+			continue;
+		}
+		const UInt32 ref = LookupForm(g_members[i].ref);
+		if (LooksLikeObject(ref) && (dead == nullptr || !dead(ref))) {
+			continue;
+		}
+		const UInt8 band = g_members[i].band;
+		UInt32 kept = 0;
+		UInt32 freed = 0;
+		for (UInt32 k = 0; k < g_memberCount; ++k) {
+			if (g_members[k].band == band) {
+				++freed;
+			} else {
+				g_members[kept++] = g_members[k];
+			}
+		}
+		g_memberCount = kept;
+		log("Bands: band %u's leader %08X is dead - %u of them break up", band, g_members[i].ref, freed);
+		return;  // the list changed: the next look goes on
+	}
+}
+}  // namespace
+
 void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings& invaders, ConsoleFn console,
                      DeadFn dead, LogFn log) {
-	(void)dead;
 	if (g_espBase == kNoEsp) {
 		return;
 	}
@@ -327,7 +426,7 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 		g_lastDays = days;
 		BandCity cities[kCityGateCount];
 		for (UInt32 c = 0; c < kCityGateCount; ++c) {
-			cities[c] = BandCity{kCityGates[c].outX, kCityGates[c].outY};
+			cities[c] = BandCity{kCityGates[c].outX, kCityGates[c].outY, static_cast<UInt8>(kCityGates[c].city)};
 		}
 		BandEvent events[kBandEventsMost];
 		const UInt32 e = StepBands(g_state, bands, gates, open, n, cities, kCityGateCount, hours, px, py, Random(),
@@ -348,6 +447,7 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 			}
 		}
 	}
+	BreakUpLeaderless(dead, log);
 	StepPlacing(invaders, console, log);
 }
 

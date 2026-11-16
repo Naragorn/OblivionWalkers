@@ -1,5 +1,7 @@
 #include "Siege.h"
 
+#include "Bands.h"
+
 #include "Engine.h"
 #include "LinkLogic.h"
 #include "News.h"
@@ -364,7 +366,12 @@ void StepSiegeInGame(float dt) {
 		}
 	}
 	g_hordeGate = -1;
-	n += StepSiegeDays(g_state, *g_settings, now, g_roll, events + n, kSiegeCities + 1 - n);
+	// 4.22 step 3: the bands that reached a city raise its daily chance.
+	UInt32 pressure[kSiegeCities];
+	for (UInt32 city = 0; city < kSiegeCities; ++city) {
+		pressure[city] = SiegePressureOf(city);
+	}
+	n += StepSiegeDays(g_state, *g_settings, now, g_roll, events + n, kSiegeCities + 1 - n, pressure);
 	for (UInt32 i = 0; i < n; ++i) {
 		Carry(events[i], now);
 	}

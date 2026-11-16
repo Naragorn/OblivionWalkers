@@ -186,6 +186,21 @@ void TestEntryRoll() {
 	      "4000 entries 12 bytes apart (ListData's size): about half below 50");
 }
 
+void TestLeader() {
+	std::printf("A war band's leader, two ranks above its men (idea 1)\n");
+	Check(walkers::DremoraRankAt(1) == 0 && walkers::DremoraRankAt(7) == 0 && walkers::DremoraRankAt(8) == 1 &&
+	          walkers::DremoraRankAt(23) == 5 && walkers::DremoraRankAt(24) == 6 && walkers::DremoraRankAt(60) == 6,
+	      "the men's rank by the player's level: Churl from 1, Caitiff from 8 .. Valkynaz from 24");
+	Check(walkers::LeaderRank(1) == 2 && walkers::LeaderRank(14) == 5 && walkers::LeaderRank(21) == 6 &&
+	          walkers::LeaderRank(30) == 6,
+	      "the leader two above, Valkynaz at most");
+	InvaderSettings s;
+	Check(walkers::LeaderList(s, 1) == walkers::NoSummonTwin(0x0003E9D2) && walkers::LeaderList(s, 1) != 0x0003E9D2,
+	      "summoners held back: the Kynval list's NOSUMMON twin");
+	s.summons = true;
+	Check(walkers::LeaderList(s, 1) == 0x0003E9D2, "Summons 1: LL0Dremora2Kynval100 itself");
+}
+
 void TestTwins() {
 	std::printf("The twins read off Oblivion.esm (DaedraLists.h)\n");
 	UInt32 lists = 0;
@@ -221,6 +236,7 @@ int main() {
 	TestCategories();
 	TestSummoners();
 	TestEntryRoll();
+	TestLeader();
 	TestTwins();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);

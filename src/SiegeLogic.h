@@ -117,9 +117,12 @@ inline bool Paused(const CitySiege& c, float now) { return c.pauseUntil >= 0.0f 
 // Once a frame or a second with game day `now`: a new whole day rolls each
 // city not besieged nor paused once - however many days went by - by
 // `roll()` (0..any): the chance, then the gate, then the walkers. The first
-// look only notes the day. Returns the events written to `out`.
+// look only notes the day. `extraPercent` (nullptr: none) the points each
+// city's chance is up by - the bands that reached it (4.22 step 3,
+// BandLogic.h SiegePressure). Returns the events written to `out`.
 template <typename RollFn>
-UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn roll, SiegeEvent* out, UInt32 most) {
+UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn roll, SiegeEvent* out, UInt32 most,
+                     const UInt32* extraPercent = nullptr) {
 	if (now < 0.0f) {
 		return 0;
 	}
@@ -135,7 +138,8 @@ UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn r
 		if (c.active || siege_detail::Paused(c, now)) {
 			continue;
 		}
-		if (roll() % 100 >= s.chancePerDayPercent) {
+		const UInt32 chance = s.chancePerDayPercent + (extraPercent != nullptr ? extraPercent[city] : 0u);
+		if (roll() % 100 >= chance) {
 			continue;
 		}
 		UInt32 first = 0;

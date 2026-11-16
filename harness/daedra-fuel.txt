@@ -1,0 +1,25 @@
+# Invaders step 4, the fallen as fuel (docs/walkers-spec.md 4.22 idea 2):
+# with Mode 2 a person the Daedra kill rises as a walker. The player unseen
+# (Chameleon 100, tgm); a bandit (00069AD1, generic) and a Churl
+# (LL0Dremora0Churl100NOSUMMON, 00000FE7) placed 300 units before him. The
+# plugin's log (tools/daedra-harness.sh fuel) must say the bandit "waits to
+# rise" after his death, and no Dremora does.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at ready player.placeatme 00069AD1 1 300 0
+console-at ready player.placeatme 00000FE7 1 300 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 60
+mark end
+wait 1

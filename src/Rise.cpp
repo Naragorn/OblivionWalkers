@@ -3467,6 +3467,12 @@ void OnSave(void*) {
 	g_log("Co-save: %u held dungeons %s, %u occupants taken out of them %s", CurrentDungeons().count,
 	      dungeonsWritten ? "written" : "could not be written", CurrentDungeonOccupants().count,
 	      occupantsWritten ? "written" : "could not be written");
+	static UInt8 bands[kBandImageMost];
+	const UInt32 bandsLength = BandsImage(bands, sizeof(bands));
+	const bool bandsWritten = bandsLength > 0 && g_serialization->OpenRecord(kBandRecordType, kBandImageVersion) &&
+	                          g_serialization->WriteRecordData(bands, bandsLength);
+	g_log("Co-save: %u far bands and %u band members %s", FarBandCount(), BandMemberCount(),
+	      bandsWritten ? "written" : "could not be written");
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -3520,6 +3526,14 @@ void OnLoad(void*) {
 			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved, version);
 			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
 			      whole ? "" : " (the record cut short)");
+			continue;
+		}
+		if (type == kBandRecordType) {
+			static UInt8 bands[kBandImageMost];
+			const UInt32 read = length <= sizeof(bands) ? g_serialization->ReadRecordData(bands, length) : 0;
+			const bool whole = ReadBandsImage(bands, read, version, &ResolveSaved);
+			g_log("Co-save: %u far bands and %u band members read (version %u)%s", FarBandCount(), BandMemberCount(),
+			      version, whole ? "" : " (version or length off: none)");
 			continue;
 		}
 		if (type == kNewsRecordType) {

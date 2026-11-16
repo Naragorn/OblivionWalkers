@@ -7,6 +7,8 @@
 #   tools/daedra-harness.sh spawn [Kind]     harness/daedra-spawn.txt, Kind 1 by default
 #   tools/daedra-harness.sh fight [Mode]     harness/daedra-fight.txt: a walker and a Churl
 #   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: OnlyFromOblivionGates=1, a band placed and led
+#   tools/daedra-harness.sh save [Mode]      harness/daedra-save.txt: the band and its leader across a save and a load
+#   tools/daedra-harness.sh fuel [Mode]      harness/daedra-fuel.txt: a bandit the Daedra kill rises (Mode 2)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -45,7 +47,7 @@ def set_key(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 
 text = set_key(text, "Invaders", "Mode", kind)
-if scenario == "band":
+if scenario in ("band", "save"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
 # the dungeons' runner off, as in the other wrappers: nobody of the plugin's own beside the player
@@ -77,7 +79,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario != "band":
+if kind != 0 and scenario not in ("band", "save"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -101,6 +103,19 @@ if scenario == "band":
     show("Horde: ", 10)
     for l in [l for l in obvr if "HandScript: actors" in l][:6]:
         print("        " + l[:300])
+if scenario == "save":
+    written = [re.search(r"Co-save: (\d+) far bands and (\d+) band members written", l) for l in lines]
+    written = [int(m.group(2)) for m in written if m]
+    read = [re.search(r"Co-save: (\d+) far bands and (\d+) band members read", l) for l in lines]
+    read = [int(m.group(2)) for m in read if m]
+    show("Bands: ")
+    check(bool(written) and written[-1] >= 2, "the band and its leader written (%s)" % written)
+    check(bool(read) and read[-1] == written[-1], "the same members read after the load (%s)" % read)
+    check(any("the leader found at the marker" in l for l in lines), "a leader found and marked")
+if scenario == "fuel":
+    show("waits to rise")
+    show("stays down (Invaders")
+    check(any("waits to rise" in l for l in lines), "a fallen bandit waits to rise")
 if scenario == "fight":
     for l in [l for l in obvr if "HandScript: actors" in l or "HandScript: mark" in l][:12]:
         print("        " + l[:300])

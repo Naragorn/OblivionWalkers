@@ -18,7 +18,9 @@
 // replacement as with OnlyFromOblivionGates 0 (c).
 
 #include <cmath>
+#include <cstring>
 
+#include "Bytes.h"
 #include "Types.h"
 
 namespace walkers {
@@ -77,7 +79,16 @@ struct BandSettings {
 	// before the player whatever the gates, through the same path as a Near
 	// band. 0: off.
 	float testBandSeconds = 0.0f;
+	// A band that reaches its city raises that city's daily siege chance
+	// (4.12 ChancePerDayPercent) by this many points - the gates feed the
+	// sieges (Nadi, 2026-11-16: "go 3"); the points fade by
+	// BandSiegeFadePerDay a game day.
+	UInt32 siegePercentPerBand = 5;     // BandSiegePercent
+	float siegeFadePercentPerDay = 5.0f;  // BandSiegeFadePerDay
 };
+
+inline constexpr UInt32 kBandCitiesMost = 8;  // CityGates.h City::Count
+inline constexpr UInt32 kSiegePressureMost = 90;
 
 // The spawn replacement on: OnlyFromOblivionGates 0, or 1 with no gate open and the
 // fallback (c) chosen.
@@ -103,6 +114,7 @@ struct BandGate {
 };
 struct BandCity {
 	float x, y;
+	UInt8 city = 0;  // CityGates.h City: the siege's pressure goes to it
 };
 
 struct FarBand {
@@ -117,7 +129,20 @@ struct BandState {
 	UInt32 count = 0;
 	float hoursToNext[kBandGatesMost] = {};
 	bool wasOpen[kBandGatesMost] = {};
+	float pressure[kBandCitiesMost] = {};  // points on a city's daily siege chance
 };
+
+inline void AddSiegePressure(BandState& st, const BandSettings& s, UInt32 city) {
+	if (city < kBandCitiesMost) {
+		const float p = st.pressure[city] + static_cast<float>(s.siegePercentPerBand);
+		st.pressure[city] = p > static_cast<float>(kSiegePressureMost) ? static_cast<float>(kSiegePressureMost) : p;
+	}
+}
+
+// The whole points a city's daily siege chance is up by now.
+inline UInt32 SiegePressure(const BandState& st, UInt32 city) {
+	return city < kBandCitiesMost && st.pressure[city] > 0.0f ? static_cast<UInt32>(st.pressure[city]) : 0;
+}
 
 enum class BandEventKind : UInt8 {
 	Formed,   // a band left its gate
@@ -188,6 +213,11 @@ inline UInt32 StepBands(BandState& st, const BandSettings& s, const BandGate* ga
 	if (s.origin != InvaderOrigin::Gates || cityCount == 0) {
 		return 0;
 	}
+	// 0. The pressure fades.
+	const float fade = s.siegeFadePercentPerDay * (hours > 0.0f ? hours : 0.0f) / 24.0f;
+	for (float& p : st.pressure) {
+		p = p > fade ? p - fade : 0.0f;
+	}
 	// 1. A closed gate ends its far bands.
 	for (UInt32 i = 0; i < st.count;) {
 		const UInt16 g = st.bands[i].gate;
@@ -208,6 +238,7 @@ inline UInt32 StepBands(BandState& st, const BandSettings& s, const BandGate* ga
 			b.x = c.x;
 			b.y = c.y;
 			out.Add(BandEventKind::Arrived, b);
+			AddSiegePressure(st, s, c.city);
 			Remove(st, i);
 			continue;
 		}
@@ -258,6 +289,138 @@ inline UInt32 StepBands(BandState& st, const BandSettings& s, const BandGate* ga
 		}
 	}
 	return out.n;
+}
+
+// A band member placed in the world (Bands.cpp): its reference, the band it
+// came with (a session's count) and whether it leads it (idea 1).
+struct BandMember {
+	UInt32 ref;
+	UInt8 band;
+	bool leader;
+};
+inline constexpr UInt32 kBandMembersMost = 128;
+
+// The co-save record 'BAND' (Nadi, 2026-11-16: "go 1" - the bands outlive a
+// save and a load): the far bands, the gates' clocks, the pressure and the
+// members by their saved reference IDs.
+inline constexpr UInt32 kBandRecordType = 0x42414E44;  // 'BAND'
+inline constexpr UInt32 kBandImageVersion = 1;
+inline constexpr UInt32 kBandImageMost = 4 + kBandsMost * 12 + 4 + kBandGatesMost * 5 + kBandCitiesMost * 4 + 4 +
+                                         kBandMembersMost * 6;
+
+namespace band_detail {
+inline void PutF(UInt8* out, float v) {
+	UInt32 u;
+	std::memcpy(&u, &v, 4);
+	Put32(out, u);
+}
+inline float GetF(const UInt8* in) {
+	const UInt32 u = Get32(in);
+	float v;
+	std::memcpy(&v, &u, 4);
+	return v;
+}
+}  // namespace band_detail
+
+inline UInt32 BandImage(const BandState& st, const BandMember* members, UInt32 memberCount, UInt8* out,
+                        UInt32 capacity) {
+	using namespace band_detail;
+	const UInt32 members_ = memberCount < kBandMembersMost ? memberCount : kBandMembersMost;
+	const UInt32 length = 4 + st.count * 12 + 4 + kBandGatesMost * 5 + kBandCitiesMost * 4 + 4 + members_ * 6;
+	if (capacity < length) {
+		return 0;
+	}
+	UInt32 at = 0;
+	Put32(out + at, st.count);
+	at += 4;
+	for (UInt32 i = 0; i < st.count; ++i) {
+		const FarBand& b = st.bands[i];
+		out[at] = static_cast<UInt8>(b.gate & 0xFF);
+		out[at + 1] = static_cast<UInt8>(b.gate >> 8);
+		out[at + 2] = b.city;
+		out[at + 3] = b.size;
+		PutF(out + at + 4, b.x);
+		PutF(out + at + 8, b.y);
+		at += 12;
+	}
+	Put32(out + at, kBandGatesMost);
+	at += 4;
+	for (UInt32 g = 0; g < kBandGatesMost; ++g) {
+		PutF(out + at, st.hoursToNext[g]);
+		out[at + 4] = st.wasOpen[g] ? 1 : 0;
+		at += 5;
+	}
+	for (UInt32 c = 0; c < kBandCitiesMost; ++c) {
+		PutF(out + at, st.pressure[c]);
+		at += 4;
+	}
+	Put32(out + at, members_);
+	at += 4;
+	for (UInt32 m = 0; m < members_; ++m) {
+		Put32(out + at, members[m].ref);
+		out[at + 4] = members[m].band;
+		out[at + 5] = members[m].leader ? 1 : 0;
+		at += 6;
+	}
+	return at;
+}
+
+// False (and `st` fresh, no members) when the record is of another version
+// or cut short. A member whose saved ID resolves to nothing is dropped.
+template <typename ResolveFn>
+inline bool ReadBandImage(BandState& st, BandMember* members, UInt32& memberCount, const UInt8* in, UInt32 length,
+                          UInt32 version, ResolveFn resolve) {
+	using namespace band_detail;
+	st = BandState{};
+	memberCount = 0;
+	if (version != kBandImageVersion || length < 4) {
+		return false;
+	}
+	UInt32 at = 0;
+	const UInt32 count = Get32(in);
+	at += 4;
+	if (count > kBandsMost || length < at + count * 12 + 4) {
+		return false;
+	}
+	BandState read;
+	read.count = count;
+	for (UInt32 i = 0; i < count; ++i) {
+		FarBand& b = read.bands[i];
+		b.gate = static_cast<UInt16>(in[at] | (in[at + 1] << 8));
+		b.city = in[at + 2];
+		b.size = in[at + 3];
+		b.x = GetF(in + at + 4);
+		b.y = GetF(in + at + 8);
+		at += 12;
+	}
+	const UInt32 gates = Get32(in + at);
+	at += 4;
+	if (gates != kBandGatesMost || length < at + gates * 5 + kBandCitiesMost * 4 + 4) {
+		return false;
+	}
+	for (UInt32 g = 0; g < gates; ++g) {
+		read.hoursToNext[g] = GetF(in + at);
+		read.wasOpen[g] = in[at + 4] != 0;
+		at += 5;
+	}
+	for (UInt32 c = 0; c < kBandCitiesMost; ++c) {
+		read.pressure[c] = GetF(in + at);
+		at += 4;
+	}
+	const UInt32 saved = Get32(in + at);
+	at += 4;
+	if (saved > kBandMembersMost || length < at + saved * 6) {
+		return false;
+	}
+	st = read;
+	for (UInt32 m = 0; m < saved; ++m) {
+		UInt32 loaded = 0;
+		if (resolve(Get32(in + at), loaded)) {
+			members[memberCount++] = BandMember{loaded, in[at + 4], in[at + 5] != 0};
+		}
+		at += 6;
+	}
+	return true;
 }
 
 }  // namespace walkers

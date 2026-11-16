@@ -760,7 +760,7 @@ void StepHordeInGame(float dt, CandidatesFn collect, ConsoleFn console, DeadFn d
 		w.id = FormIdOf(ref);
 		w.x = FloatAt(ref + kRefPositionOffset);
 		w.y = FloatAt(ref + kRefPositionOffset + 4);
-		w.rank = RankOf(w.id);
+		w.rank = candidates[i].leads ? 0xFFFFFFFFu : RankOf(w.id);
 		w.tamriel = InTamriel(ref);
 		w.world = WorldOf(ref);
 		const UInt32 process = ProcessOf(ref);
