@@ -486,6 +486,11 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 
 	g_gateClock += elapsed;
 	const bool gateQuest = InPlay(invaders.kind, Group::Daedra) || g_gateQuest.gate >= 0;
+	static bool s_rumorCleared = false;
+	if (!gateQuest && !s_rumorCleared) {
+		SetEspGlobal(kGateRumorGlobalLocalId, 0.0f);  // Mode 0, or the Daedra stopped: the rumor no more
+	}
+	s_rumorCleared = !gateQuest;
 	if ((bands.origin == InvaderOrigin::Gates || gateQuest) && g_gateClock >= kGateLookSeconds) {
 		g_gateClock = 0.0f;
 		static bool open[kBandGatesMost];
