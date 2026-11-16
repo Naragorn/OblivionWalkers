@@ -5236,6 +5236,13 @@ their city and raise its siege chance, step 3):
   OblivionStormTamriel (000836D5) with the override flag; 20 s after the
   last one went, or at once inside, ReleaseWeatherOverride and the weather
   before set again.
+  **For later, not built** (Nadi, 2026-11-16: "Idee 9, roter Himmel, nicht
+  bei daedra bande sondern bei belagerung durch daedra der stadt"): the red
+  sky over a city the Daedra besiege, not with a band on the march. Small:
+  the switch and the force/let-go of `MarchWeather.cpp` stay; the trigger
+  becomes a Daedra siege shown at a gate within the distance (Siege.cpp's
+  shown gate, `CitySiege.daedra`) instead of the nearest band member; the
+  band trigger dropped. Proof: `daedra-siege.txt` with MarchWeather=1.
 - LINK 47, 231 variables (the six new keys). Found on the way: the Dremora
   race check read 0003E9A6 - DremoraFaction's ID; the race is 00038010
   (fixed, RiseLogicTest).
