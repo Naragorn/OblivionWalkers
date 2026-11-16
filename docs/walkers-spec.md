@@ -5281,3 +5281,83 @@ take it. (B) `FillDungeons` rolls among the free candidates within
 `[Dungeons] NewPlacesWithin` (60000) of that place, anywhere only when
 none is that near; 0 anywhere. LINK `ini_dungeons_new_within` (version
 45, 220 variables). DungeonQuestLogicTest, DungeonSiteLogicTest.
+
+### 4.23 Patient zero and the necromancers' hotspots (Nadi, 2026-11-16: "neue idee in die spec: patient zero ... und weitere szenario: ... necromancer hotspot"; ideas, not decided, not built)
+
+Two new ways for the outbreak to begin and spread - each a scenario beside
+the present one (the walkers everywhere from the start).
+
+**A. Patient zero.** Somewhere in the world one walker appears: far from
+the cities (default on) or in one of them (default off). For his first 10
+victims he cannot be killed; he attacks everyone, and whoever he hits turns
+into a walker. Once 10 have turned he can be killed. From there it either
+spreads over the whole game or is stamped out; stamped out, it begins
+again elsewhere.
+
+Read and derived for it:
+- The plugin has a walker of its own base to place (the ESP's lists, the
+  placer of 4.22a) and its rise (RiseLogic.h) - "turned" is the rise.
+- "Whoever he hits turns" is not the rise as it is (the rise takes the
+  dead). A hit becomes an infection: hit by patient zero or one of his
+  chain, a person falls after a while and rises (Kill, then the rise). Not
+  read yet: where the engine tells the plugin of a hit (Grab.cpp's hit
+  hook is OBVR's, from VR; the game's own melee hit needs a hook or an
+  OnHit event of xOBSE - to be read).
+- Unkillable for 10: the game's essential flag on his base (knocked out,
+  not killed) taken off at the 10th - one ESP record, or the health set
+  back each second (no ID, but he can be seen at 1 health).
+- "Spreads over the whole game": the present walkers' systems (the spawn
+  replacement, the hordes, the sieges) held back until the outbreak is
+  "out" - a gate on most of the mod. "Stamped out": the chain's walkers all
+  ended (they are tracked - RisenSet), then N days and a new patient zero.
+- The player hit: he cannot turn - a disease instead (Porphyric
+  Hemophilia's way: a timer, then the game over or a cure)? Open.
+
+Open, to decide: (1) what "hit" means - any hit, or a hit that hurts
+(a blocked blow?); (2) does "spread over the whole game" switch on the
+present walkers everywhere, or does only the chain grow (slower, the
+world stays clean until it reaches you)? (3) the player hit; (4) how
+patient zero is found - a rumor, the news, a quest like 6's?
+
+**B. Necromancers' hotspots.** Instead of the refugee places, many
+dungeons - towers first - become a necromancer's hotspot: a necromancer
+boss (always with 0-1 apprentices or servants) and the rest of the dungeon
+full of walkers. The walkers spread from there into the world.
+
+Read and derived for it:
+- The held dungeons (4.20.7) are the frame: a site, its state, its walkers
+  placed where the player is, its quest; the outpost of 4.22a step 5c is
+  the same shape (a boss, its men, a chest). A hotspot is an outpost of a
+  necromancer: Oblivion.esm's LL1NecromancerBoss100 for the boss and
+  LL1Necromancer100 for the 0-1 apprentices (both in the file, read
+  2026-11-16; no ESP ID).
+- Towers: the candidates (DungeonCandidates.h) know caves, Ayleid ruins,
+  forts and mines - no towers. Oblivion's towers are few and mostly
+  quests' (Frostcrag Spire, the Mages Guild's) - to be read which are free;
+  forts and Ayleid ruins first instead?
+- "Masses of walkers": the walkers stand where the player is, placed
+  WalkersAtOnce at a time (the pool's 12, or the placer); a hotspot's count
+  is a number, not actors in the world - "massig" costs nothing until the
+  player goes in, then WalkersAtOnce at a time (Nadi's performance rule).
+- "Spread from there": the hordes (Horde.h) start from the hotspots - their
+  first marker at its door - instead of anywhere; a hotspot cleared (the
+  boss dead) sends no more.
+- Found now (4.22a's note): on the Linux list 80 of the 91 candidates are
+  out "by a loaded quest" - B needs many free places; that cut-off has to
+  be understood first.
+
+Open, to decide: (1) beside the refugee places or instead of them; (2)
+towers only, or forts and ruins too; (3) how many hotspots at once and how
+fast they spread; (4) a cleared hotspot - a refuge, or empty.
+
+**Cost (first guess, from what exists):**
+
+| part | cost | why |
+|---|---|---|
+| B: hotspots on the held dungeons and the outpost | medium | site, placer, boss, chest, quest exist; new: a state, the boss's lists, the hordes starting there, the news; unit flows + 2 harness runs |
+| A: patient zero placed, unkillable, the chain | medium-large | the hit hook is the unknown (to be read in xOBSE/the EXE); the infection timer, the count, the restart new |
+| A: "spread over the whole game" as a gate on the mod | large | touches the replacement, hordes, sieges, camps, dungeons; every one needs its "not yet" |
+
+Recommended order: B first (it stands on what is built and proven today),
+A after its hit hook is read - the cheapest step to settle A's cost is to
+read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
