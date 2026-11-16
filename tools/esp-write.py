@@ -1021,13 +1021,14 @@ def link_variables() -> list[str]:
     """The LINK settings' variable names, read off src/LinkLogic.h's
     kLinkSettings in its order, then ini_version, then the siege's door
     read-back (siege_lock, siege_lock_level: GetLocked and GetLockLevel asked
-    into them, 4.12) - one list for the plugin and the ESP."""
+    into them, 4.12), then placed_ref (a ref: the banished Daedra's pile, the
+    LootBag a PlaceAtMe made, 4.22a step 5b) - one list for the plugin and the ESP."""
     text = (Path(__file__).resolve().parent.parent / "src" / "LinkLogic.h").read_text()
     table = text[text.index("kLinkSettings[] = {"):text.index("kLinkSettingCount")]
     names = re.findall(r'\{"(ini_[a-z_]+)"', table)
     if len(names) != len(set(names)) or not names:
         raise SystemExit("LinkLogic.h's settings are not readable")
-    return names + ["ini_version", "siege_lock", "siege_lock_level"]
+    return names + ["ini_version", "siege_lock", "siege_lock_level", "placed_ref"]
 
 
 def build_link_script(names: list[str]) -> bytes:
@@ -1036,14 +1037,16 @@ def build_link_script(names: list[str]) -> bytes:
     quest), SCDA the bare script name opcode 1D 00 00 00, SCTX the source,
     and per variable SLSD (index, 12 unused, flags 0 = float, 7 unused) and
     SCVR (its name) - as Ultimate Leveling.esp's variables-only scripts and
-    ULVLScript have them (read 2026-10-27)."""
-    source = "scn " + LINK_SCRIPT_EDID + "\r\n\r\n" + "".join(f"float {n}\r\n" for n in names)
+    ULVLScript have them (read 2026-10-27). A name ending in _ref is a ref
+    (SLSD flags 1, as the game's integers and refs)."""
+    source = "scn " + LINK_SCRIPT_EDID + "\r\n\r\n" + "".join(
+        f"{'ref' if n.endswith('_ref') else 'float'} {n}\r\n" for n in names)
     out = subrecord(b"EDID", zstring(LINK_SCRIPT_EDID))
     out += subrecord(b"SCHR", struct.pack("<IIIII", 0, 0, 4, len(names), 1))
     out += subrecord(b"SCDA", bytes([0x1D, 0, 0, 0]))
     out += subrecord(b"SCTX", source.encode("latin-1"))
     for i, name in enumerate(names, start=1):
-        out += subrecord(b"SLSD", struct.pack("<I12sB7s", i, bytes(12), 0, bytes(7)))
+        out += subrecord(b"SLSD", struct.pack("<I12sB7s", i, bytes(12), 1 if name.endswith("_ref") else 0, bytes(7)))
         out += subrecord(b"SCVR", zstring(name))
     return out
 
@@ -1295,6 +1298,11 @@ def main() -> int:
                                 (HERE.parent / "src" / "BandLogic.h").read_text()).group(1), 16)
     markers += record(b"REFR", index | band_marker,
                       build_marker(marker_template, "WalkersBandMarker", len(marker_forms)), flags=RECORD_PERSISTENT)
+    # the place marker (4.22a step 5, PlaceLogic.h kPlaceMarkerLocalId): the sieges', camps' and outposts' Daedra
+    place_marker = int(re.search(r"kPlaceMarkerLocalId = (0x[0-9A-Fa-f]+);",
+                                 (HERE.parent / "src" / "PlaceLogic.h").read_text()).group(1), 16)
+    markers += record(b"REFR", index | place_marker,
+                      build_marker(marker_template, "WalkersPlaceMarker", len(marker_forms) + 1), flags=RECORD_PERSISTENT)
     guard_forms = [index | local for local in LOCAL_GUARD_IDS]
     guard_templates = [find_record(esm, buf, b"NPC_", t) for t in GUARD_TEMPLATES]
     guards = b"".join(record(b"NPC_", form, build_guard(tpl, f"WalkersGuard{city}"))
@@ -1723,6 +1731,7 @@ def main() -> int:
                + camp_records + 2 + len(shock_forms)
                + 2  # the invaders' two Daedra lists (4.22 step 1)
                + 1  # the war bands' marker (step 3)
+               + 1  # the place marker (step 5)
                + 3 + 1 + 2 + 3 + 3  # the camps' globals, rumor, two DIALs, three lines, three packages
                + 1  # the disguise's ability
                + 1  # the escort's quest

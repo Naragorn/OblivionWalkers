@@ -272,6 +272,12 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegePercent", 5, path)))));
 	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegeFadePerDay", 5, path)))));
 	rise.bands.testBandSeconds = static_cast<float>(IniInt("Invaders", "TestBandSeconds", 0, path));
+	// 4.22a step 5b: the plugin's dead Daedra back to Oblivion.
+	rise.banish.seconds = static_cast<float>(std::max(0, std::min(600, static_cast<int>(IniInt("Invaders", "BanishSeconds", 10, path)))));
+	char shader[16] = {};
+	IniString("Invaders", "BanishShader", "0018B576", shader, sizeof(shader), path);
+	rise.banish.shader = static_cast<UInt32>(std::strtoul(shader, nullptr, 16));
+	rise.banish.shader = rise.banish.shader != 0 ? rise.banish.shader : walkers::kBanishShaderDefault;
 	rise.bands.bandsMost = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kBandsMost), static_cast<int>(IniInt("Invaders", "BandsMost", 32, path)))));
 	rise.headshots.arrows = IniInt("Headshots", "Arrows", 1, path) != 0;
 	rise.headshots.bolts = IniInt("Headshots", "Bolts", 1, path) != 0;
@@ -422,6 +428,11 @@ bool ReadSettings(walkers::Settings* settings) {
 	char door[16] = {};
 	IniString("Siege", "TestReadDoor", "0", door, sizeof(door), path);
 	siege.testReadDoor = static_cast<UInt32>(std::strtoul(door, nullptr, 16));
+	// 4.22a step 5a: a Daedra siege's counts.
+	siege.daedraAtGate = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kSiegeDaedraAtGateMost), static_cast<int>(IniInt("Siege", "DaedraAtGate", 8, path)))));
+	siege.daedraMin = static_cast<UInt32>(std::max(1, std::min(300, static_cast<int>(IniInt("Siege", "DaedraMin", 10, path)))));
+	siege.daedraMax = static_cast<UInt32>(std::max(1, std::min(300, static_cast<int>(IniInt("Siege", "DaedraMax", 30, path)))));
+	siege.testDaedra = IniInt("Siege", "TestDaedra", 0, path) != 0;
 	rise.safeguard.enabled = IniInt("Safeguard", "Enabled", 1, path) != 0;
 	rise.safeguard.raiseAtHome = IniInt("Safeguard", "RaiseAtHome", 1, path) != 0;
 	walkers::NightSettings& night = rise.night;

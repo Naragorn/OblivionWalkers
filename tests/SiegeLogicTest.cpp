@@ -221,6 +221,83 @@ void TestImage() {
 	Check(!walkers::ReadSiegeImage(back, image, 10) && !back.cities[0].active, "too short: nothing, emptied");
 }
 
+void TestDaedraSiege() {
+	std::printf("A Daedra siege (4.22a step 5a)\n");
+	SiegeSettings s;
+	walkers::InvaderSettings inv;
+	SiegeEvent ev[16];
+	const UInt32 none[1] = {0};
+	// Anvil rolls 5 (besieged), its gate 0, its side 10, its count 3.
+	const UInt32 anvil[4] = {5, 0, 10, 3};
+	inv.kind = walkers::InvaderKind::Both;
+	inv.daedraPercent = 50;
+	SiegeState st;
+	Rolls first{none, 0};
+	walkers::StepSiegeDays(st, s, 10.0f, first, ev, 16, nullptr, &inv);
+	Rolls r{anvil, 4};
+	UInt32 n = walkers::StepSiegeDays(st, s, 11.0f, r, ev, 16, nullptr, &inv);
+	Check(n == 1 && st.cities[0].daedra && st.cities[0].walkersLeft == 13,
+	      "Mode 2, a side roll of 10 under DaedraPercent 50: Daedra, DaedraMin 10 + 3");
+	const UInt32 walkerSide[4] = {5, 0, 60, 0};
+	SiegeState st2;
+	Rolls f2{none, 0};
+	walkers::StepSiegeDays(st2, s, 10.0f, f2, ev, 16, nullptr, &inv);
+	Rolls r2{walkerSide, 4};
+	walkers::StepSiegeDays(st2, s, 11.0f, r2, ev, 16, nullptr, &inv);
+	Check(st2.cities[0].active && !st2.cities[0].daedra && st2.cities[0].walkersLeft == 40,
+	      "a side roll of 60: walkers, WalkersMin 40");
+	inv.kind = walkers::InvaderKind::Daedra;
+	const UInt32 always[4] = {5, 0, 99, 0};
+	SiegeState st3;
+	Rolls f3{none, 0};
+	walkers::StepSiegeDays(st3, s, 10.0f, f3, ev, 16, nullptr, &inv);
+	Rolls r3{always, 4};
+	walkers::StepSiegeDays(st3, s, 11.0f, r3, ev, 16, nullptr, &inv);
+	Check(st3.cities[0].daedra, "Mode 1: Daedra whatever the roll");
+	inv.kind = walkers::InvaderKind::Walkers;
+	const UInt32 never[4] = {5, 0, 0, 0};
+	SiegeState st4;
+	Rolls f4{none, 0};
+	walkers::StepSiegeDays(st4, s, 10.0f, f4, ev, 16, nullptr, &inv);
+	Rolls r4{never, 4};
+	walkers::StepSiegeDays(st4, s, 11.0f, r4, ev, 16, nullptr, &inv);
+	Check(st4.cities[0].active && !st4.cities[0].daedra, "Mode 0: walkers whatever the roll");
+	SiegeState st5;
+	walkers::BeginSiegeAt(st5, s, 1, 7.0f, 0);
+	Check(!st5.cities[0].daedra, "a horde held at a gate: a walkers' siege");
+
+	std::printf("The Daedra at the gate\n");
+	CitySiege c;
+	c.active = true;
+	c.daedra = true;
+	c.walkersLeft = 20;
+	Check(walkers::AtGateNow(c, s) == 8, "DaedraAtGate 8 of 20");
+	s.daedraAtGate = 0;
+	Check(walkers::DaedraAtGateNow(c, s) == 1, "0 held to 1");
+	s.daedraAtGate = 99;
+	Check(walkers::DaedraAtGateNow(c, s) == 20, "99 held to 24, never more than are left (20)");
+	c.walkersLeft = 30;
+	Check(walkers::DaedraAtGateNow(c, s) == 24, "30 left: 24");
+	c.daedra = false;
+	Check(walkers::AtGateNow(c, s) == walkers::WalkersAtGateNow(c, s), "a walkers' siege: WalkersAtGate's rule");
+	c.active = false;
+	Check(walkers::DaedraAtGateNow(c, s) == 0, "no siege: none");
+
+	std::printf("A Daedra siege in the co-save\n");
+	SiegeState saved;
+	saved.cities[2].active = true;
+	saved.cities[2].daedra = true;
+	saved.cities[2].walkersLeft = 12;
+	UInt8 image[walkers::kSiegeImageBytes];
+	walkers::SiegeImage(saved, image, sizeof(image));
+	SiegeState back;
+	Check(walkers::ReadSiegeImage(back, image, sizeof(image)) && back.cities[2].daedra && !back.cities[1].daedra,
+	      "the side read back");
+	image[4 + 2 * walkers::kSiegeCityBytes + 3] = 0;
+	walkers::ReadSiegeImage(back, image, sizeof(image));
+	Check(!back.cities[2].daedra, "an older save's pad byte 0: walkers");
+}
+
 }  // namespace
 
 int main() {
@@ -233,6 +310,7 @@ int main() {
 	TestLocks();
 	TestSpot();
 	TestImage();
+	TestDaedraSiege();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

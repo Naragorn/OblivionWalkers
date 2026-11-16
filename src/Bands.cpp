@@ -9,6 +9,8 @@
 #include "Engine.h"
 #include "GateLogic.h"
 #include "OblivionGates.h"
+#include "Banish.h"
+#include "Placer.h"
 #include "RiseLogic.h"
 
 namespace walkers {
@@ -19,10 +21,6 @@ using namespace engine;
 constexpr UInt32 kFormFlagsOffset = 0x08;  // TESForm::flags (GateLogic.h)
 constexpr UInt32 kRefPositionOffset = 0x2C;
 constexpr UInt32 kRefParentCellOffset = 0x40;  // TESObjectREFR::parentCell (Horde.cpp)
-constexpr UInt32 kVtblCharacter = 0x00A6FC9C;  // Rise.cpp
-constexpr UInt32 kVtblCreature = 0x00A710F4;
-constexpr UInt32 kActorProcessManager = 0x00B3BD00;
-constexpr UInt32 kActorListByLevel = 0x00673A50;
 constexpr UInt32 kGameHourId = 0x00000038;  // News.cpp
 constexpr UInt32 kGameDaysPassedId = 0x00000039;
 constexpr UInt32 kRefBaseOffset = 0x1C;
@@ -87,8 +85,6 @@ double GameDays() {
 	return std::floor(static_cast<double>(days)) + static_cast<double>(hour) / 24.0;
 }
 
-UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most);
-
 UInt32 PlayerLevel() {
 	const UInt32 player = LookupForm(0x14);
 	const UInt32 base = LooksLikeObject(player) ? Read(player + kRefBaseOffset) : 0;
@@ -114,6 +110,9 @@ UInt32 TakeNewMembers(UInt32 marker, bool leader, UInt32& last) {
 		}
 		if (!old && !IsBandMember(now[i])) {
 			g_members[g_memberCount++] = BandMember{now[i], g_placing.band, leader};
+			if (g_placing.daedra) {
+				WatchDaedra(now[i]);  // 4.22a step 5b: banished once dead
+			}
 			last = now[i];
 			++found;
 		}
@@ -142,39 +141,6 @@ bool OpenNow(const OblivionGateRef& g) {
 	const UInt32 parent = g.parent != 0 ? LookupForm(g.parent) : 0;
 	return GateOpen(Read(door + kFormFlagsOffset), LooksLikeObject(parent),
 	                LooksLikeObject(parent) ? Read(parent + kFormFlagsOffset) : 0);
-}
-
-// The FF actors (placed at run time) within `units` of x, y on the high
-// process list.
-UInt32 PlacedActorsNear(float x, float y, float units, UInt32* out, UInt32 most) {
-	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
-	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
-	struct Node {
-		void* data;
-		Node* next;
-	};
-	UInt32 n = 0;
-	auto* node = static_cast<Node*>(reinterpret_cast<ListFn>(kActorListByLevel)(manager, nullptr, 0));
-	for (UInt32 visited = 0; node != nullptr && visited < 1024 && n < most; ++visited) {
-		if (!LooksLikeObject(reinterpret_cast<UInt32>(node))) {
-			break;
-		}
-		const UInt32 actor = reinterpret_cast<UInt32>(node->data);
-		node = node->next;
-		if (!LooksLikeObject(actor) || (Read(actor) != kVtblCreature && Read(actor) != kVtblCharacter)) {
-			continue;
-		}
-		const UInt32 id = Read(actor + kFormIdOffset);
-		if ((id >> 24) != 0xFF) {
-			continue;
-		}
-		const float dx = FloatAt(actor + kRefPositionOffset) - x;
-		const float dy = FloatAt(actor + kRefPositionOffset + 4) - y;
-		if (dx * dx + dy * dy <= units * units) {
-			out[n++] = id;
-		}
-	}
-	return n;
 }
 
 // The list a band of `group` is placed from.

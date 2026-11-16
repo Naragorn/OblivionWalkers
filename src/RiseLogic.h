@@ -10,6 +10,7 @@
 
 #include "AggressionLogic.h"
 #include "BandLogic.h"
+#include "BanishLogic.h"
 #include "Bytes.h"
 #include "CampLogic.h"
 #include "CorpseLogic.h"
@@ -192,6 +193,9 @@ struct RiseSettings {
 	// [Invaders] Origin and the bands out of the gates (4.22 step 3,
 	// BandLogic.h).
 	BandSettings bands;
+	// [Invaders] BanishSeconds, BanishShader (4.22a step 5b, BanishLogic.h):
+	// the plugin's dead Daedra back to Oblivion.
+	BanishSettings banish;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
 	CampSettings camps;
 	// [Zombies] SlowAggression, SlowAggressionLevel, SlowAggressionSecondsMin, SlowAggressionSecondsMax, SlowAggressionUnits

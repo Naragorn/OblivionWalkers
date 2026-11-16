@@ -6,6 +6,7 @@
 // co-save through Rise.cpp. The gate stays open (2026-11-04).
 
 #include "Rise.h"
+#include "KindLogic.h"
 #include "SiegeLogic.h"
 
 namespace walkers {
@@ -16,8 +17,8 @@ using SiegeDeadFn = bool (*)(UInt32 actor);
 
 // Once a session, at the plugin's load: the live settings (LINK writes into
 // them), the console on a reference, a draw, the log.
-void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, SiegeRollFn roll, SiegeDeadFn dead,
-                    LogFn log);
+void ConfigureSiege(const SiegeSettings* settings, const InvaderSettings* invaders, SiegeConsoleFn console,
+                    SiegeRollFn roll, SiegeDeadFn dead, LogFn log);
 
 // The ESP's base (RiseLogic.h EspFormId), once it is known: its quest's
 // variables siege_lock and siege_lock_level read a door back, its pool of

@@ -1,6 +1,8 @@
 #include "Siege.h"
 
 #include "Bands.h"
+#include "Banish.h"
+#include "Placer.h"
 
 #include "Engine.h"
 #include "LinkLogic.h"
@@ -35,6 +37,12 @@ constexpr UInt32 kSiegeLogLines = 24;
 constexpr UInt32 kSiegeGlobalLocalId = 0x9C7;
 
 const SiegeSettings* g_settings = nullptr;
+const InvaderSettings* g_invaders = nullptr;
+// A Daedra siege's Daedra before the shown gate (step 5a): placed by the
+// placer, deleted when the player leaves or the siege ends; a dead one is
+// counted off and left to the banishing (Banish.h).
+UInt32 g_daedra[kSiegeDaedraAtGateMost] = {};
+UInt32 g_daedraCount = 0;
 SiegeConsoleFn g_console = nullptr;
 SiegeDeadFn g_dead = nullptr;
 UInt32 g_espBase = 0;
@@ -149,8 +157,91 @@ void HideSiege() {
 	}
 	if (g_shownGate >= 0) {
 		g_log("Siege: the walkers before %s back in the pool (%u)", kCityGates[g_shownGate].name, hidden);
+		const UInt8 city = static_cast<UInt8>(kCityGates[g_shownGate].city);
+		const UInt32 dropped = DropPlacesFor(PlaceOwner::Siege, city);
+		if (g_daedraCount > 0 || dropped > 0) {
+			g_log("Siege: the %u Daedra before %s taken out (%u requests dropped)", g_daedraCount,
+			      kCityGates[g_shownGate].name, dropped);
+		}
+		for (UInt32 i = 0; i < g_daedraCount; ++i) {
+			RetirePlaced(g_daedra[i]);
+		}
+		g_daedraCount = 0;
 	}
 	g_shownGate = -1;
+}
+
+void CountEnded(UInt32 refId);
+void Carry(const SiegeEvent& ev, float now);
+
+// The placer's new Daedra (step 5a): the shown siege's taken, any other's
+// (the player left before they came) taken out again.
+void OnSiegePlaced(UInt8 city, const UInt32* refs, UInt32 count) {
+	const bool shown = g_shownGate >= 0 && static_cast<UInt8>(kCityGates[g_shownGate].city) == city &&
+	                   g_state.cities[city].active && g_state.cities[city].daedra;
+	for (UInt32 i = 0; i < count; ++i) {
+		if (shown && g_daedraCount < kSiegeDaedraAtGateMost) {
+			g_daedra[g_daedraCount++] = refs[i];
+			WatchDaedra(refs[i]);
+		} else {
+			RetirePlaced(refs[i]);
+		}
+	}
+	g_log("Siege: %u Daedra came %s (%u before the gate)", count, shown ? "to the siege" : "too late - taken out",
+	      g_daedraCount);
+}
+
+// A Daedra siege before the gate: the dead counted off (each one as a
+// walker ended there), the gone forgotten, as many asked of the placer as
+// DaedraAtGateNow wants.
+void ShowDaedra(const CitySiege& c, UInt32 city) {
+	UInt32 kept = 0;
+	UInt32 fallen = 0;
+	for (UInt32 i = 0; i < g_daedraCount; ++i) {
+		const UInt32 ref = LookupForm(g_daedra[i]);
+		if (!LooksLikeObject(ref)) {
+			continue;
+		}
+		if (g_dead != nullptr && g_dead(ref)) {
+			++fallen;
+			continue;
+		}
+		g_daedra[kept++] = g_daedra[i];
+	}
+	g_daedraCount = kept;
+	for (UInt32 i = 0; i < fallen; ++i) {
+		CitySiege& live = g_state.cities[city];
+		SiegeEvent end[1];
+		const float now = GameDaysNow();
+		const bool over = SiegeWalkerEnded(live, city, *g_settings, now, end, 1) > 0;
+		g_log("Siege: a Daedra fell before %s - %u left%s", kCityGates[live.gate].name, live.walkersLeft,
+		      over ? ", the siege is over" : "");
+		if (over) {
+			Carry(end[0], now);
+			return;
+		}
+	}
+	const UInt32 wanted = DaedraAtGateNow(c, *g_settings);
+	const UInt32 pending = PlacesPendingFor(PlaceOwner::Siege, static_cast<UInt8>(city));
+	if (g_daedraCount + pending >= wanted || g_invaders == nullptr) {
+		return;
+	}
+	const CityGate& gate = kCityGates[c.gate];
+	float x = 0.0f;
+	float y = 0.0f;
+	SiegeSpot(gate, kSiegeRowLength / 2, x, y);
+	PlaceRequest r;
+	r.owner = PlaceOwner::Siege;
+	r.tag = static_cast<UInt8>(city);
+	r.list = EspFormId(g_espBase, InvaderDaedraLocalId(*g_invaders));
+	r.count = wanted - g_daedraCount - pending;
+	r.anchor = gate.door;
+	r.dx = x - gate.x;
+	r.dy = y - gate.y;
+	r.dz = gate.outZ - gate.z + 64.0f;
+	const bool asked = RequestPlace(r);
+	g_log("Siege: %u Daedra asked for before %s (%u there, %u on the way, %u left)%s", r.count, gate.name,
+	      g_daedraCount, pending, c.walkersLeft, asked ? "" : " - the placer's queue is full");
 }
 
 // Before the besieged gate: as many out as WalkersAtGateNow wants, a slot
@@ -161,8 +252,12 @@ void ShowSiege(const CitySiege& c) {
 		HideSiege();
 		g_shownGate = static_cast<int>(c.gate);
 		g_shownLines = 0;
-		g_log("Siege: the player at %s - its walkers come out (%u left, %u at once)", kCityGates[c.gate].name,
-		      c.walkersLeft, WalkersAtGateNow(c, *g_settings));
+		g_log("Siege: the player at %s - its %s come out (%u left, %u at once)", kCityGates[c.gate].name,
+		      c.daedra ? "Daedra" : "walkers", c.walkersLeft, AtGateNow(c, *g_settings));
+	}
+	if (c.daedra) {
+		ShowDaedra(c, static_cast<UInt32>(kCityGates[c.gate].city));
+		return;
 	}
 	UInt32 out = 0;
 	for (UInt32 i = 0; i < kSiegePool; ++i) {
@@ -209,7 +304,8 @@ void Carry(const SiegeEvent& ev, float now) {
 	CitySiege& c = g_state.cities[ev.city];
 	const CityGate& gate = kCityGates[ev.gate];
 	if (ev.kind == SiegeEvent::Begin) {
-		g_log("Siege: %s besieged - %u walkers (game day %.2f), its gate open", gate.name, c.walkersLeft, now);
+		g_log("Siege: %s besieged - %u %s (game day %.2f), its gate open", gate.name, c.walkersLeft,
+		      c.daedra ? "Daedra" : "walkers", now);
 		NoteSiegeInNews(ev.city, true);
 		SetRumor(ev.city, true);
 	} else {
@@ -226,18 +322,22 @@ void Carry(const SiegeEvent& ev, float now) {
 
 }  // namespace
 
-void ConfigureSiege(const SiegeSettings* settings, SiegeConsoleFn console, SiegeRollFn roll, SiegeDeadFn dead,
-                    LogFn log) {
+void ConfigureSiege(const SiegeSettings* settings, const InvaderSettings* invaders, SiegeConsoleFn console,
+                    SiegeRollFn roll, SiegeDeadFn dead, LogFn log) {
 	g_settings = settings;
+	g_invaders = invaders;
+	SetPlacedHandler(PlaceOwner::Siege, &OnSiegePlaced);
 	g_console = console;
 	g_dead = dead;
 	g_roll = roll;
 	g_log = log;
 	g_log("Siege: [Siege] Enabled=%d WalkersAtGate=%u ChancePerDayPercent=%u WalkersMin=%u WalkersMax=%u "
-	      "PauseDays=%.1f GuardKillsPerHour=%.1f TestGate=%d TestEndSeconds=%.0f",
+	      "PauseDays=%.1f GuardKillsPerHour=%.1f TestGate=%d TestEndSeconds=%.0f DaedraAtGate=%u DaedraMin=%u "
+	      "DaedraMax=%u TestDaedra=%d",
 	      settings->enabled ? 1 : 0, settings->walkersAtGate, settings->chancePerDayPercent, settings->walkersMin,
 	      settings->walkersMax, settings->pauseDays, settings->guardKillsPerHour, settings->testGate,
-	      settings->testEndSeconds);
+	      settings->testEndSeconds, settings->daedraAtGate, settings->daedraMin, settings->daedraMax,
+	      settings->testDaedra ? 1 : 0);
 }
 
 void NoteHordeAtGate(UInt32 gate) {
@@ -344,6 +444,11 @@ void StepSiegeInGame(float dt) {
 		g_testDone = true;
 		const UInt32 row = static_cast<UInt32>(g_settings->testGate);
 		if (BeginSiegeAt(g_state, *g_settings, row, now, g_roll())) {
+			CitySiege& test = g_state.cities[static_cast<UInt32>(kCityGates[row].city)];
+			if (g_settings->testDaedra) {
+				test.daedra = true;
+				test.walkersLeft = g_settings->daedraMin;
+			}
 			events[n++] = SiegeEvent{SiegeEvent::Begin, static_cast<UInt32>(kCityGates[row].city), row};
 			g_testLeft = g_settings->testEndSeconds > 0.0f ? g_settings->testEndSeconds : -1.0f;
 			g_log("Siege: test - TestGate=%d begins a siege, TestEndSeconds=%.0f", g_settings->testGate,
@@ -371,7 +476,7 @@ void StepSiegeInGame(float dt) {
 	for (UInt32 city = 0; city < kSiegeCities; ++city) {
 		pressure[city] = SiegePressureOf(city);
 	}
-	n += StepSiegeDays(g_state, *g_settings, now, g_roll, events + n, kSiegeCities + 1 - n, pressure);
+	n += StepSiegeDays(g_state, *g_settings, now, g_roll, events + n, kSiegeCities + 1 - n, pressure, g_invaders);
 	for (UInt32 i = 0; i < n; ++i) {
 		Carry(events[i], now);
 	}
@@ -443,6 +548,7 @@ void ResetSiegeInGame() {
 		g_corpse[i] = false;
 	}
 	g_shownGate = -1;
+	g_daedraCount = 0;
 	g_endedCount = 0;
 	g_wasEnabled = true;
 	g_testDone = false;

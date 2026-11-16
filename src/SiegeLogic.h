@@ -20,6 +20,7 @@
 
 #include "Bytes.h"
 #include "CityGates.h"
+#include "KindLogic.h"
 #include "Types.h"
 
 namespace walkers {
@@ -37,6 +38,12 @@ struct SiegeSettings {
 	UInt32 walkersMax = 120;
 	float pauseDays = 3.0f;
 	float guardKillsPerHour = 2.0f;  // while the player is away
+	// A Daedra siege (4.22a step 5a; [Invaders] Mode 1-3 roll each siege's
+	// side as the spawns do): fewer, each worth more - placed by PlaceAtMe
+	// when the player comes, deleted when he leaves or it ends.
+	UInt32 daedraAtGate = 8;  // before the gate at once, held to 1..24
+	UInt32 daedraMin = 10;
+	UInt32 daedraMax = 30;
 	// Test switches (harness/siege-lock.txt): a siege begun at this
 	// kCityGates row at the first look (-1: never), and ended this many
 	// seconds later (0: not by the switch).
@@ -45,12 +52,16 @@ struct SiegeSettings {
 	// Test switch (harness/siege-door-read.txt): this door's GetLocked and
 	// GetLockLevel logged every 5 s, with the player's cell (0: never).
 	UInt32 testReadDoor = 0;
+	// Test switch (harness/siege-daedra.txt): TestGate's siege a Daedra one
+	// of DaedraMin, whatever [Invaders] Mode.
+	bool testDaedra = false;
 };
 
 struct CitySiege {
 	bool active = false;
 	UInt8 gate = 0;          // kCityGates row
 	UInt8 lockedByUs = 0;    // bit 0 the Tamriel-side door, bit 1 the city-side one
+	bool daedra = false;     // Daedra besiege it (step 5a), not walkers
 	UInt32 walkersLeft = 0;
 	float tollFrom = -1.0f;  // the game day the guards' toll is counted from
 	float pauseUntil = -1.0f;
@@ -91,8 +102,16 @@ inline UInt32 Walkers(const SiegeSettings& s, UInt32 roll) {
 	return walkers > 0 ? walkers : 1;
 }
 
-inline void Begin(CitySiege& c, UInt32 gate, UInt32 walkers, float now) {
+inline UInt32 Daedra(const SiegeSettings& s, UInt32 roll) {
+	const UInt32 least = s.daedraMin < s.daedraMax ? s.daedraMin : s.daedraMax;
+	const UInt32 most = s.daedraMin < s.daedraMax ? s.daedraMax : s.daedraMin;
+	const UInt32 daedra = least + roll % (most - least + 1);
+	return daedra > 0 ? daedra : 1;
+}
+
+inline void Begin(CitySiege& c, UInt32 gate, UInt32 walkers, float now, bool daedra = false) {
 	c.active = true;
+	c.daedra = daedra;
 	c.gate = static_cast<UInt8>(gate);
 	c.lockedByUs = 0;
 	c.walkersLeft = walkers;
@@ -119,10 +138,13 @@ inline bool Paused(const CitySiege& c, float now) { return c.pauseUntil >= 0.0f 
 // `roll()` (0..any): the chance, then the gate, then the walkers. The first
 // look only notes the day. `extraPercent` (nullptr: none) the points each
 // city's chance is up by - the bands that reached it (4.22 step 3,
-// BandLogic.h SiegePressure). Returns the events written to `out`.
+// BandLogic.h SiegePressure). `invaders` (nullptr: walkers only) rolls
+// each new siege's side after its gate, as the spawn replacement rolls a
+// spawn's (KindLogic.h ReplacementGroup); a Daedra siege takes
+// DaedraMin..DaedraMax. Returns the events written to `out`.
 template <typename RollFn>
 UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn roll, SiegeEvent* out, UInt32 most,
-                     const UInt32* extraPercent = nullptr) {
+                     const UInt32* extraPercent = nullptr, const InvaderSettings* invaders = nullptr) {
 	if (now < 0.0f) {
 		return 0;
 	}
@@ -146,7 +168,9 @@ UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn r
 		UInt32 count = 0;
 		CityGates(static_cast<City>(city), first, count);
 		const UInt32 gate = first + roll() % (count > 0 ? count : 1);
-		siege_detail::Begin(c, gate, siege_detail::Walkers(s, roll()), now);
+		const bool daedra = invaders != nullptr && ReplacementGroup(*invaders, roll() % 100) == Group::Daedra;
+		siege_detail::Begin(c, gate, daedra ? siege_detail::Daedra(s, roll()) : siege_detail::Walkers(s, roll()), now,
+		                    daedra);
 		if (n < most) {
 			out[n++] = SiegeEvent{SiegeEvent::Begin, city, gate};
 		}
@@ -182,6 +206,23 @@ inline UInt32 WalkersAtGateNow(const CitySiege& c, const SiegeSettings& s) {
 	UInt32 at = s.walkersAtGate < kSiegeAtGateLeast ? kSiegeAtGateLeast : s.walkersAtGate;
 	at = at > kSiegeAtGateMost ? kSiegeAtGateMost : at;
 	return at < c.walkersLeft ? at : c.walkersLeft;
+}
+
+// The Daedra before the gate at once: DaedraAtGate held to 1..24, never
+// more than are left.
+inline constexpr UInt32 kSiegeDaedraAtGateMost = 24;
+inline UInt32 DaedraAtGateNow(const CitySiege& c, const SiegeSettings& s) {
+	if (!c.active) {
+		return 0;
+	}
+	UInt32 at = s.daedraAtGate < 1 ? 1 : s.daedraAtGate;
+	at = at > kSiegeDaedraAtGateMost ? kSiegeDaedraAtGateMost : at;
+	return at < c.walkersLeft ? at : c.walkersLeft;
+}
+
+// The siege's side's count before the gate.
+inline UInt32 AtGateNow(const CitySiege& c, const SiegeSettings& s) {
+	return c.daedra ? DaedraAtGateNow(c, s) : WalkersAtGateNow(c, s);
 }
 
 // The guards' toll at game day `now`: away, GuardKillsPerHour walkers a game
@@ -263,7 +304,8 @@ inline bool LockDoor(CitySiege& c, UInt32 door, bool wasLocked) {
 inline bool UnlocksDoor(const CitySiege& c, UInt32 door) { return door <= 1 && (c.lockedByUs & (1u << door)) != 0; }
 
 // The co-save record: type "SIEG", version 1 - the last day rolled, then per
-// city: active, gate, the doors locked, a pad byte, the walkers left, the
+// city: active, gate, the doors locked, the side (a pad byte until
+// 2026-11-16: 0 walkers, 1 Daedra - an older save reads walkers), the walkers left, the
 // toll's day and the pause's end (floats as their bits).
 inline constexpr UInt32 kSiegeRecordType = 0x53494547;  // 'SIEG'
 inline constexpr UInt32 kSiegeRecordVersion = 1;
@@ -297,7 +339,7 @@ inline UInt32 SiegeImage(const SiegeState& st, UInt8* out, UInt32 capacity) {
 		at[0] = c.active ? 1 : 0;
 		at[1] = c.gate;
 		at[2] = c.lockedByUs;
-		at[3] = 0;
+		at[3] = c.daedra ? 1 : 0;
 		Put32(at + 4, c.walkersLeft);
 		Put32(at + 8, siege_detail::Bits(c.tollFrom));
 		Put32(at + 12, siege_detail::Bits(c.pauseUntil));
@@ -318,6 +360,7 @@ inline bool ReadSiegeImage(SiegeState& st, const UInt8* in, UInt32 length) {
 		c.active = at[0] != 0 && at[1] < kCityGateCount;
 		c.gate = at[1] < kCityGateCount ? at[1] : 0;
 		c.lockedByUs = static_cast<UInt8>(at[2] & 3);
+		c.daedra = at[3] == 1;
 		c.walkersLeft = Get32(at + 4);
 		c.tollFrom = siege_detail::Float(Get32(at + 8));
 		c.pauseUntil = siege_detail::Float(Get32(at + 12));

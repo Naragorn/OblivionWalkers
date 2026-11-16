@@ -9,6 +9,7 @@
 #   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: OnlyFromOblivionGates=1, a band placed and led
 #   tools/daedra-harness.sh save [Mode]      harness/daedra-save.txt: the band and its leader across a save and a load
 #   tools/daedra-harness.sh fuel [Mode]      harness/daedra-fuel.txt: a bandit the Daedra kill rises (Mode 2)
+#   tools/daedra-harness.sh siege [Mode]     harness/daedra-siege.txt: a Daedra siege at Anvil, its dead banished (4.22a 5a, 5b)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -50,6 +51,11 @@ text = set_key(text, "Invaders", "Mode", kind)
 if scenario in ("band", "save"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
+if scenario == "siege":
+    for key, value in (("TestGate", "1"), ("TestDaedra", "1"), ("DaedraMin", "6"), ("DaedraMax", "6"),
+                       ("DaedraAtGate", "4"), ("ChancePerDayPercent", "0")):
+        text = set_key(text, "Siege", key, value)
+    text = set_key(text, "Invaders", "BanishSeconds", "5")
 # the dungeons' runner off, as in the other wrappers: nobody of the plugin's own beside the player
 text = set_key(text, "Dungeons", "Enabled", "0")
 open(path, "w", encoding="latin-1", newline="").write(text)
@@ -79,7 +85,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save"):
+if kind != 0 and scenario not in ("band", "save", "siege"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -127,6 +133,20 @@ if scenario == "fight":
         check(dead is not None and int(dead.group(1)) >= 1, "Kind 2: one of the two is dead")
     if kind == 3:
         check(dead is not None and int(dead.group(1)) == 0, "Kind 3: neither is dead")
+if scenario == "siege":
+    show("Siege: ", 40)
+    show("Placer: ", 30)
+    show("Banish: ", 30)
+    check(any("its Daedra come out" in l for l in lines), "the player at the gate: a Daedra siege shown")
+    came = [int(m.group(1)) for m in (re.search(r"Siege: (\d+) Daedra came to the siege", l) for l in lines) if m]
+    check(sum(came) >= 4, "the placer brought the Daedra (%s)" % came)
+    check(sum(1 for l in lines if "a Daedra fell before Anvil Castle Gate" in l) >= 4, "the fallen counted off")
+    check(any("back to Oblivion" in l for l in lines), "a dead Daedra banished")
+    bags = [l for l in lines if re.search(r"into bag FF[0-9A-F]{6} \(1\)", l)]
+    check(bool(bags), "its things into a sack (%d)" % len(bags))
+    check(any("handed to DeleteReference" in l for l in lines), "bodies deleted")
+    check(any("Anvil Castle Gate is over" in l or "the siege at Anvil Castle Gate is over" in l for l in lines),
+          "the siege over once all fell")
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)
 PY

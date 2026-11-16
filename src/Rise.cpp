@@ -4,6 +4,8 @@
 #include "Engine.h"
 #include "Grab.h"
 #include "Bands.h"
+#include "Banish.h"
+#include "Placer.h"
 #include "Horde.h"
 #include "LevelingLogic.h"
 #include "LinkLogic.h"
@@ -1201,6 +1203,8 @@ void FindWalkers() {
 	      (base >> 24) == 0xFE ? "a light plugin, OblivionESL" : "a regular plugin", g_walkerCount);
 	ConfigureHorde(g_settings.horde, base, g_log);
 	ConfigureBands(base, g_log);
+	ConfigurePlacer(base, &ConsoleOn, g_log);
+	ConfigureBanishEsp(base);
 	ConfigureGuards(g_settings.guards, g_log);
 	ConfigureNews(g_settings.news, base, g_log);
 	ConfigureSiegeEsp(base);
@@ -3376,6 +3380,8 @@ void Tick() {
 	Timed(8, "grab", [dt] { StepGrabInGame(dt); });
 	Timed(9, "horde", [dt] {
 		StepBandsInGame(dt, g_settings.bands, g_settings.invaders, &ConsoleOn, &IsDead, g_log);
+		StepPlacer(dt);
+		StepBanishInGame(dt);
 		StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
 	});
 	Timed(10, "safeguard", [dt] { StepSafeguardInGame(dt); });
@@ -3473,6 +3479,12 @@ void OnSave(void*) {
 	                          g_serialization->WriteRecordData(bands, bandsLength);
 	g_log("Co-save: %u far bands and %u band members %s", FarBandCount(), BandMemberCount(),
 	      bandsWritten ? "written" : "could not be written");
+	static UInt8 placed[512];
+	const UInt32 placedLength = PlacerImage(placed, sizeof(placed));
+	const bool placedWritten = g_serialization->OpenRecord(kPlaceRecordType, kPlaceRecordVersion) &&
+	                           g_serialization->WriteRecordData(placed, placedLength);
+	g_log("Co-save: %u placed Daedra still in the world %s", placedLength / 4,
+	      placedWritten ? "written (deleted after the load)" : "could not be written");
 	g_log("Co-save: %u waiting written; %u risen walkers %s (%u gone from the game dropped); %u walker kills toward "
 	      "the next point of fame %s",
 	      g_list.count, g_risenSet.count, risenWritten ? "written" : "could not be written", gone, g_fame.kills,
@@ -3499,6 +3511,8 @@ void OnLoad(void*) {
 	g_unclaimedCount = 0;
 	ResetHorde();
 	ResetBands();
+	ResetPlacer();
+	ResetBanish();
 	ResetGrabInGame();
 	CurrentNews() = NewsState{};
 	ReleaseSiegeLocks();
@@ -3526,6 +3540,14 @@ void OnLoad(void*) {
 			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved, version);
 			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
 			      whole ? "" : " (the record cut short)");
+			continue;
+		}
+		if (type == kPlaceRecordType) {
+			static UInt8 placed[512];
+			const UInt32 read = version == kPlaceRecordVersion && length <= sizeof(placed)
+			                        ? g_serialization->ReadRecordData(placed, length)
+			                        : 0;
+			ReadPlacerImage(placed, read, &ResolveSaved);
 			continue;
 		}
 		if (type == kBandRecordType) {
@@ -3658,6 +3680,8 @@ void OnNewGame(void*) {
 	g_unclaimedCount = 0;
 	ResetHorde();
 	ResetBands();
+	ResetPlacer();
+	ResetBanish();
 	ResetGrabInGame();
 	CurrentNews() = NewsState{};
 	ReleaseSiegeLocks();
@@ -3764,7 +3788,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.otherObvrMessage = &OnObvrHeads;
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
-	ConfigureSiege(&g_settings.siege, &ConsoleOn, &NextRandom, &IsDead, log);
+	ConfigureSiege(&g_settings.siege, &g_settings.invaders, &ConsoleOn, &NextRandom, &IsDead, log);
+	ConfigureBanish(&g_settings.banish, &ConsoleOn, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
 	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
