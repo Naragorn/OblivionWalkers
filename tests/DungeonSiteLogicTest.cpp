@@ -671,6 +671,76 @@ void TestImage() {
 
 }  // namespace
 
+void TestDaedraOutpost() {
+	std::printf("Daedra at a held place (4.22a step 5c)\n");
+	walkers::InvaderSettings inv;
+	inv.kind = walkers::InvaderKind::Both;
+	inv.daedraPercent = 40;
+	DungeonSite b;
+	b.state = DungeonState::Besieged;
+	Check(walkers::DungeonSideDaedra(b, inv, 39) && !walkers::DungeonSideDaedra(b, inv, 40), "a siege: by DaedraPercent");
+	DungeonSite r;
+	r.state = DungeonState::Refuge;
+	Check(!walkers::DungeonSideDaedra(r, inv, 0), "a refuge has no side");
+	inv.kind = walkers::InvaderKind::Walkers;
+	Check(!walkers::DungeonSideDaedra(b, inv, 0), "Mode 0: walkers");
+	DungeonSiteSettings s;
+	const UInt32 v[1] = {0};
+	Rolls roll{v, 1};
+	DungeonEvent ev[4];
+	DungeonSite d;
+	d.state = DungeonState::Besieged;
+	d.daedra = true;
+	d.people = 1;
+	d.lost = 2;
+	d.walkersLeft = 5;
+	Check(walkers::DungeonPersonDied(d, 0, ev, 4) == 1 && walkers::IsOutpost(d) && d.walkersLeft == 5 && !d.bossDown,
+	      "overrun by Daedra: their outpost, the lost not added (they do not rise as Daedra)");
+	DungeonSite w;
+	w.state = DungeonState::Besieged;
+	w.people = 1;
+	w.lost = 2;
+	w.walkersLeft = 5;
+	walkers::DungeonPersonDied(w, 0, ev, 4);
+	Check(!walkers::IsOutpost(w) && w.walkersLeft == 7, "overrun by walkers: the lost rise");
+	d.walkersLeft = 1;
+	Check(walkers::DungeonWalkerEnded(d, 0, s, roll, ev, 4) == 0 && d.state == DungeonState::WalkerDungeon,
+	      "the last Daedra down, the boss still up: not cleared");
+	Check(walkers::OutpostBossFell(d, 0, s, roll, ev, 4) == 1 && d.state == DungeonState::Refuge && !d.daedra &&
+	          !d.bossDown,
+	      "then the boss: cleared and taken, the side forgotten");
+	DungeonSite e;
+	e.state = DungeonState::WalkerDungeon;
+	e.daedra = true;
+	e.walkersLeft = 2;
+	Check(walkers::OutpostBossFell(e, 0, s, roll, ev, 4) == 0 && e.bossDown, "the boss first: not cleared yet");
+	Check(walkers::OutpostBossFell(e, 0, s, roll, ev, 4) == 0, "the boss twice: nothing");
+	walkers::DungeonWalkerEnded(e, 0, s, roll, ev, 4);
+	Check(walkers::DungeonWalkerEnded(e, 0, s, roll, ev, 4) == 1 && e.state == DungeonState::Refuge,
+	      "then the last of its men: cleared");
+	DungeonSite plain;
+	plain.state = DungeonState::WalkerDungeon;
+	plain.walkersLeft = 1;
+	Check(walkers::OutpostBossFell(plain, 0, s, roll, ev, 4) == 0 && !plain.bossDown,
+	      "a walkers' dungeon has no boss");
+	Check(walkers::DungeonWalkerEnded(plain, 0, s, roll, ev, 4) == 1, "and is cleared by its last walker");
+	DungeonSitesState st;
+	st.count = 1;
+	st.sites[0].candidate = 0;
+	st.sites[0].state = DungeonState::WalkerDungeon;
+	st.sites[0].daedra = true;
+	st.sites[0].chestPlaced = true;
+	st.sites[0].seen = true;
+	UInt8 image[walkers::kDungeonImageBytes];
+	walkers::DungeonImage(st, image, sizeof(image));
+	DungeonSitesState back;
+	walkers::ReadDungeonImage(back, image, sizeof(image), 10);
+	Check(back.count == 1 && back.sites[0].daedra && back.sites[0].chestPlaced && !back.sites[0].bossDown &&
+	          back.sites[0].seen,
+	      "the co-save: the outpost, its chest, seen");
+	Check(walkers::OutpostBossRank(1) == 3 && walkers::OutpostBossRank(30) == 6, "the boss three ranks above, the seventh at most");
+}
+
 int main() {
 	TestImage();
 	TestBeforeTheDoor();
@@ -685,6 +755,7 @@ int main() {
 	TestCleared();
 	TestBlocksClearing();
 	TestLeft();
+	TestDaedraOutpost();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

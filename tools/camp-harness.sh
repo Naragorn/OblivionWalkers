@@ -20,6 +20,13 @@ if [[ "$scenario" == escort || "$scenario" == escort-dead ]]; then
 	[[ -n "${CAMP_KEYS:-}" ]] && keys="$keys\\n$CAMP_KEYS"
 elif [[ "$scenario" == leash ]]; then
 	keys='TestLeash=7\nAttackChancePercent=0'
+elif [[ "$scenario" == daedra ]]; then
+	keys='TestCamp=7\nTestDaedra=1\nAttackWalkersMin=4\nAttackWalkersMax=4'
+	if grep -q '^\[Invaders\]' "$ini"; then
+		sed -i '0,/^\[Invaders\]\r\?$/s//[Invaders]\nBanishSeconds=5/' "$ini"
+	else
+		printf "\n[Invaders]\nBanishSeconds=5\n" >> "$ini"
+	fi
 else
 	keys='TestCamp=7\nAttackWalkersMin=6\nAttackWalkersMax=6'
 fi
@@ -58,5 +65,5 @@ fi
 run="$(ls -td "$root"/artifacts/hand-script/camp-$scenario/*/ | head -1)"
 cp "$game/OblivionWalkers.log" "$run/OblivionWalkers.log"
 echo "run: $run"
-grep -E '^(Camps:|Co-save: the camps|Death: |End: walker)' "$game/OblivionWalkers.log" | head -${CAMP_LINES:-150} \
+grep -E '^(Camps:|Co-save: the camps|Death: |End: walker|Placer:|Banish:)' "$game/OblivionWalkers.log" | head -${CAMP_LINES:-150} \
 	|| echo "no camp line"

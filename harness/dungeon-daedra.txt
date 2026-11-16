@@ -1,0 +1,41 @@
+# A Daedra outpost (docs/walkers-spec.md 4.22a step 5c): tools/dungeon-
+# walkers.sh outpost makes Fort Ash a walker dungeon held by 4 Daedra
+# ([Dungeons] TestSite, TestSiteState=4, TestDaedra=1), its dead banished
+# after 5 s. The player goes in (coc FortAsh01, the first cell): the placer
+# brings the 4 Daedra by the door and the boss - a Dremora three ranks above
+# - deep inside, its boss chest at its feet. killall twice: the Daedra and
+# the boss fall, the place is cleared and taken; the dead go back to
+# Oblivion, their things in sacks.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at inside coc FortAsh01
+console-at kill1 killall
+console-at kill2 killall
+console-at close CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 6
+mark inside
+wait 16
+mark placed
+wait 2
+mark kill1
+wait 10
+mark kill2
+wait 10
+mark close
+wait 3
+mark end
+wait 1

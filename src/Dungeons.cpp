@@ -7,7 +7,9 @@
 #include <cmath>
 #include <cstdio>
 
+#include "Banish.h"
 #include "CampLogic.h"
+#include "Placer.h"
 #include "Camps.h"
 #include "DungeonCandidates.h"
 #include "DungeonKitLogic.h"
@@ -211,6 +213,18 @@ bool g_occupantsFullLogged = false;
 struct Roll {
 	UInt32 operator()() { return g_roll != nullptr ? g_roll() : 0; }
 };
+
+// 4.22a step 5c: the Daedra at the held place the player is at - a siege's
+// or an outpost's, placed by the placer where the player is (before the
+// door outside, in the first cell inside), deleted when he leaves; the
+// outpost's boss and its chest.
+const InvaderSettings* g_invaders = nullptr;
+constexpr UInt8 kBossTag = 0x80;  // a placer tag's: the request is the boss's
+int g_daedraCandidate = -1;
+bool g_daedraInside = false;
+UInt32 g_siteDaedra[kDungeonPool] = {};
+UInt32 g_siteDaedraCount = 0;
+UInt32 g_boss = 0;
 
 const char* StateName(DungeonState s) {
 	switch (s) {
@@ -1031,6 +1045,163 @@ void PlacePoolWalker(LogFn log) {
 	g_poolPending = 0;  // no slot free
 }
 
+UInt32 PlayerLevelNow() {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	const UInt32 base = LooksLikeObject(player) ? Read(player + 0x1C) : 0;
+	if (!LooksLikeObject(base)) {
+		return 1;
+	}
+	const SInt16 level = *reinterpret_cast<const SInt16*>(base + 0x24 + 0x0E);
+	return level < 1 ? 1u : static_cast<UInt32>(level);
+}
+
+LogFn g_daedraLog = nullptr;
+
+void HideSiteDaedra(LogFn log) {
+	if (g_daedraCandidate < 0) {
+		return;
+	}
+	const UInt8 tag = static_cast<UInt8>(g_daedraCandidate);
+	const UInt32 dropped = DropPlacesFor(PlaceOwner::Dungeon, tag) + DropPlacesFor(PlaceOwner::Dungeon, tag | kBossTag);
+	log("Dungeons: the %u Daedra%s at %s taken out (%u requests dropped)", g_siteDaedraCount,
+	    g_boss != 0 ? " and the boss" : "", kDungeonCandidates[g_daedraCandidate].name, dropped);
+	for (UInt32 k = 0; k < g_siteDaedraCount; ++k) {
+		RetirePlaced(g_siteDaedra[k]);
+	}
+	if (g_boss != 0) {
+		RetirePlaced(g_boss);
+	}
+	g_siteDaedraCount = 0;
+	g_boss = 0;
+	g_daedraCandidate = -1;
+}
+
+// The placer's new Daedra for a held place: the one shown takes them (the
+// boss's request marked by kBossTag; its chest set down at its feet once),
+// any other's go out again.
+void OnDungeonPlaced(UInt8 tag, const UInt32* refs, UInt32 count) {
+	const bool boss = (tag & kBossTag) != 0;
+	const int candidate = tag & ~kBossTag;
+	const int site = g_daedraCandidate == candidate ? SiteOfCandidate(g_sites, static_cast<UInt32>(candidate)) : -1;
+	for (UInt32 k = 0; k < count; ++k) {
+		if (site >= 0 && boss && g_boss == 0) {
+			g_boss = refs[k];
+			WatchDaedra(refs[k]);
+			DungeonSite& d = g_sites.sites[site];
+			if (!d.chestPlaced) {
+				char line[48];
+				std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1", kOutpostBossChest);
+				const bool placed = Say(LookupForm(refs[k]), line);
+				d.chestPlaced = true;
+				if (g_daedraLog != nullptr) {
+					g_daedraLog("Dungeons: the outpost's boss chest set down at %s (%s answered %d)",
+					            kDungeonCandidates[candidate].name, line, placed ? 1 : 0);
+				}
+			}
+		} else if (site >= 0 && !boss && g_siteDaedraCount < kDungeonPool) {
+			g_siteDaedra[g_siteDaedraCount++] = refs[k];
+			WatchDaedra(refs[k]);
+		} else {
+			RetirePlaced(refs[k]);
+		}
+	}
+	if (g_daedraLog != nullptr) {
+		g_daedraLog("Dungeons: %u %s came %s %s", count, boss ? "boss" : "Daedra", site >= 0 ? "to" : "too late to",
+		            candidate < static_cast<int>(kDungeonCandidateCount) ? kDungeonCandidates[candidate].name : "?");
+	}
+}
+
+// A Daedra site the player is at (`want`, -1 none or not a Daedra one): the
+// fallen counted off, as many asked of the placer as the site wants where
+// the player is - outside before its door, or inside when he stands in its
+// first cell (Daedra placed elsewhere would be in an unloaded cell, not
+// found); an outpost's boss once.
+void StepSiteDaedra(int want, const float* closeness, UInt32 playerCell, LogFn log) {
+	g_daedraLog = log;
+	const bool daedra = want >= 0 && g_sites.sites[want].daedra && g_invaders != nullptr;
+	const int candidate = daedra ? static_cast<int>(g_sites.sites[want].candidate) : -1;
+	const bool inside = daedra && closeness[want] == 0.0f;
+	if (candidate != g_daedraCandidate || (daedra && inside != g_daedraInside)) {
+		HideSiteDaedra(log);
+	}
+	if (!daedra) {
+		return;
+	}
+	g_daedraCandidate = candidate;
+	g_daedraInside = inside;
+	const DungeonCandidate& c = kDungeonCandidates[candidate];
+	Roll roll;
+	DungeonSite& d = g_sites.sites[want];
+	UInt32 kept = 0;
+	for (UInt32 k = 0; k < g_siteDaedraCount; ++k) {
+		const UInt32 ref = LookupForm(g_siteDaedra[k]);
+		if (!LooksLikeObject(ref)) {
+			continue;
+		}
+		if (g_dead != nullptr && g_dead(ref)) {
+			DungeonEvent ev[4];
+			const UInt32 n = DungeonWalkerEnded(d, static_cast<UInt32>(want), *g_siteSettings, roll, ev, 4, !inside);
+			log("Dungeons: %s - a Daedra fell; %u left, now %s", c.name, d.walkersLeft, StateName(d.state));
+			LogEvents(ev, n, d, log);
+			Carry(ev, n, d, d, log);
+			continue;
+		}
+		g_siteDaedra[kept++] = g_siteDaedra[k];
+	}
+	g_siteDaedraCount = kept;
+	if (g_boss != 0) {
+		const UInt32 ref = LookupForm(g_boss);
+		if (LooksLikeObject(ref) && g_dead != nullptr && g_dead(ref)) {
+			DungeonEvent ev[4];
+			const UInt32 n = OutpostBossFell(d, static_cast<UInt32>(want), *g_siteSettings, roll, ev, 4);
+			log("Dungeons: %s - the outpost's boss fell; %u Daedra left, now %s", c.name, d.walkersLeft,
+			    StateName(d.state));
+			LogEvents(ev, n, d, log);
+			Carry(ev, n, d, d, log);
+			g_boss = 0;
+		}
+	}
+	if (d.state != DungeonState::Besieged && d.state != DungeonState::WalkerDungeon) {
+		return;  // held or taken: those standing go when the player leaves
+	}
+	const bool firstCell = playerCell != 0 && FormIdOf(playerCell) == c.cells[0];
+	if (inside && !firstCell) {
+		return;
+	}
+	const UInt32 wanted = d.walkersLeft < g_siteSettings->walkersAtOnce ? d.walkersLeft : g_siteSettings->walkersAtOnce;
+	const UInt8 tag = static_cast<UInt8>(candidate);
+	const UInt32 pending = PlacesPendingFor(PlaceOwner::Dungeon, tag);
+	PlaceRequest r;
+	r.owner = PlaceOwner::Dungeon;
+	const DungeonSpot at = inside ? WalkerSpot(c, 0, true) : OutsideSpot(c, 0);
+	r.anchor = inside ? c.insideDoor : c.door;
+	r.dx = at.dx;
+	r.dy = at.dy;
+	r.dz = static_cast<float>(at.dz + (inside ? kSpotLift : 0) + 32);
+	if (g_siteDaedraCount + pending < wanted) {
+		r.tag = tag;
+		r.list = EspFormId(g_espBase, InvaderDaedraLocalId(*g_invaders));
+		r.count = wanted - g_siteDaedraCount - pending;
+		const bool asked = RequestPlace(r);
+		log("Dungeons: %u Daedra asked for at %s (%s; %u there, %u on the way, %u left)%s", r.count, c.name,
+		    inside ? "inside" : "before the door", g_siteDaedraCount, pending, d.walkersLeft,
+		    asked ? "" : " - the placer's queue is full");
+	}
+	if (IsOutpost(d) && inside && !d.bossDown && g_boss == 0 && PlacesPendingFor(PlaceOwner::Dungeon, tag | kBossTag) == 0) {
+		const UInt32 level = PlayerLevelNow();
+		const DungeonSpot deep = WalkerSpot(c, c.spotCount > 0 ? c.spotCount - 1u : 0u, false);
+		r.tag = static_cast<UInt8>(tag | kBossTag);
+		r.list = OutpostBossList(*g_invaders, level);
+		r.count = 1;
+		r.dx = deep.dx;
+		r.dy = deep.dy;
+		r.dz = static_cast<float>(deep.dz + kSpotLift + 32);
+		const bool asked = RequestPlace(r);
+		log("Dungeons: the outpost's boss asked for at %s - rank %u of 7 at level %u%s", c.name,
+		    OutpostBossRank(level) + 1, level, asked ? "" : " - the placer's queue is full");
+	}
+}
+
 // Once a second: the ended counted off, the pool to the siege or walker
 // dungeon the player is near, as many in it as the site wants.
 void StepPool(const float* closeness, LogFn log) {
@@ -1067,7 +1238,15 @@ void StepPool(const float* closeness, LogFn log) {
 	}
 	const bool enabled = g_siteSettings->enabled && g_espBase != kNoEsp;
 	const int current = g_poolCandidate >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(g_poolCandidate)) : -1;
-	const int want = WalkerSite(g_sites, closeness, enabled, current);
+	int want = WalkerSite(g_sites, closeness, enabled, current);
+	{
+		// 4.22a step 5c: a Daedra site has no pool walkers - the placer's.
+		const UInt32 player = LookupForm(kPlayerRefId);
+		StepSiteDaedra(want, closeness, LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0, log);
+		if (want >= 0 && g_sites.sites[want].daedra) {
+			want = -1;
+		}
+	}
 	const int wantCandidate = want >= 0 ? static_cast<int>(g_sites.sites[want].candidate) : -1;
 	if (g_poolCandidate >= 0 && PoolStays(want, current >= 0 ? closeness[current] : -1.0f)) {
 		g_poolPending = 0;
@@ -1356,6 +1535,11 @@ void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, 
 
 void ConfigureDungeonsEsp(UInt32 espBase) { g_espBase = espBase; }
 
+void ConfigureDungeonsInvaders(const InvaderSettings* invaders) {
+	g_invaders = invaders;
+	SetPlacedHandler(PlaceOwner::Dungeon, &OnDungeonPlaced);
+}
+
 void ConfigureDungeonsMoo(UInt32 mooQuestFormId) {
 	g_mooQuest = mooQuestFormId;
 	g_mooKnown = true;
@@ -1483,6 +1667,8 @@ void StepDungeonsInGame(float dt, LogFn log) {
 				g_sites = DungeonSitesState{};
 				const bool forced = ForceSite(g_sites, kDungeonCandidates, kDungeonCandidateCount, g_inPool, g_testSite,
 				                              g_testState, *g_siteSettings, now);
+				g_sites.sites[0].daedra = g_siteSettings->testDaedra && (g_sites.sites[0].state == DungeonState::Besieged ||
+				                                                          g_sites.sites[0].state == DungeonState::WalkerDungeon);
 				log("Dungeons: test - TestSite=%s made the first site: %s, %u people, %u waiting, %u walkers (%d)",
 				    g_testSite, StateName(g_sites.sites[0].state), g_sites.sites[0].people, g_sites.sites[0].waiting,
 				    g_sites.sites[0].walkersLeft, forced ? 1 : 0);
@@ -1496,6 +1682,12 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			    d.candidate < kDungeonCandidateCount && Closeness(kDungeonCandidates[d.candidate], player) >= 0.0f;
 			const DungeonSite before = d;
 			const UInt32 n = StepDungeonSite(d, i, *g_siteSettings, now, close, roll, ev, kEventsMost);
+			for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
+				if (ev[k].kind == DungeonEventKind::Attacked && g_invaders != nullptr) {
+					d.daedra = DungeonSideDaedra(d, *g_invaders, roll());
+					log("Dungeons: %s attacked by %s", kDungeonCandidates[d.candidate].name, d.daedra ? "Daedra" : "walkers");
+				}
+			}
 			// A site given up is logged with its name from before.
 			LogEvents(ev, n, d.state == DungeonState::Free ? before : d, log);
 			Carry(ev, n, d, before, log);
@@ -1504,7 +1696,17 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		const UInt32 n = FillDungeons(g_sites, *g_siteSettings, kDungeonCandidates, kDungeonCandidateCount, g_inPool,
 		                              now, roll, ev, kEventsMost, g_playerX, g_playerY, g_playerKnown);
 		for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
-			LogEvents(ev + k, 1, g_sites.sites[ev[k].site], log);
+			DungeonSite& rolled = g_sites.sites[ev[k].site];
+			if (ev[k].kind == DungeonEventKind::Rolled && g_invaders != nullptr) {
+				rolled.daedra = DungeonSideDaedra(rolled, *g_invaders, roll());
+				rolled.daedra = rolled.daedra || (g_siteSettings->testDaedra && rolled.state != DungeonState::Refuge &&
+				                                  rolled.state != DungeonState::ToClear);
+			}
+			LogEvents(ev + k, 1, rolled, log);
+			if (rolled.daedra) {
+				log("Dungeons: %s - Daedra %s", kDungeonCandidates[rolled.candidate].name,
+				    rolled.state == DungeonState::Besieged ? "storm it" : "hold it: an outpost");
+			}
 		}
 	}
 	float closeness[kDungeonActiveMost];

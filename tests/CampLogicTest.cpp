@@ -674,6 +674,51 @@ void TestNearestGate() {
 
 }  // namespace
 
+void TestCampDaedra() {
+	std::printf("A Daedra attack on a camp (4.22a step 5c)\n");
+	walkers::InvaderSettings inv;
+	Check(!walkers::CampAttackDaedra(inv, 0), "Mode 0: walkers");
+	inv.kind = walkers::InvaderKind::Daedra;
+	Check(walkers::CampAttackDaedra(inv, 99), "Mode 1: Daedra");
+	inv.kind = walkers::InvaderKind::Both;
+	inv.daedraPercent = 30;
+	Check(walkers::CampAttackDaedra(inv, 29) && !walkers::CampAttackDaedra(inv, 30), "Mode 2: by DaedraPercent");
+	inv.kind = walkers::InvaderKind::Allied;
+	Check(walkers::CampAttackDaedra(inv, 129), "Mode 3 too; the roll taken mod 100");
+	CampEvent ev[4];
+	Camp c;
+	c.roster = 1;
+	c.status = CampStatus::Attacked;
+	c.walkersLeft = 5;
+	c.daedra = true;
+	Check(walkers::CampPersonDied(c, 0, 0, ev, 4) == 1 && c.status == CampStatus::Overrun && c.walkersLeft == 0 &&
+	          !c.daedra,
+	      "overrun by Daedra: none stay among the tents");
+	Camp w;
+	w.roster = 1;
+	w.status = CampStatus::Attacked;
+	w.walkersLeft = 5;
+	walkers::CampPersonDied(w, 0, 0, ev, 4);
+	Check(w.walkersLeft == 5, "overrun by walkers: they stay");
+	Camp held;
+	held.roster = 1;
+	held.status = CampStatus::Attacked;
+	held.walkersLeft = 1;
+	held.daedra = true;
+	Check(walkers::CampWalkerEnded(held, 0, ev, 4) == 1 && held.status == CampStatus::Living && !held.daedra,
+	      "the last Daedra down: held, the side forgotten");
+	CampsState st;
+	st.camps[1].status = CampStatus::Attacked;
+	st.camps[1].daedra = true;
+	st.camps[2].status = CampStatus::Living;
+	st.camps[2].daedra = true;
+	static UInt8 image[walkers::kCampImageBytes];
+	walkers::CampImage(st, image, sizeof(image));
+	CampsState back;
+	walkers::ReadCampImage(back, image, sizeof(image));
+	Check(back.camps[1].daedra && !back.camps[2].daedra, "the co-save: an attack's side read back, none without one");
+}
+
 int main() {
 	TestLeash();
 	TestRoster();
@@ -693,6 +738,7 @@ int main() {
 	TestNearestGate();
 	TestEscortReset();
 	TestEscortKit();
+	TestCampDaedra();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

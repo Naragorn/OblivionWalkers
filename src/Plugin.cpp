@@ -219,6 +219,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.testLinkPage = static_cast<float>(IniInt("Debug", "TestLinkPage", 0, path));
 	IniString("Debug", "SampleLine", "", rise.sampleLine, sizeof(rise.sampleLine), path);
 	IniString("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);
+	rise.dungeons.testDaedra = IniInt("Dungeons", "TestDaedra", 0, path) != 0;
 	rise.dungeons.enabled = IniInt("Dungeons", "Enabled", 1, path) != 0;
 	rise.dungeons.activeMin = static_cast<UInt32>(IniInt("Dungeons", "ActiveMin", 3, path));
 	rise.dungeons.activeMax = static_cast<UInt32>(IniInt("Dungeons", "ActiveMax", 5, path));
@@ -399,6 +400,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	camps.escortIntoCity = IniInt("Survivors", "EscortIntoCity", 1, path) != 0;
 	camps.leashUnits = std::max(0.0f, IniFloat("Survivors", "LeadStraysHomeBeyond", 1500.0f, path));
 	camps.testCamp = IniInt("Survivors", "TestCamp", -1, path);
+	camps.testDaedra = IniInt("Survivors", "TestDaedra", 0, path) != 0;
 	camps.testLeash = IniInt("Survivors", "TestLeash", -1, path);
 	rise.disguise.enabled = IniInt("Disguise", "Enabled", 1, path) != 0;
 	rise.disguise.seconds = std::max(1.0f, IniFloat("Disguise", "Seconds", 180.0f, path));

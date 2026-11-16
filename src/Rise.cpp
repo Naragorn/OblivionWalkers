@@ -3791,6 +3791,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureSiege(&g_settings.siege, &g_settings.invaders, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureBanish(&g_settings.banish, &ConsoleOn, &IsDead, log);
 	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
+	ConfigureCampsInvaders(&g_settings.invaders);
+	ConfigureDungeonsInvaders(&g_settings.invaders);
 	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);

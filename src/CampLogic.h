@@ -39,6 +39,7 @@
 #include <cstring>
 
 #include "Bytes.h"
+#include "KindLogic.h"
 #include "Types.h"
 
 namespace walkers {
@@ -197,6 +198,8 @@ struct CampSettings {
 	// Test switch (harness/camp-defend.txt): camp N attacked 30 s after the
 	// load and the player taken to it (-1: never).
 	int testCamp = -1;
+	// Test switch (harness/camp-daedra.txt): TestCamp's attack a Daedra one.
+	bool testDaedra = false;
 	// Test switch (harness/camp-escort.txt): camp N's refugees asked 40 s
 	// after the load (the player taken there 30 s after it, 1500 units off),
 	// then the player and they taken to the nearest gate - or, with
@@ -227,6 +230,7 @@ struct Camp {
 	CampStatus status = CampStatus::Living;
 	bool set = false;   // the roster chosen
 	bool seen = false;  // the player near during this attack
+	bool daedra = false;  // this attack's are Daedra (4.22a step 5c)
 	UInt16 roster = 0;  // the slots in the camp
 	UInt16 lost = 0;    // of them dead or lost
 	UInt32 walkersLeft = 0;  // the attack's; the overrun camp's walkers
@@ -521,6 +525,12 @@ inline UInt32 NthAlive(const Camp& c, UInt32 nth) {
 }
 
 inline UInt32 Overrun(Camp& c, UInt32 camp, CampEvent* out, UInt32 n, UInt32 most) {
+	// Daedra move on: no walkers stay among the tents (the fallen rise or
+	// not by the rise's own rules, KindLogic.h MayRise).
+	if (c.daedra) {
+		c.walkersLeft = 0;
+		c.daedra = false;
+	}
 	c.status = CampStatus::Overrun;
 	c.startAt = -1.0f;
 	c.tollFrom = -1.0f;
@@ -531,6 +541,7 @@ inline UInt32 Overrun(Camp& c, UInt32 camp, CampEvent* out, UInt32 n, UInt32 mos
 inline UInt32 Held(Camp& c, UInt32 camp, CampEvent* out, UInt32 n, UInt32 most) {
 	const bool defended = c.seen;
 	c.status = CampStatus::Living;
+	c.daedra = false;
 	c.walkersLeft = 0;
 	c.seen = false;
 	c.tollFrom = -1.0f;
@@ -539,6 +550,13 @@ inline UInt32 Held(Camp& c, UInt32 camp, CampEvent* out, UInt32 n, UInt32 most) 
 }
 
 }  // namespace camp_detail
+
+// Whether an attack that begins is a Daedra one (4.22a step 5c): rolled as
+// a spawn's side is (KindLogic.h ReplacementGroup) - Mode 0 never, Mode 1
+// always, Mode 2 and 3 by DaedraPercent on `roll` (0..99).
+inline bool CampAttackDaedra(const InvaderSettings& invaders, UInt32 roll) {
+	return ReplacementGroup(invaders, roll % 100) == Group::Daedra;
+}
 
 // Once a second with game day `now`: a new whole day rolls each camp once -
 // however many days went by - by `roll()` (0..any): a living camp with no
@@ -1006,7 +1024,7 @@ inline UInt32 CampImage(const CampsState& st, UInt8* out, UInt32 capacity) {
 		at[0] = static_cast<UInt8>(c.status);
 		at[1] = c.set ? 1 : 0;
 		at[2] = c.seen ? 1 : 0;
-		at[3] = 0;
+		at[3] = c.daedra ? 1 : 0;  // a pad byte until 2026-11-16: an older save reads walkers
 		Put32(at + 4, static_cast<UInt32>(c.roster) | (static_cast<UInt32>(c.lost) << 16));
 		Put32(at + 8, c.walkersLeft);
 		Put32(at + 12, camp_detail::Bits(c.startAt));
@@ -1037,6 +1055,7 @@ inline bool ReadCampImage(CampsState& st, const UInt8* in, UInt32 length) {
 		c.status = at[0] <= static_cast<UInt8>(CampStatus::Left) ? static_cast<CampStatus>(at[0]) : CampStatus::Living;
 		c.set = at[1] != 0;
 		c.seen = at[2] != 0;
+		c.daedra = at[3] == 1 && c.status == CampStatus::Attacked;
 		const UInt32 masks = Get32(at + 4);
 		c.roster = static_cast<UInt16>(masks & slots);
 		c.lost = static_cast<UInt16>((masks >> 16) & c.roster);

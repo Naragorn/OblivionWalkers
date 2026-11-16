@@ -3,7 +3,9 @@
 #include "CampCandidates.h"
 #include "CityGates.h"
 #include "Engine.h"
+#include "Banish.h"
 #include "Horde.h"
+#include "Placer.h"
 #include "News.h"
 #include "RiseLogic.h"
 
@@ -46,6 +48,12 @@ constexpr float kEscortAskUnits = 3000.0f;
 constexpr UInt32 kLogLines = 64;
 
 const CampSettings* g_settings = nullptr;
+const InvaderSettings* g_invaders = nullptr;
+// A Daedra attack's Daedra at a bank's camp (4.22a step 5c): placed by the
+// placer, deleted when the bank is hidden; the fallen counted off and left
+// to the banishing.
+UInt32 g_bankDaedra[kCampShownMost][kCampWalkersAtOnce] = {};
+UInt32 g_bankDaedraCount[kCampShownMost] = {};
 CampConsoleFn g_console = nullptr;
 CampRollFn g_roll = nullptr;
 CampDeadFn g_dead = nullptr;
@@ -523,9 +531,92 @@ void HideBank(UInt32 bank) {
 	if (g_bankCamp[bank] >= 0) {
 		g_log("Camps: the walkers at camp %02d %s back in the pool (%u)", g_bankCamp[bank],
 		      Name(static_cast<UInt32>(g_bankCamp[bank])), hidden);
+		const UInt32 dropped = DropPlacesFor(PlaceOwner::Camp, static_cast<UInt8>(g_bankCamp[bank]));
+		if (g_bankDaedraCount[bank] > 0 || dropped > 0) {
+			g_log("Camps: the %u Daedra at camp %02d taken out (%u requests dropped)", g_bankDaedraCount[bank],
+			      g_bankCamp[bank], dropped);
+		}
 	}
+	for (UInt32 k = 0; k < g_bankDaedraCount[bank]; ++k) {
+		RetirePlaced(g_bankDaedra[bank][k]);
+	}
+	g_bankDaedraCount[bank] = 0;
 	g_bankCamp[bank] = -1;
 	g_bankLead[bank] = false;
+}
+
+// A Daedra attack at bank `bank`'s camp `i`: as many asked of the placer as
+// CampWalkersOut wants, on the attack's ring; the bank's travel package
+// leads them in once they are there (OnCampPlaced).
+void AskDaedra(UInt32 bank, UInt32 i) {
+	const Camp& c = g_state.camps[i];
+	const UInt32 wanted = CampWalkersOut(c);
+	const UInt32 pending = PlacesPendingFor(PlaceOwner::Camp, static_cast<UInt8>(i));
+	if (g_bankDaedraCount[bank] + pending >= wanted || g_invaders == nullptr) {
+		return;
+	}
+	const CampCandidate& place = Place(i);
+	PlaceRequest r;
+	r.owner = PlaceOwner::Camp;
+	r.tag = static_cast<UInt8>(i);
+	r.list = EspFormId(g_espBase, InvaderDaedraLocalId(*g_invaders));
+	r.count = wanted - g_bankDaedraCount[bank] - pending;
+	r.anchor = MarkerId(i);
+	CampWalkerSpot(place.facing, true, 0, r.dx, r.dy);
+	r.dz = place.spotZ[0] - place.z + kSpotLift;
+	const bool asked = RequestPlace(r);
+	g_log("Camps: %u Daedra asked for at camp %02u %s (%u there, %u on the way, %u left)%s", r.count, i, Name(i),
+	      g_bankDaedraCount[bank], pending, c.walkersLeft, asked ? "" : " - the placer's queue is full");
+}
+
+// The placer's new Daedra for camp `camp`: its bank's, led in; any other's
+// (the bank hidden before they came) taken out again.
+void OnCampPlaced(UInt8 camp, const UInt32* refs, UInt32 count) {
+	int bank = -1;
+	for (UInt32 b = 0; b < kCampShownMost; ++b) {
+		bank = g_bankCamp[b] == static_cast<int>(camp) ? static_cast<int>(b) : bank;
+	}
+	const bool wanted = bank >= 0 && g_state.camps[camp].status == CampStatus::Attacked && g_state.camps[camp].daedra;
+	char line[48];
+	std::snprintf(line, sizeof(line), "AddScriptPackage %08X",
+	              EspFormId(g_espBase, kCampTravelFirstLocalId + static_cast<UInt32>(bank < 0 ? 0 : bank)));
+	for (UInt32 k = 0; k < count; ++k) {
+		if (wanted && g_bankDaedraCount[bank] < kCampWalkersAtOnce) {
+			g_bankDaedra[bank][g_bankDaedraCount[bank]++] = refs[k];
+			WatchDaedra(refs[k]);
+			const UInt32 ref = LookupForm(refs[k]);
+			if (LooksLikeObject(ref)) {
+				Say(ref, line);
+			}
+		} else {
+			RetirePlaced(refs[k]);
+		}
+	}
+	g_log("Camps: %u Daedra came %s camp %02u (%s)", count, wanted ? "to attack" : "too late to", camp, line);
+}
+
+// The fallen Daedra of each bank counted off their attack.
+void CountDaedraFallen(CampEvent* events, UInt32& n) {
+	for (UInt32 b = 0; b < kCampShownMost; ++b) {
+		if (g_bankCamp[b] < 0) {
+			continue;
+		}
+		const UInt32 i = static_cast<UInt32>(g_bankCamp[b]);
+		UInt32 kept = 0;
+		for (UInt32 k = 0; k < g_bankDaedraCount[b]; ++k) {
+			const UInt32 ref = LookupForm(g_bankDaedra[b][k]);
+			if (!LooksLikeObject(ref)) {
+				continue;
+			}
+			if (g_dead != nullptr && g_dead(ref)) {
+				n += CampWalkerEnded(g_state.camps[i], i, events + n, kEventsMost - n);
+				g_log("Camps: a Daedra fell at camp %02u %s - %u left", i, Name(i), g_state.camps[i].walkersLeft);
+				continue;
+			}
+			g_bankDaedra[b][kept++] = g_bankDaedra[b][k];
+		}
+		g_bankDaedraCount[b] = kept;
+	}
 }
 
 // Bank `bank` at camp `i`: as many out as CampWalkersOut wants - an attack's
@@ -538,8 +629,9 @@ void ShowBank(UInt32 bank, UInt32 i) {
 	if (g_bankCamp[bank] != static_cast<int>(i)) {
 		HideBank(bank);
 		g_bankCamp[bank] = static_cast<int>(i);
-		g_log("Camps: the player at camp %02u %s - %s (%u walkers, %u at once)", i, Name(i),
+		g_log("Camps: the player at camp %02u %s - %s (%u %s, %u at once)", i, Name(i),
 		      attack ? "its attackers come out" : "its walkers stand among the tents", c.walkersLeft,
+		      c.daedra ? "Daedra" : "walkers",
 		      CampWalkersOut(c));
 		if (attack) {
 			// The bank's marker on the camp; the package a step later (the
@@ -550,7 +642,7 @@ void ShowBank(UInt32 bank, UInt32 i) {
 			g_log("Camps: marker %u onto camp %02u (%s answered %d)", bank, i, line, moved ? 1 : 0);
 			g_bankLead[bank] = true;
 		}
-	} else if (g_bankLead[bank]) {
+	} else if (g_bankLead[bank] && !c.daedra) {
 		g_bankLead[bank] = false;
 		char line[48];
 		std::snprintf(line, sizeof(line), "AddScriptPackage %08X", EspFormId(g_espBase, kCampTravelFirstLocalId + bank));
@@ -565,6 +657,10 @@ void ShowBank(UInt32 bank, UInt32 i) {
 			}
 		}
 		g_log("Camps: %u walkers led at camp %02u (%s)", led, i, line);
+	}
+	if (attack && c.daedra) {
+		AskDaedra(bank, i);
+		return;
 	}
 	UInt32 out = 0;
 	for (UInt32 k = 0; k < kCampWalkersAtOnce; ++k) {
@@ -704,10 +800,14 @@ void Carry(const CampEvent& ev, const float* distance, float now) {
 	char text[160];
 	switch (ev.kind) {
 		case CampEvent::Begin:
-			g_log("Camps: camp %02u %s attacked - %u walkers (game day %.3f, the player %s)", i, Name(i), c.walkersLeft,
-			      now, near ? "near" : "away");
+			// 4.22a step 5c: the attack's side, rolled as a spawn's (the test
+			// switch has set it already).
+			c.daedra = c.daedra || (g_invaders != nullptr && CampAttackDaedra(*g_invaders, g_roll()));
+			g_log("Camps: camp %02u %s attacked - %u %s (game day %.3f, the player %s)", i, Name(i), c.walkersLeft,
+			      c.daedra ? "Daedra" : "walkers", now, near ? "near" : "away");
 			if (near) {
-				std::snprintf(text, sizeof(text), "Walkers are coming for the refugees %s!", Name(i));
+				std::snprintf(text, sizeof(text), "%s are coming for the refugees %s!", c.daedra ? "Daedra" : "Walkers",
+				              Name(i));
 				Line(text);
 			}
 			break;
@@ -1340,6 +1440,11 @@ void ConfigureCamps(const CampSettings* settings, CampConsoleFn console, CampRol
 
 void ConfigureCampsEsp(UInt32 espBase) { g_espBase = espBase; }
 
+void ConfigureCampsInvaders(const InvaderSettings* invaders) {
+	g_invaders = invaders;
+	SetPlacedHandler(PlaceOwner::Camp, &OnCampPlaced);
+}
+
 bool NoteCampWalkerEnded(UInt32 refId) {
 	if (g_espBase == 0) {
 		return false;
@@ -1499,6 +1604,7 @@ void StepCampsInGame(float dt) {
 		CountEnded(g_ended[k], events, n);
 	}
 	g_endedCount = 0;
+	CountDaedraFallen(events, n);
 	g_testClock += kStepSeconds;
 	SetGlobal(kCampRumorGlobalLocalId, 1.0f);
 	StepTestEscort(now, events, n);
@@ -1512,6 +1618,7 @@ void StepCampsInGame(float dt) {
 		ApplyPeople(i, false);
 		n += BeginCampAttack(g_state.camps[i], i, *g_settings, now, Near(distance, i), g_roll(), events + n,
 		                     kEventsMost - n);
+		g_state.camps[i].daedra = g_settings->testDaedra && g_state.camps[i].status == CampStatus::Attacked;
 		// The player taken to it, 1000 units off its fire (the places are
 		// rolled: the harness cannot know where it is).
 		char line[64];

@@ -190,4 +190,20 @@ inline UInt32 LeaderList(const InvaderSettings& s, UInt32 level) {
 	return InvaderForm(s, kDremoraRankLists[LeaderRank(level)]);
 }
 
+// A Daedra outpost's boss (4.22a step 5c, Nadi 2026-11-16 "5: passt"): a
+// Dremora three ranks above the men's, the seventh at most.
+inline UInt32 OutpostBossRank(UInt32 level) {
+	const UInt32 r = DremoraRankAt(level) + 3;
+	return r > 6 ? 6 : r;
+}
+inline UInt32 OutpostBossList(const InvaderSettings& s, UInt32 level) {
+	return InvaderForm(s, kDremoraRankLists[OutpostBossRank(level)]);
+}
+
+// The outpost's boss chest: Oblivion.esm's DungOblivionBossSack01
+// (00037680, read 2026-11-16: the flesh sack of the game's own Oblivion
+// bosses, its loot leveled - gold, gems, a weapon, Welkynd and Varla
+// stones), placed by PlaceAtMe, so no record of the ESP's.
+inline constexpr UInt32 kOutpostBossChest = 0x00037680;
+
 }  // namespace walkers

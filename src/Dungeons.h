@@ -1,5 +1,7 @@
 #pragma once
 
+#include "KindLogic.h"
+
 // The refugee dungeons in the game (docs/walkers-spec.md 4.20.7): so far
 // the pool - DungeonLogic.h's decisions over the candidates
 // (DungeonCandidates.h), with the loaded quests' cells (Replace.cpp) and the
@@ -43,6 +45,10 @@ void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, 
                        UInt32 testState);
 // The ESP's base (RiseLogic.h EspFormId), once it is known.
 void ConfigureDungeonsEsp(UInt32 espBase);
+
+// [Invaders] (4.22a step 5c): a siege's or a walker dungeon's side rolled as
+// a spawn's ([Dungeons] TestDaedra: TestSite's one Daedra).
+void ConfigureDungeonsInvaders(const InvaderSettings* invaders);
 // MOO's quest "MOO" once the load order is read, 0 when MOO is not loaded:
 // the refugees' notices hang at its notice boards (DungeonNoticeLogic.h).
 void ConfigureDungeonsMoo(UInt32 mooQuestFormId);

@@ -24,6 +24,7 @@
 
 #include "CreatureFlags.h"
 #include "DungeonLogic.h"
+#include "KindLogic.h"
 #include "Types.h"
 
 namespace walkers {
@@ -60,6 +61,9 @@ struct DungeonSiteSettings {
 	// units of the player (60000, some 860 m), anywhere only when none is
 	// that near; 0 anywhere.
 	float newPlacesWithin = 60000.0f;
+	// Test switch (harness/dungeon-daedra.txt): TestSite's siege or walker
+	// dungeon a Daedra one (4.22a step 5c).
+	bool testDaedra = false;
 };
 
 // The ESP's pool of walkers for the place the player is at (DungeonKitLogic.h).
@@ -82,6 +86,11 @@ struct DungeonSite {
 	bool seen = false;       // the player near during this siege
 	UInt8 cleared = 0;       // ToClear: its cells the player found empty of the living, a bit each
 	UInt8 journal = 0;       // the stage of its quest the player was told last (DungeonQuestLogic.h), 0 none
+	// 4.22a step 5c: Daedra storm it, or hold it - a Daedra outpost (a
+	// walker dungeon's state) with a boss and a boss chest of its own.
+	bool daedra = false;
+	bool bossDown = false;     // the outpost's boss fell
+	bool chestPlaced = false;  // the outpost's boss chest stands in it
 };
 
 struct DungeonSitesState {
@@ -133,7 +142,11 @@ inline void HoldBefore(DungeonSite& d) {
 }
 
 inline UInt32 Overrun(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 n, UInt32 most) {
-	d.walkersLeft = static_cast<UInt16>(d.walkersLeft + d.lost);  // the lost rise there
+	// The lost rise there - unless Daedra took it: it becomes their outpost,
+	// its boss not yet placed.
+	d.walkersLeft = static_cast<UInt16>(d.walkersLeft + (d.daedra ? 0 : d.lost));
+	d.bossDown = false;
+	d.chestPlaced = false;
 	d.before = 0;  // the place is theirs: all of them in it
 	d.people = 0;
 	d.lost = 0;
@@ -150,6 +163,7 @@ inline UInt32 Held(DungeonSite& d, UInt32 i, float now, DungeonEvent* out, UInt3
 	d.tollFrom = -1.0f;
 	d.dayFrom = now;
 	d.state = DungeonState::Refuge;
+	d.daedra = false;
 	return Put(out, n, most, defended ? DungeonEventKind::Defended : DungeonEventKind::Held, i);
 }
 
@@ -341,6 +355,20 @@ inline UInt32 DungeonPersonDied(DungeonSite& d, UInt32 i, DungeonEvent* out, UIn
 	return d.people == 0 ? dungeon_detail::Overrun(d, i, out, 0, most) : 0;
 }
 
+// A walker dungeon the Daedra hold: their outpost (4.22a step 5c).
+inline bool IsOutpost(const DungeonSite& d) { return d.state == DungeonState::WalkerDungeon && d.daedra; }
+
+// Whether a walker dungeon is done with its boss: none there, or it fell.
+inline bool OutpostBossDone(const DungeonSite& d) { return !IsOutpost(d) || d.bossDown; }
+
+// A new siege or walker dungeon's side (4.22a step 5c), rolled as a spawn's
+// (KindLogic.h ReplacementGroup) on `roll` (0..99); a refuge or a place to
+// clear has none.
+inline bool DungeonSideDaedra(const DungeonSite& d, const InvaderSettings& invaders, UInt32 roll) {
+	return (d.state == DungeonState::Besieged || d.state == DungeonState::WalkerDungeon) &&
+	       ReplacementGroup(invaders, roll % 100) == Group::Daedra;
+}
+
 // Site `i` cleared by the player: to clear - those waiting move in; a
 // walker dungeon - taken again, new people come. A refuge again.
 template <typename RollFn>
@@ -360,6 +388,9 @@ UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, Ro
 	d.cleared = 0;
 	d.dayFrom = d.lastSeen;
 	d.state = DungeonState::Refuge;
+	d.daedra = false;
+	d.bossDown = false;
+	d.chestPlaced = false;
 	return dungeon_detail::Put(out, 0, most, DungeonEventKind::Taken, i);
 }
 
@@ -383,9 +414,21 @@ UInt32 DungeonWalkerEnded(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s
 	}
 	if (d.state == DungeonState::WalkerDungeon) {
 		--d.walkersLeft;
-		return d.walkersLeft == 0 ? DungeonCleared(d, i, s, roll, out, most) : 0;
+		return d.walkersLeft == 0 && OutpostBossDone(d) ? DungeonCleared(d, i, s, roll, out, most) : 0;
 	}
 	return 0;
+}
+
+// A Daedra outpost's boss fell (4.22a step 5c): the last of them, and the
+// place is cleared and taken.
+template <typename RollFn>
+UInt32 OutpostBossFell(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, RollFn& roll, DungeonEvent* out,
+                       UInt32 most) {
+	if (!IsOutpost(d) || d.bossDown) {
+		return 0;
+	}
+	d.bossDown = true;
+	return d.walkersLeft == 0 ? DungeonCleared(d, i, s, roll, out, most) : 0;
 }
 
 // The pool walkers a site wants in the place now: of a siege's or a walker
@@ -541,7 +584,9 @@ inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capac
 		at[0] = static_cast<UInt8>(d.candidate & 0xFF);
 		at[1] = static_cast<UInt8>(d.candidate >> 8);
 		at[2] = static_cast<UInt8>(d.state);
-		at[3] = d.seen ? 1 : 0;
+		// bit 0 seen; bits 1-3 the Daedra's, the boss, the chest (4.22a step
+		// 5c; 0 in an older save: walkers)
+		at[3] = static_cast<UInt8>((d.seen ? 1 : 0) | (d.daedra ? 2 : 0) | (d.bossDown ? 4 : 0) | (d.chestPlaced ? 8 : 0));
 		at[4] = d.people;
 		at[5] = d.waiting;
 		at[6] = d.lost;
@@ -578,7 +623,10 @@ inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 leng
 		d.candidate = static_cast<UInt16>(at[0] | (at[1] << 8));
 		d.state = at[2] <= static_cast<UInt8>(DungeonState::WalkerDungeon) ? static_cast<DungeonState>(at[2])
 		                                                                    : DungeonState::Free;
-		d.seen = at[3] != 0;
+		d.seen = (at[3] & 1) != 0;
+		d.daedra = (at[3] & 2) != 0;
+		d.bossDown = (at[3] & 4) != 0;
+		d.chestPlaced = (at[3] & 8) != 0;
 		d.people = at[4];
 		d.waiting = at[5];
 		d.lost = at[6];
