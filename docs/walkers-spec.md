@@ -5217,10 +5217,10 @@ cleared, taken, the reward; the dead banished.
 
 **Found on the way (not built):** the Linux list of 2026-11-16 has 80 of the
 91 dungeon candidates out "by a loaded quest" (658 quests, 984 cells named -
-on 2026-11-14 606 quests, 718 cells, all 91 in); the 11 left are the
-alphabetically last ones (Outlaw Endre's Cave, Sardavar Leed ... Yellow
-Tick Cave) except Fort Ash's neighbours - new since: the three Infinitum
-plugins in the load order. Not read why; Fort Ash, the harness's place, is
+on 2026-11-14 606 quests, 718 cells, all 91 in); the 11 left are
+Outlaw Endre's Cave and ten from Sardavar Leed to Yellow Tick Cave - the end
+of the alphabet, which smells of a cut-off rather than of quests. New since:
+the three Infinitum plugins in the load order. Not read why; Fort Ash, the harness's place, is
 out, so the outpost run took Toadstool Hollow.
 
 
