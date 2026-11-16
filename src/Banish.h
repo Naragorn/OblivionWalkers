@@ -21,6 +21,10 @@ void ConfigureBanishEsp(UInt32 espBase);
 
 // A Daedra the plugin placed: banished once dead.
 void WatchDaedra(UInt32 refId);
+// The Daedra the plugin placed, watched now (the gate guards' foes beside
+// the walkers).
+bool IsWatchedDaedra(UInt32 refId);
+UInt32 WatchedDaedraIds(UInt32* out, UInt32 most);
 
 // Once a frame; looked at once a second.
 void StepBanishInGame(float dt);

@@ -155,6 +155,16 @@ void ConfigureBanishEsp(UInt32 espBase) { g_quest = espBase == kNoEsp ? 0 : EspF
 
 void WatchDaedra(UInt32 refId) { WatchForBanish(g_list, refId); }
 
+bool IsWatchedDaedra(UInt32 refId) { return WatchedForBanish(g_list, refId); }
+
+UInt32 WatchedDaedraIds(UInt32* out, UInt32 most) {
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < g_list.count && n < most; ++i) {
+		out[n++] = g_list.items[i].ref;
+	}
+	return n;
+}
+
 void StepBanishInGame(float dt) {
 	if (g_settings == nullptr || g_console == nullptr) {
 		return;

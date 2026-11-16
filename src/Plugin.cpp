@@ -419,6 +419,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.guards.radius = IniFloat("Guards", "GateDistance", 4000.0f, path);
 	rise.guards.clearSeconds = IniFloat("Guards", "GoInAfterSeconds", 30.0f, path);
 	rise.guards.testKillSeconds = IniFloat("Guards", "TestKillSeconds", 0.0f, path);
+	rise.guards.legionUnits = std::max(0.0f, IniFloat("Guards", "LegionDistance", 16000.0f, path));
 	walkers::SiegeSettings& siege = rise.siege;
 	siege.enabled = IniInt("Siege", "Enabled", 1, path) != 0;
 	siege.walkersAtGate = static_cast<UInt32>(std::max(12, std::min(100, static_cast<int>(IniInt("Siege", "WalkersAtGate", 24, path)))));
@@ -508,7 +509,8 @@ bool ReadSettings(walkers::Settings* settings) {
 	    "OnlyPlayableRaces=%d OnlyHumans=%d NoRiseInCities=%d AsCreature=%d DropSeconds=%.1f LieSeconds=%.1f MatchCorpse=%u SettleSeconds=%.1f HideCorpseAtPose=%d KeepCorpseApart=%d SoundAtGetUpPercent=%u HoldDeathSound=%d CloneBase=%d ZombieRace=%d "
 	    "LookAfterSeconds=%.1f; [Zombies] Walk=%d SpeedMultiplier=%.2f SpeedRandomPercent=%u FamePerKills=%u AvoidChapels=%d RenameToWalker=%d Name=%s RenameVanilla=%d BlockMooResurrect=%d NoLevelingXP=%d NoSkillGain=%d DieOnlyBeheaded=%d RiseAgainSeconds=%.0f RiseAgainJitterSeconds=%.0f; "
 	    "[Replace] ExtraPercent=%u; [Horde] Enabled=%d JoinRadius=%.0f LeadUnits=%.0f StaleSeconds=%.0f TurnDegrees=%.0f GroupMost=%u TowardCities=%d CityPull=%.2f CityRange=%.0f GateHoldUnits=%.0f; "
-	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f TestKillSeconds=%.0f; [Safeguard] Enabled=%d "
+	    "[Guards] Enabled=%d HealthFactor=%.2f ZombiesPerGuard=%u Radius=%.0f ClearSeconds=%.0f TestKillSeconds=%.0f "
+	    "LegionDistance=%.0f; [Safeguard] Enabled=%d "
 	    "AfterSeconds=%.0f Radius=%.0f; [News] Courier=%d RecentDays=%.1f HeadingHoldDays=%.2f",
 	    path, rise.enabled ? 1 : 0, rise.afterSeconds, rise.jitterSeconds, rise.chancePercent,
 	    rise.onlyGeneric ? 1 : 0, rise.onlyPlayableRaces ? 1 : 0, rise.onlyHumans ? 1 : 0, rise.noRiseInCities ? 1 : 0, rise.asCreature ? 1 : 0,
@@ -521,7 +523,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    rise.horde.staleSeconds, rise.horde.turnDegrees, rise.horde.groupMost, rise.horde.towardCities ? 1 : 0,
 	    rise.horde.cityPull, rise.horde.cityRange, rise.horde.gateHoldUnits, rise.guards.enabled ? 1 : 0,
 	    rise.guards.healthFactor, rise.guards.zombiesPerGuard, rise.guards.radius, rise.guards.clearSeconds,
-	    rise.guards.testKillSeconds,
+	    rise.guards.testKillSeconds, rise.guards.legionUnits,
 	    rise.safeguard.enabled ? 1 : 0, rise.safeguard.afterSeconds, rise.safeguard.radius,
 	    rise.news.courier ? 1 : 0, rise.news.recentDays, rise.news.headingHoldDays);
 	return true;

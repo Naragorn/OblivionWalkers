@@ -1,5 +1,6 @@
 #include "Horde.h"
 
+#include "Banish.h"
 #include "CityGates.h"
 #include "Engine.h"
 #include "News.h"
@@ -411,10 +412,10 @@ void ReadGuardsOffWorld(LogFn log) {
 	log("Guards: the pool read off the world - %u out at a gate, the rest waiting", out);
 }
 
-// The nearest living walker in Tamriel within the gate's radius; 0 if none.
-UInt32 NearestWalker(const CityGate& gate, const HordeWalker* walkers, const bool* alive, UInt32 n) {
+// The nearest living foe in Tamriel within `reach` of the gate; 0 if none.
+UInt32 NearestWalker(const CityGate& gate, const HordeWalker* walkers, const bool* alive, UInt32 n, float reach) {
 	UInt32 best = 0;
-	float bestDistance = g_guardSettings.radius * g_guardSettings.radius;
+	float bestDistance = reach * reach;
 	for (UInt32 i = 0; i < n; ++i) {
 		const float dx = walkers[i].x - gate.x;
 		const float dy = walkers[i].y - gate.y;
@@ -463,19 +464,49 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 		ReadGuardsOffWorld(log);
 		g_guardsRead = true;
 	}
+	// The walkers, and apart from them the plugin's Daedra (Banish.h's
+	// watched: the bands', the sieges', the camps' and the outposts'; Nadi,
+	// 2026-11-16: the guards came out for walkers only) - a band's Daedra
+	// are among the candidates too, counted once, as Daedra.
 	float xs[kCandidatesMost];
 	float ys[kCandidatesMost];
 	bool there[kCandidatesMost];
 	for (UInt32 i = 0; i < n; ++i) {
 		xs[i] = walkers[i].x;
 		ys[i] = walkers[i].y;
-		there[i] = alive[i] && walkers[i].tamriel;
+		there[i] = alive[i] && walkers[i].tamriel && !IsWatchedDaedra(walkers[i].id);
+	}
+	static UInt32 daedraIds[kBanishMost];
+	static HordeWalker foes[kBanishMost];
+	float dxs[kBanishMost];
+	float dys[kBanishMost];
+	bool dthere[kBanishMost];
+	const UInt32 watched = WatchedDaedraIds(daedraIds, kBanishMost);
+	UInt32 nd = 0;
+	for (UInt32 i = 0; i < watched; ++i) {
+		const UInt32 ref = LookupForm(daedraIds[i]);
+		if (!LooksLikeObject(ref)) {
+			continue;
+		}
+		dxs[nd] = FloatAt(ref + kRefPositionOffset);
+		dys[nd] = FloatAt(ref + kRefPositionOffset + 4);
+		dthere[nd] = !dead(ref) && InTamriel(ref);
+		HordeWalker& f = foes[nd];
+		f = HordeWalker{};
+		f.id = daedraIds[i];
+		f.x = dxs[nd];
+		f.y = dys[nd];
+		f.tamriel = dthere[nd];
+		++nd;
 	}
 	UInt32 gateCity[kCityGateCount];
 	UInt32 zombies[kCityGateCount];
+	UInt32 daedraAt[kCityGateCount];
 	for (UInt32 g = 0; g < kCityGateCount; ++g) {
 		gateCity[g] = static_cast<UInt32>(kCityGates[g].city);
-		zombies[g] = WalkersNear(kCityGates[g].x, kCityGates[g].y, g_guardSettings.radius, xs, ys, there, n);
+		daedraAt[g] = DaedraNearGate(kCityGates[g].x, kCityGates[g].y, g_guardSettings, dxs, dys, dthere, nd);
+		zombies[g] = GateFoes(WalkersNear(kCityGates[g].x, kCityGates[g].y, g_guardSettings.radius, xs, ys, there, n),
+		                      daedraAt[g], g_guardSettings);
 	}
 	bool standing[kGuardCities][kGuardPool];
 	for (UInt32 c = 0; c < kGuardCities; ++c) {
@@ -536,9 +567,9 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 			g_arrivals[g_arrivalCount++] = GuardArrival{order.city, order.slot, order.gate, order.raise, health};
 		}
 		if (GuardLogDue()) {
-			log("Guards: %08X out at %s for %u walkers near (%s; health %u = %.2f x a walker's %u; Enable %d, %s "
-			    "answered %d)",
-			    FormIdOf(guard), gate.name, zombies[order.gate], order.raise ? "fallen there before, raised" : "waiting",
+			log("Guards: %08X out at %s for %u walkers' worth near, %u Daedra among them (%s; health %u = %.2f x a "
+			    "walker's %u; Enable %d, %s answered %d)",
+			    FormIdOf(guard), gate.name, zombies[order.gate], daedraAt[order.gate], order.raise ? "fallen there before, raised" : "waiting",
 			    health, g_guardSettings.healthFactor, walkerHealth, shown ? 1 : 0, line, moved ? 1 : 0);
 		}
 	}
@@ -553,7 +584,14 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 			if (guard == 0 || dead(guard) || Read(guard + kRefNiNodeOffset) == 0 || InCombat(guard)) {
 				continue;
 			}
-			const UInt32 target = NearestWalker(kCityGates[slot.gate], walkers, alive, n);
+			// The nearest walker within Radius first; else the nearest Daedra
+			// within LegionUnits (the Legion's answer to a band on the road).
+			UInt32 target = NearestWalker(kCityGates[slot.gate], walkers, there, n, g_guardSettings.radius);
+			if (target == 0) {
+				const float reach =
+				    g_guardSettings.legionUnits > g_guardSettings.radius ? g_guardSettings.legionUnits : g_guardSettings.radius;
+				target = NearestWalker(kCityGates[slot.gate], foes, dthere, nd, reach);
+			}
 			if (target == 0) {
 				continue;
 			}
@@ -561,7 +599,7 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 			std::snprintf(line, sizeof(line), "StartCombat %08X", target);
 			const bool fights = console(guard, line);
 			if (GuardLogDue()) {
-				log("Guards: %08X at %s sent at walker %08X (StartCombat answered %d)", FormIdOf(guard),
+				log("Guards: %08X at %s sent at %08X (StartCombat answered %d)", FormIdOf(guard),
 				    kCityGates[slot.gate].name, target, fights ? 1 : 0);
 			}
 		}

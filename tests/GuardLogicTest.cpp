@@ -344,6 +344,30 @@ void TestAttacked() {
 	      "a gate or a city out of range: not attacked");
 }
 
+void TestDaedra() {
+	std::printf("Daedra at a gate, the Legion's answer (4.22 idea 10)\n");
+	walkers::GuardSettings s;
+	Check(walkers::GateFoes(3, 0, s) == 3, "walkers only: as they were");
+	Check(walkers::GateFoes(0, 2, s) == 2 * s.zombiesPerGuard, "a Daedra asks for one guard");
+	Check(walkers::GuardsWanted(walkers::GateFoes(4, 2, s), s.zombiesPerGuard) == 3, "4 walkers and 2 Daedra: 3 guards");
+	walkers::GuardSettings none = s;
+	none.zombiesPerGuard = 0;
+	Check(walkers::GateFoes(0, 2, none) == 2, "ZombiesPerGuard 0 (one guard each): a Daedra counts one");
+	const float xs[] = {100.0f, 3900.0f, 9000.0f, 15900.0f, 16100.0f, 500.0f};
+	const float ys[] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	const bool alive[] = {true, true, true, true, true, false};
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, s, xs, ys, alive, 6) == 4,
+	      "the living within LegionUnits (16000) count: the Legion goes out to a band on the road");
+	walkers::GuardSettings off = s;
+	off.legionUnits = 0.0f;
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, off, xs, ys, alive, 6) == 2,
+	      "LegionUnits 0: only those within Radius, as walkers");
+	walkers::GuardSettings small = s;
+	small.legionUnits = 1000.0f;
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, small, xs, ys, alive, 6) == 2,
+	      "LegionUnits below Radius: Radius still holds");
+}
+
 int main() {
 	TestAttacked();
 	TestCount();
@@ -358,6 +382,7 @@ int main() {
 	TestSpot();
 	TestPoolIds();
 	TestRecover();
+	TestDaedra();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

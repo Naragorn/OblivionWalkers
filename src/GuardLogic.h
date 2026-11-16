@@ -47,6 +47,11 @@ struct GuardSettings {
 	// replaced and raised (a console kill of a pool guard does not take
 	// through the harness's console lines).
 	float testKillSeconds = 0.0f;
+	// [Guards] LegionUnits (4.22 idea 10, Nadi 2026-11-16: "Fußtrupp"): the
+	// plugin's Daedra this near a city's gate bring its guards out on foot -
+	// a band on the road as well as a siege before the gate. 0: only within
+	// Radius, as the walkers.
+	float legionUnits = 16000.0f;
 };
 
 struct GuardSlot {
@@ -163,6 +168,21 @@ inline UInt32 WalkersNear(float x, float y, float radius, const float* xs, const
 		count += alive[i] && dx * dx + dy * dy <= radius * radius ? 1u : 0u;
 	}
 	return count;
+}
+
+// The foes at a gate in walkers' worth (Nadi, 2026-11-16: the gate guards
+// came out for walkers only): a Daedra asks for a guard of its own -
+// ZombiesPerGuard walkers' worth.
+inline UInt32 GateFoes(UInt32 walkersNear, UInt32 daedraNear, const GuardSettings& s) {
+	const UInt32 per = s.zombiesPerGuard == 0 ? 1u : s.zombiesPerGuard;
+	return walkersNear + daedraNear * per;
+}
+
+// The living Daedra within LegionUnits of (x, y), Radius at the least.
+inline UInt32 DaedraNearGate(float x, float y, const GuardSettings& s, const float* xs, const float* ys,
+                             const bool* alive, UInt32 n) {
+	const float reach = s.legionUnits > s.radius ? s.legionUnits : s.radius;
+	return WalkersNear(x, y, reach, xs, ys, alive, n);
 }
 
 // Whether `city` is attacked now (the news, docs/walkers-spec.md 4.9): one
