@@ -178,11 +178,20 @@ inline UInt32 GateFoes(UInt32 walkersNear, UInt32 daedraNear, const GuardSetting
 	return walkersNear + daedraNear * per;
 }
 
-// The living Daedra within LegionUnits of (x, y), Radius at the least.
+// The living Daedra near (x, y): a band's (`band`) within LegionUnits,
+// Radius at the least; a siege's or a camp's within Radius, as the walkers -
+// a city's other gates do not come out for a siege at one of them.
 inline UInt32 DaedraNearGate(float x, float y, const GuardSettings& s, const float* xs, const float* ys,
-                             const bool* alive, UInt32 n) {
-	const float reach = s.legionUnits > s.radius ? s.legionUnits : s.radius;
-	return WalkersNear(x, y, reach, xs, ys, alive, n);
+                             const bool* alive, const bool* band, UInt32 n) {
+	const float legion = s.legionUnits > s.radius ? s.legionUnits : s.radius;
+	UInt32 count = 0;
+	for (UInt32 i = 0; i < n; ++i) {
+		const float reach = band[i] ? legion : s.radius;
+		const float dx = xs[i] - x;
+		const float dy = ys[i] - y;
+		count += alive[i] && dx * dx + dy * dy <= reach * reach ? 1u : 0u;
+	}
+	return count;
 }
 
 // Whether `city` is attacked now (the news, docs/walkers-spec.md 4.9): one

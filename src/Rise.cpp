@@ -1216,6 +1216,7 @@ void FindWalkers() {
 	ConfigureCampsEsp(base);
 	ConfigureDungeonsEsp(base);
 	ConfigureDisguiseEsp(base);
+	ConfigureDaedricDisguiseEsp(base);
 	ConfigureGrabIdles(base);
 	ReadWalkerRecords();
 }

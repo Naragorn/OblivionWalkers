@@ -28,6 +28,8 @@ MarchWeatherState g_state;
 UInt32 g_before = 0;  // the weather before the red sky
 float g_clock = 0.0f;
 UInt32 g_logsLeft = 40;
+UInt32 g_seen = 0;
+UInt32 g_afterLooks = 0;  // looks after letting go in which the sky is logged  // the sky's weather last logged while forced (the proof: the console's answer is none)
 
 bool Outdoors() {
 	const UInt32 player = LookupForm(kPlayerRefId);
@@ -71,7 +73,26 @@ void StepMarchWeatherInGame(float dt) {
 	const float nearest = g_state.forced || g_settings->enabled ? NearestDaedraBandMember(g_dead) : -1.0f;
 	const MarchWeather step = StepMarchWeather(g_state, *g_settings, outdoors, nearest, elapsed);
 	char line[48];
+	if (g_afterLooks > 0 && step == MarchWeather::None) {
+		--g_afterLooks;
+		const UInt32 now = WeatherNow();
+		if (now != g_seen && g_logsLeft > 0) {
+			--g_logsLeft;
+			g_log("March weather: after letting go the sky's weather now %08X", now);
+		}
+		g_seen = now;
+	}
+	if (g_state.forced && step == MarchWeather::None) {
+		const UInt32 now = WeatherNow();
+		if (now != g_seen && g_logsLeft > 0) {
+			--g_logsLeft;
+			g_log("March weather: the sky's weather now %08X (the red sky %s)", now,
+			      now == kMarchWeatherForm ? "in" : "not yet");
+		}
+		g_seen = now;
+	}
 	if (step == MarchWeather::Force) {
+		g_seen = 0;
 		g_before = WeatherNow();
 		std::snprintf(line, sizeof(line), "SetWeather %08X 1", kMarchWeatherForm);
 		const bool said = Say(line);
@@ -95,6 +116,8 @@ void StepMarchWeatherInGame(float dt) {
 			      back ? 1 : 0);
 		}
 		g_before = 0;
+		g_seen = kMarchWeatherForm;
+		g_afterLooks = 60;
 	}
 }
 
@@ -102,6 +125,7 @@ void ResetMarchWeather() {
 	g_state = MarchWeatherState{};
 	g_before = 0;
 	g_clock = 0.0f;
+	g_afterLooks = 0;
 }
 
 }  // namespace walkers

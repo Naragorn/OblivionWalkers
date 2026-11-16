@@ -1,0 +1,40 @@
+# The piles of banished Daedra across a save and a load (co-save 'PILE',
+# 2026-11-16), on daedra-siege.txt: after the first killall's banishing the
+# game is saved and loaded; the bags read back. Otherwise as:
+# A Daedra siege before Anvil's Castle Gate (docs/walkers-spec.md 4.22a step
+# 5a) and its dead banished (step 5b). The run's plugin INI (tools/daedra-
+# harness.sh siege) carries [Siege] TestGate=1 TestDaedra=1 DaedraMin=6
+# DaedraMax=6 DaedraAtGate=4 ChancePerDayPercent=0 and [Invaders]
+# BanishSeconds=5. The player is moved before the gate (its door 00006FBA,
+# 500 units out): the placer brings 4 Daedra, killall ends them, 5 s later
+# each goes back to Oblivion and leaves a sack; 2 more come, killall ends
+# them - the siege is over, the Daedra taken out. The city's gate guards come
+# out against the Daedra (the siege's in the guards' count, 2026-11-16).
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at ready player.moveto 00006FBA 0 -500 0
+console-at kill1 killall
+console-at saved save WalkersPileTest
+console-at reload load WalkersPileTest
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 15
+mark out
+wait 3
+mark kill1
+wait 14
+mark banished
+wait 4
+mark saved
+wait 6
+mark reload
+wait 25
+mark end
+wait 1

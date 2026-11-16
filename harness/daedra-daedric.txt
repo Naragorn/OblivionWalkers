@@ -1,0 +1,46 @@
+# The Daedric disguise (docs/walkers-spec.md 4.22 idea 7): the player, put in
+# the five Daedric pieces (helmet 00036357, gauntlets 00036358, boots
+# 00036359, greaves 0003635A, cuirass 0003635B), outdoors at cow Tamriel
+# -3 3. A Dremora of the first rank's list (LL1Dremora100, 00092DA6) is
+# placed 400 units before him (beyond NearDistance 200): fooled, it leaves him be ("0 Daedra near in
+# combat", fooled 1). Then it is moved to 120 units: "Too close" - the
+# player leaves the factions, the Dremora fights. God mode keeps him alive.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready cow tamriel -3 3
+console-at dress player.additem 00036357 1
+console-at dress player.additem 00036358 1
+console-at dress player.additem 00036359 1
+console-at dress player.additem 0003635A 1
+console-at dress player.additem 0003635B 1
+console-at dress player.equipitem 00036357
+console-at dress player.equipitem 00036358
+console-at dress player.equipitem 00036359
+console-at dress player.equipitem 0003635A
+console-at dress player.equipitem 0003635B
+console-at placed player.placeatme 00092DA6 1
+console-at placed player.setangle z 0
+console-at close {actor}.moveto player 0 400 0
+console-at near {actor}.moveto player 0 120 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark dress
+wait 4
+mark placed
+wait 2
+mark close
+wait 25
+mark near
+wait 15
+mark end
+wait 1

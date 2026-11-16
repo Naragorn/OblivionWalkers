@@ -19,7 +19,22 @@ before="$disabled/harness-before"
 dll="$game/Data/OBSE/Plugins/OblivionWalkers.dll"
 esp="$game/Data/OblivionWalkers.esp"
 
-if pgrep -f '[O]blivion.exe' >/dev/null; then
+# The game by its own argv[0] (as tools/build-linux.sh): pgrep -f also
+# matches other shells whose command line merely names Oblivion.exe (a peer
+# session's wait loop, 2026-11-16).
+game_running() {
+	local cmdline argv0
+	for cmdline in /proc/[0-9]*/cmdline; do
+		argv0="$(tr '\0' '\n' < "$cmdline" 2>/dev/null | head -n 1)" || continue
+		argv0="${argv0//\\//}"
+		if [[ "${argv0##*/}" =~ ^[Oo][Bb][Ll][Ii][Vv][Ii][Oo][Nn]\.[Ee][Xx][Ee]$ ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+if game_running; then
 	echo "linux-walkers: Oblivion runs - nothing changed" >&2
 	exit 1
 fi

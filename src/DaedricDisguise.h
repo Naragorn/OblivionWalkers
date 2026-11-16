@@ -13,6 +13,10 @@ namespace walkers {
 
 void ConfigureDaedricDisguise(const DaedricSettings* settings, ConsoleFn console, DeadFn dead, LogFn log);
 
+// The ESP's base: its quest's siege_lock reads the player's faction ranks
+// (the log's proof).
+void ConfigureDaedricDisguiseEsp(UInt32 espBase);
+
 // xOBSE's OnHit: `target` hit by `attacker`.
 void NoteDaedricHit(UInt32 target, UInt32 attacker);
 

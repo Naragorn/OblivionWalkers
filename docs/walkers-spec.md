@@ -5151,9 +5151,13 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | 5c: the reward's words after a Daedra attack ("the Daedra are beaten"), camp and held place - fixed, not seen | `camp-daedra.txt`, `dungeon-daedra.txt` (a siege, TestSiteState=2) |
 | 2026-11-16 | 6: the gate rumor said in dialogue, the compass pointing at the rewritten target, the Daedra broadsheet on a sheet | a look in the game |
 | 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
+| 2026-11-16 | 7: the Daedric disguise ended by a blow (OnHit on a Daedra) - unit flows only; a save made while fooled, loaded (the player out of the factions first); Mode 3's walkers fooled too | `daedra-daedric.txt` with a strike (a VR blow or a spell) and a save/load; `daedra-fight.txt` 3 in the set |
+| 2026-11-16 | 7: Daedric pieces of the DLCs and mods (only Oblivion.esm's 62 are known) | none: a choice - a list per plugin, or the model path read at run time |
+| 2026-11-16 | 9: the marching weather across a save while forced; beside a weather mod (All Natural) | `daedra-legion.txt` with a save/load; a look with the weather mod |
+| 2026-11-16 | 10: the Legion beside walkers at the same gate; a band near a city the player is far from (the pool's guards in an unloaded cell) | `daedra-legion.txt` Mode 2; a band driven past a city out of the loaded grid |
 
 
-### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; 5 and 6 BUILT 2026-11-16, "go 5a 5b 5c 6"; 7 not built)
+### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; 5 and 6 BUILT 2026-11-16, "go 5a 5b 5c 6"; 7 BUILT 2026-11-16, "go 7 10 9", idea 3 won't do)
 
 **Built 2026-11-16 (5a, 5b, 5c, 6), and where it differs from the plan:**
 
@@ -5168,16 +5172,19 @@ whole: every change that needs the game adds its line the day it is built.
   Daedra, 2/3 by DaedraPercent). A Daedra siege is smaller: [Siege]
   DaedraMin 10 .. DaedraMax 30, DaedraAtGate 8 (1-24) at once - not in the
   plan, new keys (LINK 46). The side sits in the co-save's former pad byte.
-  Not built: the gate guards come out for walkers only (GuardLogic.h counts
-  walkers) - against Daedra the city's own guards fight.
+  The gate guards come out against the plugin's Daedra too (built
+  2026-11-16, "die gate-Wachen Lücke"): each one near a gate asks for a
+  guard (`GateFoes`); a siege's within GateDistance only, so the city's
+  other gates stay shut.
 - 5b: only the Daedra the plugin placed (bands, sieges, camps, outposts) -
   the game's own stay (a disabled reference of the game's might stay
   disabled through its cell's reset). **Deviation: the shader is not the
   game's summon-end shader** - there is none to read: the summon effects
   name no shader (MGEF DATA), the EXE names only 0x144-0x146 by ID. So
   [Invaders] BanishShader picks one, effectEnchantConjuration (0018B576).
-  The pile is the game's own LootBag (0000000E), no ESP ID. Piles are not
-  in the co-save: after a load they stay in the world for good.
+  The pile is the game's own LootBag (0000000E), no ESP ID. The piles are
+  in the co-save ('PILE', built 2026-11-16): read back after a load, they go
+  once the player is far, as before.
 - 5c: a camp attack's side rolled the same; Daedra are placed on the attack
   ring and led in by the bank's travel package; overrun by Daedra none stay.
   A held place's siege or walker dungeon rolls its side; a Daedra walker
@@ -5198,6 +5205,52 @@ whole: every change that needs the game adds its line the day it is built.
   `DaedraAfterMainQuest` (INI, LINK): off, MQ16 completed stops the Daedra -
   every new side the walkers', Mode 1's spawn replacement off.
 - IDs used: 0xA96..0xA9B (6); 0xA9C..0xAA3 free (8).
+
+**Step 7 built 2026-11-16** (Nadi: "go 7 10 9 und die beutesäcke und
+gate-Wachen Lücke"; idea 3 won't do - "3 wont do weil es eh gates in stadt
+nähe gibt in der main quest": the quest's city gates already feed bands to
+their city and raise its siege chance, step 3):
+
+- Idea 7, the Daedric disguise (`DaedricDisguiseLogic.h`,
+  `DaedricDisguise.cpp`): a full set - helmet, cuirass, greaves, gauntlets,
+  boots; `tools/daedric-armor.py` reads 62 pieces off Oblivion.esm, every
+  ARMO under Armor\Daedric\: the plain, the enchanted, the Dremora's and
+  the bound ones - puts the player into DaedraFaction (00053FED) and
+  DremoraFaction (0003E9A6), which react +100 to each other; a Daedra
+  attacks only when its disposition falls more than five points below its
+  aggression (UESP Oblivion:Aggression). Every Daedra is fooled, a gate's
+  too; with Mode 3 the walkers (in DaedraFaction) as well. A blow on a
+  Daedra (xOBSE OnHit) or one within `DaedricNearDistance` (200) and they
+  know him; none within 4096 units for `DaedricForgetSeconds` (60; Nadi's
+  choice "60 s ohne Daedra") and they forget. A piece off ends it. The worn
+  pieces read as OBVR's PlayerWearsItem does (0x0041E6F0, 0x00485FA0). After
+  a load the player is taken out of the factions first.
+- Idea 10, the Legion's answer - **deviation, agreed** (Nadi: "Fußtrupp"):
+  no riders (no spare rider references; putting an NPC on a horse by
+  script not read). A Daedra band within `[Guards] LegionDistance` (16000)
+  of a city's gate brings that gate's guards out of the pool on foot, sent
+  at the band's nearest Daedra (`DaedraNearGate`).
+- Idea 9, the marching weather (`MarchWeatherLogic.h`, `MarchWeather.cpp`,
+  `[Invaders] MarchWeather=0`): a Daedra band within
+  `MarchWeatherDistance` (12000) of the player outdoors sets
+  OblivionStormTamriel (000836D5) with the override flag; 20 s after the
+  last one went, or at once inside, ReleaseWeatherOverride and the weather
+  before set again.
+- LINK 47, 231 variables (the six new keys). Found on the way: the Dremora
+  race check read 0003E9A6 - DremoraFaction's ID; the race is 00038010
+  (fixed, RiseLogicTest).
+
+Harness PASS 2026-11-16 21:2x-21:4x (Linux): `daedra-daedric.txt` - the
+five pieces read as slots 3D, the ranks 0 0 after joining (GetFactionRank;
+the console answers 0 for SetFactionRank, no proof), a Dremora 529 down to
+113 units off and 0 Daedra in combat while fooled, at 120 "Too close", the
+ranks -1 -1, then 1 in combat. `daedra-siege.txt` - Anvil Castle Gate's
+guards out for 4 Daedra, the Main and Dock gates shut (the first run had
+all three out - the siege's now only within GateDistance). `daedra-legion.txt`
+- a band 5000 before Anvil: the three gates' guards out for 5-8 Daedra,
+sent at them; the sky read 000836D5, after letting go 00038EEC (the weather
+before). `daedra-piles.txt` - 4 piles written, the same 4 read after the
+load.
 
 **Harness PASS 2026-11-16 (Linux, Walkers in for the runs only):**
 `daedra-siege.txt` (Mode 1): 4 Daedra placed before Anvil's Castle Gate,
@@ -5246,7 +5299,7 @@ names what it takes of them.
   the main quest ends (with OnlyFromOblivionGates they stop anyway - the
   quest shuts every gate). Reopening gates afterwards: not built (their
   script not read, a risk to the main quest).
-- **7, the looks.** Idea 3 through the main quest's own city gates (4.22
+- **7, the looks** (built 2026-11-16 but idea 3, above). Idea 3 through the main quest's own city gates (4.22
   idea 3's note): once the quest has opened a city's gate, a Daedra siege
   of that city starts from it; before that no gate - opening it ourselves
   would trouble MQ11's count. No prop of our own. Idea 7, the Daedric

@@ -356,15 +356,20 @@ void TestDaedra() {
 	const float xs[] = {100.0f, 3900.0f, 9000.0f, 15900.0f, 16100.0f, 500.0f};
 	const float ys[] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 	const bool alive[] = {true, true, true, true, true, false};
-	Check(walkers::DaedraNearGate(0.0f, 0.0f, s, xs, ys, alive, 6) == 4,
-	      "the living within LegionUnits (16000) count: the Legion goes out to a band on the road");
+	const bool band[] = {true, true, true, true, true, true};
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, s, xs, ys, alive, band, 6) == 4,
+	      "a band's living within LegionUnits (16000) count: the Legion goes out to a band on the road");
+	const bool siege[] = {false, false, false, false, false, false};
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, s, xs, ys, alive, siege, 6) == 2,
+	      "a siege's (or a camp's) only within Radius: the city's other gates stay shut (harness 2026-11-16: all three "
+	      "of Anvil's came out)");
 	walkers::GuardSettings off = s;
 	off.legionUnits = 0.0f;
-	Check(walkers::DaedraNearGate(0.0f, 0.0f, off, xs, ys, alive, 6) == 2,
-	      "LegionUnits 0: only those within Radius, as walkers");
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, off, xs, ys, alive, band, 6) == 2,
+	      "LegionUnits 0: a band's only within Radius, as walkers");
 	walkers::GuardSettings small = s;
 	small.legionUnits = 1000.0f;
-	Check(walkers::DaedraNearGate(0.0f, 0.0f, small, xs, ys, alive, 6) == 2,
+	Check(walkers::DaedraNearGate(0.0f, 0.0f, small, xs, ys, alive, band, 6) == 2,
 	      "LegionUnits below Radius: Radius still holds");
 }
 

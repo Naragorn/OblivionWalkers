@@ -5,7 +5,8 @@
 # BanishSeconds=5. The player is moved before the gate (its door 00006FBA,
 # 500 units out): the placer brings 4 Daedra, killall ends them, 5 s later
 # each goes back to Oblivion and leaves a sack; 2 more come, killall ends
-# them - the siege is over, the Daedra taken out.
+# them - the siege is over, the Daedra taken out. The city's gate guards come
+# out against the Daedra (the siege's in the guards' count, 2026-11-16).
 
 ini Hands Enabled=1
 ini Hands Dismemberment=0

@@ -10,7 +10,10 @@
 #   tools/daedra-harness.sh save [Mode]      harness/daedra-save.txt: the band and its leader across a save and a load
 #   tools/daedra-harness.sh fuel [Mode]      harness/daedra-fuel.txt: a bandit the Daedra kill rises (Mode 2)
 #   tools/daedra-harness.sh gate [Mode]      harness/daedra-gate.txt: "Close the gate" begun and done (4.22a 6)
-#   tools/daedra-harness.sh siege [Mode]     harness/daedra-siege.txt: a Daedra siege at Anvil, its dead banished (4.22a 5a, 5b)
+#   tools/daedra-harness.sh siege [Mode]     harness/daedra-siege.txt: a Daedra siege at Anvil, its dead banished (4.22a 5a, 5b), the gate guards out against them
+#   tools/daedra-harness.sh piles [Mode]     harness/daedra-piles.txt: the siege's piles across a save and a load ('PILE')
+#   tools/daedra-harness.sh daedric [Mode]   harness/daedra-daedric.txt: the Daedric disguise fools a Dremora, too close it fights (idea 7)
+#   tools/daedra-harness.sh legion [Mode]    harness/daedra-legion.txt: a band near Anvil - the Legion comes out, the red sky (ideas 10, 9)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -49,13 +52,16 @@ def set_key(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 
 text = set_key(text, "Invaders", "Mode", kind)
-if scenario in ("band", "save"):
+if scenario in ("band", "save", "legion"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
 if scenario == "gate":
     text = set_key(text, "Invaders", "TestGateOpen", "2")
     text = set_key(text, "Invaders", "TestGateOpenSeconds", "60")
-if scenario == "siege":
+if scenario == "legion":
+    text = set_key(text, "Invaders", "MarchWeather", "1")
+    text = set_key(text, "Guards", "LegionDistance", "16000")
+if scenario in ("siege", "piles"):
     for key, value in (("TestGate", "1"), ("TestDaedra", "1"), ("DaedraMin", "6"), ("DaedraMax", "6"),
                        ("DaedraAtGate", "4"), ("ChancePerDayPercent", "0")):
         text = set_key(text, "Siege", key, value)
@@ -89,7 +95,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "siege", "gate"):
+if kind != 0 and scenario not in ("band", "save", "siege", "gate", "piles", "daedric", "legion"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -163,6 +169,48 @@ if scenario == "siege":
     check(any("handed to DeleteReference" in l for l in lines), "bodies deleted")
     check(any("Anvil Castle Gate is over" in l or "the siege at Anvil Castle Gate is over" in l for l in lines),
           "the siege over once all fell")
+if scenario == "siege":
+    guards = show("Guards: ", 20)
+    out = [int(m.group(1)) for m in (re.search(r"out at Anvil Castle Gate for \d+ walkers' worth near, (\d+) Daedra", l) for l in lines) if m]
+    check(bool(out) and max(out) >= 1, "the gate guards came out against the Daedra (%s)" % out)
+    check(any(re.search(r"Guards: \w+ at Anvil \w+ Gate sent at FF", l) for l in lines) or
+          any(l.startswith("Death: gate guard") for l in lines), "a guard sent at a Daedra or fighting (one fell)")
+    others = [l for l in lines if re.search(r"out at Anvil (Main|Dock) Gate .* [1-9]\d* Daedra among them", l)]
+    check(not others, "the city's other gates stay shut for a siege at one (%d)" % len(others))
+if scenario == "piles":
+    show("Banish: ", 20)
+    show("Co-save: ", 20)
+    written = [int(m.group(1)) for m in (re.search(r"Co-save: (\d+) piles of banished Daedra written", l) for l in lines) if m]
+    read = [int(m.group(1)) for m in (re.search(r"Co-save: (\d+) piles of banished Daedra read", l) for l in lines) if m]
+    check(bool(written) and written[-1] >= 1, "the piles written (%s)" % written)
+    check(bool(read) and read[-1] == written[-1], "the same piles read after the load (%s)" % read)
+if scenario == "daedric":
+    show("Daedric disguise: ", 30)
+    check(any("full set 1" in l for l in lines), "the five pieces read as a full set")
+    check(any("the player joins DaedraFaction and DremoraFaction" in l and "ranks now 0 0" in l for l in lines),
+          "fooled: the player in their factions (GetFactionRank 0 0; the console's answer is no proof)")
+    check(any("Too close" in l and "ranks now -1 -1" in l for l in lines), "seen through: out of them again (-1 -1)")
+    fooled = [l for l in lines if re.search(r"Daedric disguise: 0 Daedra near in combat \(fooled 1", l)]
+    fooledFights = [l for l in lines if re.search(r"Daedric disguise: [1-9]\d* Daedra near in combat \(fooled 1", l)]
+    close = [l for l in lines if re.search(r"Daedra near in combat \(fooled 1, known 0; the nearest ([2-9]\d\d|1\d\d\d)\)", l)]
+    check(bool(close), "fooled with a Daedra within 2000 units (%d lines)" % len(close))
+    check(bool(fooled) and not fooledFights, "fooled, the Dremora 400 units off leaves him be (%d lines with a fight)" % len(fooledFights))
+    check(any("Too close" in l and "leaves" in l for l in lines), "moved within reach: they see through it")
+    fights = [l for l in lines if re.search(r"Daedric disguise: [1-9]\d* Daedra near in combat \(fooled 0, known 1", l)]
+    check(bool(fights), "known, the Dremora fights")
+if scenario == "legion":
+    show("Bands: ", 10)
+    show("Guards: ", 20)
+    show("March weather: ", 10)
+    out = [int(m.group(1)) for m in (re.search(r"out at Anvil \w+ Gate for \d+ walkers' worth near, (\d+) Daedra", l) for l in lines) if m]
+    check(bool(out) and max(out) >= 1, "the Legion came out against the band (%s)" % out)
+    check(any(re.search(r"Guards: \w+ at Anvil \w+ Gate sent at FF", l) for l in lines), "a guard sent at a band's Daedra")
+    check(any("March weather: a Daedra band" in l for l in lines), "a band near: the red sky asked for")
+    check(any("March weather: the sky's weather now 000836D5" in l for l in lines),
+          "the sky's weather the red sky (read off the sky; the console's answer is no proof)")
+    check(any("March weather: let go" in l for l in lines), "let go once the band is gone")
+    check(any(re.search(r"March weather: after letting go the sky's weather now (?!000836D5)[0-9A-F]{8}", l) for l in lines),
+          "the sky turns from the red sky afterwards")
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)
 PY

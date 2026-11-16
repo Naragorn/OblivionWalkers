@@ -3,6 +3,9 @@
 #include <cstdio>
 
 #include "Engine.h"
+#include "LinkLogic.h"
+#include "QuestVars.h"
+#include "RiseLogic.h"
 #include "Placer.h"
 
 namespace walkers {
@@ -38,6 +41,23 @@ bool g_leaveDue = true;  // a load: out of the factions first
 float g_clock = 0.0f;
 UInt8 g_lastSlots = 0xFF;
 UInt32 g_logsLeft = 60;
+int g_lastFighting = -1;
+float g_fightLogClock = 0.0f;
+UInt32 g_quest = 0;
+
+// The player's rank in `faction` (GetFactionRank, asked into the ESP
+// quest's siege_lock as Banish.cpp asks a sack): -1 none, -2 not read.
+double FactionRank(UInt32 faction) {
+	double* var = g_quest != 0 ? QuestVariable(g_quest, "siege_lock") : nullptr;
+	if (var == nullptr) {
+		return -2.0;
+	}
+	*var = -2.0;
+	char line[64];
+	std::snprintf(line, sizeof(line), "set Walkers.siege_lock to player.GetFactionRank %08X", faction);
+	g_console(LookupForm(kPlayerRefId), line);
+	return *var;
+}
 
 bool Say(UInt32 ref, const char* line) { return LooksLikeObject(ref) && g_console != nullptr && g_console(ref, line); }
 
@@ -103,6 +123,23 @@ float NearestDaedra() {
 	return best;
 }
 
+// The living Daedra within kStopCombatUnits in combat (the log's proof that
+// the fooled are left alone).
+UInt32 DaedraFightingNear() {
+	static UInt32 actors[1024];
+	const UInt32 count = ActorsOnHighList(actors, 1024);
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 actor = actors[i];
+		if (!IsDaedra(actor) || (g_dead != nullptr && g_dead(actor)) || !ActorInCombat(FormIdOf(actor))) {
+			continue;
+		}
+		const float d = DistanceFromPlayer(actor);
+		n += d >= 0.0f && d <= kStopCombatUnits ? 1u : 0u;
+	}
+	return n;
+}
+
 // Fooled: the Daedra near who fight stop (they fought the player; a Daedra
 // fighting a walker takes it up again on its own).
 UInt32 StopDaedraFighting() {
@@ -132,8 +169,10 @@ void Factions(bool join, const char* why) {
 	const UInt32 stopped = join ? StopDaedraFighting() : 0;
 	if (g_log != nullptr && g_logsLeft > 0) {
 		--g_logsLeft;
-		g_log("Daedric disguise: the player %s DaedraFaction and DremoraFaction (%s; answered %d %d)",
-		      join ? "joins" : "leaves", why, a ? 1 : 0, b ? 1 : 0);
+		g_log("Daedric disguise: the player %s DaedraFaction and DremoraFaction (%s; answered %d %d) - his ranks now "
+		      "%.0f %.0f",
+		      join ? "joins" : "leaves", why, a ? 1 : 0, b ? 1 : 0, FactionRank(kDaedraFactionId),
+		      FactionRank(kDremoraFactionId));
 		if (join) {
 			g_log("Daedric disguise: %u Daedra fighting near told StopCombat", stopped);
 		}
@@ -155,6 +194,10 @@ void ConfigureDaedricDisguise(const DaedricSettings* settings, ConsoleFn console
 	g_log = log;
 	log("Daedric disguise: [Disguise] Daedric=%d DaedricNearDistance=%.0f DaedricForgetSeconds=%.0f (%u pieces known)",
 	    settings->enabled ? 1 : 0, settings->nearUnits, settings->forgetSeconds, kDaedricPieceCount);
+}
+
+void ConfigureDaedricDisguiseEsp(UInt32 espBase) {
+	g_quest = espBase == kNoEsp ? 0 : EspFormId(espBase, kLinkQuestLocalId);
 }
 
 void NoteDaedricHit(UInt32 target, UInt32 attacker) {
@@ -190,10 +233,23 @@ void StepDaedricDisguiseInGame(float dt) {
 		      slots, FullDaedricSet(slots) ? 1 : 0, nearest);
 	}
 	g_lastSlots = slots;
+	if (g_settings->enabled && nearest >= 0.0f) {
+		const int fighting = static_cast<int>(DaedraFightingNear());
+		g_fightLogClock += elapsed;
+		const bool due = g_fightLogClock >= 5.0f && nearest <= 2000.0f;  // a Daedra close: every 5 s
+		if ((fighting != g_lastFighting || due) && g_log != nullptr && g_logsLeft > 0) {
+			g_fightLogClock = 0.0f;
+			--g_logsLeft;
+			g_log("Daedric disguise: %d Daedra near in combat (fooled %d, known %d; the nearest %.0f)", fighting,
+			      g_state.on ? 1 : 0, g_state.known ? 1 : 0, nearest);
+		}
+		g_lastFighting = fighting;
+	}
 	const DaedricChange change = StepDaedric(g_state, *g_settings, FullDaedricSet(slots), nearest, struck, elapsed);
 	if (change == DaedricChange::None) {
 		return;
 	}
+	g_lastFighting = -1;  // the next look logs who fights, the new state beside it
 	if (DaedricJoins(change)) {
 		Factions(true, DaedricChangeText(change));
 	} else if (DaedricLeaves(change)) {
@@ -210,6 +266,7 @@ void ResetDaedricDisguise() {
 	g_leaveDue = true;
 	g_clock = 0.0f;
 	g_lastSlots = 0xFF;
+	g_lastFighting = -1;
 }
 
 }  // namespace walkers

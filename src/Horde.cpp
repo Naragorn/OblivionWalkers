@@ -1,6 +1,7 @@
 #include "Horde.h"
 
 #include "Banish.h"
+#include "Bands.h"
 #include "CityGates.h"
 #include "Engine.h"
 #include "News.h"
@@ -481,6 +482,7 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 	float dxs[kBanishMost];
 	float dys[kBanishMost];
 	bool dthere[kBanishMost];
+	bool dband[kBanishMost];
 	const UInt32 watched = WatchedDaedraIds(daedraIds, kBanishMost);
 	UInt32 nd = 0;
 	for (UInt32 i = 0; i < watched; ++i) {
@@ -491,6 +493,7 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 		dxs[nd] = FloatAt(ref + kRefPositionOffset);
 		dys[nd] = FloatAt(ref + kRefPositionOffset + 4);
 		dthere[nd] = !dead(ref) && InTamriel(ref);
+		dband[nd] = IsBandMember(daedraIds[i]);
 		HordeWalker& f = foes[nd];
 		f = HordeWalker{};
 		f.id = daedraIds[i];
@@ -504,7 +507,7 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 	UInt32 daedraAt[kCityGateCount];
 	for (UInt32 g = 0; g < kCityGateCount; ++g) {
 		gateCity[g] = static_cast<UInt32>(kCityGates[g].city);
-		daedraAt[g] = DaedraNearGate(kCityGates[g].x, kCityGates[g].y, g_guardSettings, dxs, dys, dthere, nd);
+		daedraAt[g] = DaedraNearGate(kCityGates[g].x, kCityGates[g].y, g_guardSettings, dxs, dys, dthere, dband, nd);
 		zombies[g] = GateFoes(WalkersNear(kCityGates[g].x, kCityGates[g].y, g_guardSettings.radius, xs, ys, there, n),
 		                      daedraAt[g], g_guardSettings);
 	}
