@@ -44,6 +44,8 @@ UInt32 g_seed = 0x2545F491u;
 UInt32 g_logsLeft = 400;
 float g_testClock = 0.0f;
 bool g_testDone = false;
+float g_killClock = 0.0f;  // TestKillLeaderSeconds: since a leader was found
+bool g_killDone = false;
 
 BandMember g_members[kBandMembersMost] = {};
 UInt32 g_memberCount = 0;
@@ -62,6 +64,7 @@ struct Placing {
 	UInt8 band = 0;
 	UInt32 before[kNearMost] = {};  // the FF actors near the marker before the PlaceAtMe
 	UInt32 beforeCount = 0;
+	UInt32 leaderBase = 0;  // the leader's actor: only a new one of this base is taken for him
 };
 Placing g_placing;
 // Near bands waiting for the marker (one is placed at a time).
@@ -98,8 +101,10 @@ UInt32 PlayerLevel() {
 }
 
 // The new FF actors near the marker since `before`, made members of the band
-// under way; returns how many, the last one in `last`.
-UInt32 TakeNewMembers(UInt32 marker, bool leader, UInt32& last) {
+// under way; returns how many, the last one in `last`. `onlyBase` (not 0):
+// only actors of that base - the leader, not a creature that came by
+// meanwhile (a MOO spawn was taken for him, daedra-leader.txt 2026-11-17).
+UInt32 TakeNewMembers(UInt32 marker, bool leader, UInt32& last, UInt32 onlyBase = 0) {
 	const float mx = FloatAt(marker + kRefPositionOffset);
 	const float my = FloatAt(marker + kRefPositionOffset + 4);
 	UInt32 now[kNearMost];
@@ -109,6 +114,11 @@ UInt32 TakeNewMembers(UInt32 marker, bool leader, UInt32& last) {
 		bool old = false;
 		for (UInt32 k = 0; k < g_placing.beforeCount; ++k) {
 			old = old || g_placing.before[k] == now[i];
+		}
+		if (!old && onlyBase != 0) {
+			const UInt32 ref = LookupForm(now[i]);
+			const UInt32 base = LooksLikeObject(ref) ? Read(ref + kRefBaseOffset) : 0;
+			old = !LooksLikeObject(base) || FormIdOf(base) != onlyBase;
 		}
 		if (!old && !IsBandMember(now[i])) {
 			g_members[g_memberCount++] = BandMember{now[i], g_placing.band, leader};
@@ -327,7 +337,8 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 			}
 			// Idea 1: a Dremora two ranks above the men leads them.
 			const UInt32 level = PlayerLevel();
-			const UInt32 list = LeaderList(invaders, level);
+			const UInt32 list = LeaderActor(invaders, level, Random());  // an actor: MOO rewrites the rank lists
+			g_placing.leaderBase = list;
 			NoteBefore(marker);
 			std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1", list);
 			const bool placed = console(marker, line);
@@ -338,7 +349,14 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 		}
 		case PlaceStage::LeaderPlaced: {
 			UInt32 last = 0;
-			const UInt32 found = TakeNewMembers(marker, true, last);
+			const UInt32 before = g_memberCount;
+			const UInt32 found = TakeNewMembers(marker, true, last, g_placing.leaderBase);
+			for (UInt32 i = before; i < g_memberCount; ++i) {
+				const UInt32 ref = LookupForm(g_members[i].ref);
+				const UInt32 base = LooksLikeObject(ref) ? Read(ref + kRefBaseOffset) : 0;
+				log("Bands: taken for the leader: %08X (base %08X)", g_members[i].ref,
+				    LooksLikeObject(base) ? FormIdOf(base) : 0u);
+			}
 			log("Bands: %s (%08X)", found > 0 ? "the leader found at the marker" : "no leader found", last);
 			g_placing.stage = PlaceStage::None;
 			return;
@@ -397,6 +415,8 @@ void ResetBands() {
 	g_queueCount = 0;
 	g_testClock = 0.0f;
 	g_testDone = false;
+	g_killClock = 0.0f;
+	g_killDone = false;
 	g_gateClock = kGateLookSeconds;
 }
 
@@ -450,6 +470,31 @@ void BreakUpLeaderless(DeadFn dead, LogFn log) {
 }
 }  // namespace
 
+namespace {
+// [Invaders] TestKillLeaderSeconds (BandLogic.h): the first living leader
+// killed by console that many seconds after he was found.
+void StepTestKillLeader(float elapsed, const BandSettings& bands, ConsoleFn console, LogFn log) {
+	if (bands.testKillLeaderSeconds <= 0.0f || g_killDone) {
+		return;
+	}
+	for (UInt32 i = 0; i < g_memberCount; ++i) {
+		if (!g_members[i].leader) {
+			continue;
+		}
+		g_killClock += elapsed;
+		if (!TestKillLeaderDue(bands.testKillLeaderSeconds, g_killClock, g_killDone)) {
+			return;
+		}
+		g_killDone = true;
+		const UInt32 ref = LookupForm(g_members[i].ref);
+		const bool killed = LooksLikeObject(ref) && console(ref, "Kill");
+		log("Bands: TestKillLeaderSeconds=%.0f - band %u's leader %08X killed by console (answered %d)",
+		    bands.testKillLeaderSeconds, g_members[i].band, g_members[i].ref, killed ? 1 : 0);
+		return;
+	}
+}
+}  // namespace
+
 void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings& invaders, ConsoleFn console,
                      DeadFn dead, LogFn log) {
 	if (g_espBase == kNoEsp) {
@@ -483,6 +528,8 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 			    bands.testBandSeconds, e.size);
 		}
 	}
+
+	StepTestKillLeader(elapsed, bands, console, log);
 
 	g_gateClock += elapsed;
 	const bool gateQuest = InPlay(invaders.kind, Group::Daedra) || g_gateQuest.gate >= 0;

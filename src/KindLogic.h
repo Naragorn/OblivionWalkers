@@ -191,6 +191,15 @@ inline UInt32 LeaderList(const InvaderSettings& s, UInt32 level) {
 	return InvaderForm(s, kDremoraRankLists[LeaderRank(level)]);
 }
 
+// The leader as an actor: one of the rank list's own entries in the file
+// (DaedraLists.h kRankListActors), by the caller's roll. MOO's dynamic lists
+// rewrite the rank lists in the game - placed through the list a band got two
+// clannfear runts or one of MOO's creatures for a leader (daedra-leader.txt,
+// 2026-11-17).
+inline UInt32 LeaderActor(const InvaderSettings& s, UInt32 level, UInt32 roll) {
+	return RankListActor(LeaderList(s, level), roll);
+}
+
 // A Daedra outpost's boss (4.22a step 5c, Nadi 2026-11-16 "5: passt"): a
 // Dremora three ranks above the men's, the seventh at most.
 inline UInt32 OutpostBossRank(UInt32 level) {
@@ -199,6 +208,10 @@ inline UInt32 OutpostBossRank(UInt32 level) {
 }
 inline UInt32 OutpostBossList(const InvaderSettings& s, UInt32 level) {
 	return InvaderForm(s, kDremoraRankLists[OutpostBossRank(level)]);
+}
+// The boss as an actor, as LeaderActor.
+inline UInt32 OutpostBossActor(const InvaderSettings& s, UInt32 level, UInt32 roll) {
+	return RankListActor(OutpostBossList(s, level), roll);
 }
 
 // [Invaders] DaedraAfterMainQuest (4.22a step 6): off (0, the default), the

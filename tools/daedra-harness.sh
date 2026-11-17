@@ -19,6 +19,9 @@
 #   tools/daedra-harness.sh daedricblow [Mode] harness/daedra-daedricblow.txt: the disguise across a save, then ended by a kick (OnHit)
 #   tools/daedra-harness.sh daedricwalkers 3 harness/daedra-daedricwalkers.txt: Mode 3's walkers fooled by the Daedric set, then not
 #   tools/daedra-harness.sh daedricguard 3   harness/daedra-daedricguard.txt: fooled in Mode 3, the walkers fight a guard, not him
+#   tools/daedra-harness.sh leader 1        harness/daedra-leader.txt: a band's leader killed (TestKillLeaderSeconds) - the band breaks up
+#   tools/daedra-harness.sh march 1         harness/daedra-march.txt: a far band reaches its city, the city's siege by that pressure
+#   tools/daedra-harness.sh mainquest 1     harness/daedra-mainquest.txt: MQ16 completed by console, the Daedra stop (DaedraAfterMainQuest=0)
 #   tools/daedra-harness.sh daedricspell [Mode] harness/daedra-daedricspell.txt: the same, ended by a fire bolt from 60 units (OnHit for a spell?)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -58,7 +61,7 @@ def set_key(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 
 text = set_key(text, "Invaders", "Mode", kind)
-if scenario in ("band", "save", "legion"):
+if scenario in ("band", "save", "legion", "leader", "march"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
 if scenario == "gate":
@@ -66,14 +69,26 @@ if scenario == "gate":
     text = set_key(text, "Invaders", "TestGateOpenSeconds", "60")
 if scenario == "legion":
     text = set_key(text, "Guards", "LegionDistance", "16000")
+    # Mode 2 rolls a band's kind; the Legion answers only Daedra, so every band is Daedra
+    text = set_key(text, "Invaders", "DaedraPercent", "100")
+if scenario == "leader":
+    text = set_key(text, "Invaders", "TestKillLeaderSeconds", "10")
+if scenario == "march":
+    text = set_key(text, "Invaders", "TestBandSeconds", "0")
+    text = set_key(text, "Invaders", "TestGateOpen", "2")
+    text = set_key(text, "Invaders", "TestGateOpenSeconds", "600")
+    for key, value in (("BandEveryHours", "1"), ("BandSiegePercent", "50"), ("BandSiegeFadePerDay", "0")):
+        text = set_key(text, "Invaders", key, value)
+    text = set_key(text, "Siege", "Enabled", "1")
+    text = set_key(text, "Siege", "ChancePerDayPercent", "0")
+if scenario == "mainquest":
+    text = set_key(text, "Invaders", "DaedraAfterMainQuest", "0")
 if scenario in ("daedricblow", "daedricspell"):
     # the Dremora is struck from 55-60 units: still fooled that near
     text = set_key(text, "Disguise", "DaedricNearDistance", "30")
 if scenario == "boss":
     # the boss list's entries into the log after each pass and when they change
     text = set_key(text, "Replace", "TestLogList", "000340BA")
-    # Mode 2 rolls a band's kind; the Legion answers only Daedra, so every band is Daedra
-    text = set_key(text, "Invaders", "DaedraPercent", "100")
 if scenario in ("siege", "siegesave"):
     text = set_key(text, "Invaders", "MarchWeather", "1")
 if scenario in ("siege", "piles", "siegesave"):
@@ -110,7 +125,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
+if kind != 0 and scenario not in ("band", "save", "leader", "march", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -318,6 +333,51 @@ if scenario in ("daedricwalkers", "daedricguard"):
     if scenario == "daedricwalkers":
       check(bool(after) or bool(turned), "the control: found out, the walkers come for him again (%d attacks, %d turned)"
           % (len(after), len(turned)))
+def roster_after(mark):
+    """The first roster line OBVR logs after a mark."""
+    at = next((i for i, l in enumerate(obvr) if "HandScript: mark %s " % mark in l), None)
+    if at is None:
+        return ""
+    return next((l for l in obvr[at:] if "HandScript: actors - " in l), "")
+
+if scenario == "leader":
+    show("Bands: ", 14)
+    check(any("the leader found at the marker" in l for l in lines), "the band's leader found and marked")
+    asked = [re.search(r"\(\"PlaceAtMe ([0-9A-F]{8}) 1\"", l) for l in lines if "the band's leader - rank" in l]
+    taken = [re.search(r"taken for the leader: \w+ \(base ([0-9A-F]{8})\)", l) for l in lines]
+    taken = [m.group(1) for m in taken if m]
+    check(bool(asked) and asked[0] is not None and taken == [asked[0].group(1)],
+          "the leader is the Dremora placed, nothing else (asked %s, taken %s)" % (asked[0].group(1) if asked and asked[0] else "-", taken))
+    check(any("TestKillLeaderSeconds=10 - band" in l and "answered 1" in l for l in lines), "the leader killed by console")
+    broke = [l for l in lines if re.search(r"Bands: band \d+'s leader \w+ is dead - [1-9]\d* of them break up", l)]
+    check(bool(broke), "the band breaks up once its leader is dead (%s)" % (broke[0][:120] if broke else "-"))
+
+if scenario == "march":
+    show("Bands: ", 20)
+    show("Siege: ", 12)
+    arrived = [re.search(r"Bands: a band of \d+ reached its city from gate \d+ \(\w+\), heading for (\w+)", l) for l in lines]
+    arrived = [m for m in arrived if m]
+    check(bool(arrived), "a far band reached its city (%d)" % len(arrived))
+    besieged = [re.search(r"Siege: (\w+) [\w ]*besieged", l) for l in lines]
+    besieged = [m.group(1) for m in besieged if m]
+    city = arrived[0].group(1) if arrived else "-"
+    check(city in besieged, "that city besieged by the bands' pressure alone (ChancePerDayPercent=0): %s in %s" % (city, besieged))
+
+goblins = re.compile(r"\b(0001FCB1|00084B29)\b")
+if scenario == "mainquest":
+    show("Invaders: ", 6)
+    show("Spawns: ", 8)
+    first, second = roster_after("counted"), roster_after("counted2")
+    print("        " + first[:300])
+    print("        " + second[:300])
+    check(bool(first) and not goblins.search(first) and not re.search(r"actors - 0 loaded", first),
+          "before: the goblin list gives Daedra (no goblin)")
+    stop = [i for i, l in enumerate(lines) if "Invaders: the main quest is done - the Daedra stop" in l]
+    check(bool(stop), "MQ16 completed: the plugin reads the main quest done, the Daedra stop")
+    off = [l for l in lines[stop[0]:] if re.search(r"Spawns: .*\(Enabled=0\) .* [1-9]\d* entries back to their own", l)] if stop else []
+    check(bool(off), "Mode 1's replacement off: the entries back to their own (%d)" % len(off))
+    check(bool(goblins.search(second)), "after: the goblin list gives goblins again")
+
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)
 PY

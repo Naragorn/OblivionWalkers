@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Writes src/DaedraLists.h: the Daedra's summoners and their NOSUMMON twins, read off Oblivion.esm.
 
+Also the Dremora rank lists' own entries, as the file has them (kRankListActors):
+MOO's dynamic lists rewrite those lists in the game (daedra-leader.txt
+2026-11-17: LL0Dremora2Kynval100 placed gave two clannfear runts, its
+NOSUMMON twin a creature of MOO's), so a band's leader and an outpost's boss
+are placed as one of these actors, not through the list.
+
 Idea 11 of docs/walkers-spec.md 4.22 (the summoners held back): Oblivion.esm
 carries, beside the Dremora's ranks, the spider daedra and the xivilai, a
 twin of each whose editor ID ends in NOSUMMON. This reads both sides - the
@@ -123,6 +129,27 @@ def verify(records, found):
     return problems, kept, dropped
 
 
+# The seven Dremora rank lists (KindLogic.h kDremoraRankLists).
+RANK_LISTS = (0x00092DA6, 0x0003E9D1, 0x0003E9D2, 0x0003E9D3, 0x0003E9D4, 0x0003E9D5, 0x0003E9D6)
+
+
+def rank_actors(records, found):
+    """Each rank list and its twin with the actors the file's entries name; a nested list is a problem."""
+    twin_of = dict(found)
+    rows, problems = [], []
+    for original in RANK_LISTS:
+        for form in (original, twin_of.get(original)):
+            if form is None or form not in records:
+                problems.append(f"rank list {form} not in the file")
+                continue
+            actors = records[form]["entries"]
+            if not actors or any(records.get(a, {}).get("type") not in ("NPC_", "CREA") for a in actors):
+                problems.append(f"{records[form]['edid']}: an entry not an actor")
+                continue
+            rows.append((form, records[form]["edid"], actors))
+    return rows, problems
+
+
 def header(records, found) -> str:
     lines = [
         "#pragma once",
@@ -155,6 +182,35 @@ def header(records, found) -> str:
         "};",
         "inline constexpr UInt32 kSummonTwinCount = sizeof(kSummonTwins) / sizeof(kSummonTwins[0]);",
         "",
+        "// The Dremora rank lists and their twins with the actors their entries name in",
+        "// the file - MOO's dynamic lists rewrite the lists in the game, so the plugin",
+        "// places one of these actors itself (a band's leader, an outpost's boss).",
+        "inline constexpr UInt32 kRankActorsMost = 8;",
+        "struct RankListActors {",
+        "\tUInt32 list;  // Oblivion.esm's form ID",
+        "\tUInt32 count;",
+        "\tUInt32 actors[kRankActorsMost];",
+        "};",
+        "",
+        "inline constexpr RankListActors kRankListActors[] = {",
+    ]
+    rows, _ = rank_actors(records, found)
+    for form, edid, actors in rows:
+        lines.append(f"\t{{0x{form:08X}, {len(actors)}, {{{', '.join(f'0x{a:08X}' for a in actors)}}}}},  // {edid}")
+    lines += [
+        "};",
+        "",
+        "// One actor of `list`'s file entries, by `roll`; `list` itself when it is not",
+        "// a rank list.",
+        "inline UInt32 RankListActor(UInt32 list, UInt32 roll) {",
+        "\tfor (const RankListActors& r : kRankListActors) {",
+        "\t\tif (r.list == list && r.count > 0) {",
+        "\t\t\treturn r.actors[roll % r.count];",
+        "\t\t}",
+        "\t}",
+        "\treturn list;",
+        "}",
+        "",
         "// The twin of `formId` (Oblivion.esm's ID, load index 0), or itself.",
         "inline UInt32 NoSummonTwin(UInt32 formId) {",
         "\tfor (const SummonTwin& t : kSummonTwins) {",
@@ -180,6 +236,9 @@ def main() -> int:
     records = read(args.esm)
     found = pairs(records)
     problems, found, dropped = verify(records, found)
+    rows, rank_problems = rank_actors(records, found)
+    problems += rank_problems
+    problems += [f"{edid}: {len(a)} entries, more than 8" for _, edid, a in rows if len(a) > 8]
     for line in problems:
         print("daedra-lists:", line, file=sys.stderr)
     if problems:

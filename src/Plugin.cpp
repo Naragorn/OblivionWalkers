@@ -276,6 +276,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegePercent", 5, path)))));
 	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegeFadePerDay", 5, path)))));
 	rise.bands.testBandSeconds = static_cast<float>(IniInt("Invaders", "TestBandSeconds", 0, path));
+	rise.bands.testKillLeaderSeconds = static_cast<float>(IniInt("Invaders", "TestKillLeaderSeconds", 0, path));
 	rise.bands.testGateOpen = static_cast<int>(IniInt("Invaders", "TestGateOpen", -1, path));
 	rise.bands.testGateOpenSeconds = static_cast<float>(IniInt("Invaders", "TestGateOpenSeconds", 0, path));
 	// 4.22a step 5b: the plugin's dead Daedra back to Oblivion.

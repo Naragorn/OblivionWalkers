@@ -1,0 +1,24 @@
+# A Daedra band breaks up when its leader falls (docs/walkers-spec.md 4.22
+# idea 1). Mode 1, OnlyFromOblivionGates=1, TestBandSeconds=20 and
+# TestKillLeaderSeconds=10 (set by tools/daedra-harness.sh leader): the
+# band placed 20 s after the load with its leader two ranks above it; 10 s
+# after the leader was found the plugin kills him by console. The log must
+# say "Bands: band N's leader ... is dead - M of them break up".
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at ready cow tamriel -3 3
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 60
+mark end
+wait 1

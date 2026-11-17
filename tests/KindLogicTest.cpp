@@ -199,6 +199,24 @@ void TestLeader() {
 	      "summoners held back: the Kynval list's NOSUMMON twin");
 	s.summons = true;
 	Check(walkers::LeaderList(s, 1) == 0x0003E9D2, "Summons 1: LL0Dremora2Kynval100 itself");
+
+	std::printf("The leader and the outpost's boss placed as actors (MOO rewrites the rank lists in the game)\n");
+	InvaderSettings held;
+	Check(walkers::LeaderActor(held, 1, 3) == 0x00000FD1 && walkers::LeaderActor(held, 1, 0) == 0x00000FD3,
+	      "held back: one of LL0Dremora2Kynval100NOSUMMON's own entries (the mage's and the melee's twins)");
+	Check(walkers::LeaderActor(s, 1, 0) == 0x0003E9C6 && walkers::LeaderActor(s, 1, 7) == 0x00092D9B,
+	      "Summons 1: one of LL0Dremora2Kynval100's entries, the roll wrapped");
+	Check(walkers::OutpostBossActor(held, 1, 3) == 0x00000FD5, "the boss three ranks up: a Kynreeve's twin");
+	Check(walkers::OutpostBossActor(held, 40, 1) == 0x00000FC8, "at level 40 the seventh rank, Valkynaz, at most");
+	bool all = true;
+	for (const walkers::RankListActors& r : walkers::kRankListActors) {
+		for (UInt32 i = 0; i < r.count; ++i) {
+			all = all && walkers::RankListActor(r.list, i) != r.list;
+		}
+	}
+	Check(all && sizeof(walkers::kRankListActors) / sizeof(walkers::kRankListActors[0]) == 14,
+	      "the seven rank lists and their seven twins, every roll an actor, never the list");
+	Check(walkers::RankListActor(0x12345678, 2) == 0x12345678, "not a rank list: itself");
 }
 
 void TestTwins() {

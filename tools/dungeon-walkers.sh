@@ -277,6 +277,12 @@ elif mode == "outpost":
     came = [int(m.group(1)) for m in (re.search(r"Dungeons: (\d+) Daedra came to Toadstool Hollow", l) for l in d) if m]
     check(sum(came) >= 4, "its Daedra placed inside (%s)" % came)
     check(any("Dungeons: 1 boss came to Toadstool Hollow" in l for l in d), "its boss placed")
+    # placed as a Dremora of the rank list's own entries (DaedraLists.h kRankListActors) - through the
+    # list MOO's rewrite gave other creatures (daedra-leader.txt, 2026-11-17)
+    asked = next((k for k, l in enumerate(lines) if "the outpost's boss asked for" in l), None)
+    boss = [m.group(1) for l in (lines[asked:] if asked is not None else []) for m in [re.search(r'Placer: "PlaceAtMe ([0-9A-F]{8}) 1"', l)] if m]
+    check(bool(boss) and re.fullmatch(r"00000F[C-D][0-9A-F]|0003E9C[68A]|0003EE[78][0-9A-F]|0004738[A-E]|00092D(9[A-F]|A[0-5])", boss[0]) is not None,
+          "the boss placed as a Dremora actor, not the rank list (%s)" % (boss[:1]))
     check(any(re.search(r"boss chest set down at Toadstool Hollow .* chest FF[0-9A-F]{6}", l) for l in d), "the boss chest set down")
     check(sum(1 for l in d if "Toadstool Hollow - a Daedra fell" in l) >= 4, "the Daedra counted off")
     check(any("the outpost's boss fell" in l for l in d), "the boss's fall counted")

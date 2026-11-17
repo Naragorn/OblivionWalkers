@@ -1194,7 +1194,7 @@ void StepSiteDaedra(int want, const float* closeness, UInt32 playerCell, LogFn l
 		const UInt32 level = PlayerLevelNow();
 		const DungeonSpot deep = WalkerSpot(c, c.spotCount > 0 ? c.spotCount - 1u : 0u, false);
 		r.tag = static_cast<UInt8>(tag | kBossTag);
-		r.list = OutpostBossList(*g_invaders, level);
+		r.list = OutpostBossActor(*g_invaders, level, g_roll != nullptr ? g_roll() : 0u);  // an actor: MOO rewrites the rank lists
 		r.count = 1;
 		r.dx = deep.dx;
 		r.dy = deep.dy;

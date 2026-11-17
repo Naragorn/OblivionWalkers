@@ -40,6 +40,44 @@ inline constexpr SummonTwin kSummonTwins[] = {
 };
 inline constexpr UInt32 kSummonTwinCount = sizeof(kSummonTwins) / sizeof(kSummonTwins[0]);
 
+// The Dremora rank lists and their twins with the actors their entries name in
+// the file - MOO's dynamic lists rewrite the lists in the game, so the plugin
+// places one of these actors itself (a band's leader, an outpost's boss).
+inline constexpr UInt32 kRankActorsMost = 8;
+struct RankListActors {
+	UInt32 list;  // Oblivion.esm's form ID
+	UInt32 count;
+	UInt32 actors[kRankActorsMost];
+};
+
+inline constexpr RankListActors kRankListActors[] = {
+	{0x00092DA6, 4, {0x00092DA0, 0x00092DA1, 0x00092DA2, 0x00092DA5}},  // LL0Dremora0Churl100
+	{0x00000FE7, 4, {0x00000FCC, 0x00000FCC, 0x00000FCC, 0x00000FCB}},  // LL0Dremora0Churl100NOSUMMON
+	{0x0003E9D1, 4, {0x0003EE70, 0x0003EE71, 0x00047389, 0x00092D9A}},  // LL0Dremora1Caitiff100
+	{0x00000FE8, 4, {0x00000FCF, 0x00000FCF, 0x00000FCF, 0x00000FCE}},  // LL0Dremora1Caitiff100NOSUMMON
+	{0x0003E9D2, 4, {0x0003E9C6, 0x0003EE72, 0x0004738A, 0x00092D9B}},  // LL0Dremora2Kynval100
+	{0x00000FE9, 4, {0x00000FD3, 0x00000FD3, 0x00000FD3, 0x00000FD1}},  // LL0Dremora2Kynval100NOSUMMON
+	{0x0003E9D3, 4, {0x0003EE7F, 0x0003EE80, 0x0004738B, 0x00092D9C}},  // LL0Dremora3Kynreeve100
+	{0x00000FEA, 4, {0x00000FD6, 0x00000FD6, 0x00000FD6, 0x00000FD5}},  // LL0Dremora3Kynreeve100NOSUMMON
+	{0x0003E9D4, 4, {0x0003E9C8, 0x0003EE75, 0x0004738C, 0x00092D9D}},  // LL0Dremora4Kynmarcher100
+	{0x00000FE4, 4, {0x00000FD9, 0x00000FD9, 0x00000FD9, 0x00000FD8}},  // LL0Dremora4Kynmarcher100NOSUMMON
+	{0x0003E9D5, 4, {0x0003EE79, 0x0003EE7A, 0x0004738D, 0x00092D9E}},  // LL0Dremora5Markynaz100
+	{0x00000FE5, 4, {0x00000FDC, 0x00000FDC, 0x00000FDC, 0x00000FDB}},  // LL0Dremora5Markynaz100NOSUMMON
+	{0x0003E9D6, 4, {0x0003E9CA, 0x0003EE7B, 0x0004738E, 0x00092D9F}},  // LL0Dremora6Valkynaz100
+	{0x00000FE6, 4, {0x00000FC8, 0x00000FC8, 0x00000FC8, 0x00000FDF}},  // LL0Dremora6Valkynaz100NOSUMMON
+};
+
+// One actor of `list`'s file entries, by `roll`; `list` itself when it is not
+// a rank list.
+inline UInt32 RankListActor(UInt32 list, UInt32 roll) {
+	for (const RankListActors& r : kRankListActors) {
+		if (r.list == list && r.count > 0) {
+			return r.actors[roll % r.count];
+		}
+	}
+	return list;
+}
+
 // The twin of `formId` (Oblivion.esm's ID, load index 0), or itself.
 inline UInt32 NoSummonTwin(UInt32 formId) {
 	for (const SummonTwin& t : kSummonTwins) {

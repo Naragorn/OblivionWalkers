@@ -79,6 +79,10 @@ struct BandSettings {
 	// before the player whatever the gates, through the same path as a Near
 	// band. 0: off.
 	float testBandSeconds = 0.0f;
+	// [Invaders] TestKillLeaderSeconds (INI only, a test switch; harness
+	// daedra-leader.txt): this many seconds after a band's leader was found
+	// the plugin kills him by console - the band breaks up (idea 1). 0: off.
+	float testKillLeaderSeconds = 0.0f;
 	// Test switches (harness/gate-quest.txt, 4.22a step 6): this gate read
 	// open for TestGateOpenSeconds from the first look, then shut (-1 none).
 	int testGateOpen = -1;
@@ -90,6 +94,10 @@ struct BandSettings {
 	UInt32 siegePercentPerBand = 5;     // BandSiegePercent
 	float siegeFadePercentPerDay = 5.0f;  // BandSiegeFadePerDay
 };
+
+inline bool TestKillLeaderDue(float seconds, float sinceFound, bool done) {
+	return seconds > 0.0f && !done && sinceFound >= seconds;
+}
 
 inline constexpr UInt32 kBandCitiesMost = 8;  // CityGates.h City::Count
 inline constexpr UInt32 kSiegePressureMost = 90;

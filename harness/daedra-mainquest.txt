@@ -1,0 +1,40 @@
+# DaedraAfterMainQuest=0 (docs/walkers-spec.md 4.22a step 6): once MQ16
+# (0002A38F) is completed the Daedra stop - every new side the walkers',
+# Mode 1's spawn replacement off. No save after the main quest exists, so
+# the run completes MQ16 by console (CompleteQuest - the flag only, none of
+# the quest's stage scripts; the plugin reads TESQuest::questFlags +0x3C).
+#
+# The hall, the harness save, Mode 1 (tools/daedra-harness.sh mainquest 1):
+# LL0Goblin100 (00084B2C) placed three times gives Daedra (the replacement
+# names the NOSUMMON list A94); then CompleteQuest MQ16 - the plugin's
+# 1 s look logs "Invaders: the main quest is done - the Daedra stop", the
+# replacement runs again with Enabled=0 and puts the entries back; the same
+# list placed again gives goblins (0001FCB1, 00084B29).
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 00084B2C 3
+console-at counted killall
+console-at done CompleteQuest MQ16
+console-at again player.placeatme 00084B2C 3
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark counted
+wait 5
+mark done
+wait 6
+mark again
+wait 8
+mark counted2
+wait 1
+mark end
+wait 1

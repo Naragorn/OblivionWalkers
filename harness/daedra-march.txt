@@ -1,0 +1,51 @@
+# A far band that reaches its city raises that city's siege chance
+# (docs/walkers-spec.md 4.22 step 3). tools/daedra-harness.sh march sets
+# Mode 1, OnlyFromOblivionGates=1, TestGateOpen=2 for 600 s, BandEveryHours=1,
+# BandSiegePercent=50, BandSiegeFadePerDay=0 and [Siege] Enabled=1,
+# ChancePerDayPercent=0 - a city is besieged only by the bands' pressure.
+# The player stands far off at cow tamriel -3 3; the console moves the game
+# a day on every 8 s (GameDaysPassed 400..407): the open gate forms bands,
+# a day's march (24 h at UnitsPerHour 10000) brings each to its city
+# ("reached its city"), and a later day's roll besieges that city.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at ready cow tamriel -3 3
+console-at d1 set gamedayspassed to 400
+console-at d2 set gamedayspassed to 401
+console-at d3 set gamedayspassed to 402
+console-at d4 set gamedayspassed to 403
+console-at d5 set gamedayspassed to 404
+console-at d6 set gamedayspassed to 405
+console-at d7 set gamedayspassed to 406
+console-at d8 set gamedayspassed to 407
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 15
+mark d1
+wait 8
+mark d2
+wait 8
+mark d3
+wait 8
+mark d4
+wait 8
+mark d5
+wait 8
+mark d6
+wait 8
+mark d7
+wait 8
+mark d8
+wait 10
+mark end
+wait 1

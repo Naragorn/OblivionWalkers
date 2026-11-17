@@ -264,6 +264,16 @@ void TestImage() {
 	      "another version: not read");
 }
 
+void TestKillLeader() {
+	std::printf("The test switch that kills a band's leader\n");
+	BandSettings s;
+	Check(s.testKillLeaderSeconds == 0.0f, "off by default");
+	Check(!walkers::TestKillLeaderDue(0.0f, 99.0f, false), "off (0): never");
+	Check(!walkers::TestKillLeaderDue(10.0f, 9.0f, false), "before its seconds: not yet");
+	Check(walkers::TestKillLeaderDue(10.0f, 10.0f, false), "its seconds after the leader was found: killed");
+	Check(!walkers::TestKillLeaderDue(10.0f, 30.0f, true), "done once: not again");
+}
+
 }  // namespace
 
 int main() {
@@ -278,6 +288,7 @@ int main() {
 	TestCap();
 	TestPressure();
 	TestImage();
+	TestKillLeader();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;
