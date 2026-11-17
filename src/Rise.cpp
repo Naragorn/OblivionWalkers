@@ -2211,7 +2211,7 @@ void KeepWalkerRecords() {
 		WalkerRecord& r = g_records[w];
 		for (UInt32 i = 0; i < kHeldValueCount; ++i) {
 			const UInt32 now = RecordValue(base, kHeldValues[i]);
-			const UInt32 want = i == 0 ? DisguisedAggression(slow, Disguised(), r.atStart[0])
+			const UInt32 want = i == 0 ? DisguisedAggression(slow, WalkersFooledNow(), r.atStart[0])
 			                           : RecordValueBack(now, r.lastGood[i], r.atStart[i]);
 			if (now > 0 && i != 0) {
 				r.lastGood[i] = now;
@@ -2352,7 +2352,7 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	const float step = g_nearClock;
 	g_nearClock = 0.0f;
 	const SlowAggressionSettings& slow = g_settings.slowAggression;
-	const bool disguised = Disguised();
+	const bool disguised = WalkersFooledNow();
 	if (!slow.enabled) {
 		g_near.count = 0;
 		for (UInt32 i = 0; i < count; ++i) {
@@ -2511,6 +2511,8 @@ void StepStandWatch(float dt) {
 }
 
 void StepCorpses(const UInt32* ids, UInt32 count);
+// Mode 3 in effect (after g_invadersNow below).
+bool WalkersAlliedNow();
 
 void StepWalkers(float dt) {
 	if (g_walkerCount == 0) {
@@ -2550,7 +2552,12 @@ void StepWalkers(float dt) {
 	}, true);
 	Timed(21, "w.aggression", [count, dt] { StepSlowAggression(refs, count, dt); }, true);
 	// 4.20.1: the disguise begun - the walkers fighting stop (Nadi: "ok").
-	if (TakeDisguiseBegun()) {
+	// 4.22 idea 7: so too the Daedric set put on in Mode 3 (DisguiseLogic.h WalkersFooled).
+	static bool s_daedricFooled = false;
+	const bool allied = WalkersAlliedNow();
+	const bool daedricBegins = WalkersFoolingBegins(s_daedricFooled, false, DaedricDisguised(), allied);
+	s_daedricFooled = WalkersFooled(false, DaedricDisguised(), allied);
+	if (TakeDisguiseBegun() || daedricBegins) {
 		UInt32 stopped = 0;
 		for (UInt32 i = 0; i < count; ++i) {
 			const UInt32 actor = LookupForm(refs[i]);
@@ -2774,6 +2781,7 @@ void StepNight(float dt) {
 // the Daedra stop once MQ16 is completed - every new side the walkers'
 // (KindLogic.h InvadersNow). Read at most once a second.
 InvaderSettings g_invadersNow;
+bool WalkersAlliedNow() { return WalkersJoinDaedra(g_invadersNow.kind); }
 bool g_daedraStopped = false;
 float g_invadersClock = 1.0f;
 
@@ -3781,6 +3789,8 @@ void OnNewGame(void*) {
 }
 
 }  // namespace
+
+bool WalkersFooledNow() { return WalkersFooled(Disguised(), DaedricDisguised(), WalkersAlliedNow()); }
 
 bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const ReplaceSettings& replace,
                  const char* iniPath, LogFn log) {

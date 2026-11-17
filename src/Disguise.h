@@ -32,6 +32,10 @@ void NoteDisguiseSmear(UInt32 corpse);
 void StepDisguiseInGame(float dt);
 // Whether the player is disguised now.
 bool Disguised();
+// Whether the walkers leave the player be now: disguised, or in the Daedric
+// set with the walkers the Daedra's allies (DisguiseLogic.h WalkersFooled;
+// Rise.cpp, which knows the mode in effect).
+bool WalkersFooledNow();
 // Once, after a begin: true - the walkers fighting the player are to stop.
 bool TakeDisguiseBegun();
 // A load or a new game: off, no dialog.

@@ -17,6 +17,7 @@
 #   tools/daedra-harness.sh siegesave [Mode] harness/daedra-siegesave.txt: the siege saved and loaded with its Daedra standing ('PLAC', the red sky again)
 #   tools/daedra-harness.sh boss 0           harness/daedra-boss.txt: a goblin boss list placed stays goblins (KeepBosses)
 #   tools/daedra-harness.sh daedricblow [Mode] harness/daedra-daedricblow.txt: the disguise across a save, then ended by a kick (OnHit)
+#   tools/daedra-harness.sh daedricwalkers 3 harness/daedra-daedricwalkers.txt: Mode 3's walkers fooled by the Daedric set, then not
 #   tools/daedra-harness.sh daedricspell [Mode] harness/daedra-daedricspell.txt: the same, ended by a fire bolt from 60 units (OnHit for a spell?)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -108,7 +109,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "boss"):
+if kind != 0 and scenario not in ("band", "save", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "boss"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -285,6 +286,22 @@ if scenario in ("daedricblow", "daedricspell"):
         # a spell's case proves nothing unless the bolt touched someone (Walkers' OnMagicEffectHit log)
         show("Magic hit: ", 6)
     check(bool(hits), "OnHit saw the player's blow (%d)" % len(hits))
+if scenario == "daedricwalkers":
+    show("Daedric disguise: the player", 10)
+    show("Invaders:", 4)
+    joins = [i for i, l in enumerate(lines) if "Daedric disguise: the player joins" in l and "ranks now 0 0" in l]
+    leaves = [i for i, l in enumerate(lines) if joins and i > joins[0] and "Daedric disguise: the player leaves" in l]
+    check(bool(joins), "fooled in the set (ranks 0 0)")
+    check(bool(leaves), "the helmet off: out of the factions")
+    attack = re.compile(r"Hit: 00000014 hit by FF|Grab: walker \w+'s hit on the player|Grab: walker \w+ bites the player")
+    start = joins[0] if joins else 0
+    stop = leaves[0] if leaves else len(lines)
+    during = [l for l in lines[start:stop] if attack.search(l)]
+    after = [l for l in lines[stop:] if attack.search(l)]
+    for l in (during[:4] + after[:4]):
+        print("        " + l[:200])
+    check(not during, "no walker hits or bites the fooled player (%d)" % len(during))
+    check(bool(after), "the control: with the set broken a walker comes for him (%d)" % len(after))
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)
 PY

@@ -94,6 +94,14 @@ void TestWalkers() {
 	Check(walkers::DisguisedAggression(false, true, 100) == 0 && walkers::DisguisedAggression(false, false, 100) == 100 &&
 	          walkers::DisguisedAggression(true, false, 100) == 0,
 	      "slow aggression off: the records' aggression 0 while disguised, their own after; on: 0 always");
+	Check(walkers::WalkersFooled(true, false, false), "the walkers' own disguise: fooled, whatever the mode");
+	Check(walkers::WalkersFooled(false, true, true), "the Daedric set in Mode 3 (the walkers the Daedra's allies): fooled");
+	Check(!walkers::WalkersFooled(false, true, false), "the Daedric set without Mode 3: the walkers are no Daedra's - not fooled");
+	Check(!walkers::WalkersFooled(false, false, true), "Mode 3 without the set: not fooled");
+	Check(walkers::WalkersFooled(true, true, true), "both at once: fooled");
+	Check(walkers::WalkersFoolingBegins(false, false, true, true), "the set put on in Mode 3: begins - the fighting walkers stop");
+	Check(!walkers::WalkersFoolingBegins(true, true, true, true), "already fooled: no new begin");
+	Check(!walkers::WalkersFoolingBegins(false, false, true, false), "the set without Mode 3: no begin");
 }
 
 void TestSky() {

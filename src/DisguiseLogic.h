@@ -110,6 +110,20 @@ inline bool WalkerMayTurnOn(bool disguised, bool targetIsPlayer) { return !(disg
 // engine's own rule makes them attack - 0 holds it back).
 inline UInt32 DisguisedAggression(bool slow, bool disguised, UInt32 own) { return slow || disguised ? 0u : own; }
 
+// The walkers leave the player be (4.20.1, and 4.22 idea 7 in Mode 3): in
+// their own disguise, or in the full Daedric set while the walkers are the
+// Daedra's allies ([Invaders] Mode=3, KindLogic.h WalkersJoinDaedra) - the
+// run of 2026-11-17 (daedra-daedricwalkers.txt): fooled by the set, the
+// player was bitten 29 times; the faction alone does not hold a walker back.
+inline bool WalkersFooled(bool walkerDisguise, bool daedricDisguise, bool walkersAllied) {
+	return walkerDisguise || (daedricDisguise && walkersAllied);
+}
+
+// Fooled now and not a look before: the walkers fighting the player stop.
+inline bool WalkersFoolingBegins(bool wasFooled, bool walkerDisguise, bool daedricDisguise, bool walkersAllied) {
+	return !wasFooled && WalkersFooled(walkerDisguise, daedricDisguise, walkersAllied);
+}
+
 // The current weather's precipitation (TESWeather +0x53, xOBSE GameForms.h:
 // 1 pleasant, 2 cloudy, 3 rainy, 4 snow): rain only outdoors.
 inline bool Raining(UInt8 precipitation, bool outdoors) { return outdoors && precipitation == 3; }

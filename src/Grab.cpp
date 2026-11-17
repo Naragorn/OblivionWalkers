@@ -402,8 +402,9 @@ void HandleHit(const PendingHit& hit, UInt32 player) {
 		const Arm side = SideOf(FloatAt(player + kRefRotZOffset), dx, dy);
 		const UInt32 refId = FormIdOf(hit.attacker);
 		Arm arm = Arm::None;
-		// 4.20.1: a disguised player is not grabbed (designed 2026-11-05).
-		if (Disguised()) {
+		// 4.20.1: a disguised player is not grabbed (designed 2026-11-05) -
+		// nor one in the Daedric set while the walkers are the Daedra's allies.
+		if (WalkersFooledNow()) {
 			return;
 		}
 		const UInt32 roll = g_services.roll() % 100;

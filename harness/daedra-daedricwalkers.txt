@@ -1,0 +1,48 @@
+# The Daedric disguise in Mode 3 (docs/walkers-spec.md 8c, idea 7): with
+# [Invaders] Mode=3 the walkers are the Daedra's allies - each walker record
+# joins DaedraFaction (Replace.cpp SetWalkersAllied) - so the player in the
+# five Daedric pieces, a member of DaedraFaction himself, should fool them
+# too. In the TestingHall (nothing of its own spawns there), tgm: dressed,
+# fooled ("joins ... ranks now 0 0"), then three walkers (WalkersZombie1,
+# the ESP's 0x801) placed 300 units before him; 40 s with them. Then the
+# helmet off - the set broken, he leaves the factions - and 30 s more: the
+# control, the walkers now come for him. tools/daedra-harness.sh
+# daedricwalkers 3 reads the plugin's log: no walker's hit or bite while
+# fooled, at least one after.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready coc TestingHall
+console-at dress player.additem 00036357 1
+console-at dress player.additem 00036358 1
+console-at dress player.additem 00036359 1
+console-at dress player.additem 0003635A 1
+console-at dress player.additem 0003635B 1
+console-at dress player.equipitem 00036357
+console-at dress player.equipitem 00036358
+console-at dress player.equipitem 00036359
+console-at dress player.equipitem 0003635A
+console-at dress player.equipitem 0003635B
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 1
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 2
+console-at undress player.unequipitem 00036357
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 6
+mark dress
+wait 6
+mark placed
+wait 40
+mark undress
+wait 30
+mark end
+wait 1
