@@ -85,7 +85,7 @@ text = put(text, "Debug", "StepTiming", "1")
 text = put(text, "Debug", "SampleLine", "SetStage")
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/$scenario.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/$scenario.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") > "$root/artifacts/dungeon-walkers-runner.txt" 2>&1 || true
 tail -1 "$root/artifacts/dungeon-walkers-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/$scenario/*/ | head -1)"

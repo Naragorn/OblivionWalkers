@@ -20,7 +20,7 @@ if grep -q '^\[Night\]' "$ini"; then
 else
 	printf '\n[Night]\nSpeedMultiplier=2\nRampHours=0\n' >> "$ini"
 fi
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/night-pace.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/night-pace.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script")
 grep -E '^(Night:|Walk: walker|Walkers: [0-9A-F]{8} speed|Spawns: WalkersZombieVariant|Rise: \[Rise\])' \
 	"$game/OblivionWalkers.log" || echo "no night line"

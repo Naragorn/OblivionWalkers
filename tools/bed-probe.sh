@@ -17,7 +17,7 @@ if grep -q '^\[Dungeons\]' "$ini"; then
 else
 	printf "\n[Dungeons]\nEnabled=0\n" >> "$ini"
 fi
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/bed-probe.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/bed-probe.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") > "$root/artifacts/bed-probe-runner.txt" 2>&1 || true
 tail -1 "$root/artifacts/bed-probe-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/bed-probe/*/ | head -1)"

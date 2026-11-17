@@ -33,7 +33,7 @@ text = put(text, "Dungeons", "Enabled", "1")
 text = put(text, "Debug", "StepTiming", "1")
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/dungeon-refuge.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/dungeon-refuge.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") > "$root/artifacts/dungeon-refuge-runner.txt" 2>&1 || true
 tail -3 "$root/artifacts/dungeon-refuge-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/dungeon-refuge/*/ | head -1)"

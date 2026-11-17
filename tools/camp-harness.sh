@@ -60,7 +60,7 @@ if [[ "${CAMP_ENDS:-0}" == 1 ]]; then
 		printf "\n[Walkers]\nDieOnlyBeheaded=0\n" >> "$ini"
 	fi
 fi
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/camp-$scenario.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/camp-$scenario.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script")
 run="$(ls -td "$root"/artifacts/hand-script/camp-$scenario/*/ | head -1)"
 cp "$game/OblivionWalkers.log" "$run/OblivionWalkers.log"

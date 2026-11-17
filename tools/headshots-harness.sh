@@ -34,7 +34,7 @@ for name in ("Replace", "Dungeons"):
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
 mkdir -p "$root/artifacts"
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/headshots.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/headshots.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/headshots-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/headshots/*/ | head -1)"
 cp "$log" "$run/OblivionWalkers.log"

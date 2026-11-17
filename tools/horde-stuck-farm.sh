@@ -28,7 +28,7 @@ section = re.sub(r"^MarkerOnGround=.*\r?\n", "", text[head.end():stop], flags=re
 section = "\r\nMarkerOnGround=" + on + section
 open(path, "w", encoding="latin-1", newline="").write(text[:head.end()] + section + text[stop:])
 INI
-	(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/horde-stuck-farm.txt" --headless \
+	(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/horde-stuck-farm.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 		--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/horde-stuck-farm-runner-$on.txt"
 	run="$(ls -td "$root"/artifacts/hand-script/horde-stuck-farm/*/ | head -1)"
 	cp "$log" "$run/OblivionWalkers.log"

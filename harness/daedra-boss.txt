@@ -1,0 +1,27 @@
+# The boss guard (docs/walkers-spec.md 8c): Oblivion.esm's LL1GoblinBossLvl100
+# (000340BA), a boss list, is kept from the walkers' replacement - placed
+# three times in the TestingHall with [Invaders] Mode 0 (the walkers'
+# replacement on), goblins come, no walker. Indoors, where no list spawns:
+# outdoors the cell's own spawns are walkers in Mode 0 (the run of
+# 2026-11-17 at cow Tamriel -3 3), and the roster cannot tell them apart. The plugin files read in
+# the game: the log's "Bosses: ... kept" line. tools/daedra-harness.sh boss 0.
+
+ini Hands Enabled=1
+console-at ready tgm
+console-at ready tdetect
+console-at ready coc TestingHall
+console-at placed player.placeatme 000340BA 1 300 0
+console-at placed player.placeatme 000340BA 1 300 1
+console-at placed player.placeatme 000340BA 1 300 2
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark placed
+wait 8
+mark end
+wait 1

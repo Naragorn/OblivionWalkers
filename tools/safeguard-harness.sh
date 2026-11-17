@@ -16,6 +16,6 @@ if grep -q '^\[Safeguard\]' "$ini"; then
 else
 	printf '\r\n[Safeguard]\r\nTestVictim=0002CA3B\r\n' >> "$ini"
 fi
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/safeguard-home.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/safeguard-home.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script")
 grep -E '^Safeguard: (test|0002CA3B)' "$game/OblivionWalkers.log" || echo "no safeguard line for 0002CA3B"

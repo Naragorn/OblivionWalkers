@@ -14,6 +14,9 @@
 #   tools/daedra-harness.sh piles [Mode]     harness/daedra-piles.txt: the siege's piles across a save and a load ('PILE')
 #   tools/daedra-harness.sh daedric [Mode]   harness/daedra-daedric.txt: the Daedric disguise fools a Dremora, too close it fights (idea 7)
 #   tools/daedra-harness.sh legion [Mode]    harness/daedra-legion.txt: a band near Anvil - the Legion comes out (idea 10)
+#   tools/daedra-harness.sh siegesave [Mode] harness/daedra-siegesave.txt: the siege saved and loaded with its Daedra standing ('PLAC', the red sky again)
+#   tools/daedra-harness.sh boss 0           harness/daedra-boss.txt: a goblin boss list placed stays goblins (KeepBosses)
+#   tools/daedra-harness.sh daedricblow [Mode] harness/daedra-daedricblow.txt: the disguise across a save, then ended by a spell's blow (OnHit)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -60,9 +63,11 @@ if scenario == "gate":
     text = set_key(text, "Invaders", "TestGateOpenSeconds", "60")
 if scenario == "legion":
     text = set_key(text, "Guards", "LegionDistance", "16000")
-if scenario == "siege":
+    # Mode 2 rolls a band's kind; the Legion answers only Daedra, so every band is Daedra
+    text = set_key(text, "Invaders", "DaedraPercent", "100")
+if scenario in ("siege", "siegesave"):
     text = set_key(text, "Invaders", "MarchWeather", "1")
-if scenario in ("siege", "piles"):
+if scenario in ("siege", "piles", "siegesave"):
     for key, value in (("TestGate", "1"), ("TestDaedra", "1"), ("DaedraMin", "6"), ("DaedraMax", "6"),
                        ("DaedraAtGate", "4"), ("ChancePerDayPercent", "0")):
         text = set_key(text, "Siege", key, value)
@@ -72,7 +77,7 @@ text = set_key(text, "Dungeons", "Enabled", "0")
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
 mkdir -p "$root/artifacts"
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/daedra-$scenario.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/daedra-$scenario.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/daedra-$scenario-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/daedra-"$scenario"/*/ | head -1)"
 cp "$log" "$run/OblivionWalkers.log"
@@ -96,7 +101,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "siege", "gate", "piles", "daedric", "legion"):
+if kind != 0 and scenario not in ("band", "save", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "boss"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -212,6 +217,49 @@ if scenario == "legion":
     out = [int(m.group(1)) for m in (re.search(r"out at Anvil \w+ Gate for \d+ walkers' worth near, (\d+) Daedra", l) for l in lines) if m]
     check(bool(out) and max(out) >= 1, "the Legion came out against the band (%s)" % out)
     check(any(re.search(r"Guards: \w+ at Anvil \w+ Gate sent at FF", l) for l in lines), "a guard sent at a band's Daedra")
+if scenario == "boss":
+    bosses = show("Bosses: ", 6)
+    kept = [re.search(r"(\d+) files read, (\d+) lists and (\d+) creatures or people kept", l) for l in lines]
+    kept = [m for m in kept if m]
+    check(bool(kept) and int(kept[-1].group(1)) >= 1 and int(kept[-1].group(2)) >= 1,
+          "the plugin files read in the game, boss lists kept (%s)" % ([m.group(0) for m in kept][-1:]))
+    marks = [i for i, l in enumerate(obvr) if "HandScript: mark placed" in l]
+    after = [l for l in obvr[marks[0]:] if "HandScript: actors" in l] if marks else []
+    for l in after[-2:]:
+        print("        " + l[:400])
+    last = after[-1] if after else ""
+    n = re.search(r"actors - (\d+) loaded", last)
+    check(n is not None and int(n.group(1)) >= 3, "the three placed came (%s loaded)" % (n.group(1) if n else "-"))
+    check(not re.search(r"\b[0-9A-F]{2}000(80[1-4]|9[0-4][0-9A-F])\b", last), "no walker among them")
+if scenario == "siegesave":
+    show("Co-save: ", 30)
+    show("Placer: ", 20)
+    show("March weather: ", 12)
+    placed = [int(m.group(1)) for m in (re.search(r"Co-save: (\d+) placed Daedra still in the world written", l) for l in lines) if m]
+    check(bool(placed) and max(placed) >= 1, "the standing Daedra written ('PLAC': %s)" % placed)
+    taken = [int(m.group(1)) for m in (re.search(r"Placer: (\d+) placed ones of the save taken out of the world", l) for l in lines) if m]
+    check(bool(taken) and max(taken) >= 1, "after the load the save's placed ones taken out (%s)" % taken)
+    loaded = max((i for i, l in enumerate(lines) if "placed ones of the save taken out" in l), default=-1)
+    after = lines[loaded + 1:] if loaded >= 0 else []
+    came = [int(m.group(1)) for m in (re.search(r"Siege: (\d+) Daedra came to the siege", l) for l in after) if m]
+    check(sum(came) >= 1, "the siege places its own again after the load (%s)" % came)
+    check(any("March weather: the sky's weather now 000836D5" in l for l in after), "the red sky again after the load")
+    check(any("the siege at Anvil Castle Gate is over" in l or "Anvil Castle Gate is over" in l for l in after),
+          "the siege over once all fell")
+    check(any("March weather: let go" in l for l in after), "the sky let go once the siege is over")
+if scenario == "daedricblow":
+    show("Daedric disguise: ", 40)
+    loads = [i for i, l in enumerate(lines) if "after a load, before the first look" in l and "ranks now -1 -1" in l]
+    check(len(loads) >= 2, "taken out of the factions at the start and after the load (%d)" % len(loads))
+    last = loads[-1] if loads else len(lines)
+    joins = [i for i, l in enumerate(lines) if i > last and "the player joins" in l and "ranks now 0 0" in l]
+    check(bool(joins), "after the load the full set fools them again (ranks 0 0)")
+    joinsBefore = [i for i, l in enumerate(lines) if i < last and "the player joins" in l and "ranks now 0 0" in l]
+    check(bool(joinsBefore), "fooled before the save")
+    struck = [i for i, l in enumerate(lines) if "You struck one of them" in l and "leaves" in l and "ranks now -1 -1" in l]
+    check(bool(struck) and bool(joins) and struck[-1] > joins[0], "the blow (OnHit): out of the factions (-1 -1)")
+    fights = [l for l in lines if re.search(r"Daedric disguise: [1-9]\d* Daedra near in combat \(fooled 0, known 1", l)]
+    check(bool(fights), "known, the Dremora fights")
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)
 PY

@@ -29,7 +29,7 @@ if head:
     text = text[:head.end()] + re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, flags=re.M) + text[stop:]
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/walkers-timing.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/walkers-timing.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") > "$root/artifacts/walkers-timing-runner.txt" 2>&1 || true
 run="$(ls -td "$root"/artifacts/hand-script/walkers-timing/*/ | head -1)"
 cp "$game/OblivionWalkers.log" "$run/OblivionWalkers.log"

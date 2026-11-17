@@ -1,0 +1,41 @@
+# A Daedra siege across a save and a load while its Daedra stand (docs/
+# walkers-spec.md 8c: 'PLAC' and the red sky across a save), on
+# daedra-siege.txt. The run's plugin INI (tools/daedra-harness.sh siegesave)
+# carries the siege's test keys and [Invaders] MarchWeather=1. The player is
+# moved before Anvil's Castle Gate (its door 00006FBA, 500 units out): the
+# placer brings 4 Daedra and the sky turns red. With them standing the game is
+# saved and loaded: the placed Daedra are written ('PLAC'), deleted after the
+# load, the siege places its own again, the sky red again. Then killall
+# until the siege is over and the sky let go.
+
+ini Hands Enabled=1
+ini Hands Dismemberment=0
+console-at ready tgm
+console-at ready player.moveto 00006FBA 0 -500 0
+console-at saved save WalkersSiegeSaveTest
+console-at reload load WalkersSiegeSaveTest
+console-at kill1 killall
+console-at kill2 killall
+console-at kill3 killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 15
+mark out
+wait 4
+mark saved
+wait 6
+mark reload
+wait 25
+mark kill1
+wait 14
+mark kill2
+wait 14
+mark kill3
+wait 40
+mark end
+wait 1

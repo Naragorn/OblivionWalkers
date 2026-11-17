@@ -18,6 +18,6 @@ if grep -q '^\[Disguise\]' "$ini"; then
 else
 	printf "\n[Disguise]\n$keys\n" >> "$ini"
 fi
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/disguise.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/disguise.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") || true
 grep -E '^(Disguise:|Activate watch|Slow aggression: walker)' "$game/OblivionWalkers.log" | head -60 || true

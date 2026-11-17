@@ -17,7 +17,7 @@ backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
 printf '\r\n[Siege]\r\nTestGate=1\r\nChancePerDayPercent=100\r\nWalkersMin=80\r\nWalkersMax=80\r\nGuardKillsPerHour=2\r\n' >> "$ini"
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/siege-full.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/siege-full.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/siege-full-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/siege-full/*/ | head -1)"
 cp "$log" "$run/OblivionWalkers.log"

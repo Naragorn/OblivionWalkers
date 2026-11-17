@@ -5139,23 +5139,39 @@ whole: every change that needs the game adds its line the day it is built.
 | built | what is not seen in the game | scenario (wrapper) |
 |---|---|---|
 | 2026-11-16 | Mode 3: walkers and Daedra as allies - 45 s side by side, nobody died, but not shown that they saw each other | `daedra-fight.txt` 3, longer, with a look at their combat targets |
-| 2026-11-16 | The gates looked at every 5 s (was 1 s); the key `OnlyFromOblivionGates` read | `daedra-band.txt` 1 (`tools/daedra-harness.sh band 1`) |
-| 2026-11-16 | Boss guard: the plugin files read in the game (MO2's VFS too), a placed LL1GoblinBossLvl100 stays goblins, `KeepHardLists`/`KeepHighLists` from LINK | new: `boss-guard.txt` (place 000340BA, expect a goblin, the log's "Bosses: ... kept") |
-| 2026-11-16 | Bands across a save and a load ('BAND'), the leader two ranks above, the band broken up when he falls | `daedra-save.txt` (`daedra-harness.sh save 1`); the break-up: kill the leader by console |
+| 2026-11-16 | Boss guard: a placed LL1GoblinBossLvl100 stays goblins (**FAILED 2026-11-17**: in the TestingHall, Mode 0, three `placeatme 000340BA 1` gave 10 walkers - FF000F8A..F93, bases 2B000912 and the like - and no goblin; the files were read, "44 files read, 424 lists ... kept"; the list holds four goblins directly in Oblivion.esm and Ascension, MOO does not override it; cause open), `KeepHardLists`/`KeepHighLists` from LINK, MO2's VFS | `daedra-boss.txt` (`daedra-harness.sh boss 0`) |
+| 2026-11-16 | The band broken up when its leader falls (the save and load seen 2026-11-17, 8c below) | `daedra-save.txt` with the leader killed by console |
 | 2026-11-16 | A band that reaches its city raising the siege chance | new: a far band driven to its city by a fast `UnitsPerHour` test switch, the next day's siege roll logged |
-| 2026-11-16 | Mode 2's fallen as fuel: a bandit a Churl kills rises | `daedra-fuel.txt` (`daedra-harness.sh fuel 2`) |
 | 2026-11-16 | News of the nearest held place, new places rolled near the player (4.20.7a) | new: `dungeon-sites-near.txt` - TestSite off, the player moved by coc far from the save's places, a day waited: the log's rolled sites within NewPlacesWithin, the rumor's site the nearest |
-| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values; [Walkers] read; LINK version 46 with 225 variables | `link-page.txt` (`tools/link-page.sh`, expects 225) and a run on an old INI |
-| 2026-11-16 | 5/6 across a save: the placed Daedra in 'PLAC' deleted after a load, 'GATQ' read back, a camp's or a held place's Daedra side in their records | new: `daedra-siege.txt` with a save and a load while the Daedra stand |
+| 2026-11-16 | The renamed INI keys: an INI with only the old names keeps its values (the LINK page seen 2026-11-17 with 231 variables) | a run on an old INI |
+| 2026-11-16 | 5/6 across a save: 'GATQ' read back, a camp's or a held place's Daedra side in their records ('PLAC' seen 2026-11-17) | a save and a load in `camp-daedra.txt` and `dungeon-daedra.txt` |
 | 2026-11-16 | 5b: which things stay on a banished body - of 1-4 kinds on a body 0-2 reached the bag (RemoveAllItems); not read which kinds stay (creature parts? equipped armor?) | a look: GetInventoryObject on a Dremora before and after |
-| 2026-11-16 | 5c: the reward's words after a Daedra attack ("the Daedra are beaten"), camp and held place - fixed, not seen | `camp-daedra.txt`, `dungeon-daedra.txt` (a siege, TestSiteState=2) |
+| 2026-11-16 | 5c: the reward's words after a Daedra attack on a held place (the camp's seen 2026-11-17) | `dungeon-daedra.txt` (a siege, TestSiteState=2) |
 | 2026-11-16 | 6: the gate rumor said in dialogue, the compass pointing at the rewritten target, the Daedra broadsheet on a sheet | a look in the game |
 | 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
-| 2026-11-16 | 7: the Daedric disguise ended by a blow (OnHit on a Daedra) - unit flows only; a save made while fooled, loaded (the player out of the factions first); Mode 3's walkers fooled too | `daedra-daedric.txt` with a strike (a VR blow or a spell) and a save/load; `daedra-fight.txt` 3 in the set |
+| 2026-11-16 | 7: the Daedric disguise ended by a blow (OnHit on a Daedra) - **not seen 2026-11-17**: twice a fire bolt cast from OBVR's left hand at the fooled Dremora 300 units ahead, no "Hit:" line in the log, the Dremora never fought (a miss, about 4 degrees off, or xOBSE's OnHit not firing for a spell: not told apart, the headless shots are black); Mode 3's walkers fooled too | `daedra-daedricblow.txt` with a melee blow instead of the spell; `daedra-fight.txt` 3 in the set |
 | 2026-11-16 | 7: Daedric pieces of the DLCs and mods (only Oblivion.esm's 62 are known) | none: a choice - a list per plugin, or the model path read at run time |
-| 2026-11-16 | 9: the red sky over a Daedra siege (moved from the bands; the force and let-go proven with the band trigger) - the siege's distance read, set at the gate, let go once over; across a save while forced; beside a weather mod (All Natural) | `daedra-siege.txt` (`daedra-harness.sh siege 1`, MarchWeather=1 set by the wrapper); a save/load; a look with the weather mod |
-| 2026-11-16 | 10: the Legion beside walkers at the same gate; a band near a city the player is far from (the pool's guards in an unloaded cell) | `daedra-legion.txt` Mode 2; a band driven past a city out of the loaded grid |
+| 2026-11-16 | 9: the red sky beside a weather mod (All Natural) | a look with the weather mod |
+| 2026-11-16 | 10: the Legion beside walkers at the same gate; a band near a city the player is far from (the pool's guards in an unloaded cell) | `daedra-legion.txt` Mode 2 with walkers and Daedra at one gate; a band driven past a city out of the loaded grid |
 
+
+Seen 2026-11-17 (Linux, headless, without SteamVR - OBVR's stand-in runtime,
+the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
+`artifacts/hand-script/`), so out of the table above:
+
+| what | run |
+|---|---|
+| The gates looked at every 5 s; `OnlyFromOblivionGates` read; a band of 7 Daedra placed with its leader | `daedra-harness.sh band 1` PASS |
+| Bands across a save and a load ('BAND'): 9 written, the same 9 read back, the leader found | `daedra-harness.sh save 1` PASS |
+| Mode 2's fallen as fuel: a fallen bandit waits to rise | `daedra-harness.sh fuel 2` PASS |
+| Mode 3: walkers and Daedra side by side, neither dead | `daedra-harness.sh fight 3` PASS (whom they target still owed above) |
+| LINK's page with 231 variables, shown, left, written back | `tools/link-page.sh` PASS |
+| 9: the red sky over a Daedra siege - 000836D5 set at the gate, let go once over (00038EEC after) | `daedra-harness.sh siege 1` PASS |
+| 5/6 and 9 across a save: 4 standing Daedra written ('PLAC'), taken out after the load, the siege places its own again, the sky red again and let go at the end | `daedra-harness.sh siegesave 1` PASS (new `daedra-siegesave.txt`) |
+| 10: the Legion comes out against a Daedra band within LegionDistance, 7 guards, sent at the band | `daedra-harness.sh legion 2` PASS - the wrapper now sets DaedraPercent=100: the first run rolled a walker band (Mode 2, 50 %), which the Legion rightly ignored |
+| 7: the disguise across a save: out of the factions after the load, the full set fools again (ranks 0 0); too close (200) it ends and the Dremora fights | `daedra-harness.sh daedricblow 1` (the blow itself FAILED, above) |
+| 5c: a camp's Daedra attack beaten - "the Daedra are beaten" (+1 fame, 150 gold, a thing of theirs) | `CAMP_SCENARIO=daedra tools/camp-harness.sh` PASS |
+| A held place's outpost: its Daedra and boss placed, counted off, the place cleared and taken | `tools/dungeon-walkers.sh outpost` PASS |
 
 ### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; 5 and 6 BUILT 2026-11-16, "go 5a 5b 5c 6"; 7 BUILT 2026-11-16, "go 7 10 9", idea 3 won't do)
 

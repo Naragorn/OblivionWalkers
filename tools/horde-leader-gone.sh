@@ -7,7 +7,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 log="$game/OblivionWalkers.log"
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/horde-leader-gone.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/horde-leader-gone.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/horde-leader-gone-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/horde-leader-gone/*/ | head -1)"
 cp "$log" "$run/OblivionWalkers.log"

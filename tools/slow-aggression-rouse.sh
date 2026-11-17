@@ -27,7 +27,7 @@ section = re.sub(r"^Enabled=1", "Enabled=0", text[head.end():stop], count=1, fla
 open(path, "w", encoding="latin-1", newline="").write(text[:head.end()] + section + text[stop:])
 INI
 grep -n -A3 "^\[Replace\]" "$ini" | head -3
-(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/slow-aggression-rouse.txt" --headless \
+(cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/slow-aggression-rouse.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/slow-aggression-rouse-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/slow-aggression-rouse/*/ | head -1)"
 cp "$log" "$run/OblivionWalkers.log"
