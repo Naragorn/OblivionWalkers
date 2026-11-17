@@ -1,21 +1,27 @@
 # The Daedric disguise ended by a spell (docs/walkers-spec.md 8c, idea 7) -
 # whether xOBSE's OnHit fires for a spell's hit at all. As
 # daedra-daedricblow.txt (the save and the load while fooled), but the
-# blow is SEStdFireFrostDam1Novice (0004DC23, 7 fire) cast with OBVR's left
+# blow is StandardFireDamageTouch1Novice (0004C91E, 10 fire on touch) cast with OBVR's left
 # hand (raised, the trigger - as headshots.txt; the console's Cast cannot aim
 # a target spell at an actor) at the Dremora put 60 units before the player
-# at mark aim and held: too close to miss (the run of 2026-11-17 at 300 units
-# showed no hit). The wrapper (tools/daedra-harness.sh daedricspell) sets
+# at mark aim and held (2026-11-17: at 35 and 60 units the bolt touched no
+# one - it starts past or inside him; at 300 the list's three Dremora were
+# struck at the wrong one). The run counts only with a "Magic hit" on him.
+# A touch spell (2026-11-17: four target bolts at 35-300 units touched no one,
+# the last with him at 225 units at the cast - the harness cannot aim a bolt;
+# a touch spell takes whom the hand reaches). He walked back from a far move
+# within a second, so he is moved again at mark again, before the cast; let
+# go after it (held, he would not fight - the run of 2026-11-17). The wrapper (tools/daedra-harness.sh daedricspell) sets
 # [Disguise] DaedricNearDistance=30, so the Dremora that near still is
 # fooled. Expected: "You struck one of them", out of the factions, it fights.
 # God mode keeps him alive.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
-console player.addspell 0004DC23
+console player.addspell 0004C91E
 console-at ready tgm
 console-at ready cow tamriel -3 3
-console-at ready SetActiveSpell 0004DC23
+console-at ready SetActiveSpell 0004C91E
 console-at dress player.additem 00036357 1
 console-at dress player.additem 00036358 1
 console-at dress player.additem 00036359 1
@@ -35,6 +41,9 @@ console-at reload load WalkersDaedricTest
 console-at aim player.setangle z 0
 console-at aim {actor}.moveto player 0 60 0
 console-at aim {actor}.setrestrained 1
+console-at again player.setangle z 0
+console-at again {actor}.moveto player 0 60 0
+console-at cast {actor}.setrestrained 0
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -60,7 +69,9 @@ wait 6
 mark reload
 wait 14
 mark aim
-wait 6
+wait 5
+mark again
+wait 0.5
 left trigger 1
 wait 0.6
 left trigger 0
