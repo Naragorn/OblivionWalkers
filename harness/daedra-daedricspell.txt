@@ -1,0 +1,71 @@
+# The Daedric disguise ended by a spell (docs/walkers-spec.md 8c, idea 7) -
+# whether xOBSE's OnHit fires for a spell's hit at all. As
+# daedra-daedricblow.txt (the save and the load while fooled), but the
+# blow is SEStdFireFrostDam1Novice (0004DC23, 7 fire) cast with OBVR's left
+# hand (raised, the trigger - as headshots.txt; the console's Cast cannot aim
+# a target spell at an actor) at the Dremora put 60 units before the player
+# at mark aim and held: too close to miss (the run of 2026-11-17 at 300 units
+# showed no hit). The wrapper (tools/daedra-harness.sh daedricspell) sets
+# [Disguise] DaedricNearDistance=30, so the Dremora that near still is
+# fooled. Expected: "You struck one of them", out of the factions, it fights.
+# God mode keeps him alive.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console player.addspell 0004DC23
+console-at ready tgm
+console-at ready cow tamriel -3 3
+console-at ready SetActiveSpell 0004DC23
+console-at dress player.additem 00036357 1
+console-at dress player.additem 00036358 1
+console-at dress player.additem 00036359 1
+console-at dress player.additem 0003635A 1
+console-at dress player.additem 0003635B 1
+console-at dress player.equipitem 00036357
+console-at dress player.equipitem 00036358
+console-at dress player.equipitem 00036359
+console-at dress player.equipitem 0003635A
+console-at dress player.equipitem 0003635B
+console-at placed player.placeatme 00092DA6 1
+console-at placed player.setangle z 0
+console-at close {actor}.moveto player 0 300 0
+console-at held {actor}.setrestrained 1
+console-at saved save WalkersDaedricTest
+console-at reload load WalkersDaedricTest
+console-at aim player.setangle z 0
+console-at aim {actor}.moveto player 0 60 0
+console-at aim {actor}.setrestrained 1
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.25 -0.60 -0.10
+left pos -0.15 -0.30 -0.45
+left rot 38 0 0
+head face 1
+wait 1
+mark ready
+wait 6
+mark dress
+wait 4
+mark placed
+wait 2
+mark close
+wait 1
+mark held
+wait 12
+mark saved
+wait 6
+mark reload
+wait 14
+mark aim
+wait 6
+left trigger 1
+wait 0.6
+left trigger 0
+wait 1.4
+mark cast
+wait 15
+mark end
+wait 1

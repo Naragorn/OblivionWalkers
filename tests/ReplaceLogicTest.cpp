@@ -422,6 +422,27 @@ void TestSettings() {
 
 }  // namespace
 
+void TestListLine() {
+	std::printf("A list's entries in one log line (the test list, [Replace] TestLogList)\n");
+	char out[128];
+	walkers::ListEntryView none[1] = {};
+	Check(walkers::ListEntriesLine(none, 0, out, sizeof(out)) == 0 && std::strcmp(out, "none") == 0,
+	      "no entries: \"none\"");
+	const walkers::ListEntryView goblins[2] = {{1, 0x0001FCB2, 1}, {18, 0x2B000805, 3}};
+	Check(walkers::ListEntriesLine(goblins, 2, out, sizeof(out)) == 2 &&
+	          std::strcmp(out, "1:0001FCB2x1 18:2B000805x3") == 0,
+	      "two entries: level:form x count, the walker's list shown as itself");
+	char small[16];
+	const UInt32 n = walkers::ListEntriesLine(goblins, 2, small, sizeof(small));
+	Check(n == 1 && std::strcmp(small, "1:0001FCB2x1 +") == 0, "too long: the entries that fit, then \"+\"");
+	Check(walkers::ListEntriesLine(goblins, 2, out, 0) == 0, "no room at all: nothing written");
+	Check(walkers::ListEntriesHash(goblins, 2) != walkers::ListEntriesHash(goblins, 1) &&
+	          walkers::ListEntriesHash(goblins, 2) == walkers::ListEntriesHash(goblins, 2),
+	      "the hash tells a changed list from the same one");
+	const walkers::ListEntryView recounted[2] = {{1, 0x0001FCB2, 1}, {18, 0x2B000805, 4}};
+	Check(walkers::ListEntriesHash(goblins, 2) != walkers::ListEntriesHash(recounted, 2), "a count changed: another hash");
+}
+
 int main() {
 	TestClassify();
 	TestKeys();
@@ -434,6 +455,7 @@ int main() {
 	TestExtra();
 	TestRename();
 	TestSettings();
+	TestListLine();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

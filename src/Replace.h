@@ -59,6 +59,12 @@ void SetWalkersAllied(const UInt32* walkerIds, UInt32 count, bool allied, LogFn 
 // creature's "Zombie" too (ReplaceLogic.h RenamedZombie) - in memory only.
 void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espBase, const RiseSettings& settings, LogFn log);
 
+// [Replace] TestLogList: the list's entries into the log - `why` says when
+// (after a pass, or changed in the game); WatchTestList logs only a change
+// since the last look. Nothing with 0.
+void LogTestList(UInt32 listId, const char* why, LogFn log);
+void WatchTestList(UInt32 listId, LogFn log);
+
 void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log);
 
 }  // namespace walkers

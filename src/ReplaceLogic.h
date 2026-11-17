@@ -39,6 +39,9 @@ struct ReplaceSettings {
 	// [Replace] KeepBosses, BossListWords, BossActorWords (4.6c; Nadi,
 	// 2026-11-16): the bosses' lists and the bosses stay the game's.
 	BossGuard bosses;
+	// [Replace] TestLogList (a test switch): the list whose entries the log
+	// shows (ListEntriesLine below); 0 none.
+	UInt32 testLogList = 0;
 
 	ReplaceSettings() {
 		for (UInt32 k = 0; k < kReplaceCategoryCount; ++k) {
@@ -578,6 +581,66 @@ inline UInt8 WalkerSpeed(UInt8 base, float multiplier, UInt32 randomPercent, UIn
 	}
 	const float speed = static_cast<float>(base) * m * (1.0f + spread * where) + 0.5f;
 	return speed < 1.0f ? 1 : (speed >= 255.0f ? 255 : static_cast<UInt8>(speed));
+}
+
+// [Replace] TestLogList (a test switch, 0 off): one leveled list's entries
+// written to the log after each pass of the replacement and whenever they
+// change in the game - what a placed list really holds (the boss guard's run
+// of 2026-11-17: three LL1GoblinBossLvl100 placed gave ten walkers).
+struct ListEntryView {
+	UInt16 level;
+	UInt32 form;
+	UInt16 count;
+};
+
+// "level:FORMIDxcount ..." into `out`; the entries that fit, then " +" when
+// some do not; "none" for an empty list. Returns the entries written.
+inline UInt32 ListEntriesLine(const ListEntryView* entries, UInt32 n, char* out, UInt32 size) {
+	if (size == 0) {
+		return 0;
+	}
+	if (n == 0) {
+		std::snprintf(out, size, "none");
+		return 0;
+	}
+	out[0] = 0;
+	UInt32 used = 0;
+	UInt32 written = 0;
+	for (UInt32 i = 0; i < n; ++i) {
+		char one[40];
+		const int len = std::snprintf(one, sizeof(one), "%s%u:%08Xx%u", i == 0 ? "" : " ", entries[i].level,
+		                              entries[i].form, entries[i].count);
+		// room for this one and, should more follow, " +"
+		const UInt32 need = static_cast<UInt32>(len) + (i + 1 < n ? 2u : 0u);
+		if (used + need + 1 > size) {
+			if (used + 3 <= size) {
+				std::snprintf(out + used, size - used, written == 0 ? "+" : " +");
+			}
+			return written;
+		}
+		std::snprintf(out + used, size - used, "%s", one);
+		used += static_cast<UInt32>(len);
+		++written;
+	}
+	return written;
+}
+
+// A hash of the entries (FNV-1a over level, form and count): a list changed
+// in the game since the last look.
+inline UInt32 ListEntriesHash(const ListEntryView* entries, UInt32 n) {
+	UInt32 h = 2166136261u;
+	const auto mix = [&h](UInt32 v) {
+		for (int b = 0; b < 4; ++b) {
+			h = (h ^ ((v >> (b * 8)) & 0xFFu)) * 16777619u;
+		}
+	};
+	mix(n);
+	for (UInt32 i = 0; i < n; ++i) {
+		mix(entries[i].level);
+		mix(entries[i].form);
+		mix(entries[i].count);
+	}
+	return h;
 }
 
 }  // namespace walkers

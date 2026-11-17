@@ -308,6 +308,9 @@ bool ReadSettings(walkers::Settings* settings) {
 	replace.bosses.keepBosses = IniInt("Replace", "KeepBosses", 1, path) != 0;
 	replace.bosses.keepHard = IniInt("Replace", "KeepHardLists", 0, path) != 0;
 	replace.bosses.keepHigh = IniInt("Replace", "KeepHighLists", 0, path) != 0;
+	char testList[16];
+	IniString("Replace", "TestLogList", "0", testList, sizeof(testList), path);
+	replace.testLogList = static_cast<UInt32>(std::strtoul(testList, nullptr, 16));
 	IniString("Replace", "BossListWords", replace.bosses.listWords, replace.bosses.listWords,
 	                         sizeof(replace.bosses.listWords), path);
 	IniString("Replace", "BossActorWords", replace.bosses.actorWords, replace.bosses.actorWords,

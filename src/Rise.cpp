@@ -2831,6 +2831,7 @@ void StepSpawns(float dt) {
 	g_invadersClock -= dt;
 	if (g_invadersClock <= 0.0f) {
 		g_invadersClock = 1.0f;
+		WatchTestList(g_replace.testLogList, g_log);
 		if (UpdateInvadersNow() && g_replace.enabled) {
 			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
 		}

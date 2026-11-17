@@ -897,7 +897,70 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 		log("Spawns: %u new creatures written to [%s] (%s)", newLines, kSection,
 		    AppendToIni(iniPath, added.data(), addedUsed + newLines + 64));
 	}
+	LogTestList(settings.testLogList, "after the pass", log);
 	return replaced;
+}
+
+namespace {
+UInt32 g_testListHash = 0;
+
+UInt32 ReadTestList(UInt32 listId, ListEntryView* out, UInt32 most, UInt8& flags, UInt8& chanceNone) {
+	const UInt32 list = LookupForm(listId);
+	if (!LooksLikeObject(list) || Read8(list + kFormTypeOffset) != kFormTypeLeveledCreature) {
+		return 0xFFFFFFFFu;
+	}
+	flags = Read8(list + kLevCreatureFlagsOffset);
+	chanceNone = Read8(list + kLevCreatureFlagsOffset - 1);
+	UInt32 n = 0;
+	UInt32 visited = 0;
+	for (UInt32 node = list + kLevCreatureListOffset; LooksLikeObject(node) && visited < 512 && n < most;
+	     node = Read(node + 4), ++visited) {
+		const UInt32 data = Read(node);
+		if (!LooksLikeObject(data)) {
+			break;
+		}
+		const UInt32 target = Read(data + kListDataFormOffset);
+		out[n].level = *reinterpret_cast<const UInt16*>(data);
+		out[n].form = LooksLikeObject(target) ? FormIdOf(target) : 0u;
+		out[n].count = *reinterpret_cast<const UInt16*>(data + kListDataCountOffset);
+		++n;
+	}
+	return n;
+}
+}  // namespace
+
+void LogTestList(UInt32 listId, const char* why, LogFn log) {
+	if (listId == 0 || log == nullptr) {
+		return;
+	}
+	static ListEntryView entries[64];
+	UInt8 flags = 0;
+	UInt8 chanceNone = 0;
+	const UInt32 n = ReadTestList(listId, entries, 64, flags, chanceNone);
+	if (n == 0xFFFFFFFFu) {
+		log("Spawns: TestLogList=%08X - no leveled creature list (%s)", listId, why);
+		return;
+	}
+	g_testListHash = ListEntriesHash(entries, n);
+	char line[700];
+	ListEntriesLine(entries, n, line, sizeof(line));
+	const auto named = g_listNames.find(listId);
+	log("Spawns: TestLogList=%08X %s - %u entries (level:form x count): %s; flags %02X, chance none %u; named %s",
+	    listId, why, n, line, flags, chanceNone,
+	    named == g_listNames.end() ? "nothing (not read off the files)" : (named->second.bits != 0 ? "a boss's" : "an ordinary one"));
+}
+
+void WatchTestList(UInt32 listId, LogFn log) {
+	if (listId == 0) {
+		return;
+	}
+	static ListEntryView entries[64];
+	UInt8 flags = 0;
+	UInt8 chanceNone = 0;
+	const UInt32 n = ReadTestList(listId, entries, 64, flags, chanceNone);
+	if (n != 0xFFFFFFFFu && ListEntriesHash(entries, n) != g_testListHash) {
+		LogTestList(listId, "changed in the game", log);
+	}
 }
 
 // TESActorBaseData's faction list (kFactionListOffset): FactionListEntry
