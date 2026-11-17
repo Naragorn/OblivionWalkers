@@ -1,13 +1,15 @@
 # The Daedric disguise across a save and ended by a blow (docs/walkers-spec.md
 # 8c, idea 7), on daedra-daedric.txt: the player in the five Daedric pieces
-# outdoors at cow Tamriel -3 3, a longsword on the hip, a Dremora
-# (LL1Dremora100, 00092DA6) placed 300 units before him and held
+# outdoors at cow Tamriel -3 3, a longsword on the hip, one Dremora
+# (Dremora0ChurlMelee1, 00092DA0 - one NPC, not a list: LL0Dremora0Churl100
+# made three in the runs of 2026-11-17 and the strike went at another)
+# placed 300 units before him and held
 # (SetRestrained) - fooled. Saved while fooled and loaded: the plugin takes
 # him out of the factions first, then the full set fools it again. At mark
-# aim the Dremora is put 120 units before him and held again (a fooled one
+# aim the Dremora is put 80 units before him and held again (a fooled one
 # walks off after the load), the sword is drawn by the holster and swung
 # round the player, low and at the chest - skill-walker.txt's swings, which
-# land on a walker 120 units away: xOBSE's OnHit - "You struck one of them",
+# land on a walker 120 units away, here 80 so the blade surely reaches: xOBSE's OnHit - "You struck one of them",
 # out of the factions, it fights. The kick (55 units) and the spell missed in
 # the runs of 2026-11-17; the spell's case is daedra-daedricspell.txt. The
 # wrapper (tools/daedra-harness.sh daedricblow) sets [Disguise]
@@ -36,14 +38,14 @@ console-at dress player.equipitem 0003635A
 console-at dress player.equipitem 0003635B
 console-at dress player.additem 00000C0C 1
 console-at dress player.equipitem 00000C0C
-console-at placed player.placeatme 00092DA6 1
+console-at placed player.placeatme 00092DA0 1
 console-at placed player.setangle z 0
 console-at close {actor}.moveto player 0 300 0
 console-at held {actor}.setrestrained 1
 console-at saved save WalkersDaedricTest
 console-at reload load WalkersDaedricTest
 console-at aim player.setangle z 0
-console-at aim {actor}.moveto player 0 120 0
+console-at aim {actor}.moveto player 0 80 0
 console-at aim {actor}.setrestrained 1
 
 expect HandScript: finished

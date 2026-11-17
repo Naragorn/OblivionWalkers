@@ -281,6 +281,9 @@ if scenario in ("daedricblow", "daedricspell"):
     check(bool(fights), "after the blow the Dremora fights")
     show("Hit: ", 6)
     hits = [l for l in lines if re.match(r"Hit: \w+ hit by 00000014", l)]
+    if scenario == "daedricspell":
+        # a spell's case proves nothing unless the bolt touched someone (Walkers' OnMagicEffectHit log)
+        show("Magic hit: ", 6)
     check(bool(hits), "OnHit saw the player's blow (%d)" % len(hits))
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 sys.exit(1 if failures else 0)

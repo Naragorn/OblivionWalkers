@@ -26,7 +26,7 @@ console-at dress player.equipitem 00036358
 console-at dress player.equipitem 00036359
 console-at dress player.equipitem 0003635A
 console-at dress player.equipitem 0003635B
-console-at placed player.placeatme 00092DA6 1
+console-at placed player.placeatme 00092DA0 1
 console-at placed player.setangle z 0
 console-at close {actor}.moveto player 0 300 0
 console-at held {actor}.setrestrained 1
