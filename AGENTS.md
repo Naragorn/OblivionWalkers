@@ -8,6 +8,15 @@
 - Here: `[Debug] StepTiming=1` times every step of the tick and every console line by its verb (`src/TimingLogic.h`); `tools/walkers-timing.sh` runs it with 60 walkers placed about the player. Results go into `docs/walkers-spec.md`, section Performance.
 - Write each measured result where the project keeps its findings (the spec or the knowledge files), with the commit, so the next change can be compared against it.
 
+## Running the harness (OBVR's)
+
+- The harness is OBVR's runner, `../OBVR/tools/hand-script-run.py`; the rules for it live in `../OBVR/AGENTS.md` ("Running the harness on Linux") and `../OBVR/docs/hand-script-harness.md` ("Without SteamVR", "Several runs at once", "A run that measures runs alone"). Read them before a run. The short of it, since 2026-11-17:
+- `--no-steamvr`: SteamVR does not have to run; OBVR loads a stand-in runtime. Its headset is the Pimax Dream Air by default (4036x3376 an eye, 72 Hz, IPD 63 mm); `--headset beyond` is the Bigscreen Beyond (2568x2568, 75 Hz) of the runs before that date.
+- `--parallel` (with `--headless --no-steamvr`): the run takes a slot of its own - a mirror of the game folder and its own Proton prefix - beside the player's game and beside other runs, with no busy/free. `--plugin FILE` puts a file under test into the mirror's plugin folder (a DLL, an INI); everything else under `Data` is the player's, linked, and still needs a deploy. A deploy and a run without `--parallel` are announced with busy/free as before.
+- A run that measures runs alone (Nadi, 2026-11-17): pass `--exclusive` for every load, timing or performance run - it waits until no other harness run and no other game is running and holds the others off until it ends. A scenario with `ini Performance Enabled=1` is exclusive by itself. An exclusive run fails when a game is started beside it.
+- A run without SteamVR tests nothing SteamVR does itself (compositing, overlays shown, frame statistics, reprojection), and its performance numbers are not comparable with a run with SteamVR.
+- Here: the wrappers under `tools/*.sh` call the runner with `--headless` alone (2026-11-17); the plugin's `.esp` and scripts live under `Data` and are linked into a slot, so a slot runs the Walkers that is deployed. `tools/walkers-timing.sh` and every other timing run have to pass `--exclusive`; they do not yet.
+
 ## Findings for OBNG
 
 - OBNG (Oblivion Next Generation) is the planned community modernisation of Oblivion.exe 1.2.416: reverse engineering the engine and rebuilding it in modern form. Its knowledge lives outside this repo, in `../OBNG/knowledge/` (`/run/media/nadi/Games/Modding/OBNG/knowledge/`).
