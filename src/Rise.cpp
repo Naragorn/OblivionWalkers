@@ -25,6 +25,7 @@
 #include "Siege.h"
 #include "Camps.h"
 #include "Disguise.h"
+#include "CombatTraceLogic.h"
 
 #include <windows.h>
 #include <intrin.h>
@@ -1745,6 +1746,41 @@ void Raise(UInt32 refId) {
 
 // The get-up, measured: the engine's dead flag and the first step off the
 // spot, in milliseconds after the Resurrect.
+// [Debug] CombatTrace (CombatTraceLogic.h): four times a second, each living actor
+// within 4000 units of the player whose combat target changed (vtable
+// +0x338, Horde.cpp ActorCombatTargetId) - a harness's look at who fights whom.
+void StepCombatTrace(float dt) {
+	static CombatTrace trace;
+	static float clock = 0.0f;
+	if (!g_settings.combatTrace || g_log == nullptr) {
+		return;
+	}
+	clock += dt;
+	if (clock < 0.25f) {
+		return;
+	}
+	clock = 0.0f;
+	static UInt32 actors[1024];
+	const UInt32 count = ActorsOnHighList(actors, 1024);
+	for (UInt32 i = 0; i < count; ++i) {
+		const UInt32 actor = actors[i];
+		const UInt32 id = FormIdOf(actor);
+		const float d = DistanceFromPlayer(actor);
+		if (id == kPlayerRefId || d < 0.0f || d > 4000.0f || IsDead(actor)) {
+			continue;
+		}
+		const UInt32 target = ActorCombatTargetId(id);
+		if (!CombatTargetChanged(trace, id, target)) {
+			continue;
+		}
+		const UInt32 base = Read(actor + kRefBaseFormOffset);
+		const UInt32 targetRef = target != 0 ? LookupForm(target) : 0;
+		const UInt32 targetBase = LooksLikeObject(targetRef) ? Read(targetRef + kRefBaseFormOffset) : 0;
+		g_log("Combat: %08X (base %08X) now fights %08X (base %08X)", id, LooksLikeObject(base) ? FormIdOf(base) : 0u,
+		      target, LooksLikeObject(targetBase) ? FormIdOf(targetBase) : 0u);
+	}
+}
+
 void StepRisenWatch() {
 	const UInt32 ref = LookupForm(g_risen.refId);
 	if (!LooksLikeObject(ref) || !IsActor(ref)) {
@@ -2248,6 +2284,7 @@ void KeepWalkerRecords() {
 struct NearOne {
 	UInt32 refId;
 	float x, y, z;
+	bool daedra;  // a Daedra (Mode 3: the walkers' ally)
 };
 
 UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
@@ -2255,7 +2292,7 @@ UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
 	const UInt32 player = LookupForm(kPlayerRefId);
 	if (LooksLikeObject(player) && !IsDead(player) && n < most) {
 		out[n++] = NearOne{kPlayerRefId, FloatAt(player + kRefPositionOffset), FloatAt(player + kRefPositionOffset + 4),
-		                   FloatAt(player + kRefPositionOffset + 8)};
+		                   FloatAt(player + kRefPositionOffset + 8), false};
 	}
 	auto* const manager = reinterpret_cast<void*>(kActorProcessManager);
 	using ListFn = void*(__fastcall*)(void* self, void* edx, UInt32 level);
@@ -2275,7 +2312,8 @@ UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
 			continue;
 		}
 		out[n++] = NearOne{Read(actor + kFormIdOffset), FloatAt(actor + kRefPositionOffset),
-		                   FloatAt(actor + kRefPositionOffset + 4), FloatAt(actor + kRefPositionOffset + 8)};
+		                   FloatAt(actor + kRefPositionOffset + 4), FloatAt(actor + kRefPositionOffset + 8),
+		                   IsDaedraActor(actor)};
 	}
 	return n;
 }
@@ -2362,6 +2400,7 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	// others they are roused by as ever (Nadi, 2026-11-17).
 	const bool disguised = Disguised();
 	const bool fooled = WalkersFooledNow();
+	const bool allied = WalkersAlliedNow();
 	if (!slow.enabled) {
 		g_near.count = 0;
 		for (UInt32 i = 0; i < count; ++i) {
@@ -2393,6 +2432,10 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 		for (UInt32 k = 0; k < found; ++k) {
 			// 4.20.1: none turns on a disguised player (his time near starts anew).
 			if (!WalkerMayTurnOn(fooled, ones[k].refId == kPlayerRefId)) {
+				continue;
+			}
+			// Mode 3: none turns on a Daedra, its ally (DisguiseLogic.h WalkerMayRouseAt).
+			if (allied && !WalkerMayRouseAt(allied, ones[k].daedra)) {
 				continue;
 			}
 			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, slow.units)) {
@@ -2582,9 +2625,10 @@ void StepWalkers(float dt) {
 	static UInt32 s_dropLines = 20;
 	s_dropClock += dt;
 	const bool fooled = WalkersFooledNow();
-	if (fooled && (s_dropClock >= 0.5f || daedricBegins)) {
+	if ((fooled || allied) && (s_dropClock >= 0.5f || daedricBegins)) {
 		s_dropClock = 0.0f;
 		UInt32 dropped = 0;
+		UInt32 droppedAllies = 0;
 		for (UInt32 i = 0; i < count; ++i) {
 			const UInt32 actor = LookupForm(refs[i]);
 			if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
@@ -2592,15 +2636,26 @@ void StepWalkers(float dt) {
 			}
 			const UInt32 id = FormIdOf(actor);
 			const bool fighting = ActorInCombat(id);
-			if (WalkerDropsPlayer(fooled, fighting, fighting && ActorCombatTargetId(id) == kPlayerRefId) &&
-			    ConsoleOn(actor, "StopCombat")) {
+			const UInt32 target = fighting ? ActorCombatTargetId(id) : 0;
+			if (WalkerDropsPlayer(fooled, fighting, target == kPlayerRefId) && ConsoleOn(actor, "StopCombat")) {
 				++dropped;
+				continue;
+			}
+			// Mode 3: a walker fighting a Daedra, its ally, lets go (DisguiseLogic.h WalkerDropsAlly).
+			if (WalkerDropsAlly(allied, fighting, target != 0 && target != kPlayerRefId &&
+			                                          IsDaedraActor(LookupForm(target))) &&
+			    ConsoleOn(actor, "StopCombat")) {
+				++droppedAllies;
 			}
 		}
 		if ((dropped > 0 || daedricBegins) && s_dropLines > 0) {
 			--s_dropLines;
 			g_log("Disguise: %u walkers fighting the player told StopCombat (%s; %u near, the others fight on)", dropped,
 			      daedricBegins ? "the Daedric set on in Mode 3" : "fooled", count);
+		}
+		if (droppedAllies > 0 && s_dropLines > 0) {
+			--s_dropLines;
+			g_log("Invaders: %u walkers fighting a Daedra told StopCombat (Mode 3: allies; %u near)", droppedAllies, count);
 		}
 	}
 	UInt32 high = 0;
@@ -3481,6 +3536,7 @@ void Tick() {
 	Timed(14, "disguise", [dt] {
 		StepDisguiseInGame(dt);
 		StepDaedricDisguiseInGame(dt);
+		StepCombatTrace(dt);
 	});
 	Timed(15, "heads", [] {
 		StepHeads();
@@ -3720,12 +3776,14 @@ void OnLoad(void*) {
 			const bool whole = ReadCampImage(CurrentCamps(), camps, read);
 			UInt32 attacked = 0;
 			UInt32 overrun = 0;
+			UInt32 byDaedra = 0;
 			for (const Camp& c : CurrentCamps().camps) {
 				attacked += c.status == CampStatus::Attacked ? 1u : 0u;
 				overrun += c.status == CampStatus::Overrun ? 1u : 0u;
+				byDaedra += c.status == CampStatus::Attacked && c.daedra ? 1u : 0u;
 			}
-			g_log("Co-save: the camps read - %u attacked, %u overrun (version %u)%s", attacked, overrun, version,
-			      whole ? "" : " (version or length off: all living)");
+			g_log("Co-save: the camps read - %u attacked (%u by Daedra), %u overrun (version %u)%s", attacked, byDaedra,
+			      overrun, version, whole ? "" : " (version or length off: all living)");
 			continue;
 		}
 		if (type == kDungeonOccupantRecordType) {

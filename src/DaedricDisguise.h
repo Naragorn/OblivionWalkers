@@ -23,6 +23,10 @@ void NoteDaedricHit(UInt32 target, UInt32 attacker, bool targetAlliedWalker);
 // Once a frame; looked at twice a second.
 void StepDaedricDisguiseInGame(float dt);
 
+// Whether `actor` (a reference) is a Daedra: a creature of the Daedra type or
+// a person of the Dremora race.
+bool IsDaedraActor(UInt32 actor);
+
 // Whether the Daedra take the player for one of theirs now.
 bool DaedricDisguised();
 

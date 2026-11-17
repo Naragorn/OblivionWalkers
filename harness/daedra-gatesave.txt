@@ -1,0 +1,41 @@
+# "Close the gate" across a save and a load (docs/walkers-spec.md 4.22a step
+# 6, co-save 'GATQ'): as daedra-gate.txt - Mode 1, TestGateOpen=2,
+# TestGateOpenSeconds=60, the rumor heard, the quest begun at gate 2 - then
+# saved (WalkersGateTest) and loaded while it runs. The log must say "the
+# gate quest (gate 2) written" and after the load "the gate quest read -
+# gate 2"; the test gate reads open again for 60 s after the load, then
+# shut: the quest read back is done (stage 20).
+
+ini Hands Enabled=1
+ini Performance Enabled=0
+console-at ready tgm
+console-at heard set WalkersGateHeard to 1
+console-at close1 CloseAllMenus
+console-at saved save WalkersGateTest
+console-at reload load WalkersGateTest
+console-at close2 CloseAllMenus
+console-at close3 CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark heard
+wait 8
+mark close1
+wait 3
+mark told
+wait 3
+mark saved
+wait 6
+mark reload
+wait 75
+mark close2
+wait 3
+mark close3
+wait 2
+mark end
+wait 1

@@ -216,6 +216,7 @@ bool ReadSettings(walkers::Settings* settings) {
 	    static_cast<UInt32>(IniInt("Dungeons", "WalkersOutsidePercent", 50, path));
 	rise.dungeonsTestSiteState = static_cast<UInt32>(IniInt("Dungeons", "TestSiteState", 1, path));
 	rise.stepTiming = IniInt("Debug", "StepTiming", 0, path) != 0;
+	rise.combatTrace = IniInt("Debug", "CombatTrace", 0, path) != 0;
 	rise.testLinkPage = static_cast<float>(IniInt("Debug", "TestLinkPage", 0, path));
 	IniString("Debug", "SampleLine", "", rise.sampleLine, sizeof(rise.sampleLine), path);
 	IniString("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);

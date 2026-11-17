@@ -1,0 +1,35 @@
+# Mode 3: walkers and Daedra as allies - do they see each other, and fight
+# the others side by side? (docs/walkers-spec.md 8c; the 45 s of
+# daedra-fight.txt showed nobody died, not whom they target.) The player
+# unseen (Chameleon 100, tgm) in the TestingHall; a walker
+# (WalkersZombie1, 0x801), a Churl (Dremora0ChurlMeleeNOSUMMON, 00000FCC -
+# an actor, not the rank list MOO rewrites) and the ESP's guard
+# (WalkersGuardAnvil, 0x837) placed 300 and 700 units before him; 60 s.
+# tools/daedra-harness.sh sidebyside 3 sets [Debug] CombatTrace=1: the log
+# says whom each one fights as it changes ("Combat: ... now fights ...").
+# Mode 3: the walker and the Churl fight the guard, never each other;
+# Mode 2 (the control): they fight each other.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
+console-at placed player.placeatme 00000FCC 1 300 1
+console-at placed player.placeatme {form:OblivionWalkers.esp:837} 1 700 2
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 3
+mark placed
+wait 30
+mark thirty
+wait 30
+mark end
+wait 1

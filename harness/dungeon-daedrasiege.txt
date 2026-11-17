@@ -1,0 +1,40 @@
+# A held place besieged by Daedra and defended (docs/walkers-spec.md 4.22a
+# step 5c, the reward's words): tools/dungeon-walkers.sh daedrasiege makes
+# Toadstool Hollow (in the Linux pool) a refuge besieged by 4 Daedra
+# ([Dungeons] TestSite, TestSiteState=2, TestDaedra=1), its dead banished
+# after 5 s. The player goes in (coc ToadstoolHollow): the placer brings the
+# Daedra (inside only in the first cell); killall twice - the siege is
+# beaten, "defended", and the reward says "the Daedra are beaten".
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at inside coc ToadstoolHollow
+console-at kill1 killall
+console-at kill2 killall
+console-at close CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 6
+mark inside
+wait 16
+mark placed
+wait 2
+mark kill1
+wait 10
+mark kill2
+wait 10
+mark close
+wait 3
+mark end
+wait 1

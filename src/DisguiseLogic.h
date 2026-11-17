@@ -131,6 +131,17 @@ inline bool WalkerDropsPlayer(bool fooled, bool inCombat, bool targetIsPlayer) {
 	return fooled && inCombat && targetIsPlayer;
 }
 
+// Mode 3 (the walkers in DaedraFaction, KindLogic.h WalkersJoinDaedra): the
+// faction alone does not hold a roused walker back - the harness run of
+// 2026-11-17 (daedra-sidebyside.txt): the walker's time near a Churl ran out,
+// the rouse set its Aggression to 100, and the engine had it fight the Churl.
+// So allied, a Daedra near never rouses a walker, and a walker fighting a
+// Daedra is told to stop, as one fighting a fooled player.
+inline bool WalkerMayRouseAt(bool allied, bool targetIsDaedra) { return !(allied && targetIsDaedra); }
+inline bool WalkerDropsAlly(bool allied, bool inCombat, bool targetIsDaedra) {
+	return allied && inCombat && targetIsDaedra;
+}
+
 // Fooled now and not a look before: the walkers fighting the player stop.
 inline bool WalkersFoolingBegins(bool wasFooled, bool walkerDisguise, bool daedricDisguise, bool walkersAllied) {
 	return !wasFooled && WalkersFooled(walkerDisguise, daedricDisguise, walkersAllied);

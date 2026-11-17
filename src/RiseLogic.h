@@ -222,6 +222,9 @@ struct RiseSettings {
 	// [Debug] StepTiming (INI only, a test switch; TimingLogic.h): each step
 	// of the tick timed, the means logged every 10 s.
 	bool stepTiming = false;
+	// [Debug] CombatTrace (INI only, a test switch; CombatTraceLogic.h): whom
+	// the actors within 4000 units of the player fight, logged as it changes.
+	bool combatTrace = false;
 	// [Debug] TestLinkPage (INI only, a test switch; LinkLogic.h LinkPageTest):
 	// seconds after a load at which LINK's page of the plugin is shown, 0 never.
 	float testLinkPage = 0.0f;

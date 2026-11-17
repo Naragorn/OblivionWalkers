@@ -21,6 +21,9 @@
 #   tools/daedra-harness.sh daedricguard 3   harness/daedra-daedricguard.txt: fooled in Mode 3, the walkers fight a guard, not him
 #   tools/daedra-harness.sh leader 1        harness/daedra-leader.txt: a band's leader killed (TestKillLeaderSeconds) - the band breaks up
 #   tools/daedra-harness.sh march 1         harness/daedra-march.txt: a far band reaches its city, the city's siege by that pressure
+#   tools/daedra-harness.sh sidebyside [Mode] harness/daedra-sidebyside.txt: a walker, a Churl and a guard - whom they fight (CombatTrace)
+#   tools/daedra-harness.sh gatesave 1      harness/daedra-gatesave.txt: "Close the gate" across a save and a load ('GATQ')
+#   tools/daedra-harness.sh legionmixed 2   harness/daedra-legionmixed.txt: the Legion out for a Daedra band and walkers at one gate
 #   tools/daedra-harness.sh mainquest 1     harness/daedra-mainquest.txt: MQ16 completed by console, the Daedra stop (DaedraAfterMainQuest=0)
 #   tools/daedra-harness.sh daedricspell [Mode] harness/daedra-daedricspell.txt: the same, ended by a fire bolt from 60 units (OnHit for a spell?)
 set -euo pipefail
@@ -61,13 +64,13 @@ def set_key(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 
 text = set_key(text, "Invaders", "Mode", kind)
-if scenario in ("band", "save", "legion", "leader", "march"):
+if scenario in ("band", "save", "legion", "leader", "march", "legionmixed"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
-if scenario == "gate":
+if scenario in ("gate", "gatesave"):
     text = set_key(text, "Invaders", "TestGateOpen", "2")
     text = set_key(text, "Invaders", "TestGateOpenSeconds", "60")
-if scenario == "legion":
+if scenario in ("legion", "legionmixed"):
     text = set_key(text, "Guards", "LegionDistance", "16000")
     # Mode 2 rolls a band's kind; the Legion answers only Daedra, so every band is Daedra
     text = set_key(text, "Invaders", "DaedraPercent", "100")
@@ -81,6 +84,8 @@ if scenario == "march":
         text = set_key(text, "Invaders", key, value)
     text = set_key(text, "Siege", "Enabled", "1")
     text = set_key(text, "Siege", "ChancePerDayPercent", "0")
+if scenario == "sidebyside":
+    text = set_key(text, "Debug", "CombatTrace", "1")
 if scenario == "mainquest":
     text = set_key(text, "Invaders", "DaedraAfterMainQuest", "0")
 if scenario in ("daedricblow", "daedricspell"):
@@ -125,7 +130,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "leader", "march", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
+if kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -362,6 +367,39 @@ if scenario == "march":
     besieged = [m.group(1) for m in besieged if m]
     city = arrived[0].group(1) if arrived else "-"
     check(city in besieged, "that city besieged by the bands' pressure alone (ChancePerDayPercent=0): %s in %s" % (city, besieged))
+
+if scenario == "sidebyside":
+    pairs = [m.groups() for m in (re.search(r"Combat: (\w+) \(base (\w+)\) now fights (\w+) \(base (\w+)\)", l) for l in lines) if m]
+    for p in pairs[:12]:
+        print("        %s (%s) -> %s (%s)" % p)
+    walker, churl, guard = "2B000801", "00000FCC", "2B000837"
+    between = [p for p in pairs if {p[1], p[3]} == {walker, churl}]
+    onGuard = [p for p in pairs if p[1] in (walker, churl) and p[3] == guard]
+    if kind == 3:
+        check(not between, "Mode 3: the walker and the Churl never fight each other (%d)" % len(between))
+        check(any(p[1] == walker for p in onGuard) and any(p[1] == churl for p in onGuard),
+              "both fight the guard - they are about, side by side (%s)" % sorted({p[1] for p in onGuard}))
+    else:
+        check(bool(between), "the control (Mode %d): the walker and the Churl fight each other (%d)" % (kind, len(between)))
+
+if scenario == "gatesave":
+    show("Gate quest: ", 20)
+    show("Co-save: the gate quest", 6)
+    check(any("Gate quest: begun - gate 2" in l for l in lines), "the quest begun at gate 2 before the save")
+    check(any("Co-save: the gate quest (gate 2) written" in l for l in lines), "the gate quest written ('GATQ')")
+    read = [i for i, l in enumerate(lines) if "Co-save: the gate quest read - gate 2" in l]
+    check(bool(read), "read back after the load: gate 2")
+    done = [l for l in lines[read[-1]:] if "Gate quest: done" in l] if read else []
+    check(bool(done) and int(re.search(r"flags (\w\w)", done[0]).group(1), 16) & 2 == 2,
+          "after the load the gate reads shut: the quest done (stage 20)")
+
+if scenario == "legionmixed":
+    show("Bands: ", 8)
+    show("Guards: ", 20)
+    both = [m for m in (re.search(r"out at Anvil \w+ Gate for (\d+) walkers' worth near, (\d+) Daedra", l) for l in lines) if m]
+    check(any(int(m.group(1)) >= 1 and int(m.group(2)) >= 1 for m in both),
+          "the Legion out for both, walkers and Daedra at one gate (%s)" % [m.group(0)[7:] for m in both[:3]])
+    check(any(re.search(r"Guards: \w+ at Anvil \w+ Gate sent at FF", l) for l in lines), "a guard sent at them")
 
 goblins = re.compile(r"\b(0001FCB1|00084B29)\b")
 if scenario == "mainquest":

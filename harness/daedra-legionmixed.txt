@@ -1,0 +1,31 @@
+# The Legion beside walkers at the same gate (docs/walkers-spec.md 8c, idea
+# 10): as daedra-legion.txt - Mode 2 (DaedraPercent=100: the band is
+# Daedra), OnlyFromOblivionGates=1, TestBandSeconds=20, LegionDistance=16000,
+# the player 5000 units before Anvil's Castle Gate, unseen - and four
+# walkers (WalkersZombie1) placed 2500 units before him at the band's time.
+# The gate's guards count both: "out at Anvil ... Gate for N walkers' worth
+# near, M Daedra" with N and M above 0, and are sent at them.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at ready player.moveto 00006FBA 0 -5000 0
+console-at walkers player.placeatme {form:OblivionWalkers.esp:801} 4 2500 0
+console-at kill killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 18
+mark walkers
+wait 40
+mark kill
+wait 40
+mark end
+wait 1

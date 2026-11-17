@@ -1,0 +1,38 @@
+# A camp's Daedra attack across a save and a load (docs/walkers-spec.md
+# 4.22a step 5c, the camp's side in its record): as camp-daedra.txt -
+# CAMP_SCENARIO=daedrasave tools/camp-harness.sh, camp 07 attacked 30 s
+# after the load by 4 Daedra - then saved (WalkersCampTest) while they fight
+# and loaded. The log must say "the camps read - 1 attacked (1 by Daedra)"
+# and the camp ask for its Daedra again ("Daedra asked for at camp 07")
+# before the test switch's next attack 30 s after the load: the side came
+# from the save, not from TestDaedra.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set GameHour to 12
+console-at ready cow Tamriel 20 -15
+console-at saved save WalkersCampTest
+console-at reload load WalkersCampTest
+console-at kill killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 20
+mark loaded
+wait 38
+mark saved
+wait 6
+mark reload
+wait 24
+mark t24
+wait 20
+mark kill
+wait 15
+mark end
+wait 1

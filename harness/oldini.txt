@@ -1,0 +1,19 @@
+# An INI with only the old names (docs/walkers-spec.md 8b, IniNames.h): the
+# Linux game's live INI still has [Zombies] and [Replace] MinCount/MaxCount.
+# tools/oldini-harness.sh sets [Zombies] HealthPercent=37 and [Replace]
+# MinCount=2 MaxCount=3 in it, none of the new names. The log must say
+# "Walkers: ... health ... (37% of ...)" and the variant list's counts
+# "2 3": the old names read.
+
+ini Hands Enabled=1
+console-at ready tgm
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark end
+wait 1

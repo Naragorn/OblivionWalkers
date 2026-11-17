@@ -187,6 +187,8 @@ void Line(const char* text) {
 
 }  // namespace
 
+bool IsDaedraActor(UInt32 actor) { return LooksLikeObject(actor) && IsDaedra(actor); }
+
 void ConfigureDaedricDisguise(const DaedricSettings* settings, ConsoleFn console, DeadFn dead, LogFn log) {
 	g_settings = settings;
 	g_console = console;

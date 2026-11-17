@@ -64,11 +64,13 @@ void Banish(UInt32 refId, UInt32 corpse) {
 	const UInt32 bag = PlaceBag(refId, corpse);
 	double had = -1.0;
 	double held = -1.0;
+	double left = -1.0;  // the kinds still on the body after RemoveAllItems (8c 5b: which stay?)
 	if (bag != 0) {
 		char line[48];
 		std::snprintf(line, sizeof(line), "RemoveAllItems %08X", bag);
 		had = NumItems(corpse);
 		g_console(corpse, line);
+		left = NumItems(corpse);
 		const UInt32 bagRef = LookupForm(bag);
 		held = LooksLikeObject(bagRef) ? NumItems(bagRef) : -1.0;
 		if (!NotePile(g_piles, bag, false)) {
@@ -79,8 +81,8 @@ void Banish(UInt32 refId, UInt32 corpse) {
 	if (g_logsLeft > 0) {
 		--g_logsLeft;
 		g_log("Banish: Daedra %08X back to Oblivion - its things into bag %08X (%.0f kinds on the body, %.0f in the "
-		      "bag after), the body taken out",
-		      refId, bag, had, held);
+		      "bag after, %.0f left on the body), the body taken out",
+		      refId, bag, had, held, left);
 	}
 }
 

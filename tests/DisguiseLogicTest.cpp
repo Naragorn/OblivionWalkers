@@ -106,6 +106,17 @@ void TestWalkers() {
 	Check(!walkers::WalkerDropsPlayer(true, true, false), "fooled, a walker fighting someone else: left to it");
 	Check(!walkers::WalkerDropsPlayer(true, false, true), "fooled, a walker not in combat: nothing to stop");
 	Check(!walkers::WalkerDropsPlayer(false, true, true), "found out (or never fooled): it may fight the player");
+
+	std::printf("Mode 3: walkers and Daedra allies - no walker turns on a Daedra\n");
+	// daedra-sidebyside.txt 2026-11-17: the walker's time near the Churl ran out, it was roused (Aggression 100)
+	// and the engine had it fight the Churl - the faction alone does not hold a roused walker back.
+	Check(!walkers::WalkerMayRouseAt(true, true), "allied (Mode 3): a Daedra near never rouses a walker");
+	Check(walkers::WalkerMayRouseAt(true, false), "allied: anyone else does, as ever");
+	Check(walkers::WalkerMayRouseAt(false, true), "not allied (Mode 2): a Daedra does");
+	Check(walkers::WalkerDropsAlly(true, true, true), "allied, a walker fighting a Daedra: told to stop");
+	Check(!walkers::WalkerDropsAlly(true, true, false), "allied, a walker fighting someone else: left to it");
+	Check(!walkers::WalkerDropsAlly(true, false, true), "allied, a walker not in combat: nothing to stop");
+	Check(!walkers::WalkerDropsAlly(false, true, true), "not allied (Mode 2): they fight on");
 }
 
 void TestSky() {

@@ -27,7 +27,8 @@ case "$mode" in
 	runner-dead) state=2; walkers=8; behead=0; scenario=dungeon-runner-dead; site="Fort Ash" ;;
 	beds) state=1; walkers=8; behead=0; scenario=dungeon-beds; site="Fort Ash" ;;
 	outpost) state=4; walkers=4; behead=0; scenario=dungeon-daedra; site="Toadstool Hollow" ;;
-	*) echo "mode: siege | siege-outside | siege-past | taken | fight | fight-door | clear | talk | runner | runner-city | runner-dead | paper | notice | beds | outpost" >&2; exit 2 ;;
+	daedrasiege) state=2; walkers=4; behead=0; scenario=dungeon-daedrasiege; site="Toadstool Hollow" ;;
+	*) echo "mode: siege | siege-outside | siege-past | taken | fight | fight-door | clear | talk | runner | runner-city | runner-dead | paper | notice | beds | outpost | daedrasiege" >&2; exit 2 ;;
 esac
 # fight, fight-door: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
 people="${2:-8}"
@@ -77,8 +78,8 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
     text = put(text, "Dungeons", key, value)
 text = put(text, "Walkers", "DieOnlyBeheaded", behead)  # [Zombies] until 2026-11-16 (IniNames.h)
 # outpost (4.22a step 5c): the walker dungeon a Daedra outpost, its dead banished after 5 s
-text = put(text, "Dungeons", "TestDaedra", "1" if mode == "outpost" else "0")
-if mode == "outpost":
+text = put(text, "Dungeons", "TestDaedra", "1" if mode in ("outpost", "daedrasiege") else "0")
+if mode in ("outpost", "daedrasiege"):
     text = put(text, "Invaders", "BanishSeconds", "5")
 text = put(text, "Debug", "StepTiming", "1")
 # the journal's SetStage looked inside (SamplerLogic.h): where its 20 to 40 ms go
@@ -288,6 +289,16 @@ elif mode == "outpost":
     check(any("the outpost's boss fell" in l for l in d), "the boss's fall counted")
     check(any("Toadstool Hollow is cleared" in l for l in rewards) or any("taken" in l and "Toadstool Hollow" in l for l in d),
           "the outpost cleared and taken")
+    check(any("back to Oblivion" in l for l in lines), "a dead Daedra banished")
+elif mode == "daedrasiege":
+    for l in [l for l in lines if l.startswith(("Placer:", "Banish:")) or "Daedra" in l][:40]:
+        print("        " + l[:220])
+    check(any("Toadstool Hollow" in l and "besieged" in l for l in d), "Toadstool Hollow besieged")
+    came = [int(m.group(1)) for m in (re.search(r"Dungeons: (\d+) Daedra came to Toadstool Hollow", l) for l in d) if m]
+    check(sum(came) >= 1, "its Daedra placed (%s)" % came)
+    check(sum(1 for l in d if "Toadstool Hollow - a Daedra fell" in l) >= 1, "the Daedra counted off")
+    words = [l for l in rewards if "Toadstool Hollow" in l]
+    check(any("the Daedra are beaten" in l for l in words), "the reward's words: the Daedra are beaten (%s)" % (words[:1]))
     check(any("back to Oblivion" in l for l in lines), "a dead Daedra banished")
 elif mode in ("fight", "fight-door"):
     died = [l for l in d if "one of its people" in l and "died" in l]

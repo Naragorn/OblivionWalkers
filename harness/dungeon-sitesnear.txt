@@ -1,0 +1,35 @@
+# New held places rolled near the player (docs/walkers-spec.md 4.20.7a B):
+# tools/dungeon-sitesnear.sh sets [Dungeons] Enabled=1, no TestSite,
+# NewPlacesWithin=60000, LeaveAfterDays=1, ActiveMin=ActiveMax=1. After the load the active places
+# are rolled (the player inside, his place not known yet - anywhere); then
+# he is taken to cow Tamriel 20 -15 (some 82000 -61000, south-east near
+# Bravil) and time runs fast (timescale 10000) for 60 s, some seven game
+# days: the places unseen for a day are given up and new ones rolled - each
+# within 60000 units of him, unless no free candidate is that near.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at moved cow Tamriel 20 -15
+console-at fast set timescale to 10000
+console-at slow set timescale to 0
+console-at slow CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 6
+mark moved
+wait 8
+mark fast
+wait 60
+mark slow
+wait 4
+mark end
+wait 1
