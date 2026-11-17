@@ -63,6 +63,14 @@ void RenameZombies(const UInt32* walkerIds, UInt32 count, UInt32 espBase, const 
 // (after a pass, or changed in the game); WatchTestList logs only a change
 // since the last look. Nothing with 0.
 void LogTestList(UInt32 listId, const char* why, LogFn log);
+
+// The boss guard's clean copies (BossCopyLogic.h): every ordinary list
+// nested in a boss list pointed at a copy of itself that names the source's
+// own creatures; built anew when the source changes; back to the source with
+// the guard off. After each pass and once a second (MOO rewrites boss lists
+// in the game).
+void GuardBossLists(UInt32 espBase, const ReplaceSettings& settings, LogFn log);
+bool IsBossCopy(UInt32 form);
 void WatchTestList(UInt32 listId, LogFn log);
 
 void ScaleWalkerSpeed(const UInt32* walkerIds, UInt32 count, float multiplier, UInt32 randomPercent, LogFn log);

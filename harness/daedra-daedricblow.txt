@@ -1,20 +1,26 @@
 # The Daedric disguise across a save and ended by a blow (docs/walkers-spec.md
 # 8c, idea 7), on daedra-daedric.txt: the player in the five Daedric pieces
-# outdoors at cow Tamriel -3 3, a Dremora (LL1Dremora100, 00092DA6) placed
-# 300 units before him and held (SetRestrained) - fooled. Saved while fooled
-# and loaded: the plugin takes him out of the factions first, then the full
-# set fools it again. At mark aim the Dremora is put 55 units before him and
-# held again (a fooled one walks off after the load), and the player kicks
-# it (OBVR's kick on the right B, the engine's fist blow - as kick-hit.txt):
-# xOBSE's OnHit - "You struck one of them", out of the factions, it fights.
-# The wrapper (tools/daedra-harness.sh daedricblow) sets [Disguise]
-# DaedricNearDistance=30, so the Dremora that near still is fooled. The
-# spell's case: daedra-daedricspell.txt. God mode keeps him alive.
+# outdoors at cow Tamriel -3 3, a longsword on the hip, a Dremora
+# (LL1Dremora100, 00092DA6) placed 300 units before him and held
+# (SetRestrained) - fooled. Saved while fooled and loaded: the plugin takes
+# him out of the factions first, then the full set fools it again. At mark
+# aim the Dremora is put 120 units before him and held again (a fooled one
+# walks off after the load), the sword is drawn by the holster and swung
+# round the player, low and at the chest - skill-walker.txt's swings, which
+# land on a walker 120 units away: xOBSE's OnHit - "You struck one of them",
+# out of the factions, it fights. The kick (55 units) and the spell missed in
+# the runs of 2026-11-17; the spell's case is daedra-daedricspell.txt. The
+# wrapper (tools/daedra-harness.sh daedricblow) sets [Disguise]
+# DaedricNearDistance=30, so the Dremora that near still is fooled. God mode
+# keeps him alive.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
-ini Buttons Kick=RightB
-ini Hands Kick=1
+ini Hands Holsters=1
+ini Hands WeaponStopsAtWalls=1
+ini Hands WeaponStopsAtBodies=1
+ini Hands WeaponLetGoMetres=0.30
+ini Hands WeaponHitStop=1
 ini Hands PushPeople=0
 console-at ready tgm
 console-at ready cow tamriel -3 3
@@ -28,6 +34,8 @@ console-at dress player.equipitem 00036358
 console-at dress player.equipitem 00036359
 console-at dress player.equipitem 0003635A
 console-at dress player.equipitem 0003635B
+console-at dress player.additem 00000C0C 1
+console-at dress player.equipitem 00000C0C
 console-at placed player.placeatme 00092DA6 1
 console-at placed player.setangle z 0
 console-at close {actor}.moveto player 0 300 0
@@ -35,7 +43,7 @@ console-at held {actor}.setrestrained 1
 console-at saved save WalkersDaedricTest
 console-at reload load WalkersDaedricTest
 console-at aim player.setangle z 0
-console-at aim {actor}.moveto player 0 55 0
+console-at aim {actor}.moveto player 0 120 0
 console-at aim {actor}.setrestrained 1
 
 expect HandScript: finished
@@ -61,11 +69,94 @@ mark reload
 wait 14
 mark aim
 wait 6
-right b 1
-wait 0.15
-mark kicked
-right b 0
-wait 1.85
+right pos -0.18 -0.62 -0.02
+wait 0.3
+right grip 1
+wait 0.2
+right grip 0
+right pos 0.00 -0.45 -0.25
+right pos 0.00 -0.45 -0.25
+mark drawn
+wait 2
+right pos 0.250 -1.41 -0.433
+right rot -27 -30 0
+wait 0.02
+right pos 0.433 -1.41 -0.250
+right rot -27 -60 0
+wait 0.02
+right pos 0.500 -1.41 -0.000
+right rot -27 -90 0
+wait 0.02
+right pos 0.433 -1.41 0.250
+right rot -27 -120 0
+wait 0.02
+right pos 0.250 -1.41 0.433
+right rot -27 -150 0
+wait 0.02
+right pos 0.000 -1.41 0.500
+right rot -27 -180 0
+wait 0.02
+right pos -0.250 -1.41 0.433
+right rot -27 -210 0
+wait 0.02
+right pos -0.433 -1.41 0.250
+right rot -27 -240 0
+wait 0.02
+right pos -0.500 -1.41 0.000
+right rot -27 -270 0
+wait 0.02
+right pos -0.433 -1.41 -0.250
+right rot -27 -300 0
+wait 0.02
+right pos -0.250 -1.41 -0.433
+right rot -27 -330 0
+wait 0.02
+right pos -0.000 -1.41 -0.500
+right rot -27 -360 0
+wait 0.02
+wait 1
+mark swung_low
+right rot 0 0 0
+right pos 0.00 -0.45 -0.25
+wait 1.5
+right pos 0.125 -0.45 -0.217
+right rot 0 -30 0
+wait 0.02
+right pos 0.217 -0.45 -0.125
+right rot 0 -60 0
+wait 0.02
+right pos 0.250 -0.45 -0.000
+right rot 0 -90 0
+wait 0.02
+right pos 0.217 -0.45 0.125
+right rot 0 -120 0
+wait 0.02
+right pos 0.125 -0.45 0.217
+right rot 0 -150 0
+wait 0.02
+right pos 0.000 -0.45 0.250
+right rot 0 -180 0
+wait 0.02
+right pos -0.125 -0.45 0.217
+right rot 0 -210 0
+wait 0.02
+right pos -0.217 -0.45 0.125
+right rot 0 -240 0
+wait 0.02
+right pos -0.250 -0.45 0.000
+right rot 0 -270 0
+wait 0.02
+right pos -0.217 -0.45 -0.125
+right rot 0 -300 0
+wait 0.02
+right pos -0.125 -0.45 -0.217
+right rot 0 -330 0
+wait 0.02
+right pos -0.000 -0.45 -0.250
+right rot 0 -360 0
+wait 0.02
+wait 0.5
+wait 0.5
 mark cast
 wait 15
 mark end

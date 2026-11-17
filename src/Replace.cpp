@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "BossCopyLogic.h"
 #include "DungeonQuestLogic.h"
 #include "Engine.h"
 #include "NightLogic.h"
@@ -696,6 +697,230 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 	}
 }
 
+// The boss guard's clean copies (BossCopyLogic.h): an ordinary list nested in
+// a boss list - MOO's dynamic lists rewrite boss lists to their region lists
+// in the game - is pointed at a copy of itself that names what the source
+// named before the replacement. One copy per source, shared by every boss
+// list that names it, built anew when the source changes.
+namespace {
+
+// TESLevCreature: 0x48 bytes (xOBSE GameForms.h: TESBoundObject, the
+// TESLeveledList at +0x24, TESScriptableForm at +0x34, the template at +0x44).
+constexpr UInt32 kLevCreatureBytes = 0x48;
+
+struct CleanCopy {
+	UInt32 copy = 0;
+	UInt32 hash = 0;
+};
+std::unordered_map<UInt32, CleanCopy> g_copies;     // by source list
+std::unordered_set<UInt32> g_copySet;               // the copies themselves
+std::unordered_map<UInt32, UInt32> g_redirected;    // a boss list's entry data -> the source it named
+std::vector<UInt32> g_bossListForms;                // the boss lists in memory, found once
+bool g_bossListsFound = false;
+UInt32 g_copyLinesLeft = 40;
+
+bool IsLevList(UInt32 form) { return LooksLikeObject(form) && Read8(form + kFormTypeOffset) == kFormTypeLeveledCreature; }
+
+bool IsBossListForm(const ReplaceSettings& settings, UInt32 form) {
+	const auto named = g_listNames.find(FormIdOf(form));
+	return named != g_listNames.end() && KeepListByBits(settings.bosses, named->second.bits, named->second.iniSwitch);
+}
+
+// The source's entries as a copy would name them (each replaced entry's own
+// form), into `out`; the count.
+UInt32 SourceEntries(UInt32 source, ListEntryView* out, UInt32* forms, UInt32 most) {
+	UInt32 n = 0;
+	UInt32 visited = 0;
+	for (UInt32 node = source + kLevCreatureListOffset; LooksLikeObject(node) && visited < 512 && n < most;
+	     node = Read(node + 4), ++visited) {
+		const UInt32 data = Read(node);
+		if (!LooksLikeObject(data)) {
+			break;
+		}
+		const UInt32 current = Read(data + kListDataFormOffset);
+		const auto original = g_original.find(data);
+		const UInt32 form = CopySourceForm(current, original != g_original.end(), original != g_original.end() ? original->second : 0u);
+		out[n].level = *reinterpret_cast<const UInt16*>(data);
+		out[n].form = form;  // the pointer: the hash tells a change, the copy takes it
+		out[n].count = *reinterpret_cast<const UInt16*>(data + kListDataCountOffset);
+		forms[n] = form;
+		++n;
+	}
+	return n;
+}
+
+template <typename Ours>
+UInt32 EnsureCopy(const ReplaceSettings& settings, UInt32 source, UInt32 depth, const Ours& ours, LogFn log);
+
+template <typename Ours>
+EntryTarget TargetOf(const ReplaceSettings& settings, UInt32 form, const Ours& ours) {
+	EntryTarget t;
+	t.isList = IsLevList(form);
+	if (t.isList) {
+		t.isBossList = IsBossListForm(settings, form);
+		t.isOurs = ours(form);
+		t.isCopy = g_copySet.count(form) != 0;
+	}
+	return t;
+}
+
+template <typename Ours>
+UInt32 EnsureCopy(const ReplaceSettings& settings, UInt32 source, UInt32 depth, const Ours& ours, LogFn log) {
+	static ListEntryView entries[64];
+	static UInt32 forms[64];
+	const UInt32 n = SourceEntries(source, entries, forms, 64);
+	const UInt32 hash = ListEntriesHash(entries, n);
+	CleanCopy& c = g_copies[source];
+	if (!CopyNeedsBuild(c.copy != 0, c.hash, hash)) {
+		return c.copy;
+	}
+	using AllocateFn = void*(__cdecl*)(UInt32 size);
+	const auto allocate = reinterpret_cast<AllocateFn>(kFormHeapAllocate);
+	const bool fresh = c.copy == 0;
+	if (fresh) {
+		auto* copy = static_cast<UInt8*>(allocate(kLevCreatureBytes));
+		if (copy == nullptr) {
+			g_copies.erase(source);
+			return 0;
+		}
+		std::memcpy(copy, reinterpret_cast<const void*>(source), kLevCreatureBytes);
+		c.copy = reinterpret_cast<UInt32>(copy);
+		g_copySet.insert(c.copy);
+	}
+	c.hash = hash;
+	// Its entries anew (the old ones stay on the engine's heap: a few bytes
+	// a change). Copied entries name their own forms; a nested ordinary list
+	// its clean copy, down to kBossCopyDepthMost.
+	const UInt32 copy = c.copy;
+	UInt32 last = 0;
+	UInt32 nested = 0;
+	auto* inlineEntry = reinterpret_cast<UInt32*>(copy + kLevCreatureListOffset);
+	inlineEntry[0] = 0;
+	inlineEntry[1] = 0;
+	// copies of nested lists first: they may rebuild the static buffers
+	UInt32 own[64];
+	UInt16 levels[64];
+	UInt16 counts[64];
+	for (UInt32 i = 0; i < n; ++i) {
+		own[i] = forms[i];
+		levels[i] = entries[i].level;
+		counts[i] = entries[i].count;
+	}
+	for (UInt32 i = 0; i < n; ++i) {
+		UInt32 form = own[i];
+		if (CopyNestedAt(depth + 1) && BossEntryAction(true, TargetOf(settings, form, ours)) == EntryAction::Redirect) {
+			const UInt32 sub = EnsureCopy(settings, form, depth + 1, ours, log);
+			if (sub != 0) {
+				form = sub;
+				++nested;
+			}
+		}
+		auto* data = static_cast<UInt8*>(allocate(kListDataBytes));
+		if (data == nullptr) {
+			break;
+		}
+		*reinterpret_cast<UInt16*>(data) = levels[i];
+		*reinterpret_cast<UInt16*>(data + 2) = 0;
+		*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = form;
+		*reinterpret_cast<UInt32*>(data + kListDataCountOffset) = counts[i];
+		if (i == 0) {
+			inlineEntry[0] = reinterpret_cast<UInt32>(data);
+			last = reinterpret_cast<UInt32>(inlineEntry);
+			continue;
+		}
+		auto* entry = static_cast<UInt32*>(allocate(kListEntryBytes));
+		if (entry == nullptr) {
+			break;
+		}
+		entry[0] = reinterpret_cast<UInt32>(data);
+		entry[1] = 0;
+		reinterpret_cast<UInt32*>(last)[1] = reinterpret_cast<UInt32>(entry);
+		last = reinterpret_cast<UInt32>(entry);
+	}
+	if (log != nullptr && g_copyLinesLeft > 0) {
+		--g_copyLinesLeft;
+		static ListEntryView shown[64];
+		for (UInt32 i = 0; i < n; ++i) {
+			shown[i] = ListEntryView{levels[i], LooksLikeObject(own[i]) ? FormIdOf(own[i]) : 0u, counts[i]};
+		}
+		char line[400];
+		ListEntriesLine(shown, n, line, sizeof(line));
+		log("Bosses: a clean copy of %08X %s (depth %u) - %u entries, %u of them nested copies: %s", FormIdOf(source),
+		    fresh ? "made" : "built anew, its source changed", depth, n, nested, line);
+	}
+	return copy;
+}
+
+}  // namespace
+
+void GuardBossLists(UInt32 espBase, const ReplaceSettings& settings, LogFn log) {
+	if (espBase == kNoEsp || !g_bossesScanned) {
+		return;
+	}
+	const auto espList = [espBase](UInt32 local) {
+		const UInt32 form = LookupForm(EspFormId(espBase, local));
+		return IsLevList(form) ? form : 0u;
+	};
+	const UInt32 variant = espList(kVariantLocalId);
+	const UInt32 daedraWithSummons = espList(kInvaderDaedraLocalId);
+	const UInt32 daedraNoSummons = espList(kInvaderDaedraNoSummonLocalId);
+	const auto ours = [&](UInt32 form) {
+		return form != 0 && (form == variant || form == daedraWithSummons || form == daedraNoSummons);
+	};
+	if (!g_bossListsFound) {
+		g_bossListsFound = true;
+		for (const auto& l : g_listNames) {
+			const UInt32 form = LookupForm(l.first);
+			if (IsLevList(form)) {
+				g_bossListForms.push_back(form);
+			}
+		}
+	}
+	UInt32 redirected = 0;
+	UInt32 restored = 0;
+	for (const UInt32 list : g_bossListForms) {
+		const bool guardOn = IsBossListForm(settings, list);
+		UInt32 visited = 0;
+		for (UInt32 node = list + kLevCreatureListOffset; LooksLikeObject(node) && visited < 512; node = Read(node + 4), ++visited) {
+			const UInt32 data = Read(node);
+			if (!LooksLikeObject(data)) {
+				break;
+			}
+			const UInt32 target = Read(data + kListDataFormOffset);
+			const EntryTarget t = TargetOf(settings, target, ours);
+			const EntryAction action = BossEntryAction(guardOn, t);
+			if (action == EntryAction::Redirect) {
+				const UInt32 copy = EnsureCopy(settings, target, 0, ours, log);
+				if (copy != 0) {
+					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = copy;
+					g_redirected[data] = target;
+					++redirected;
+				}
+			} else if (action == EntryAction::Restore) {
+				const auto source = g_redirected.find(data);
+				if (source != g_redirected.end()) {
+					*reinterpret_cast<UInt32*>(data + kListDataFormOffset) = source->second;
+					g_redirected.erase(source);
+					++restored;
+				}
+			} else if (t.isCopy && guardOn) {
+				// the copy's source may have changed: built anew in place
+				const auto source = g_redirected.find(data);
+				if (source != g_redirected.end()) {
+					EnsureCopy(settings, source->second, 0, ours, log);
+				}
+			}
+		}
+	}
+	if (log != nullptr && (redirected > 0 || restored > 0) && g_copyLinesLeft > 0) {
+		--g_copyLinesLeft;
+		log("Bosses: %u entries of boss lists pointed at clean copies, %u back to their own lists (%u copies in all)",
+		    redirected, restored, static_cast<UInt32>(g_copySet.size()));
+	}
+}
+
+bool IsBossCopy(UInt32 form) { return g_copySet.count(form) != 0; }
+
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
                      const char* iniPath, bool mooLoaded, LogFn log) {
 	CollectQuestNames(log);
@@ -897,6 +1122,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 		log("Spawns: %u new creatures written to [%s] (%s)", newLines, kSection,
 		    AppendToIni(iniPath, added.data(), addedUsed + newLines + 64));
 	}
+	GuardBossLists(espBase, settings, log);
 	LogTestList(settings.testLogList, "after the pass", log);
 	return replaced;
 }
@@ -929,6 +1155,22 @@ UInt32 ReadTestList(UInt32 listId, ListEntryView* out, UInt32 most, UInt8& flags
 }
 }  // namespace
 
+namespace {
+UInt32 CopiesIn(UInt32 listId) {
+	UInt32 copies = 0;
+	UInt32 visited = 0;
+	const UInt32 listForm = LookupForm(listId);
+	for (UInt32 node = listForm + kLevCreatureListOffset; LooksLikeObject(node) && visited < 512; node = Read(node + 4), ++visited) {
+		const UInt32 data = Read(node);
+		if (!LooksLikeObject(data)) {
+			break;
+		}
+		copies += IsBossCopy(Read(data + kListDataFormOffset)) ? 1u : 0u;
+	}
+	return copies;
+}
+}  // namespace
+
 void LogTestList(UInt32 listId, const char* why, LogFn log) {
 	if (listId == 0 || log == nullptr) {
 		return;
@@ -941,12 +1183,14 @@ void LogTestList(UInt32 listId, const char* why, LogFn log) {
 		log("Spawns: TestLogList=%08X - no leveled creature list (%s)", listId, why);
 		return;
 	}
-	g_testListHash = ListEntriesHash(entries, n);
+	g_testListHash = ListEntriesHash(entries, n) ^ (CopiesIn(listId) * 2654435761u);
 	char line[700];
 	ListEntriesLine(entries, n, line, sizeof(line));
 	const auto named = g_listNames.find(listId);
-	log("Spawns: TestLogList=%08X %s - %u entries (level:form x count): %s; flags %02X, chance none %u; named %s",
-	    listId, why, n, line, flags, chanceNone,
+	const UInt32 copies = CopiesIn(listId);
+	log("Spawns: TestLogList=%08X %s - %u entries (level:form x count): %s; %u of them the boss guard's clean copies; "
+	    "flags %02X, chance none %u; named %s",
+	    listId, why, n, line, copies, flags, chanceNone,
 	    named == g_listNames.end() ? "nothing (not read off the files)" : (named->second.bits != 0 ? "a boss's" : "an ordinary one"));
 }
 
@@ -958,7 +1202,7 @@ void WatchTestList(UInt32 listId, LogFn log) {
 	UInt8 flags = 0;
 	UInt8 chanceNone = 0;
 	const UInt32 n = ReadTestList(listId, entries, 64, flags, chanceNone);
-	if (n != 0xFFFFFFFFu && ListEntriesHash(entries, n) != g_testListHash) {
+	if (n != 0xFFFFFFFFu && (ListEntriesHash(entries, n) ^ (CopiesIn(listId) * 2654435761u)) != g_testListHash) {
 		LogTestList(listId, "changed in the game", log);
 	}
 }

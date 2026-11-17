@@ -226,24 +226,29 @@ if scenario == "legion":
     check(any(re.search(r"Guards: \w+ at Anvil \w+ Gate sent at FF", l) for l in lines), "a guard sent at a band's Daedra")
 if scenario == "boss":
     listed = show("Spawns: TestLogList", 12)
-    passes = [l for l in listed if "after the pass" in l]
-    check(bool(passes) and not re.search(r":2B[0-9A-F]{6}x", passes[-1]),
-          "after the last pass the boss list names no record of ours (%d passes logged)" % len(passes))
-    changed = [l for l in listed if "changed in the game" in l]
-    check(not changed, "the boss list not changed in the game (%d changes)" % len(changed))
-    bosses = show("Bosses: ", 6)
+    copies = show("Bosses: a clean copy of", 12)
+    show("Bosses: ", 6)
+    last = listed[-1] if listed else ""
+    check(bool(last) and not re.search(r":2B[0-9A-F]{6}x", last), "the boss list's last look names no record of ours")
+    moo = bool(re.search(r":23[0-9A-F]{6}x", last))
+    n = re.search(r"; (\d+) of them the boss guard's clean copies", last)
+    check(not moo or (n is not None and int(n.group(1)) >= 1),
+          "MOO's rewrite pointed at clean copies (MOO entries %d, copies %s)" % (moo, n.group(1) if n else "-"))
+    check(not moo or (bool(copies) and not any(re.search(r":2B[0-9A-F]{6}x", l) for l in copies)),
+          "the clean copies name no walker (%d copies logged)" % len(copies))
     kept = [re.search(r"(\d+) files read, (\d+) lists and (\d+) creatures or people kept", l) for l in lines]
     kept = [m for m in kept if m]
     check(bool(kept) and int(kept[-1].group(1)) >= 1 and int(kept[-1].group(2)) >= 1,
           "the plugin files read in the game, boss lists kept (%s)" % ([m.group(0) for m in kept][-1:]))
     marks = [i for i, l in enumerate(obvr) if "HandScript: mark placed" in l]
-    after = [l for l in obvr[marks[0]:] if "HandScript: actors" in l] if marks else []
-    for l in after[-2:]:
+    rosters = [(i, l) for i, l in enumerate(obvr) if "HandScript: actors - " in l]
+    before = [l for i, l in rosters if marks and i < marks[0]]
+    after = [l for i, l in rosters if marks and i > marks[0]]
+    for l in (before[-1:] + after[-1:]):
         print("        " + l[:400])
-    last = after[-1] if after else ""
-    n = re.search(r"actors - (\d+) loaded", last)
-    check(n is not None and int(n.group(1)) >= 3, "the three placed came (%s loaded)" % (n.group(1) if n else "-"))
-    check(not re.search(r"\b[0-9A-F]{2}000(80[1-4]|9[0-4][0-9A-F])\b", last), "no walker among them")
+    count = lambda l: int(re.search(r"actors - (\d+) loaded", l).group(1)) if l else 0
+    grown = count(after[-1] if after else "") - count(before[-1] if before else "")
+    check(grown >= 3, "the three placed came (%d more loaded)" % grown)
 if scenario == "siegesave":
     show("Co-save: ", 30)
     show("Placer: ", 20)

@@ -905,12 +905,30 @@ in groups elsewhere (its "...Group100" lists). So with Ascension the guard
 keeps exactly its end-of-dungeon bosses, by the "Boss" in those lists'
 names; a patch on Nexus (mods/54309) reverts that design.
 
+Built 2026-11-17 (Nadi: "go 1. A") - the clean copies (BossCopyLogic.h,
+Replace.cpp GuardBossLists): MOO's dynamic lists rewrite boss lists in the
+game - the harness's `[Replace] TestLogList=000340BA` (a test switch: one
+list's entries logged after each pass and when they change) showed
+LL1GoblinBossLvl100's four goblins kept by the pass, then all five entries
+rewritten to MOOLL2RegionGoblin (MOO 1EE29D), an ordinary list the
+replacement turns to walkers. Now an ordinary list named in a boss list -
+by the game, a mod, or MOO in the game - is pointed at a clean copy of
+itself: a byte copy of the list object (TESLevCreature, 0x48 bytes, xOBSE
+GameForms.h) on the engine's heap, its entries naming what the source named
+before the replacement (Replace.cpp's g_original), lists nested in it copied
+too down to depth 4. One copy per source, shared; built anew when the
+source's entries change (MOO refills its region lists); with the guard off
+(KeepBosses=0 or a `[ReplaceKeepLists]` 0) the entries go back to their
+sources. Looked at after each pass and once a second. Copies are no forms
+of the form table: the pass never visits them and the save never holds
+them; they carry their source's form ID. Harness PASS 2026-11-17 (8c). The
+second between MOO's rewrite and the next look stays open.
+
 Limits: every NPC_ record of all three files is compressed (2482, 2605,
 126) and the plugin reads no compressed record (no zlib) - people are kept
 through their boss lists only; a person's own "Boss" name is not read
 (miniz, a single-file inflate under the MIT licence, would close it - small,
-not built). The 39 shared lists stay replaced as ordinary ones (a copy per
-boss list at run time would close it - large, not built). Not seen in the
+not built). Not seen in the
 game yet: the harness run (a placed LL1GoblinBossLvl100 stays goblins) waits
 for the walkers to be allowed into the game again.
 
@@ -5139,7 +5157,7 @@ whole: every change that needs the game adds its line the day it is built.
 | built | what is not seen in the game | scenario (wrapper) |
 |---|---|---|
 | 2026-11-16 | Mode 3: walkers and Daedra as allies - 45 s side by side, nobody died, but not shown that they saw each other | `daedra-fight.txt` 3, longer, with a look at their combat targets |
-| 2026-11-16 | Boss guard: a placed LL1GoblinBossLvl100 stays goblins - **FAILED 2026-11-17, cause found**: our pass keeps its four goblins (`[Replace] TestLogList=000340BA`, a test switch: the list's entries logged after each pass and when they change), then MOO rewrites it in the game - all five entries become 1:MOOLL2RegionGoblin (MOO 1EE29D, a region list empty in the file, filled by MOO's script; "Maskar's Oblivion Overhaul for dynamic lists.ini"). That nested list is an ordinary one to the guard and is replaced: 10 walkers in one run, nothing at all in the next (the TestingHall is in no region). The guard holds without MOO's dynamic lists; with them it needs a decision (keep MOO's region lists nested in boss lists, a copy of them per boss list, or MOO's dynamic lists off). `KeepHardLists`/`KeepHighLists` from LINK, MO2's VFS | `daedra-boss.txt` (`daedra-harness.sh boss 0`) |
+| 2026-11-16 | Boss guard: `KeepHardLists`/`KeepHighLists` from LINK, MO2's VFS; the clean copies (seen 2026-11-17, below) in the headset's long play - a boss spawned in the second between MOO's rewrite and the guard's next look can still be a walker | `daedra-boss.txt` with LINK switched; a play session with MOO |
 | 2026-11-16 | The band broken up when its leader falls (the save and load seen 2026-11-17, 8c below) | `daedra-save.txt` with the leader killed by console |
 | 2026-11-16 | A band that reaches its city raising the siege chance | new: a far band driven to its city by a fast `UnitsPerHour` test switch, the next day's siege roll logged |
 | 2026-11-16 | News of the nearest held place, new places rolled near the player (4.20.7a) | new: `dungeon-sites-near.txt` - TestSite off, the player moved by coc far from the save's places, a day waited: the log's rolled sites within NewPlacesWithin, the rumor's site the nearest |
@@ -5149,7 +5167,7 @@ whole: every change that needs the game adds its line the day it is built.
 | 2026-11-16 | 5c: the reward's words after a Daedra attack on a held place (the camp's seen 2026-11-17) | `dungeon-daedra.txt` (a siege, TestSiteState=2) |
 | 2026-11-16 | 6: the gate rumor said in dialogue, the compass pointing at the rewritten target, the Daedra broadsheet on a sheet | a look in the game |
 | 2026-11-16 | 6: `DaedraAfterMainQuest=0` - with MQ16 completed every new side the walkers', Mode 1's replacement off | none yet: a save after the main quest |
-| 2026-11-16 | 7: the Daedric disguise ended by a blow (OnHit on a Daedra) - **not seen 2026-11-17**, no blow landed in four runs: a fire bolt at 300 units (twice) and at 60 units (`daedra-daedricspell.txt`), cast from OBVR's left hand, and OBVR's kick at 55 units (`daedra-daedricblow.txt`: "1 people within 120 units of the foot", no "met"). No "Hit:" line in any of them, so whether OnHit fires for a spell is still open - the runs never showed a hit at all. Mode 3's walkers fooled too | a scenario whose blow is proven to land (a melee swing as skill-walker.txt on the held Dremora, or the kick's distance from kick-hit.txt checked against the Dremora's capsule); `daedra-fight.txt` 3 in the set |
+| 2026-11-16 | 7: the Daedric disguise ended by a blow (OnHit on a Daedra) - **not seen 2026-11-17**, no blow landed in six runs (a fire bolt at 300 and 60 units, the kick at 55, two sword circles at 120 - no "Hands: ... met", no "Magic hit" after the cast). Read in the last runs: `placeatme 00092DA6 1` makes three Dremora (FF000FA3..FA5, each a "Magic hit: effect REDG" as it comes), the runner's `{actor}` is one of them, and the log's "nearest Daedra" another - the scenario moves one and strikes at a place none may stand. Whether OnHit fires for a spell is still open. Mode 3's walkers fooled too | `daedra-daedricblow.txt` with one Dremora (a single NPC base, not the list) placed close by `placeatme <base> 1 80 0` and a check that the strike met it; `daedra-fight.txt` 3 in the set |
 | 2026-11-16 | 7: Daedric pieces of the DLCs and mods (only Oblivion.esm's 62 are known) | none: a choice - a list per plugin, or the model path read at run time |
 | 2026-11-16 | 9: the red sky beside a weather mod (All Natural) | a look with the weather mod |
 | 2026-11-16 | 10: the Legion beside walkers at the same gate; a band near a city the player is far from (the pool's guards in an unloaded cell) | `daedra-legion.txt` Mode 2 with walkers and Daedra at one gate; a band driven past a city out of the loaded grid |
@@ -5172,6 +5190,7 @@ the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
 | 7: the disguise across a save: out of the factions after the load, the full set fools again (ranks 0 0); too close (200) it ends and the Dremora fights | `daedra-harness.sh daedricblow 1` (the blow itself FAILED, above) |
 | 5c: a camp's Daedra attack beaten - "the Daedra are beaten" (+1 fame, 150 gold, a thing of theirs) | `CAMP_SCENARIO=daedra tools/camp-harness.sh` PASS |
 | A held place's outpost: its Daedra and boss placed, counted off, the place cleared and taken | `tools/dungeon-walkers.sh outpost` PASS |
+| Boss guard with MOO: MOO's dynamic lists rewrite LL1GoblinBossLvl100 to MOOLL2RegionGoblin in the game; the guard points all five entries at a clean copy (BossCopyLogic.h, `[Replace] TestLogList=000340BA`: "5 of them the boss guard's clean copies"), 40 copies made in all, none names a walker | `daedra-harness.sh boss 0` PASS (outdoors at cow Tamriel -3 3) |
 
 ### 4.22a Steps 5-7 decided (Nadi, 2026-11-16: "5: passt, ja zur truhe 6: passt, aber gerüchte für alle nicht nur bettler/guards 7: passt"; 5 and 6 BUILT 2026-11-16, "go 5a 5b 5c 6"; 7 BUILT 2026-11-16, "go 7 10 9", idea 3 won't do)
 
