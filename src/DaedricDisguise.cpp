@@ -200,11 +200,11 @@ void ConfigureDaedricDisguiseEsp(UInt32 espBase) {
 	g_quest = espBase == kNoEsp ? 0 : EspFormId(espBase, kLinkQuestLocalId);
 }
 
-void NoteDaedricHit(UInt32 target, UInt32 attacker) {
+void NoteDaedricHit(UInt32 target, UInt32 attacker, bool targetAlliedWalker) {
 	if (g_settings == nullptr || !LooksLikeObject(target) || !LooksLikeObject(attacker)) {
 		return;
 	}
-	if (FormIdOf(attacker) == kPlayerRefId && IsDaedra(target)) {
+	if (DaedricStruck(FormIdOf(attacker) == kPlayerRefId, IsDaedra(target), targetAlliedWalker)) {
 		g_struck = true;
 	}
 }

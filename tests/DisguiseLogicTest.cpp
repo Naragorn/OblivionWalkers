@@ -102,6 +102,10 @@ void TestWalkers() {
 	Check(walkers::WalkersFoolingBegins(false, false, true, true), "the set put on in Mode 3: begins - the fighting walkers stop");
 	Check(!walkers::WalkersFoolingBegins(true, true, true, true), "already fooled: no new begin");
 	Check(!walkers::WalkersFoolingBegins(false, false, true, false), "the set without Mode 3: no begin");
+	Check(walkers::WalkerDropsPlayer(true, true, true), "fooled, a walker fighting the player: told to stop");
+	Check(!walkers::WalkerDropsPlayer(true, true, false), "fooled, a walker fighting someone else: left to it");
+	Check(!walkers::WalkerDropsPlayer(true, false, true), "fooled, a walker not in combat: nothing to stop");
+	Check(!walkers::WalkerDropsPlayer(false, true, true), "found out (or never fooled): it may fight the player");
 }
 
 void TestSky() {

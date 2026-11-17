@@ -4,16 +4,21 @@
 # five Daedric pieces, a member of DaedraFaction himself, should fool them
 # too. In the TestingHall (nothing of its own spawns there), tgm: dressed,
 # fooled ("joins ... ranks now 0 0"), then three walkers (WalkersZombie1,
-# the ESP's 0x801) placed 300 units before him; 40 s with them. Then the
-# helmet off - the set broken, he leaves the factions - and 30 s more: the
-# control, the walkers now come for him. tools/daedra-harness.sh
-# daedricwalkers 3 reads the plugin's log: no walker's hit or bite while
-# fooled, at least one after.
+# the ESP's 0x801) placed 300 units before him; 40 s with them: they leave
+# him be (beside others they fight those: daedra-daedricguard.txt). Then a fourth walker put 60 units before him
+# and struck with a touch spell (StandardFireDamageTouch1Novice, 0004C91E, as
+# daedra-daedricspell.txt): in Mode 3 a walker is one of them (Nadi,
+# 2026-11-17: "ja!") - "You struck one of them", he leaves the factions - and
+# 30 s more: the walkers now come for him. tools/daedra-harness.sh
+# daedricwalkers 3 reads the plugin's log: no walker's hit or bite on him
+# while fooled, at least one on him after.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
+console player.addspell 0004C91E
 console-at ready tgm
 console-at ready coc TestingHall
+console-at ready SetActiveSpell 0004C91E
 console-at dress player.additem 00036357 1
 console-at dress player.additem 00036358 1
 console-at dress player.additem 00036359 1
@@ -27,14 +32,16 @@ console-at dress player.equipitem 0003635B
 console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 0
 console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 1
 console-at placed player.placeatme {form:OblivionWalkers.esp:801} 1 300 2
-console-at undress player.unequipitem 00036357
+console-at aim player.setangle z 0
+console-at aim player.placeatme {form:OblivionWalkers.esp:801} 1 60 0
 
 expect HandScript: finished
 reject HandScript: WARNING
 
 wait 12
-right pos 0.20 -0.40 -0.30
-left pos -0.20 -0.40 -0.30
+right pos 0.25 -0.60 -0.10
+left pos -0.15 -0.30 -0.45
+left rot 38 0 0
 wait 1
 mark ready
 wait 6
@@ -42,7 +49,13 @@ mark dress
 wait 6
 mark placed
 wait 40
-mark undress
+mark aim
+wait 2
+left trigger 1
+wait 0.6
+left trigger 0
+wait 1.4
+mark cast
 wait 30
 mark end
 wait 1

@@ -1017,6 +1017,20 @@ UInt32 ActorPackageNow(UInt32 actorId, bool& high) {
 	return process != 0 ? CurrentPackageId(process) : 0;
 }
 
+// Actor::GetCombatTarget, vtable +0x338 (0x005E0AF0; OBVR's CombatRing.cpp
+// reads it so, xOBSE GameObjects.h GetCombatTarget): the reference it fights,
+// 0 none.
+UInt32 ActorCombatTargetId(UInt32 actorId) {
+	const UInt32 actor = LookupForm(actorId);
+	const UInt32 fn = LooksLikeObject(actor) ? Slot(actor, 0x338) : 0;
+	if (fn == 0) {
+		return 0;
+	}
+	using TargetFn = UInt32(__fastcall*)(void* actor, void* edx);
+	const UInt32 target = reinterpret_cast<TargetFn>(fn)(reinterpret_cast<void*>(actor), nullptr);
+	return LooksLikeObject(target) ? FormIdOf(target) : 0;
+}
+
 bool ActorInCombat(UInt32 actorId) {
 	const UInt32 actor = LookupForm(actorId);
 	return LooksLikeObject(actor) && InCombat(actor);

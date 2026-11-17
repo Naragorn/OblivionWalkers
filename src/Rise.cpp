@@ -336,6 +336,9 @@ bool IsDead(UInt32 actor) {
 }
 
 // Whether `ref` is a walker: a creature of the ESP's walker bases.
+// Mode 3 in effect (defined after g_invadersNow below).
+bool WalkersAlliedNow();
+
 bool IsWalkerRef(UInt32 ref) {
 	if (!LooksLikeObject(ref) || Read(ref) != kVtblCreature) {
 		return false;
@@ -570,7 +573,9 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	// 4.20.1: the player striking a walker ends the disguise.
 	NoteDisguiseHit(g_lastHit.target, g_lastHit.attacker);
 	// 4.22 idea 7: the player striking a Daedra ends the Daedric disguise.
-	NoteDaedricHit(g_lastHit.target, g_lastHit.attacker);
+	// In Mode 3 a walker is one of them too (Nadi, 2026-11-17).
+	NoteDaedricHit(g_lastHit.target, g_lastHit.attacker,
+	               LooksLikeObject(g_lastHit.target) && IsWalkerRef(g_lastHit.target) && WalkersAlliedNow());
 	// 4.20.2: a blow that lands is heard where it lands.
 	HordeNoiseAtRef(g_lastHit.target, "a blow");
 	// 4.17b: an arrow in a walker's head ends it.
@@ -2211,7 +2216,7 @@ void KeepWalkerRecords() {
 		WalkerRecord& r = g_records[w];
 		for (UInt32 i = 0; i < kHeldValueCount; ++i) {
 			const UInt32 now = RecordValue(base, kHeldValues[i]);
-			const UInt32 want = i == 0 ? DisguisedAggression(slow, WalkersFooledNow(), r.atStart[0])
+			const UInt32 want = i == 0 ? DisguisedAggression(slow, Disguised(), r.atStart[0])
 			                           : RecordValueBack(now, r.lastGood[i], r.atStart[i]);
 			if (now > 0 && i != 0) {
 				r.lastGood[i] = now;
@@ -2352,7 +2357,11 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	const float step = g_nearClock;
 	g_nearClock = 0.0f;
 	const SlowAggressionSettings& slow = g_settings.slowAggression;
-	const bool disguised = WalkersFooledNow();
+	// The walkers' own disguise holds every walker back; the Daedric set in
+	// Mode 3 only keeps them off the player (WalkerMayTurnOn below) - the
+	// others they are roused by as ever (Nadi, 2026-11-17).
+	const bool disguised = Disguised();
+	const bool fooled = WalkersFooledNow();
 	if (!slow.enabled) {
 		g_near.count = 0;
 		for (UInt32 i = 0; i < count; ++i) {
@@ -2383,7 +2392,7 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 		UInt32 due = 0;
 		for (UInt32 k = 0; k < found; ++k) {
 			// 4.20.1: none turns on a disguised player (his time near starts anew).
-			if (!WalkerMayTurnOn(disguised, ones[k].refId == kPlayerRefId)) {
+			if (!WalkerMayTurnOn(fooled, ones[k].refId == kPlayerRefId)) {
 				continue;
 			}
 			if (!InReach(ones[k].x - wx, ones[k].y - wy, ones[k].z - wz, slow.units)) {
@@ -2511,8 +2520,6 @@ void StepStandWatch(float dt) {
 }
 
 void StepCorpses(const UInt32* ids, UInt32 count);
-// Mode 3 in effect (after g_invadersNow below).
-bool WalkersAlliedNow();
 
 void StepWalkers(float dt) {
 	if (g_walkerCount == 0) {
@@ -2557,7 +2564,7 @@ void StepWalkers(float dt) {
 	const bool allied = WalkersAlliedNow();
 	const bool daedricBegins = WalkersFoolingBegins(s_daedricFooled, false, DaedricDisguised(), allied);
 	s_daedricFooled = WalkersFooled(false, DaedricDisguised(), allied);
-	if (TakeDisguiseBegun() || daedricBegins) {
+	if (TakeDisguiseBegun()) {
 		UInt32 stopped = 0;
 		for (UInt32 i = 0; i < count; ++i) {
 			const UInt32 actor = LookupForm(refs[i]);
@@ -2567,6 +2574,34 @@ void StepWalkers(float dt) {
 			}
 		}
 		g_log("Disguise: %u walkers fighting told StopCombat (of %u near)", stopped, count);
+	}
+	// Fooled (either disguise): a walker fighting the player lets go of him -
+	// him only, the others it fights on (DisguiseLogic.h WalkerDropsPlayer).
+	// Twice a second; at once when the Daedric set goes on.
+	static float s_dropClock = 0.0f;
+	static UInt32 s_dropLines = 20;
+	s_dropClock += dt;
+	const bool fooled = WalkersFooledNow();
+	if (fooled && (s_dropClock >= 0.5f || daedricBegins)) {
+		s_dropClock = 0.0f;
+		UInt32 dropped = 0;
+		for (UInt32 i = 0; i < count; ++i) {
+			const UInt32 actor = LookupForm(refs[i]);
+			if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor)) {
+				continue;
+			}
+			const UInt32 id = FormIdOf(actor);
+			const bool fighting = ActorInCombat(id);
+			if (WalkerDropsPlayer(fooled, fighting, fighting && ActorCombatTargetId(id) == kPlayerRefId) &&
+			    ConsoleOn(actor, "StopCombat")) {
+				++dropped;
+			}
+		}
+		if ((dropped > 0 || daedricBegins) && s_dropLines > 0) {
+			--s_dropLines;
+			g_log("Disguise: %u walkers fighting the player told StopCombat (%s; %u near, the others fight on)", dropped,
+			      daedricBegins ? "the Daedric set on in Mode 3" : "fooled", count);
+		}
 	}
 	UInt32 high = 0;
 	for (UInt32 i = 0; i < count; ++i) {

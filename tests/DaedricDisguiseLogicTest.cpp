@@ -115,6 +115,14 @@ void TestForget() {
 	      "forgotten without the set: nothing to say");
 }
 
+void TestStruck() {
+	std::printf("Which blow gives him away\n");
+	Check(walkers::DaedricStruck(true, true, false), "the player strikes a Daedra: given away");
+	Check(walkers::DaedricStruck(true, false, true), "the player strikes a walker in Mode 3 (the Daedra's ally): given away");
+	Check(!walkers::DaedricStruck(true, false, false), "the player strikes anyone else (a walker outside Mode 3, a bandit): not");
+	Check(!walkers::DaedricStruck(false, true, true), "someone else strikes them: not the player's doing");
+}
+
 void TestText() {
 	std::printf("The words\n");
 	Check(std::strlen(walkers::DaedricChangeText(DaedricChange::Fooled)) > 0, "fooled");
@@ -138,6 +146,7 @@ int main() {
 	TestFooled();
 	TestEnds();
 	TestForget();
+	TestStruck();
 	TestText();
 	std::printf(g_failures == 0 ? "PASS\n" : "FAIL (%d)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

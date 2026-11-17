@@ -115,8 +115,20 @@ inline UInt32 DisguisedAggression(bool slow, bool disguised, UInt32 own) { retur
 // Daedra's allies ([Invaders] Mode=3, KindLogic.h WalkersJoinDaedra) - the
 // run of 2026-11-17 (daedra-daedricwalkers.txt): fooled by the set, the
 // player was bitten 29 times; the faction alone does not hold a walker back.
+// Him only: none turns on him, none grabs him, one fighting him stops
+// (WalkerDropsPlayer) - the others they fight as ever.
 inline bool WalkersFooled(bool walkerDisguise, bool daedricDisguise, bool walkersAllied) {
 	return walkerDisguise || (daedricDisguise && walkersAllied);
+}
+
+// Fooled, a walker fighting the player is told to stop - only that one: the
+// walkers fight everyone else as ever (Nadi, 2026-11-17: "in mode 3 greifen
+// auch walker mich nicht an wg der vollen daedra rüstung. aber sie greifen
+// alles andere an. und mich auch wenn ich auffliege"). The records'
+// aggression stays the walkers' own (DisguisedAggression takes the walkers'
+// disguise only).
+inline bool WalkerDropsPlayer(bool fooled, bool inCombat, bool targetIsPlayer) {
+	return fooled && inCombat && targetIsPlayer;
 }
 
 // Fooled now and not a look before: the walkers fighting the player stop.

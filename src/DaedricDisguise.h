@@ -18,7 +18,7 @@ void ConfigureDaedricDisguise(const DaedricSettings* settings, ConsoleFn console
 void ConfigureDaedricDisguiseEsp(UInt32 espBase);
 
 // xOBSE's OnHit: `target` hit by `attacker`.
-void NoteDaedricHit(UInt32 target, UInt32 attacker);
+void NoteDaedricHit(UInt32 target, UInt32 attacker, bool targetAlliedWalker);
 
 // Once a frame; looked at twice a second.
 void StepDaedricDisguiseInGame(float dt);

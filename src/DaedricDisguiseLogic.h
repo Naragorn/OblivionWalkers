@@ -124,4 +124,11 @@ inline DaedricChange StepDaedric(DaedricState& st, const DaedricSettings& s, boo
 	return DaedricChange::Fooled;
 }
 
+// A blow that gives the player away: his, on a Daedra - or on a walker while
+// the walkers are the Daedra's allies ([Invaders] Mode=3; Nadi, 2026-11-17:
+// "ja!").
+inline bool DaedricStruck(bool byPlayer, bool onDaedra, bool onAlliedWalker) {
+	return byPlayer && (onDaedra || onAlliedWalker);
+}
+
 }  // namespace walkers
