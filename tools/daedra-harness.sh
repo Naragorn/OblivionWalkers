@@ -26,6 +26,8 @@
 #   tools/daedra-harness.sh legionmixed 2   harness/daedra-legionmixed.txt: the Legion out for a Daedra band and walkers at one gate
 #   tools/daedra-harness.sh daedricmod 1    harness/daedra-daedricmod.txt: the disguise in MOO's Daedric Lord set (pieces by model)
 #   tools/daedra-harness.sh mainquest 1     harness/daedra-mainquest.txt: MQ16 completed by console, the Daedra stop (DaedraAfterMainQuest=0)
+#   tools/daedra-harness.sh legionfar 1     harness/daedra-legionfar.txt: the Legion sent out into a gate's unloaded cell, then the cell loaded
+#   tools/daedra-harness.sh bosshard 0      harness/daedra-bosshard.txt: LINK's KeepHardLists switch on and off - MOO's hard goblins kept, then walkers
 #   tools/daedra-harness.sh daedricspell [Mode] harness/daedra-daedricspell.txt: the same, ended by a fire bolt from 60 units (OnHit for a spell?)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -65,14 +67,15 @@ def set_key(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 
 text = set_key(text, "Invaders", "Mode", kind)
-if scenario in ("band", "save", "legion", "leader", "march", "legionmixed"):
+if scenario in ("band", "save", "legion", "leader", "march", "legionmixed", "legionfar"):
     text = set_key(text, "Invaders", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Invaders", "TestBandSeconds", "20")
 if scenario in ("gate", "gatesave"):
     text = set_key(text, "Invaders", "TestGateOpen", "2")
     text = set_key(text, "Invaders", "TestGateOpenSeconds", "60")
-if scenario in ("legion", "legionmixed"):
-    text = set_key(text, "Guards", "LegionDistance", "16000")
+if scenario in ("legion", "legionmixed", "legionfar"):
+    # far: the band some 3000 from the player, he 15000 before the gate
+    text = set_key(text, "Guards", "LegionDistance", "24000" if scenario == "legionfar" else "16000")
     # Mode 2 rolls a band's kind; the Legion answers only Daedra, so every band is Daedra
     text = set_key(text, "Invaders", "DaedraPercent", "100")
 if scenario == "leader":
@@ -92,6 +95,10 @@ if scenario == "mainquest":
 if scenario in ("daedricblow", "daedricspell"):
     # the Dremora is struck from 55-60 units: still fooled that near
     text = set_key(text, "Disguise", "DaedricNearDistance", "30")
+if scenario == "bosshard":
+    # MOO's MOOLL0GoblinHard, the switch from the INI off
+    text = set_key(text, "Replace", "TestLogList", "2302FEA0")
+    text = set_key(text, "Replace", "KeepHardLists", "0")
 if scenario == "boss":
     # the boss list's entries into the log after each pass and when they change
     text = set_key(text, "Replace", "TestLogList", "000340BA")
@@ -131,7 +138,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "daedricmod", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
+if kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "daedricmod", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss", "legionfar", "bosshard"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -247,6 +254,33 @@ if scenario == "legion":
     out = [int(m.group(1)) for m in (re.search(r"out at Anvil \w+ Gate for \d+ walkers' worth near, (\d+) Daedra", l) for l in lines) if m]
     check(bool(out) and max(out) >= 1, "the Legion came out against the band (%s)" % out)
     check(any(re.search(r"Guards: \w+ at Anvil \w+ Gate sent at FF", l) for l in lines), "a guard sent at a band's Daedra")
+if scenario == "legionfar":
+    show("Bands: ", 10)
+    show("Guards: ", 24)
+    out = [i for i, l in enumerate(lines) if re.search(r"Guards: \w+ out at Chorrol \w+ Gate for \d+ walkers' worth near, [1-9]\d* Daedra", l)]
+    wait = [i for i, l in enumerate(lines) if re.search(r"Guards: \w+ out at Chorrol \w+ Gate without its 3D", l)]
+    loaded = [i for i, l in enumerate(lines) if re.search(r"Guards: \w+ at Chorrol \w+ Gate has its 3D now", l)]
+    sent = [i for i, l in enumerate(lines) if re.search(r"Guards: \w+ at Chorrol \w+ Gate sent at FF", l)]
+    check(bool(out), "the Legion came out at Chorrol for the band far from the player (%d lines)" % len(out))
+    check(bool(wait) and (not sent or wait[0] < sent[0]), "out into the gate's unloaded cell, they wait without their 3D (%d)" % len(wait))
+    check(bool(loaded) and bool(wait) and loaded[0] > wait[0], "the player at the gate: their 3D comes (%d)" % len(loaded))
+    check(bool(sent) and bool(loaded) and sent[-1] > loaded[0], "and they are sent at the band's Daedra (%d)" % len(sent))
+if scenario == "bosshard":
+    listed = [(i, l) for i, l in enumerate(lines) if l.startswith("Spawns: TestLogList=2302FEA0")]
+    for i, l in listed[:10]:
+        print("        " + l[:240])
+    show("Spawns: KeepBosses=", 6)
+    show("LINK: ini_replace_keep", 6)
+    on = next((i for i, l in enumerate(lines) if "LINK: ini_replace_keep_hard now 1" in l), None)
+    off = next((i for i, l in enumerate(lines) if "LINK: ini_replace_keep_hard now 0" in l and on is not None and i > on), None)
+    ours = lambda l: bool(re.search(r":2B[0-9A-F]{6}x", l))
+    before = [l for i, l in listed if on is None or i < on]
+    during = [l for i, l in listed if on is not None and i > on and (off is None or i < off)]
+    after = [l for i, l in listed if off is not None and i > off]
+    check(bool(before) and ours(before[-1]), "KeepHardLists=0 from the INI: the hard goblins' list names walkers")
+    check(on is not None and any("KeepHardLists=1" in l for l in lines[on:off]), "LINK's switch on read - the pass with KeepHardLists=1")
+    check(bool(during) and not ours(during[-1]), "on: the list back to MOO's goblins (%d looks)" % len(during))
+    check(off is not None and bool(after) and ours(after[-1]), "off again: walkers again (%d looks)" % len(after))
 if scenario == "boss":
     listed = show("Spawns: TestLogList", 12)
     copies = show("Bosses: a clean copy of", 12)

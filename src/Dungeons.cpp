@@ -768,6 +768,8 @@ void Carry(const DungeonEvent* ev, UInt32 n, DungeonSite& d, const DungeonSite& 
 float g_playerX = 0.0f;
 float g_playerY = 0.0f;
 bool g_playerKnown = false;
+int g_newsSiteLogged = -1;          // the news' site last logged
+UInt32 g_newsCandidateLogged = 0;  // and the place it held then (a site rolled anew keeps its index)
 
 void NotePlayerPlace(UInt32 player) {
 	const UInt32 cell = LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0;
@@ -1871,6 +1873,22 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		if (SetGlobal(kDungeonNewsGlobalLocalId, static_cast<float>(kind))) {
 			log("Dungeons: news - now %u (0 none, 1 a refuge, 2 a siege, 3 a place to clear, 4 a fallen place)%s%s", kind,
 			    news >= 0 ? ": " : "", news >= 0 ? kDungeonCandidates[g_sites.sites[news].candidate].name : "");
+		}
+		// Which place the news names, whenever it changes - the kind's line
+		// above stays quiet while one refuge's news gives way to another's
+		// (4.20.7a A seen in the game: tools/dungeon-newsnear.sh).
+		const UInt32 newsCandidate = news >= 0 ? g_sites.sites[news].candidate : 0u;
+		if (news != g_newsSiteLogged || newsCandidate != g_newsCandidateLogged) {
+			g_newsSiteLogged = news;
+			g_newsCandidateLogged = newsCandidate;
+			if (news >= 0) {
+				const DungeonCandidate& c = kDungeonCandidates[g_sites.sites[news].candidate];
+				log("Dungeons: news - the site now %s (site %d, %.0f units from the player's place %.0f %.0f%s)", c.name,
+				    news, std::hypot(c.x - g_playerX, c.y - g_playerY), g_playerX, g_playerY,
+				    g_playerKnown ? "" : "; that place not known - the kinds' order");
+			} else {
+				log("Dungeons: news - no site now");
+			}
 		}
 		NoteRefugesInNews(kind != 0);
 		StepNotices(log);

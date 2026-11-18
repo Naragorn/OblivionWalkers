@@ -1,0 +1,29 @@
+# The boss guard's LINK switch (docs/walkers-spec.md 8c): MOO's "Hard" list
+# MOOLL0GoblinHard (MOO 02FEA0, 2302FEA0 in the Linux game's load order),
+# logged by [Replace] TestLogList (tools/daedra-harness.sh bosshard 0), with
+# [Replace] KeepHardLists=0 from the INI: its goblins replaced by walkers.
+# LINK's toggle "Spawns: MOO's hard foes stay" set by console as the page's
+# slider would ("set Walkers.ini_replace_keep_hard to 1"): the plugin writes
+# the INI, the replacement runs again, the list's entries back to MOO's
+# goblins; set to 0 again, the walkers again.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at on set Walkers.ini_replace_keep_hard to 1
+console-at off set Walkers.ini_replace_keep_hard to 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 6
+mark on
+wait 10
+mark off
+wait 10
+mark end
+wait 1

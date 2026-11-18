@@ -1,0 +1,31 @@
+# The Legion's answer at a gate whose cell is not loaded (docs/walkers-spec.md
+# 8c, idea 10: a band near a city the player is far from). With [Invaders]
+# OnlyFromOblivionGates=1 TestBandSeconds=20, DaedraPercent=100 and [Guards]
+# LegionDistance=24000 (tools/daedra-harness.sh legionfar) the player stands
+# 15000 units before Chorrol's South Gate (its door 0000092F), unseen - the
+# gate's cell out of the loaded grid (uGridsToLoad=5). 20 s after the load a
+# Daedra band is placed some 3000 units from him, within 24000 of the gate:
+# its guards are sent out into the unloaded cell ("without its 3D"). Then he
+# is moved to the gate: the cell loads, the guards get their 3D and are sent
+# at the band.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.setav chameleon 100
+console-at ready player.moveto 0000092F 0 -15000 0
+console-at back player.moveto 0000092F 0 -400 0
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 40
+mark back
+wait 40
+mark end
+wait 1

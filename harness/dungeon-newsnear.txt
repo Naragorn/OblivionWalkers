@@ -1,0 +1,39 @@
+# The news names the nearest held place (docs/walkers-spec.md 4.20.7a A):
+# tools/dungeon-newsnear.sh sets [Dungeons] Enabled=1, Journal=1, Rumors=1,
+# no TestSite, NewPlacesWithin=0 (the places anywhere), ActiveMin=ActiveMax=8,
+# MessengerHours=0 (no runner). After the load the eight places are rolled
+# with the player inside (his place not known - the kinds' order); then he is
+# taken to cow Tamriel -30 10 (the west) and to cow Tamriel 30 -20 (the
+# south-east), time held (timescale 0). At each place the log's "news - the
+# site now" names the site with news nearest him; the wrapper checks it
+# against the active places (their rolls in the log, their doors in
+# src/DungeonCandidates.h), and that the two places' news differ.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at west cow Tamriel -30 10
+console-at west2 CloseAllMenus
+console-at east cow Tamriel 30 -20
+console-at east2 CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 6
+mark west
+wait 8
+mark west2
+wait 4
+mark east
+wait 8
+mark east2
+wait 4
+mark end
+wait 1

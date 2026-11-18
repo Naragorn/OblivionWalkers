@@ -584,7 +584,20 @@ void StepGateGuards(float elapsed, const HordeWalker* walkers, const bool* alive
 				continue;
 			}
 			const UInt32 guard = PoolGuard(c, i);
-			if (guard == 0 || dead(guard) || Read(guard + kRefNiNodeOffset) == 0 || InCombat(guard)) {
+			if (guard == 0 || dead(guard)) {
+				continue;
+			}
+			// Out at a gate whose cell is not loaded (a band near a city far
+			// from the player, 8c): no 3D, no combat - it waits for the cell.
+			static bool waitingLogged[kGuardCities][kGuardPool] = {};
+			const bool has3d = Read(guard + kRefNiNodeOffset) != 0;
+			if (has3d == waitingLogged[c][i] && GuardLogDue()) {
+				log(has3d ? "Guards: %08X at %s has its 3D now - its cell loaded"
+				          : "Guards: %08X out at %s without its 3D - its cell not loaded, it waits",
+				    FormIdOf(guard), kCityGates[slot.gate].name);
+			}
+			waitingLogged[c][i] = !has3d;
+			if (!has3d || InCombat(guard)) {
 				continue;
 			}
 			// The nearest walker within Radius first; else the nearest Daedra
