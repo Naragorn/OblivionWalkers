@@ -69,10 +69,17 @@ struct DungeonCandidate {
 // a quest that shows a dungeon's map marker or targets it (Better Cities,
 // Quest of the Week: measured 2026-11-13) names no cell of it.
 struct DungeonQuestNames {
-	const UInt32* cells;
+	const UInt32* cells;  // cells a quest names themselves
 	UInt32 cellCount;
-	const UInt32* refs;
+	const UInt32* refs;  // references a quest names
 	UInt32 refCount;
+	// Each named reference's cell (0 none known), and whether it is enabled
+	// now - a reference counts only while enabled (Nadi, 2026-11-18: the
+	// radiant quests of Infinitum keep a disabled reference in each of their
+	// places and enable the one they choose). nullptr: no cells known, every
+	// reference counts.
+	const UInt32* refCells = nullptr;
+	const bool* refEnabled = nullptr;
 };
 
 inline constexpr UInt32 kDungeonSkipMost = 32;
@@ -165,8 +172,18 @@ inline DungeonVerdict DungeonOut(const DungeonCandidate& d, const DungeonQuestNa
 			return DungeonVerdict::Quest;
 		}
 	}
-	if (NamedIn(quests.refs, quests.refCount, d.door) || NamedIn(quests.refs, quests.refCount, d.marker)) {
-		return DungeonVerdict::Quest;
+	for (UInt32 k = 0; quests.refs != nullptr && k < quests.refCount; ++k) {
+		const UInt32 ref = quests.refs[k];
+		if (ref == 0 || (quests.refEnabled != nullptr && !quests.refEnabled[k])) {
+			continue;
+		}
+		bool here = ref == d.door || ref == d.marker;
+		for (UInt32 c = 0; !here && quests.refCells != nullptr && c < d.cellCount && c < kDungeonCellsMost; ++c) {
+			here = d.cells[c] != 0 && quests.refCells[k] == d.cells[c];
+		}
+		if (here) {
+			return DungeonVerdict::Quest;
+		}
 	}
 	if (SkipsName(skips, d.name)) {
 		return DungeonVerdict::Skipped;

@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -85,7 +86,7 @@ std::unordered_set<UInt32> g_questBases;
 // (the refugee dungeons' A, docs/walkers-spec.md 4.20.7).
 std::unordered_set<UInt32> g_questCells;
 // The references a quest names, by form ID (a dungeon's map marker, its door).
-std::unordered_set<UInt32> g_questRefs;
+std::unordered_map<UInt32, UInt32> g_questRefs;  // a named reference -> its cell (0 none)
 // The lists that got their extra walker entries this session (4.13).
 std::unordered_set<UInt32> g_extraDone;
 // The engine's own heap, as xOBSE's TESLeveledList::CreateData and
@@ -566,6 +567,18 @@ struct QuestNames {
 	UInt32 own = 0;     // the held dungeons' own quests, not read
 };
 
+// Who named a cell or a reference first, and how - the log's answer to "why
+// is this dungeon out" (8c, 2026-11-17: 80 of 91 out on Linux).
+const char* g_namingQuest = "";
+const char* g_namingRoute = "";
+std::unordered_map<UInt32, std::string> g_questNameWhy;
+
+void NoteWhy(UInt32 formId) {
+	if (g_questNameWhy.find(formId) == g_questNameWhy.end()) {
+		g_questNameWhy[formId] = std::string(g_namingQuest) + " (" + g_namingRoute + ")";
+	}
+}
+
 void NoteQuestName(UInt32 form, QuestNames& seen) {
 	if (!LooksLikeObject(form)) {
 		return;
@@ -576,12 +589,14 @@ void NoteQuestName(UInt32 form, QuestNames& seen) {
 	const UInt32 base = reference ? Read(form + kRefBaseOffset) : 0;
 	if (type == kFormTypeCell) {
 		g_questCells.insert(FormIdOf(form));
+		NoteWhy(FormIdOf(form));
 	} else if (reference) {
-		g_questRefs.insert(FormIdOf(form));
+		// The reference with its cell: it counts for the dungeon pool only
+		// while enabled (DungeonLogic.h DungeonQuestNames, 2026-11-18).
 		const UInt32 cell = Read(form + kRefParentCellOffset);
-		if (LooksLikeObject(cell) && Read8(cell + kFormTypeOffset) == kFormTypeCell) {
-			g_questCells.insert(FormIdOf(cell));
-		}
+		const bool inCell = LooksLikeObject(cell) && Read8(cell + kFormTypeOffset) == kFormTypeCell;
+		g_questRefs.emplace(FormIdOf(form), inCell ? FormIdOf(cell) : 0u);
+		NoteWhy(FormIdOf(form));
 	}
 	const UInt8 baseType = LooksLikeObject(base) ? Read8(base + kFormTypeOffset) : 0;
 	switch (QuestNameOf(type, baseType)) {
@@ -637,9 +652,12 @@ void CollectQuestNames(LogFn log) {
 				continue;
 			}
 			++seen.quests;
+			g_namingQuest = LooksLikeObject(editorId) ? reinterpret_cast<const char*>(editorId) : "?";
+			g_namingRoute = "its script";
 			if (LooksLikeObject(Read(quest + kQuestScriptOffset))) {
 				NoteScriptNames(Read(quest + kQuestScriptOffset), seen);
 			}
+			g_namingRoute = "a stage's result script";
 			UInt32 stages = 0;
 			for (UInt32 node = quest + kQuestStagesOffset; LooksLikeObject(node) && stages < 256;
 			     node = Read(node + 4), ++stages) {
@@ -656,6 +674,7 @@ void CollectQuestNames(LogFn log) {
 					}
 				}
 			}
+			g_namingRoute = "a target";
 			UInt32 targets = 0;
 			for (UInt32 node = quest + kQuestTargetsOffset; LooksLikeObject(node) && targets < 64;
 			     node = Read(node + 4), ++targets) {
@@ -670,7 +689,7 @@ void CollectQuestNames(LogFn log) {
 	    "themselves), %u creatures and people named",
 	    seen.quests, seen.names, static_cast<UInt32>(g_questLists.size()), seen.placed, seen.direct,
 	    static_cast<UInt32>(g_questBases.size()));
-	log("Quests: %u cells named or holding a named reference, %u references named; %u quests of the held dungeons' "
+	log("Quests: %u cells named themselves, %u references named (each counts for the dungeon pool while enabled); %u quests of the held dungeons' "
 	    "own not read",
 	    static_cast<UInt32>(g_questCells.size()), static_cast<UInt32>(g_questRefs.size()), seen.own);
 	UInt32 shown = 0;
@@ -681,9 +700,26 @@ void CollectQuestNames(LogFn log) {
 	}
 }
 
+const char* QuestNameWhy(UInt32 formId) {
+	const auto it = g_questNameWhy.find(formId);
+	return it != g_questNameWhy.end() ? it->second.c_str() : nullptr;
+}
+
 std::vector<UInt32> QuestCellIds() { return std::vector<UInt32>(g_questCells.begin(), g_questCells.end()); }
 
-std::vector<UInt32> QuestRefIds() { return std::vector<UInt32>(g_questRefs.begin(), g_questRefs.end()); }
+std::vector<UInt32> QuestRefIds() {
+	std::vector<UInt32> ids;
+	ids.reserve(g_questRefs.size());
+	for (const auto& r : g_questRefs) {
+		ids.push_back(r.first);
+	}
+	return ids;
+}
+
+UInt32 QuestRefCell(UInt32 refId) {
+	const auto it = g_questRefs.find(refId);
+	return it != g_questRefs.end() ? it->second : 0u;
+}
 
 void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt32 nightPercent, LogFn log) {
 	if (espBase == kNoEsp) {

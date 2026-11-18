@@ -3,7 +3,6 @@
 // set fools them, a blow or coming too near ends it, they forget you after
 // ForgetSeconds with none of them near, the set taken off ends it.
 
-#include "DaedricArmor.h"
 #include "DaedricDisguiseLogic.h"
 
 #include <cstdio>
@@ -34,18 +33,25 @@ void TestSet() {
 	Check(!walkers::FullDaedricSet(0x39), "no cuirass: not full");
 	Check(!walkers::FullDaedricSet(0x1D), "no boots: not full");
 	Check(!walkers::FullDaedricSet(0x00), "nothing: not full");
-	UInt8 all = 0;
-	bool shield = false;
-	for (UInt32 i = 0; i < walkers::kDaedricPieceCount; ++i) {
-		all |= walkers::kDaedricPieces[i].slots;
-		shield = shield || walkers::kDaedricPieces[i].slots == 0;
-	}
-	Check(walkers::FullDaedricSet(all), "the pieces read off Oblivion.esm make a full set");
-	Check(!shield, "no piece without a slot (the shields left out)");
-	Check(walkers::DaedricSlotsOf(0x0003635B) == 0x04 && walkers::DaedricSlotsOf(0x00036357) == 0x01,
-	      "the Daedric cuirass the upper body, the helmet the head");
-	Check(walkers::DaedricSlotsOf(0x0003635C) == 0 && walkers::DaedricSlotsOf(0x00012345) == 0,
-	      "the Daedric shield and any other armor: none");
+}
+
+void TestModelPath() {
+	std::printf("A Daedric piece by its model, read at run time (Nadi, 2026-11-18: the DLCs' and mods' too)\n");
+	using walkers::DaedricModelSlots;
+	Check(DaedricModelSlots("Armor\\Daedric\\M\\Cuirass.NIF", 0x0004) == 0x04,
+	      "Oblivion.esm's cuirass (Armor\\Daedric\\): the upper body");
+	Check(DaedricModelSlots("armor/daedric/f/helmet.nif", 0x0003) == 0x01,
+	      "any case, forward slashes; the helmet's hair slot (0x02) dropped");
+	Check(DaedricModelSlots("Armor\\Daedric\\M\\Shield.NIF", 0x2000) == 0, "the shield: no body slot");
+	Check(DaedricModelSlots("Armor\\MyMod\\DaedricPlate\\Boots.nif", 0x0020) == 0x20,
+	      "a mod's folder named Daedric...: its feet");
+	Check(DaedricModelSlots("Armor\\DaedricBracers\\M\\Bracers.nif", 0x0010) == 0x10,
+	      "the Daedric bracers count as gauntlets now (the file table left them out)");
+	Check(DaedricModelSlots("Armor\\Ebony\\M\\Cuirass.NIF", 0x0004) == 0, "Ebony: none");
+	Check(DaedricModelSlots("Armor\\AntiDaedric\\Cuirass.nif", 0x0004) == 0,
+	      "a folder that only holds the word inside: none");
+	Check(DaedricModelSlots("Armor\\Ebony\\DaedricLook.nif", 0x0004) == 0, "only the file's name: none");
+	Check(DaedricModelSlots(nullptr, 0x0004) == 0 && DaedricModelSlots("", 0x0004) == 0, "no model: none");
 }
 
 void TestFooled() {
@@ -143,6 +149,7 @@ void TestText() {
 
 int main() {
 	TestSet();
+	TestModelPath();
 	TestFooled();
 	TestEnds();
 	TestForget();

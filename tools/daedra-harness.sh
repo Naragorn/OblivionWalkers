@@ -24,6 +24,7 @@
 #   tools/daedra-harness.sh sidebyside [Mode] harness/daedra-sidebyside.txt: a walker, a Churl and a guard - whom they fight (CombatTrace)
 #   tools/daedra-harness.sh gatesave 1      harness/daedra-gatesave.txt: "Close the gate" across a save and a load ('GATQ')
 #   tools/daedra-harness.sh legionmixed 2   harness/daedra-legionmixed.txt: the Legion out for a Daedra band and walkers at one gate
+#   tools/daedra-harness.sh daedricmod 1    harness/daedra-daedricmod.txt: the disguise in MOO's Daedric Lord set (pieces by model)
 #   tools/daedra-harness.sh mainquest 1     harness/daedra-mainquest.txt: MQ16 completed by console, the Daedra stop (DaedraAfterMainQuest=0)
 #   tools/daedra-harness.sh daedricspell [Mode] harness/daedra-daedricspell.txt: the same, ended by a fire bolt from 60 units (OnHit for a spell?)
 set -euo pipefail
@@ -130,7 +131,7 @@ def show(prefix, most=8):
 
 spawns = show("Spawns: Invaders Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
+if kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "daedricmod", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -226,7 +227,7 @@ if scenario == "piles":
     read = [int(m.group(1)) for m in (re.search(r"Co-save: (\d+) piles of banished Daedra read", l) for l in lines) if m]
     check(bool(written) and written[-1] >= 1, "the piles written (%s)" % written)
     check(bool(read) and read[-1] == written[-1], "the same piles read after the load (%s)" % read)
-if scenario == "daedric":
+if scenario in ("daedric", "daedricmod"):
     show("Daedric disguise: ", 30)
     check(any("full set 1" in l for l in lines), "the five pieces read as a full set")
     check(any("the player joins DaedraFaction and DremoraFaction" in l and "ranks now 0 0" in l for l in lines),

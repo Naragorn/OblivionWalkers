@@ -34,8 +34,16 @@ game_running() {
 	return 1
 }
 
+# A harness run's game takes some seconds to quit after its runner ends: wait
+# up to WALKERS_WAIT_SECONDS (60) for it before refusing (2026-11-18: an "off"
+# right after a run refused, a FREE went out with the walkers still in).
+waited=0
+while game_running && (( waited < ${WALKERS_WAIT_SECONDS:-60} )); do
+	sleep 2
+	waited=$((waited + 2))
+done
 if game_running; then
-	echo "linux-walkers: Oblivion runs - nothing changed" >&2
+	echo "linux-walkers: Oblivion runs - nothing changed (waited ${waited} s)" >&2
 	exit 1
 fi
 

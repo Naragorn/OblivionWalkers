@@ -28,8 +28,15 @@ void CollectQuestNames(LogFn log);
 // The cells a quest names, or that hold a reference a quest names - after
 // CollectQuestNames (the refugee dungeons' A, docs/walkers-spec.md 4.20.7).
 std::vector<UInt32> QuestCellIds();
+
+// The quest that named `formId` (a cell or a reference) first, and how
+// ("MQ05 (a target)"); nullptr when none did.
+const char* QuestNameWhy(UInt32 formId);
 // The references a quest names, by form ID - after CollectQuestNames.
 std::vector<UInt32> QuestRefIds();
+
+// The cell of a reference a quest names (0 none, or not named).
+UInt32 QuestRefCell(UInt32 refId);
 
 // With the Daedra in play ([Invaders] Kind 1, 2 or 3, KindLogic.h) a
 // replaced entry names the ESP's Daedra list instead (all of them with Kind

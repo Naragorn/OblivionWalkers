@@ -86,6 +86,39 @@ void TestOut() {
 	      "a candidate without cells is never a quest's (cell 0 matches nothing)");
 	const UInt32 zero[] = {0};
 	Check(DungeonOut(noCells, {zero, 1, nullptr, 0}, none) == walkers::DungeonVerdict::In, "a quest cell 0 matches nothing");
+
+	std::printf("A quest's reference counts while it is enabled (Nadi, 2026-11-18: Infinitum's radiant quests\n"
+	            "  work, every place not their target the walkers' or the Daedra's)\n");
+	// Infinitum's radiant quests keep a disabled reference in each of their places (FGHuntTarget01..,
+	// vamptown01..) and enable the one they choose; their scripts and targets name all of them - 80 of
+	// the 91 candidates out on Linux (2026-11-17/18).
+	const UInt32 waiting[] = {0x0000F001, 0x0000F002};
+	const UInt32 waitingCells[] = {0x00001112, 0x00002221};
+	const bool none2[] = {false, false};
+	const bool caveChosen[] = {false, true};
+	walkers::DungeonQuestNames radiant = {nullptr, 0, waiting, 2};
+	radiant.refCells = waitingCells;
+	radiant.refEnabled = none2;
+	Check(DungeonOut(kFort, radiant, none) == walkers::DungeonVerdict::In &&
+	          DungeonOut(kCave, radiant, none) == walkers::DungeonVerdict::In,
+	      "a radiant quest's disabled references in both: both in");
+	radiant.refEnabled = caveChosen;
+	Check(DungeonOut(kCave, radiant, none) == walkers::DungeonVerdict::Quest,
+	      "the quest enabled the one in the cave (its target now): the cave out");
+	Check(DungeonOut(kFort, radiant, none) == walkers::DungeonVerdict::In, "the fort, not chosen: in");
+	radiant.refEnabled = nullptr;
+	Check(DungeonOut(kFort, radiant, none) == walkers::DungeonVerdict::Quest,
+	      "enabled not known (nullptr): every named reference counts, as before");
+	const UInt32 marker[] = {0x0000B001};
+	const UInt32 markerCell[] = {0};
+	const bool off[] = {false};
+	walkers::DungeonQuestNames shown = {nullptr, 0, marker, 1};
+	shown.refCells = markerCell;
+	shown.refEnabled = off;
+	Check(DungeonOut(kFort, shown, none) == walkers::DungeonVerdict::In, "its map marker named but disabled: in");
+	const bool on[] = {true};
+	shown.refEnabled = on;
+	Check(DungeonOut(kFort, shown, none) == walkers::DungeonVerdict::Quest, "its map marker named and enabled: out");
 }
 
 void TestPool() {

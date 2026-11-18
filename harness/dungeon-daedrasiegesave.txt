@@ -1,0 +1,48 @@
+# A held place's Daedra siege across a save and a load (docs/walkers-spec.md
+# 4.22a step 5c, the site's side in its record): as dungeon-daedrasiege.txt -
+# Toadstool Hollow besieged by 4 Daedra - saved (WalkersDungeonDaedraTest)
+# while the player is still in the hall, before he goes in (saved in the cell
+# right after coc the game called the save corrupt; with the Daedra there it
+# is a save in combat), and loaded; then he goes in. The log must say
+# "held dungeons read (1 of them the Daedra's side", the place ask for its
+# Daedra again after the load, and the defended place's reward say "the
+# Daedra are beaten". tools/dungeon-walkers.sh daedrasiegesave.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at inside coc ToadstoolHollow
+console-at saved save WalkersDungeonDaedraTest
+console-at reload load WalkersDungeonDaedraTest
+console-at kill1 killall
+console-at kill2 killall
+console-at close CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 6
+mark saved
+wait 6
+mark reload
+wait 12
+mark inside
+wait 16
+mark placed
+wait 2
+mark kill1
+wait 10
+mark kill2
+wait 10
+mark close
+wait 3
+mark end
+wait 1

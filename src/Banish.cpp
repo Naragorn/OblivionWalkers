@@ -60,6 +60,31 @@ double NumItems(UInt32 ref) {
 	return *var;
 }
 
+// 8c 5b: what stays on the body after RemoveAllItems - the first few of
+// its inventory read back (xOBSE GetInventoryObject into the quest's float:
+// a form set into a float variable keeps its form ID in the low word - read
+// both ways, the log says which holds).
+void LogLeftOnBody(UInt32 refId, UInt32 corpse, double left) {
+	double* var = g_quest != 0 ? QuestVariable(g_quest, "siege_lock") : nullptr;
+	if (var == nullptr || !(left > 0.0) || g_logsLeft == 0) {
+		return;
+	}
+	const UInt32 most = left < 4.0 ? static_cast<UInt32>(left) : 4u;
+	for (UInt32 i = 0; i < most; ++i) {
+		*var = -1.0;
+		char line[64];
+		std::snprintf(line, sizeof(line), "set Walkers.siege_lock to GetInventoryObject %u", i);
+		g_console(corpse, line);
+		const UInt32 low = *reinterpret_cast<const UInt32*>(var);
+		const UInt32 asNumber = *var >= 0.0 && *var < 4294967296.0 ? static_cast<UInt32>(*var) : 0u;
+		const UInt32 form = LooksLikeObject(LookupForm(low)) ? low : asNumber;
+		const UInt32 item = LookupForm(form);
+		g_log("Banish: Daedra %08X keeps item %u: %08X (form type %02X; read %s)", refId, i, form,
+		      LooksLikeObject(item) ? Read8(item + kFormTypeOffset) : 0u,
+		      form == low ? "the low word" : "the number");
+	}
+}
+
 void Banish(UInt32 refId, UInt32 corpse) {
 	const UInt32 bag = PlaceBag(refId, corpse);
 	double had = -1.0;
@@ -71,6 +96,7 @@ void Banish(UInt32 refId, UInt32 corpse) {
 		had = NumItems(corpse);
 		g_console(corpse, line);
 		left = NumItems(corpse);
+		LogLeftOnBody(refId, corpse, left);
 		const UInt32 bagRef = LookupForm(bag);
 		held = LooksLikeObject(bagRef) ? NumItems(bagRef) : -1.0;
 		if (!NotePile(g_piles, bag, false)) {

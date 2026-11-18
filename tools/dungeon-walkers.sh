@@ -28,7 +28,8 @@ case "$mode" in
 	beds) state=1; walkers=8; behead=0; scenario=dungeon-beds; site="Fort Ash" ;;
 	outpost) state=4; walkers=4; behead=0; scenario=dungeon-daedra; site="Toadstool Hollow" ;;
 	daedrasiege) state=2; walkers=4; behead=0; scenario=dungeon-daedrasiege; site="Toadstool Hollow" ;;
-	*) echo "mode: siege | siege-outside | siege-past | taken | fight | fight-door | clear | talk | runner | runner-city | runner-dead | paper | notice | beds | outpost | daedrasiege" >&2; exit 2 ;;
+	daedrasiegesave) state=2; walkers=4; behead=0; scenario=dungeon-daedrasiegesave; site="Toadstool Hollow" ;;
+	*) echo "mode: siege | siege-outside | siege-past | taken | fight | fight-door | clear | talk | runner | runner-city | runner-dead | paper | notice | beds | outpost | daedrasiege | daedrasiegesave" >&2; exit 2 ;;
 esac
 # fight, fight-door: the people and the walkers of the look, e.g. "fight 5 12" (8 and 10 without).
 people="${2:-8}"
@@ -78,8 +79,8 @@ for key, value in (("TestSite", site), ("TestSiteState", state), ("Enabled", "1"
     text = put(text, "Dungeons", key, value)
 text = put(text, "Walkers", "DieOnlyBeheaded", behead)  # [Zombies] until 2026-11-16 (IniNames.h)
 # outpost (4.22a step 5c): the walker dungeon a Daedra outpost, its dead banished after 5 s
-text = put(text, "Dungeons", "TestDaedra", "1" if mode in ("outpost", "daedrasiege") else "0")
-if mode in ("outpost", "daedrasiege"):
+text = put(text, "Dungeons", "TestDaedra", "1" if mode in ("outpost", "daedrasiege", "daedrasiegesave") else "0")
+if mode in ("outpost", "daedrasiege", "daedrasiegesave"):
     text = put(text, "Invaders", "BanishSeconds", "5")
 text = put(text, "Debug", "StepTiming", "1")
 # the journal's SetStage looked inside (SamplerLogic.h): where its 20 to 40 ms go
@@ -290,6 +291,16 @@ elif mode == "outpost":
     check(any("Toadstool Hollow is cleared" in l for l in rewards) or any("taken" in l and "Toadstool Hollow" in l for l in d),
           "the outpost cleared and taken")
     check(any("back to Oblivion" in l for l in lines), "a dead Daedra banished")
+elif mode == "daedrasiegesave":
+    read = [i for i, l in enumerate(lines) if re.match(r"Co-save: 1 held dungeons read \(1 of them the Daedra's side", l)]
+    for l in [l for l in lines if l.startswith("Co-save:") and "held dungeons" in l][:4]:
+        print("        " + l[:200])
+    check(bool(read), "read back after the load: the held place, the Daedra's side")
+    after = lines[read[0]:] if read else []
+    asked = [l for l in after if re.search(r"Dungeons: \d+ Daedra asked for at Toadstool Hollow", l)]
+    check(bool(asked), "after the load the place asks for its Daedra again (%d)" % len(asked))
+    words = [l for l in rewards if "Toadstool Hollow" in l]
+    check(any("the Daedra are beaten" in l for l in words), "the reward's words: the Daedra are beaten (%s)" % (words[:1]))
 elif mode == "daedrasiege":
     for l in [l for l in lines if l.startswith(("Placer:", "Banish:")) or "Daedra" in l][:40]:
         print("        " + l[:220])

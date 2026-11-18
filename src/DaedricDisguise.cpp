@@ -77,7 +77,18 @@ bool IsDaedra(UInt32 actor) {
 	return false;
 }
 
-// The body slots the player's worn Daedric pieces cover.
+// The body slots the player's worn Daedric pieces cover: every armor in his
+// inventory changes (ExtraContainerChanges::Data, its first word the entries'
+// list {EntryData*, next}; an entry's form at +8 - xOBSE GameExtraData.h,
+// OBVR GameAddresses.h kMakeContainerChanges) that is worn, by its model
+// (DaedricDisguiseLogic.h DaedricModelSlots; TESObjectARMO: the biped slots
+// UInt16 at +0x68, the male model's path BSStringT at +0x70 - xOBSE
+// GameForms.h, read 2026-11-18).
+constexpr UInt8 kFormTypeArmor = 0x14;
+constexpr UInt32 kArmorPartMaskOffset = 0x68;
+constexpr UInt32 kArmorMaleModelPathOffset = 0x70;
+constexpr UInt32 kEntryFormOffset = 0x08;
+
 UInt8 WornDaedricSlots() {
 	const UInt32 player = LookupForm(kPlayerRefId);
 	if (!LooksLikeObject(player)) {
@@ -91,15 +102,24 @@ UInt8 WornDaedricSlots() {
 		return 0;
 	}
 	UInt8 slots = 0;
-	for (UInt32 i = 0; i < kDaedricPieceCount; ++i) {
-		const UInt32 item = LookupForm(kDaedricPieces[i].formId);
-		if (!LooksLikeObject(item)) {
+	UInt32 visited = 0;
+	for (UInt32 node = Read(reinterpret_cast<UInt32>(changes)); LooksLikeObject(node) && visited < 1024;
+	     node = Read(node + 4), ++visited) {
+		const UInt32 entry = Read(node);
+		const UInt32 item = LooksLikeObject(entry) ? Read(entry + kEntryFormOffset) : 0;
+		if (!LooksLikeObject(item) || Read8(item + kFormTypeOffset) != kFormTypeArmor) {
+			continue;
+		}
+		const UInt32 path = Read(item + kArmorMaleModelPathOffset);
+		const UInt8 piece = DaedricModelSlots(LooksLikeObject(path) ? reinterpret_cast<const char*>(path) : nullptr,
+		                                      *reinterpret_cast<const UInt16*>(item + kArmorPartMaskOffset));
+		if (piece == 0 || (slots & piece) == piece) {
 			continue;
 		}
 		void* const worn =
 		    reinterpret_cast<FindWornFn>(kFindWornExtraData)(changes, nullptr, reinterpret_cast<void*>(item), 0);
 		if (LooksLikeObject(reinterpret_cast<UInt32>(worn))) {
-			slots |= kDaedricPieces[i].slots;
+			slots |= piece;
 		}
 	}
 	return slots;
@@ -194,8 +214,9 @@ void ConfigureDaedricDisguise(const DaedricSettings* settings, ConsoleFn console
 	g_console = console;
 	g_dead = dead;
 	g_log = log;
-	log("Daedric disguise: [Disguise] Daedric=%d DaedricNearDistance=%.0f DaedricForgetSeconds=%.0f (%u pieces known)",
-	    settings->enabled ? 1 : 0, settings->nearUnits, settings->forgetSeconds, kDaedricPieceCount);
+	log("Daedric disguise: [Disguise] Daedric=%d DaedricNearDistance=%.0f DaedricForgetSeconds=%.0f (the pieces by "
+	    "their model at run time)",
+	    settings->enabled ? 1 : 0, settings->nearUnits, settings->forgetSeconds);
 }
 
 void ConfigureDaedricDisguiseEsp(UInt32 espBase) {

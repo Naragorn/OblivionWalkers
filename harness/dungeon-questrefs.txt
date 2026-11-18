@@ -1,0 +1,31 @@
+# The dungeon pool and the quests' references (docs/walkers-spec.md 4.20.7;
+# Nadi, 2026-11-18: Infinitum's radiant quests work, every place not their
+# target the walkers' or the Daedra's): a reference a quest names counts only
+# while enabled. VampireHuntingInfinitum keeps a disabled VampTownNN in each
+# of its places and enables the one it chooses - the console does it here:
+# VampTown71 (in Fort Horunn, cell 00015E28) enabled, its place leaves the pool within 5 s ("out - ...:
+# VampireRadiantQuest (a target)"), and with tools/dungeon-questrefs.sh's
+# TestSite there an active site there is given up ("given up - a quest uses
+# it now"); disabled again, the place is back in the pool.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at enable "{form:VampireHuntingInfinitum.esp:1645}".enable
+console-at disable "{form:VampireHuntingInfinitum.esp:1645}".disable
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark enable
+wait 10
+mark disable
+wait 10
+mark end
+wait 1

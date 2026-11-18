@@ -31,8 +31,7 @@ def put(text, section, key, value):
     return text[:head.end()] + body + text[stop:]
 for key, value in (("Enabled", "1"), ("TestSite", ""), ("NewPlacesWithin", "60000"), ("LeaveAfterDays", "1"),
                    ("MessengerHours", "0"), ("Journal", "0"),
-                   # one place at a time: with the Linux pool of 11 (80 of the 91 out by a loaded quest,
-                   # 2026-11-16/17) only Veyond Cave lies within 60000 of the player - each new roll must take it
+                   # one place at a time: each new roll must take one of the pool's places within 60000
                    ("ActiveMin", "1"), ("ActiveMax", "1")):
     text = put(text, "Dungeons", key, value)
 open(path, "w", encoding="latin-1", newline="").write(text)
@@ -64,8 +63,17 @@ for n, d in dist:
 gaveUp = [i for i, l in enumerate(lines) if " given up - now " in l]
 check(bool(gaveUp), "places unseen for a day given up (%d)" % len(gaveUp))
 later = [(n, math.hypot(doors[n][0] - px, doors[n][1] - py)) for i, n in rolledAt if gaveUp and i > gaveUp[0] and n in doors]
-inPool = sorted((math.hypot(x - px, y - py), n) for n, (x, y) in doors.items()
-                if not any(("Dungeons: %s (" % n) in l and " out - " in l for l in lines))
+# in the pool unless its last word in the log is "out" (a quest's reference enabled since 2026-11-18:
+# the main menu's look reads the file's flags, the load the save's - "back in the pool")
+def lastOut(n):
+    state = False
+    for l in lines:
+        if l.startswith("Dungeons: %s (" % n) and " out - " in l:
+            state = True
+        elif l.startswith("Dungeons: %s back in the pool" % n):
+            state = False
+    return state
+inPool = sorted((math.hypot(x - px, y - py), n) for n, (x, y) in doors.items() if not lastOut(n))
 near = [n for d, n in inPool if d <= 60000]
 print("        the pool within 60000: %s" % near)
 check(bool(near), "a candidate of the pool lies within NewPlacesWithin=60000 (else the rule rolls anywhere)")

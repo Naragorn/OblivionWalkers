@@ -1,5 +1,7 @@
 #include "Dungeons.h"
 
+#include <memory>
+
 #include <windows.h>
 
 #include <vector>
@@ -27,15 +29,44 @@ using namespace engine;
 namespace {
 
 bool g_inPool[kDungeonCandidateCount] = {};
+bool g_outByQuest[kDungeonCandidateCount] = {};
 bool g_selected = false;
 bool g_onlyChosen = false;
 std::vector<UInt32> g_questCells;
 std::vector<UInt32> g_questRefs;
+std::vector<UInt32> g_questRefCells;
+std::unique_ptr<bool[]> g_questRefEnabled;
+float g_questRefClock = 0.0f;
 DungeonSkips g_skips;
 
 DungeonQuestNames Quests() {
-	return {g_questCells.data(), static_cast<UInt32>(g_questCells.size()), g_questRefs.data(),
-	        static_cast<UInt32>(g_questRefs.size())};
+	DungeonQuestNames q = {g_questCells.data(), static_cast<UInt32>(g_questCells.size()), g_questRefs.data(),
+	                       static_cast<UInt32>(g_questRefs.size())};
+	q.refCells = g_questRefCells.data();
+	q.refEnabled = g_questRefEnabled.get();
+	return q;
+}
+
+// Each named reference enabled now (TESForm flags +0x08, 0x800 disabled -
+// xOBSE kFlags_Disabled); one not found counts as enabled. True when any
+// changed since the last look.
+bool RefreshQuestRefs(LogFn log) {
+	UInt32 changed = 0;
+	UInt32 enabledCount = 0;
+	UInt32 missing = 0;
+	for (UInt32 k = 0; k < g_questRefs.size(); ++k) {
+		const UInt32 ref = LookupForm(g_questRefs[k]);
+		missing += LooksLikeObject(ref) ? 0u : 1u;
+		const bool enabled = !LooksLikeObject(ref) || (Read(ref + 0x08) & 0x00000800) == 0;
+		changed += enabled != g_questRefEnabled[k] ? 1u : 0u;
+		enabledCount += enabled ? 1u : 0u;
+		g_questRefEnabled[k] = enabled;
+	}
+	if (changed > 0 && log != nullptr) {
+		log("Dungeons: the quests' %u named references - %u enabled now (%u not found, counted enabled), %u changed",
+		    static_cast<UInt32>(g_questRefs.size()), enabledCount, missing, changed);
+	}
+	return changed > 0;
 }
 
 const char* ReasonOf(DungeonVerdict v) {
@@ -53,13 +84,43 @@ const char* ReasonOf(DungeonVerdict v) {
 
 // The pool marked; with `each` every one out logged with its reason.
 void Mark(bool each, LogFn log) {
+	bool wasIn[kDungeonCandidateCount];
+	for (UInt32 i = 0; i < kDungeonCandidateCount; ++i) {
+		wasIn[i] = g_inPool[i];
+	}
 	const DungeonPoolCount n =
 	    MarkDungeonPool(kDungeonCandidates, kDungeonCandidateCount, Quests(), g_skips, g_onlyChosen, g_inPool);
-	for (UInt32 i = 0; each && i < kDungeonCandidateCount; ++i) {
+	for (UInt32 i = 0; i < kDungeonCandidateCount; ++i) {
 		const DungeonVerdict v = DungeonInPoolVerdict(kDungeonCandidates[i], Quests(), g_skips, g_onlyChosen);
-		if (v != DungeonVerdict::In && v != DungeonVerdict::NotChosen) {
-			log("Dungeons: %s (%s, cell %08X) out - %s", kDungeonCandidates[i].name,
-			    DungeonKindName(kDungeonCandidates[i].kind), kDungeonCandidates[i].cells[0], ReasonOf(v));
+		g_outByQuest[i] = v == DungeonVerdict::Quest;
+		// a look after the first: what a quest took or gave back (each=false)
+		const bool turned = !each && wasIn[i] != g_inPool[i];
+		if ((each || turned) && v != DungeonVerdict::In && v != DungeonVerdict::NotChosen) {
+			const DungeonCandidate& d = kDungeonCandidates[i];
+			const char* why = nullptr;
+			UInt32 by = 0;
+			for (UInt32 c = 0; why == nullptr && c < d.cellCount && c < kDungeonCellsMost; ++c) {
+				why = d.cells[c] != 0 ? QuestNameWhy(d.cells[c]) : nullptr;
+				by = d.cells[c];
+			}
+			// the named reference that holds it out: enabled, at its door or marker or in one of its cells
+			for (UInt32 k = 0; why == nullptr && k < g_questRefs.size(); ++k) {
+				if (!g_questRefEnabled[k]) {
+					continue;
+				}
+				bool here = g_questRefs[k] == d.door || g_questRefs[k] == d.marker;
+				for (UInt32 c = 0; !here && c < d.cellCount && c < kDungeonCellsMost; ++c) {
+					here = d.cells[c] != 0 && g_questRefCells[k] == d.cells[c];
+				}
+				if (here) {
+					why = QuestNameWhy(g_questRefs[k]);
+					by = g_questRefs[k];
+				}
+			}
+			log("Dungeons: %s (%s, cell %08X) out - %s%s%s (%08X)", d.name, DungeonKindName(d.kind), d.cells[0],
+			    ReasonOf(v), why != nullptr ? ": " : "", why != nullptr ? why : "", by);
+		} else if (turned && g_inPool[i]) {
+			log("Dungeons: %s back in the pool - no quest's reference in it enabled now", kDungeonCandidates[i].name);
 		}
 	}
 	log("Dungeons: %u candidates, %u in the pool (OnlyChosen=%d), %u out by a loaded quest, %u by [Dungeons] Skip "
@@ -77,6 +138,12 @@ void SelectDungeonPool(const char* iniPath, bool onlyChosen, LogFn log) {
 	CollectQuestNames(log);
 	g_questCells = QuestCellIds();
 	g_questRefs = QuestRefIds();
+	g_questRefCells.resize(g_questRefs.size());
+	for (UInt32 k = 0; k < g_questRefs.size(); ++k) {
+		g_questRefCells[k] = QuestRefCell(g_questRefs[k]);
+	}
+	g_questRefEnabled.reset(new bool[g_questRefs.size() + 1]());
+	RefreshQuestRefs(log);
 	char text[kDungeonSkipMost * kDungeonNameMost] = {};
 	if (iniPath != nullptr && iniPath[0] != '\0') {
 		GetPrivateProfileStringA("Dungeons", "Skip", "", text, sizeof text, iniPath);
@@ -87,12 +154,30 @@ void SelectDungeonPool(const char* iniPath, bool onlyChosen, LogFn log) {
 }
 
 void StepDungeonPool(bool onlyChosen, LogFn log) {
-	if (!g_selected || onlyChosen == g_onlyChosen) {
+	if (!g_selected) {
 		return;
 	}
-	g_onlyChosen = onlyChosen;
-	Mark(false, log);
+	if (onlyChosen != g_onlyChosen) {
+		g_onlyChosen = onlyChosen;
+		Mark(false, log);
+	}
 }
+
+void StepDungeonQuestRefs(float dt, LogFn log) {
+	if (!g_selected) {
+		return;
+	}
+	g_questRefClock += dt;
+	if (g_questRefClock < 5.0f) {
+		return;
+	}
+	g_questRefClock = 0.0f;
+	if (RefreshQuestRefs(log)) {
+		Mark(false, log);
+	}
+}
+
+bool DungeonOutByQuest(UInt32 index) { return index < kDungeonCandidateCount && g_outByQuest[index]; }
 
 bool DungeonInPool(UInt32 index) { return index < kDungeonCandidateCount && g_inPool[index]; }
 
@@ -1684,6 +1769,14 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			const bool close =
 			    d.candidate < kDungeonCandidateCount && Closeness(kDungeonCandidates[d.candidate], player) >= 0.0f;
 			const DungeonSite before = d;
+			// A quest uses the place now (its reference there enabled): given up.
+			if (d.candidate < kDungeonCandidateCount && DungeonQuestTakes(d, i, g_outByQuest[d.candidate], close, ev,
+			                                                             kEventsMost) > 0) {
+				log("Dungeons: %s given up - a quest uses it now", kDungeonCandidates[before.candidate].name);
+				LogEvents(ev, 1, before, log);
+				Carry(ev, 1, d, before, log);
+				continue;
+			}
 			const UInt32 n = StepDungeonSite(d, i, *g_siteSettings, now, close, roll, ev, kEventsMost);
 			for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
 				if (ev[k].kind == DungeonEventKind::Attacked && g_invaders != nullptr) {

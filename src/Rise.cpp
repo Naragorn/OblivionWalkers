@@ -3517,6 +3517,7 @@ void Tick() {
 	Timed(4, "spawns", [dt] { StepSpawns(dt); });
 	Timed(5, "dungeons", [dt] {
 		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
+		StepDungeonQuestRefs(dt, g_log);
 		StepDungeonsInGame(dt, g_log);
 	});
 	Timed(6, "night", [dt] { StepNight(dt); });
@@ -3802,8 +3803,12 @@ void OnLoad(void*) {
 			                        ? g_serialization->ReadRecordData(dungeons, length)
 			                        : 0;
 			const bool whole = ReadDungeonImage(CurrentDungeons(), dungeons, read, kDungeonCandidateCountForSave());
-			g_log("Co-save: %u held dungeons read (version %u)%s", CurrentDungeons().count, version,
-			      whole ? "" : " (version or length off: rolled anew)");
+			UInt32 byDaedra = 0;
+			for (UInt32 i = 0; i < CurrentDungeons().count; ++i) {
+				byDaedra += CurrentDungeons().sites[i].daedra ? 1u : 0u;
+			}
+			g_log("Co-save: %u held dungeons read (%u of them the Daedra's side; version %u)%s", CurrentDungeons().count,
+			      byDaedra, version, whole ? "" : " (version or length off: rolled anew)");
 			continue;
 		}
 		if (type == kFameRecordType) {

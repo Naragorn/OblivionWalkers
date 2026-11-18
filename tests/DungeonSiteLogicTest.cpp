@@ -385,6 +385,26 @@ void TestLeft() {
 	Check(st.count == 1 && st.sites[0].state == DungeonState::Refuge, "the free ones dropped from the list");
 }
 
+void TestQuestTakes() {
+	std::printf("A quest takes the place (its reference there enabled; Nadi, 2026-11-18: Infinitum works)\n");
+	DungeonEvent ev[4];
+	DungeonSite d = Refuge(4);
+	Check(walkers::DungeonQuestTakes(d, 2, false, false, ev, 4) == 0 && d.state == DungeonState::Refuge,
+	      "no quest there: stays");
+	Check(walkers::DungeonQuestTakes(d, 2, true, true, ev, 4) == 0 && d.state == DungeonState::Refuge,
+	      "the quest's, but the player close: stays (nothing vanishes before his eyes); looked at again later");
+	const UInt32 n = walkers::DungeonQuestTakes(d, 2, true, false, ev, 4);
+	Check(n == 1 && ev[0].kind == walkers::DungeonEventKind::Left && ev[0].site == 2 && d.state == DungeonState::Free,
+	      "the quest's, the player away: given up, free - its people and walkers taken out as a place left");
+	DungeonSite siege = Refuge(4);
+	siege.state = DungeonState::Besieged;
+	siege.walkersLeft = 20;
+	Check(walkers::DungeonQuestTakes(siege, 0, true, false, ev, 4) == 1 && siege.state == DungeonState::Free,
+	      "a siege too - the quest goes first");
+	DungeonSite free;
+	Check(walkers::DungeonQuestTakes(free, 0, true, false, ev, 4) == 0, "a free site: nothing to give up");
+}
+
 void TestRolledKinds() {
 	std::printf("What each rolled variant starts with\n");
 	const DungeonState kinds[4] = {DungeonState::Refuge, DungeonState::Besieged, DungeonState::ToClear,
@@ -755,6 +775,7 @@ int main() {
 	TestCleared();
 	TestBlocksClearing();
 	TestLeft();
+	TestQuestTakes();
 	TestDaedraOutpost();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

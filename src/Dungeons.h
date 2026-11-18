@@ -28,6 +28,12 @@ void StepDungeonPool(bool onlyChosen, LogFn log);
 // order) is in the pool.
 bool DungeonInPool(UInt32 index);
 
+// Every 5 s: the quests' named references enabled now - a place whose
+// reference a quest enabled leaves the pool (and an active site there is
+// given up), one whose references are all disabled again comes back.
+void StepDungeonQuestRefs(float dt, LogFn log);
+bool DungeonOutByQuest(UInt32 index);
+
 using DungeonRollFn = UInt32 (*)();
 using DungeonConsoleFn = bool (*)(UInt32 ref, const char* line);
 using DungeonDeadFn = bool (*)(UInt32 actor);

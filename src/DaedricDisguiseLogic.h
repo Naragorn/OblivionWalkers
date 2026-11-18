@@ -3,7 +3,9 @@
 // The Daedric disguise, process-free (docs/walkers-spec.md 4.22 idea 7; Nadi,
 // 2026-11-16: "go 7", and once they know the player, "60 s ohne Daedra"):
 // in a full set of Daedric armor - helmet, cuirass, greaves, gauntlets and
-// boots, DaedricArmor.h's pieces - the Daedra take the player for one of
+// boots, any armor whose model lies in a folder named Daedric... (read at
+// run time, DaedricModelSlots - the DLCs' and mods' pieces too; Nadi,
+// 2026-11-18: "mach laufzeit") - the Daedra take the player for one of
 // theirs, until he strikes one or comes within NearDistance. Then they know
 // him; with none of them within kDaedricForgetUnits for ForgetSeconds they
 // forget, and the full set fools them again. Taking a piece off ends it.
@@ -17,7 +19,6 @@
 // own (a gate's) as well as the plugin's. With [Invaders] Mode 3 the walkers
 // stand in DaedraFaction too (Replace.cpp) - they are fooled as well.
 
-#include "DaedricArmor.h"
 #include "Types.h"
 
 namespace walkers {
@@ -45,13 +46,35 @@ enum class DaedricChange : UInt8 { None, Fooled, Struck, TooNear, SetOff, Off };
 
 inline bool FullDaedricSet(UInt8 slots) { return (slots & kDaedricFullSlots) == kDaedricFullSlots; }
 
-// The body slots of a Daedric piece (Oblivion.esm's form ID), 0 for any
-// other armor.
-inline UInt8 DaedricSlotsOf(UInt32 formId) {
-	for (UInt32 i = 0; i < kDaedricPieceCount; ++i) {
-		if (kDaedricPieces[i].formId == formId) {
-			return kDaedricPieces[i].slots;
+// The body slots a worn armor counts for in the set: its biped slots
+// (TESBipedModelForm partMask, 0x01 head .. 0x20 feet; the hair slot and a
+// shield's 0x2000 dropped) when its male model lies in a folder whose name
+// begins with "daedric", any case - Oblivion.esm's Armor\Daedric\ (62
+// pieces read 2026-11-16 by the file table this replaces), the Daedric
+// bracers, a mod's Armor\X\DaedricPlate\. 0 for any other.
+inline UInt8 DaedricModelSlots(const char* path, UInt16 partMask) {
+	if (path == nullptr) {
+		return 0;
+	}
+	static constexpr char kWord[] = "daedric";
+	bool atFolderStart = true;
+	for (const char* p = path; *p != '\0'; ++p) {
+		if (atFolderStart) {
+			UInt32 i = 0;
+			while (kWord[i] != '\0' && p[i] != '\0' && (p[i] | 0x20) == kWord[i]) {
+				++i;
+			}
+			if (kWord[i] == '\0') {
+				// a folder, not the file: a slash follows somewhere in this name
+				for (const char* q = p + i; *q != '\0'; ++q) {
+					if (*q == '\\' || *q == '/') {
+						return static_cast<UInt8>(partMask & kDaedricFullSlots);
+					}
+				}
+				return 0;
+			}
 		}
+		atFolderStart = *p == '\\' || *p == '/';
 	}
 	return 0;
 }

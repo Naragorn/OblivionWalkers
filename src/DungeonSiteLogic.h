@@ -345,6 +345,19 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 	return n;
 }
 
+// A loaded quest uses the place now - a reference it names there enabled
+// (DungeonLogic.h DungeonQuestNames; Nadi, 2026-11-18: Infinitum's radiant
+// quests work, every other place the walkers'): the site is given up as one
+// left, unless the player is close (then it is looked at again later).
+inline UInt32 DungeonQuestTakes(DungeonSite& d, UInt32 i, bool questUsesIt, bool playerClose, DungeonEvent* out,
+                                UInt32 most) {
+	if (!questUsesIt || playerClose || d.state == DungeonState::Free) {
+		return 0;
+	}
+	d = DungeonSite();
+	return dungeon_detail::Put(out, 0, most, DungeonEventKind::Left, i);
+}
+
 // One of site `i`'s people found dead in the game; the last overruns it
 // (the rise raises them - the siege's walkers left stay).
 inline UInt32 DungeonPersonDied(DungeonSite& d, UInt32 i, DungeonEvent* out, UInt32 most) {
