@@ -4198,7 +4198,7 @@ roster line's counts.
   run 20261115-195257, Linux): PASS - camp 07 living, slot 0 put 3000 off
   its spot, the player 9329 off it, "led home" the next second, 15 s later
   0 from its spot. Not seen: a stray of a real fight, the headset.
-- **BUILT 2026-11-14, not run in the game - ended walkers' bodies lay for
+- **BUILT 2026-11-14, seen in the game 2026-11-18 - ended walkers' bodies lay for
   good** (Nadi: "viele walker leichen ... liegen ewig, kostet
   performance"; "go A + B"). `[Corpses]` (CorpseLogic.h): once a second
   over the walkers on the process lists, an ended body made in the game
@@ -4210,6 +4210,13 @@ roster line's counts.
   on the process lists (the count line will say), the frame cost of the
   bodies. In LINK since 2026-11-15 (version 41, "Ended walkers' bodies"):
   Enabled and the two distances; `LogSeconds` stays INI only (a log's).
+  **Seen 2026-11-18** in the logs of ten harness runs of 2026-11-16/17
+  (the camps', the sieges', the Legion's; `artifacts/hand-script/*/`,
+  none made for it): 203 ended walkers taken out at 4001 units and beyond
+  (TakeAwayBeyond 4000), 28 risen ones with their things at 8134 and beyond
+  (8000), each Disable handed to xOBSE (1); and dead walkers do stay on the
+  process lists - the count line read up to 34 ended of 115. Not measured:
+  the frame cost of the bodies.
 
 - **FIX BUILT 2026-11-14, not reproduced at will - the game ended when the
   runner was taken away with his dialogue open** (harness camp-escort
