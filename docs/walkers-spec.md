@@ -3972,8 +3972,8 @@ To change (design):
 - The modes read: 0 no Daedra; 1 the Daedra alone (no walker
   apocalypse); 2 the walkers everywhere and the Daedra out of the gates,
   at war; 3 the same as allies. Superseded the same day by 4.24: the
-  walker apocalypse is a switch of its own, and `[Daedra] Mode` is 0 off,
-  1 at war with the walkers, 2 their allies.
+  walkers are a switch of their own (`[Walkers] Mode`), and `[Daedra]
+  Mode` is 0 off, 1 at war with the walkers, 2 their allies.
 - The early game stays as decided 2026-11-13 (a): no gate open, no
   Daedra.
 
@@ -5546,7 +5546,7 @@ Read and derived for it:
 
   | key | default | what |
   |---|---|---|
-  | `Mode` | 0 | 0 off, 1 on. Alone or beside the apocalypse is `[Walkers] Apocalypse` (4.24) - first written here as Mode 1 beside it, 2 alone |
+  | `Mode` | 0 | 0 off, 1 on. Alone or beside the walkers is `[Walkers] Mode` (4.24) - first written here as Mode 1 beside it, 2 alone |
   | `BossesMin`, `BossesMax` | 3, 5 | how many bosses at the start (rolled in between) |
   | `BandsPerDay` | 1 | a boss's bands a game day, at the middle of BossesMin..BossesMax |
   | `BandSizeMin`, `BandSizeMax` | 4, 9 | a band's walkers (the Daedra bands' defaults) |
@@ -5614,37 +5614,51 @@ Recommended order: B first (it stands on what is built and proven today),
 A after its hit hook is read - the cheapest step to settle A's cost is to
 read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
 
-### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos"; designed, not built)
+### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos", then "a 0 that switches everything off and a 1 that only replaces the existing zombies"; designed, not built)
 
 Until now one key mixed two questions: `[Daedra] Mode` 1 meant "the
 Daedra, and no walkers", and the necromancers' design had "alone" and
-"beside the apocalypse" as two modes. Now each threat is one switch, and
-the walker apocalypse is a switch too:
+"beside the apocalypse" as two modes. Now each source is one switch, the
+walkers too (Nadi, 2026-11-20: a 0 that switches all off, and a 1 that
+only turns the game's zombies into walkers with every walker feature):
 
 | key | values | default |
 |---|---|---|
-| `[Walkers] Apocalypse` | 1 the walkers everywhere: the spawn replacement puts them in, every dead rises, their hordes, sieges, camp attacks and held dungeons. 0 none of it | 1 |
+| `[Walkers] Mode` | 0 off. 1 **only the game's zombies**: the spawn replacement turns the Zombies category alone into walkers - with every walker rule (the head rule, getting up again until the head is off, the grab, the slow aggression, the pace, the nights, the noise, the disguise) and nothing of the apocalypse: the dead do not rise, no hordes, sieges, camp attacks or held dungeons' walkers. 2 **the apocalypse**: every category as set in `[ReplaceCategories]`, every dead rises, the hordes, sieges, camps and held dungeons | 1 |
 | `[Daedra] Mode` | 0 off. 1 the Daedra out of the open gates, enemies of the walkers. 2 the same, allies of the walkers | 0 |
 | `[Necromancers] Mode` | 0 off. 1 the necromancers' realms (4.23 B) | 0 |
 
-Twelve combinations; the defaults are today's mod. **All three at 0 is
-the mod off**: no walkers, no Daedra, no necromancers - the plugin loads
-and does nothing that changes the game.
+Eighteen combinations. **All three at 0 is the mod off**: no walkers, no
+Daedra, no necromancers - the plugin loads and changes nothing in the
+game. The default is the mild one: the game's zombies are walkers, the
+rest the player puts together (Nadi, 2026-11-20: the players should
+choose actively).
 
-| Apocalypse | Daedra | Necromancers | the world |
+An older INI without `[Walkers] Mode` (v0.1.0's) reads it as **2** - the
+apocalypse it had; an update changes nobody's game unasked (proposed,
+mine). A box at the first start to choose was weighed and left out: with
+1 by default something happens at once, and LINK's page "Who comes" is
+the place to choose.
+
+| Walkers | Daedra | Necromancers | the world |
 |---|---|---|---|
-| 1 | 0 | 0 | today's apocalypse (the default) |
-| 1 | 1 / 2 | 0 | walkers everywhere, Daedra out of the gates, at war / allied |
-| 1 | 0 | 1 | walkers everywhere, the necromancers' realms beside them |
-| 1 | 1 / 2 | 1 | all three |
 | 0 | 0 | 0 | **the mod off** |
+| 1 | 0 | 0 | the game's zombies as walkers (the default) |
+| 2 | 0 | 0 | the apocalypse (the mod as it was until 2026-11-20) |
+| 1 or 2 | 1 / 2 | 0 | that, and the Daedra out of the gates, at war / allied |
+| 1 or 2 | 0 | 1 | that, and the necromancers' realms |
+| 1 or 2 | 1 / 2 | 1 | all three |
 | 0 | 1 / 2 | 0 | the Daedra invasion alone; nobody rises |
 | 0 | 0 | 1 | the necromancers alone; the dead rise only near them (4.23 B, 10) |
 | 0 | 1 / 2 | 1 | the necromancers and the Daedra |
 
-With Daedra 1 or 2 and no walkers of any source (Apocalypse 0,
-Necromancers 0), "enemies" or "allies" changes nothing - both mean the
-invasion alone.
+With the walkers at 1 the dead rise only where a necromancer makes them
+(4.23 B, 10) - the zombies' mode raises nobody. With Daedra 1 or 2 and
+no walkers of any source, "enemies" or "allies" changes nothing.
+
+Not read yet for Walkers 1: whether the game places zombies only through
+its leveled lists (then the replacement catches them all) or also as
+actors placed in a cell (those it would not touch today).
 
 What it settles of 4.23 B's gaps (2026-11-20):
 - (a) The necromancers' walkers are there whenever the necromancers are
@@ -5659,10 +5673,12 @@ the necromancer bosses themselves (the game's NPCs) are the Daedra's
 allies with Daedra 2.
 
 What changes in the code (design):
-- `KindLogic.h`: "walkers in play" is `Apocalypse` or a necromancer's
-  realm, not a Daedra mode; `InPlay`, `MayRise`, `ReplacementRuns` ask
-  the three switches. The old Mode 1 is Apocalypse 0 with Daedra 1; the
-  old 2 and 3 are Daedra 1 and 2. No fallback for the old numbers: the
+- `KindLogic.h`: "walkers in play" is `[Walkers] Mode` 1 or 2 or a
+  necromancer's realm, not a Daedra mode; `InPlay`, `MayRise`,
+  `ReplacementRuns` ask the three switches; Walkers 1 limits the
+  replacement to the Zombies category (`CategoryReplaced`) and raises
+  nobody. The old Daedra Mode 1 is Walkers 0 with Daedra 1; the old 2
+  and 3 are Walkers 2 with Daedra 1 and 2. No fallback for the old numbers: the
   section never shipped.
 - Read 2026-11-20: only the replacement (`Replace.cpp`) and the rise
   (`RiseLogic.h` MayRise) ask whether walkers are in play. The sieges, the
@@ -5670,19 +5686,22 @@ What changes in the code (design):
   `ReplacementGroup` (Mode 1 always Daedra, Mode 0 always walkers) and
   never ask whether anyone is in play; the hordes form from the walkers
   that are there and need nothing. So `ReplacementGroup` gets a third
-  answer, nobody (no walkers and no Daedra in play), and each of its three
-  callers starts no siege, attack or attackers on it.
+  answer, nobody (no walkers and no Daedra in play; Walkers 1 counts as
+  no walkers there), and each of its three callers starts no siege,
+  attack or attackers on it.
 - INI and LINK: the new key at the top of a LINK page "Who comes" with the
   other two (LINK version 49, with the gates-only change of 4.22).
 
 Cost: medium, together with 4.22's "only out of the gates" - the
 switches are a few functions' answers in `KindLogic.h`, but five systems
 take them (replacement, rise, sieges, camps, held dungeons).
-Unit flows: the twelve combinations in KindLogicTest (who is in play,
+Unit flows: the eighteen combinations in KindLogicTest (who is in play,
 who rises, does the replacement run, what a gate's band is). Harness: the
-Daedra runs that set Mode 1 for "Daedra alone" set Apocalypse 0 and
-Daedra 1 instead; one run with all three at 0 (the mod off: no
-replacement in the log, nobody rises). Sonnet 5.5 high: plain code over
+Daedra runs that set Mode 1 for "Daedra alone" set Walkers 0 and Daedra
+1 instead, every other run Walkers 2; one run with all three at 0 (the
+mod off: no replacement in the log, nobody rises) and one with Walkers 1
+(only the zombies' entries replaced, a killed bandit stays down, a
+walker gets up again until its head is off). Sonnet 5.5 high: plain code over
 read and tested logic; the risk is a system that starts walkers without
 any of these functions (the nights' extra spawns, the noise) - every
 place that places a walker read first.
