@@ -5837,10 +5837,52 @@ Wege mit eigenen Harness-Läufen prüfen"; 9c8d346, c833add):
   into one group (team 2 followed team 1's leader) - harmless while the
   set-on reach (1500) is the join reach (1500), they fight at once.
 
+**Decided 13 (Nadi, 2026-11-20: "ja Belagerung durch einzelne oder Teams
+des Nekromanten. ein necro kann ja 0-n verbündete haben. diese können sich
+zusammenschließen und belagern. oder einzeln. oder gar nicht.") - BUILT
+2026-11-20 (b8cf71f, 5861680):** a band of a necromancer that reaches a
+city gives him `[Daedra] BandSiegePercent` points there (100 at most,
+fading by `BandSiegeFadePerDay`; NecroLogic.h NecroBandArrived) - his own,
+no longer the gates' shared pressure. Once a game day a city open to a
+siege is besieged by a team by the roll against the sum of its living
+bosses' points there (NecroSiegesDue): those whose bands marched there
+besiege it, each other living ally joins by `[Necromancers]
+SiegeJoinPercent` (default 50, mine; INI and LINK 246, version 52) - alone,
+together or not at all. The siege (SiegeLogic.h BeginNecroSiege) at the
+gate their bands reached, a draw of `[Siege] WalkersMin..WalkersMax` for
+each necromancer; its walkers before the gate carry the team. Co-saves:
+SIEG version 2 (team, how many), NCRO version 3 (the points), each reading
+its older version. Mine: no siege of theirs from the base daily chance -
+only by their bands' points. Harness `necro-harness.sh siege` PASS: two
+allied bosses (Teams=1,1), "team 1 besieges Bruma East Gate - boss 0, boss
+1 (2 of them)", "80 walkers of the necromancers' team 1 (2 of them)", the
+player at the gate: 11-12 "of theirs near", saved and loaded: the siege read
+(version 2), its walkers team 1's again. The first run moved four days on
+and the guards' toll ended the siege before the player came - the harness's
+error. Not rerun with this build: hotspot, allies (stopped on Nadi's word).
+
+**The pool-12 crash, read 2026-11-20 (a fork of this session, objdump and
+the crash logs):** 10 crash logs end at 0x004025D2 - 9 of OBNG's stress and
+profile rides of 13-14 Nov and Walkers' 19:44. The free 12-byte blocks are a
+doubly linked list (+0 prev, +4 next); allocating (0x402480) unlinks the
+head - its next was overwritten after the free (today {0, 6EFEF8A0}, no
+module there). Allocation and free hold the heap lock (EnterCriticalSection
+0xB32B80), so no race in the pool: a write into freed memory by someone
+before. Not found who. Seven of the nine November crashes had the head 2
+below an aligned address (a refcount at +4 decremented on a freed object,
+OBNG's reading); today's is aligned. Walkers' console lines run on the main
+thread under that lock; nothing ties them to it. Next, the cheapest: a
+per-frame check on the main thread that pool 12's head and next lie in the
+pool, logging the first frame it breaks with the plugin's lines of that
+frame; and `necro-harness.sh daedra` ten times with TestFight=daedra and ten
+without. Not done yet.
+
 Not covered by the build so far: the risen near the necromancers are free
-walkers, of no team; with the necromancers alone the held places' sieges
-and walker dungeons are the free walkers' (no team) and no city siege
-comes; [Dungeons] Enabled=0 leaves the realms numbers only.
+walkers, of no team; with the necromancers alone the held places' walker
+dungeons are the free walkers' (no team); [Dungeons] Enabled=0 leaves the
+realms numbers only; with Daedra Mode 2 the player's own summoned Daedra
+probably count as the necromancers' and walkers' allies (IsDaedra: a Daedra
+creature or a Dremora - not measured).
 
 Mine, for the build (not asked; changed on a word): a hotspot holds
 `WalkersMin`..`WalkersMax` walkers, default 16 to 30 (the held walker
