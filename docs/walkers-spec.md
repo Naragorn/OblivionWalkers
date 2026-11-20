@@ -4801,15 +4801,28 @@ roster line's counts.
   medium (the plugin hooks no engine code yet). Not read yet: the disable
   routine's address - xOBSE's GameObjects.cpp names 0x004FBB30 (deepwiki),
   but the bytes there read as a list insert (REA), so that is unverified.
-- **OPEN 2026-11-20 - the held dungeons' first roll after a start uses the
-  menu's pool.** Found by 4.23 B's read 1 (the details there): the pool's
+- **FIXED 2026-11-20 (9bb9acf), harness PASS - the held dungeons' first
+  roll after a start used the menu's pool.** Found by 4.23 B's read 1 (the details there): the pool's
   quest check runs at the main menu, where references have their plugins'
   state, not the save's; the sites roll before the 5 s refresh brings the
   places back (whocomes run 2026-11-20 11:54: rolled with 37 of 91 in the
   pool, then all 91 back; a peer's run 15:13: rolled with 33, then 77).
   So the first roll picks from a third of the places, and can pick a
-  place a running quest needs in the save. Fix: refresh the quests'
-  references and the pool right before FillDungeons. Small; not built.
+  place a running quest needs in the save. And the first step after a
+  load gave a site up by that old pool: a refuge restored from the
+  co-save in a place a quest had used before the load was lost at once.
+  Fix: after a load or a new game the held dungeons neither roll nor
+  give a place up for a quest until a look at the quests' references at
+  least 8 s after it (DungeonLogic.h DungeonPoolSettled - later than one
+  quest script pass, so Infinitum's start has disabled its targets);
+  the log says "the pool settled N s after the load". Runs 2026-11-20:
+  dungeon-settle (new: a refuge saved, VampTown71 enabled, the save
+  loaded) - before the fix the refuge given up right after the load
+  (red, 15:47), with it not (green, 15:50); whocomes apocalypse - the
+  places rolled from 91 of 91 after the settle (red 11:54: from 37);
+  dungeon-questrefs with Fort Horunn and dungeon-sites PASS (dungeon-
+  sites' checker matched the occupants' co-save line as the sites' -
+  fixed).
 
 ## 7b. Open decisions (2026-11-14)
 
@@ -5698,6 +5711,44 @@ defaults are confirmed or changed when B is built.
 Recommended order: B first (it stands on what is built and proven today),
 A after its hit hook is read - the cheapest step to settle A's cost is to
 read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
+
+**B's build (Nadi, 2026-11-20: "go"; steps in this order, each committed
+and pushed with its unit flows, the harness where it shows in the game):**
+
+1. *The realms as numbers* - NecroLogic.h, process-free: the settings and
+   `Teams`, the start (the first home at random, each next among the few
+   free places farthest from those taken - read 3), the pace shared by the
+   living (decided 3, 9), a band due per boss, a new place due (the
+   nearest free one in his share - read 3), a boss's fall, the last fall
+   and `ComeBack`, the co-save image. Unit flows only.
+2. *The switch* - `[Necromancers]` in the INI, LINK and the start's log
+   line; onboarding page 4 and the summary's line (4.24a).
+3. *A hotspot in the game* - a realm's place is a held dungeon's site of
+   its own (a walker dungeon with a necromancer as its boss: the outpost's
+   way, 4.22a 5c, with LL1NecromancerBoss100 0004B949 at a home and
+   LL1Necromancer100 00034092 as an under-boss), outside the held places'
+   count, never left for being unseen; its boss down - the realm stops;
+   cleared - a refuge kept (decided 7). Harness: a home placed near the
+   player (a test key), the boss and walkers there, killall, the refuge.
+4. *Bands out of the realms* - toward the nearest city as the gates'
+   bands (4.22 step 3), walker bands of the boss's team; far as numbers,
+   near as actors. Harness: a band out of a test home reaches the player.
+5. *Teams* - a team a reference in the plugin (read 2), `StartCombat`
+   between enemy teams' walkers near, allies and the own boss left alone,
+   with Daedra 2 the bosses kept from the Daedra (`StopCombat`, decided
+   12); enemy bands far away fight as numbers. Harness: two teams' bands
+   meeting near a Daedra band.
+6. *The rise near them* - with `[Walkers] Mode` 0 or 1 the dead rise only
+   within `RiseWithin` of a realm's door or where a team's band killed
+   (decided 10). Harness: a kill near a home rises, one far stays down.
+7. *Told* - news, rumors and the journal name the nearest hotspot (as the
+   held places, 4.20.7a A).
+
+Mine, for the build (not asked; changed on a word): a hotspot holds
+`WalkersMin`..`WalkersMax` walkers, default 16 to 30 (the held walker
+dungeons' 8 to 16 doubled - "full of walkers"); a boss holds `RealmMost`
+places at most, default 6 with his home (the share of read 3 is 12 to 20;
+6 leaves room for the refuges).
 
 ### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos", then "a 0 that switches everything off and a 1 that only replaces the existing zombies"; BUILT 2026-11-20 for Walkers and Daedra; seen in the game 2026-11-20: whocomes zombies, apocalypse, off PASS, both modes filmed; the necromancers' switch waits for 4.23 B)
 

@@ -26,8 +26,9 @@ def check(ok, what):
     failures += 0 if ok else 1
 
 ev = [l for l in lines if l.startswith("Dungeons: site ")]
-reads = [l for l in lines if l.startswith("Co-save: ") and "held dungeons read" in l]
-writes = [l for l in lines if l.startswith("Co-save: ") and "held dungeons written" in l]
+# "Co-save: N held dungeons read/written" - not the occupants' line ("... taken out of held dungeons read")
+reads = [l for l in lines if re.match(r"Co-save: \d+ held dungeons read", l)]
+writes = [l for l in lines if re.match(r"Co-save: \d+ held dungeons written", l)]
 rolled = [l for l in ev if " rolled - now " in l]
 check(len(rolled) >= 3, f"three or more places rolled ({len(rolled)})")
 written = int(re.search(r"Co-save: (\d+) held", writes[0]).group(1)) if writes else -1

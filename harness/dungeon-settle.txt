@@ -1,0 +1,40 @@
+# The held dungeons after a load (docs/walkers-spec.md 7a, 2026-11-20): the
+# pool must settle before a place rolls or gives way to a quest. Run by
+# tools/dungeon-settle.sh: [Dungeons] TestSite=Fort Horunn (a refuge).
+# VampireHuntingInfinitum keeps a disabled VampTownNN in each of its places;
+# VampTown71 stands in Fort Horunn (cell 00015E28, see dungeon-questrefs.txt).
+#
+# The refuge stands, the game is saved with VampTown71 disabled, then the
+# console enables it: Fort Horunn leaves the pool and the refuge is given up
+# (right - a quest uses it). The save is loaded: in it VampTown71 is
+# disabled and the refuge stands again (the co-save). Before the fix the
+# first step after the load judged the place by the pool from before the
+# load and gave the refuge up at once ("given up - a quest uses it now"
+# after the load); with the fix nothing is given up before the pool has
+# settled ("the pool settled ... after the load"), and the settled pool has
+# Fort Horunn back.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at saved save WalkersSettleTest
+console-at enable "{form:VampireHuntingInfinitum.esp:1645}".enable
+console-at reload load WalkersSettleTest
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 20
+mark saved
+wait 6
+mark enable
+wait 12
+mark reload
+wait 30
+mark end
+wait 1
