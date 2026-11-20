@@ -5747,10 +5747,23 @@ and pushed with its unit flows, the harness where it shows in the game):**
    held places, 4.20.7a A).
 
 Progress (2026-11-20): steps 1-6 built and committed (47ad572, 97201c7,
-7cea85c + b70da06, cb62d70 onboarding page 4, e3c1416, e4fff04, 7318ba3),
-unit flows green (50 tests); none of 3-6 run in the game yet - their
-harness runs (tools/necro-harness.sh hotspot, band, teams, rise) wait for a
-slot on the Linux game. Step 7 not begun. Not covered by the build so far:
+7cea85c + b70da06, cb62d70 onboarding page 4, e3c1416, e4fff04, 7318ba3,
+f0fda57), unit flows green (50 tests), deployed to both games
+([Necromancers] Mode=0 by default). Harness runs 2026-11-20 on Linux,
+headless, all PASS (tools/necro-harness.sh): hotspot - boss 0 rose at
+Toadstool Hollow, the pool's 4 walkers and the necromancer (0004B947)
+placed inside, his chest (00037542) at his feet, killall: he fell, the
+realm stopped, the last fall set a comeback, the place taken - a refuge
+won; band - a band of 3 near the player placed as the gates' bands are, no
+leader (the first run placed 15 for 3: the variant list 0805 gives up to
+MaxCount a pick - now WalkersAnyWalker 094A, one a pick); teams - two
+bands of teams 1 and 2: the engine had them fight each other at once (4 to
+5 "fight an enemy team's" a look, the six down to two) - the plugin's
+StartCombat was not needed, so that path is not seen in the game; no
+ally fought an ally, so the StopCombat path is not seen either; rise - a
+bandit killed before Toadstool Hollow's door waits to rise, one killed at
+Abandoned Mine's (some 200000 units off) stays down. Regression with the
+final DLL: whocomes apocalypse, dungeon-settle PASS. Step 7 not begun. Not covered by the build so far:
 a Daedra that fights a necromancer is not stopped (only he lets go); the
 risen near the necromancers are free walkers, of no team; with the
 necromancers alone the held places' sieges and walker dungeons are the
