@@ -99,7 +99,9 @@ print("  roster " + counted[:240])
 # the bases on the roster (MOO rewrites LL0Goblin100 to its own goblins,
 # so a goblin is any base that is neither a walker, a game zombie nor the bandit)
 bases = re.findall(r"\b([0-9A-F]{8}) x\d+", counted)
-zombies = ("00025E6E", "00025E5E", "00025E55", "00025E4F")
+# the game's zombies: Oblivion.esm's four and MOO's (it rewrites LL0ZombieVariant;
+# seen 2026-11-20 in the mod-off run: 2310B240, 2310B242, 2310B246)
+zombies = ("00025E6E", "00025E5E", "00025E55", "00025E4F", "2310B240", "2310B242", "2310B246")
 walker = lambda b: re.match(r"2B000[89A][0-9A-F]{2}$", b) is not None
 has_zombie = any(b in zombies for b in bases)
 has_walker = any(walker(b) for b in bases)
