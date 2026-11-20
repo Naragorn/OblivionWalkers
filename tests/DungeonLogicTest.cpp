@@ -141,6 +141,19 @@ void TestPool() {
 	Check(!in[0] && count.quest == 1 && count.notChosen == 1, "OnlyChosen=1 and the chosen one a quest's: out, the quest the reason");
 }
 
+void TestPoolSettles() {
+	std::printf("The pool after a load (spec 7a, 2026-11-20)\n");
+	using walkers::DungeonPoolSettled;
+	using walkers::kPoolSettleSeconds;
+	Check(!DungeonPoolSettled(false, 0.0f), "the look at the load (the menu's flags): not settled");
+	Check(!DungeonPoolSettled(false, 5.0f), "the first look 5 s after: not yet - a quest's first pass may still change its references");
+	Check(!DungeonPoolSettled(false, kPoolSettleSeconds - 0.1f), "just before the settle time: not yet");
+	Check(DungeonPoolSettled(false, kPoolSettleSeconds), "a look at the settle time: settled");
+	Check(DungeonPoolSettled(false, 10.0f), "the look 10 s after: settled");
+	Check(DungeonPoolSettled(true, 0.0f), "once settled it stays so until the next load");
+	Check(kPoolSettleSeconds > 5.0f, "later than one quest script pass (fQuestDelayTime 5 s)");
+}
+
 void TestKindNames() {
 	std::printf("The kinds' names\n");
 	Check(std::strcmp(walkers::DungeonKindName(DungeonKind::Cave), "cave") == 0, "cave");
@@ -155,6 +168,7 @@ int main() {
 	TestSkipList();
 	TestOut();
 	TestPool();
+	TestPoolSettles();
 	TestKindNames();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

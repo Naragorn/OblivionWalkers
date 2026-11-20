@@ -37,6 +37,10 @@ std::vector<UInt32> g_questRefs;
 std::vector<UInt32> g_questRefCells;
 std::unique_ptr<bool[]> g_questRefEnabled;
 float g_questRefClock = 0.0f;
+// Since the last load or new game; the pool settled by a look after
+// kPoolSettleSeconds (DungeonLogic.h DungeonPoolSettled).
+float g_sinceLoad = 0.0f;
+bool g_poolSettled = false;
 DungeonSkips g_skips;
 
 DungeonQuestNames Quests() {
@@ -168,12 +172,23 @@ void StepDungeonQuestRefs(float dt, LogFn log) {
 		return;
 	}
 	g_questRefClock += dt;
+	g_sinceLoad += dt;
 	if (g_questRefClock < 5.0f) {
 		return;
 	}
 	g_questRefClock = 0.0f;
 	if (RefreshQuestRefs(log)) {
 		Mark(false, log);
+	}
+	if (!g_poolSettled && DungeonPoolSettled(false, g_sinceLoad)) {
+		g_poolSettled = true;
+		UInt32 in = 0;
+		for (UInt32 i = 0; i < kDungeonCandidateCount; ++i) {
+			in += g_inPool[i] ? 1u : 0u;
+		}
+		log("Dungeons: the pool settled %.1f s after the load - %u of %u in it; from now the places roll and give way "
+		    "to quests",
+		    g_sinceLoad, in, kDungeonCandidateCount);
 	}
 }
 
@@ -1671,6 +1686,10 @@ UInt32 kDungeonCandidateCountForSave() { return kDungeonCandidateCount; }
 
 void ResetDungeonsInGame() {
 	g_sites = DungeonSitesState{};
+	// The pool looked at anew after the load before a place rolls or gives way.
+	g_sinceLoad = 0.0f;
+	g_questRefClock = 0.0f;
+	g_poolSettled = false;
 	g_occupants.count = 0;
 	g_occupantsFullLogged = false;
 	// The first step at once; the kit wherever the save holds it: every slot
@@ -1771,9 +1790,10 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			const bool close =
 			    d.candidate < kDungeonCandidateCount && Closeness(kDungeonCandidates[d.candidate], player) >= 0.0f;
 			const DungeonSite before = d;
-			// A quest uses the place now (its reference there enabled): given up.
-			if (d.candidate < kDungeonCandidateCount && DungeonQuestTakes(d, i, g_outByQuest[d.candidate], close, ev,
-			                                                             kEventsMost) > 0) {
+			// A quest uses the place now (its reference there enabled): given up -
+			// once the pool has settled after the load (DungeonPoolSettled).
+			if (d.candidate < kDungeonCandidateCount &&
+			    DungeonQuestTakes(d, i, g_poolSettled && g_outByQuest[d.candidate], close, ev, kEventsMost) > 0) {
 				log("Dungeons: %s given up - a quest uses it now", kDungeonCandidates[before.candidate].name);
 				LogEvents(ev, 1, before, log);
 				Carry(ev, 1, d, before, log);
@@ -1791,8 +1811,11 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			Carry(ev, n, d, before, log);
 		}
 		DropFreeSites(g_sites);
-		const UInt32 n = FillDungeons(g_sites, *g_siteSettings, kDungeonCandidates, kDungeonCandidateCount, g_inPool,
-		                              now, roll, ev, kEventsMost, g_playerX, g_playerY, g_playerKnown);
+		// New places only from a pool that has settled after the load.
+		const UInt32 n = g_poolSettled ? FillDungeons(g_sites, *g_siteSettings, kDungeonCandidates,
+		                                              kDungeonCandidateCount, g_inPool, now, roll, ev, kEventsMost,
+		                                              g_playerX, g_playerY, g_playerKnown)
+		                               : 0u;
 		for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
 			DungeonSite& rolled = g_sites.sites[ev[k].site];
 			if (ev[k].kind == DungeonEventKind::Rolled && g_invaders != nullptr) {

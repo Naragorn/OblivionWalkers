@@ -225,4 +225,16 @@ inline DungeonPoolCount MarkDungeonPool(const DungeonCandidate* all, UInt32 coun
 	return n;
 }
 
+// The pool after a load (docs/walkers-spec.md 7a, 2026-11-20): the first look
+// is the main menu's, every reference with its plugin's flags, not the
+// save's; and a quest's script may change its references in its first pass
+// after the load (InfinitumCompendium's start disables its 100 Worm Cult
+// targets, measured in the whocomes runs). Until a look at least
+// kPoolSettleSeconds after the load the held dungeons neither roll a place
+// nor give one up for a quest (Dungeons.cpp StepDungeonsInGame).
+inline constexpr float kPoolSettleSeconds = 8.0f;
+inline bool DungeonPoolSettled(bool settled, float secondsSinceLoad) {
+	return settled || secondsSinceLoad >= kPoolSettleSeconds;
+}
+
 }  // namespace walkers
