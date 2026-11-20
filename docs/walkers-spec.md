@@ -5634,9 +5634,8 @@ game. The default is the mild one: the game's zombies are walkers, the
 rest the player puts together (Nadi, 2026-11-20: the players should
 choose actively).
 
-An older INI without `[Walkers] Mode` (v0.1.0's) reads it as **2** - the
-apocalypse it had; an update changes nobody's game unasked (proposed,
-mine). A box at the first start to choose was weighed and left out: with
+No fallback for an older INI (Nadi, 2026-11-20: nobody has the mod): an
+INI without `[Walkers] Mode` takes the default, 1. A box at the first start to choose was weighed and left out: with
 1 by default something happens at once, and LINK's page "Who comes" is
 the place to choose.
 
