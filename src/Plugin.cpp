@@ -445,13 +445,14 @@ bool ReadSettings(walkers::Settings* settings) {
 		n.walkersMin = necroWhole("WalkersMin", 16, 1, 60);
 		n.walkersMax = std::max(n.walkersMin, necroWhole("WalkersMax", 30, 1, 60));
 		n.realmMost = necroWhole("RealmMost", 6, 1, 20);
+		IniString("Necromancers", "TestHome", "", rise.necroTestHome, sizeof(rise.necroTestHome), path);
 		Log("Settings from %s: [Necromancers] Mode=%d BossesMin=%u BossesMax=%u BandsPerDay=%.2f BandSizeMin=%u "
 		    "BandSizeMax=%u NewPlaceEveryDays=%.1f Teams=%u,%u,%u,%u,%u ComeBack=%d ComeBackDays=%.1f PaceByLiving=%d "
-		    "RiseWithin=%.0f WalkersMin=%u WalkersMax=%u RealmMost=%u",
+		    "RiseWithin=%.0f WalkersMin=%u WalkersMax=%u RealmMost=%u TestHome=%s",
 		    path, rise.invaders.necromancers ? 1 : 0, n.bossesMin, n.bossesMax, n.bandsPerDay, n.bandSizeMin,
 		    n.bandSizeMax, n.newPlaceEveryDays, n.teams[0], n.teams[1], n.teams[2], n.teams[3], n.teams[4],
 		    n.comeBack ? 1 : 0, n.comeBackDays, n.paceByLiving ? 1 : 0, n.riseWithin, n.walkersMin, n.walkersMax,
-		    n.realmMost);
+		    n.realmMost, rise.necroTestHome);
 	}
 	camps.testEscort = IniInt("Survivors", "TestEscort", -1, path);
 	camps.testEscortBehind = IniInt("Survivors", "TestEscortBehind", 0, path) != 0;

@@ -16,6 +16,7 @@
 #include "News.h"
 #include "SoundLogic.h"
 #include "Pose.h"
+#include "Necro.h"
 #include "Onboarding.h"
 #include "QuestVars.h"
 #include "SamplerLogic.h"
@@ -2899,7 +2900,8 @@ void RefreshSides() {
 	g_campsNow = g_settings.camps;
 	g_campsNow.enabled = g_campsNow.enabled && SidesExist(g_invadersNow);
 	g_dungeonsNow = g_settings.dungeons;
-	g_dungeonsNow.enabled = g_dungeonsNow.enabled && SidesExist(g_invadersNow);
+	// the necromancers' places are held dungeons' sites (4.23 B step 3)
+	g_dungeonsNow.enabled = g_dungeonsNow.enabled && (SidesExist(g_invadersNow) || g_invadersNow.necromancers);
 }
 
 bool MainQuestDone() {
@@ -3590,6 +3592,7 @@ void Tick() {
 		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
 		StepDungeonQuestRefs(dt, g_log);
 		StepDungeonsInGame(dt, g_log);
+		StepNecroInGame(dt, g_log);
 	});
 	Timed(6, "night", [dt] { StepNight(dt); });
 	Timed(7, "walkers", [dt] { StepWalkers(dt); });
@@ -3694,6 +3697,11 @@ void OnSave(void*) {
 	const bool occupantsWritten =
 	    g_serialization->OpenRecord(kDungeonOccupantRecordType, kDungeonOccupantRecordVersion) &&
 	    g_serialization->WriteRecordData(occupants, occupantsLength);
+	UInt8 necro[kNecroImageBytes];
+	const UInt32 necroLength = NecroImage(CurrentNecro(), necro, sizeof(necro));
+	const bool necroWritten = g_serialization->OpenRecord(kNecroRecordType, kNecroRecordVersion) &&
+	                          g_serialization->WriteRecordData(necro, necroLength);
+	g_log("Co-save: %u necromancers' bosses %s", CurrentNecro().count, necroWritten ? "written" : "could not be written");
 	g_log("Co-save: %u held dungeons %s, %u occupants taken out of them %s", CurrentDungeons().count,
 	      dungeonsWritten ? "written" : "could not be written", CurrentDungeonOccupants().count,
 	      occupantsWritten ? "written" : "could not be written");
@@ -3755,6 +3763,7 @@ void OnLoad(void*) {
 	CurrentCamps() = CampsState{};
 	ResetCampsInGame();
 	ResetDungeonsInGame();
+	ResetNecroInGame();
 	ResetDisguise();
 	ResetOnboarding();
 	ResetDaedricDisguise();
@@ -3872,6 +3881,16 @@ void OnLoad(void*) {
 			      CurrentDungeonOccupants().count, version, whole ? "" : " (version or length off: none)");
 			continue;
 		}
+		if (type == kNecroRecordType) {
+			UInt8 necro[kNecroImageBytes];
+			const UInt32 read = version == kNecroRecordVersion && length <= sizeof(necro)
+			                        ? g_serialization->ReadRecordData(necro, length)
+			                        : 0;
+			const bool whole = ReadNecroImage(CurrentNecro(), necro, read, kDungeonCandidateCountForSave());
+			g_log("Co-save: %u necromancers' bosses read, %u of them alive (version %u)%s", CurrentNecro().count,
+			      NecroAlive(CurrentNecro()), version, whole ? "" : " (version or length off: a new set rises)");
+			continue;
+		}
 		if (type == kDungeonRecordType) {
 			UInt8 dungeons[kDungeonImageBytes];
 			const UInt32 read = version == kDungeonRecordVersion && length <= sizeof(dungeons)
@@ -3951,6 +3970,7 @@ void OnNewGame(void*) {
 	CurrentCamps() = CampsState{};
 	ResetCampsInGame();
 	ResetDungeonsInGame();
+	ResetNecroInGame();
 	ResetDisguise();
 	ResetOnboarding();
 	ResetDaedricDisguise();
@@ -4064,6 +4084,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureDungeonsInvaders(&g_invadersNow);
 	ConfigureDungeons(&g_dungeonsNow, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
+	ConfigureNecro(&g_settings.necro, &g_invadersNow, &NextRandom, g_settings.necroTestHome, log);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);
 	ConfigureOnboarding(&g_settings.onboarding, g_iniPath, &ConsoleOn, &ApplyOnboardingChoice, log);

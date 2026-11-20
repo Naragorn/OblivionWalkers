@@ -83,6 +83,21 @@ DungeonSitesState& CurrentDungeons();
 DungeonOccupants& CurrentDungeonOccupants();
 // At a load and a new game: the sites emptied (the co-save fills them again).
 void ResetDungeonsInGame();
+// 4.23 B step 3, for Necro.cpp: whether the pool has settled after the load
+// (DungeonLogic.h DungeonPoolSettled); the places a necromancer may take - in
+// the pool, no site there (`free` takes kDungeonCandidateCount); a realm's
+// place added (false: no slot free or a site holds it); a candidate's name.
+bool DungeonPoolSettledNow();
+void DungeonFreePlaces(bool* free);
+bool AddNecroPlace(UInt32 candidate, UInt32 boss, UInt32 walkers, float now);
+const char* DungeonCandidateName(UInt32 candidate);
+// What the dungeons tell the realms: a home's necromancer fell; a realm's
+// place cleared (won) or given up; whether a place is boss `boss`'s home.
+using NecroBossFellFn = void (*)(UInt32 boss, UInt32 candidate);
+using NecroPlaceGoneFn = void (*)(UInt32 boss, UInt32 candidate, bool won);
+using NecroIsHomeFn = bool (*)(UInt32 boss, UInt32 candidate);
+void ConfigureDungeonsNecro(NecroBossFellFn fell, NecroPlaceGoneFn gone, NecroIsHomeFn isHome);
+
 // The candidates' count of this build (a co-save's site past it is dropped).
 UInt32 kDungeonCandidateCountForSave();
 

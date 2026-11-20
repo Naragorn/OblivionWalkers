@@ -237,6 +237,7 @@ struct RiseSettings {
 	OnboardingSettings onboarding;
 	// [Necromancers] but Mode (4.23 B, NecroLogic.h; Mode is invaders.necromancers).
 	NecroSettings necro;
+	char necroTestHome[48] = {};  // [Necromancers] TestHome (INI only, a test switch; Necro.h)
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

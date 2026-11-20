@@ -353,6 +353,17 @@ void TestImage() {
 	Check(walkers::NecroImage(st, image, 4) == 0, "no room: nothing written");
 }
 
+void TestBossActors() {
+	std::printf("The bosses and their chest\n");
+	Check(walkers::NecroBossActor(true, 0) == 0x0004B946 && walkers::NecroBossActor(true, 7) == 0x0004B948,
+	      "at a home: one of LL1NecromancerBoss100's four by the roll");
+	Check(walkers::NecroBossActor(false, 4) == 0x0001E5E5 && walkers::NecroBossActor(false, 19) == 0x00069ADD,
+	      "at a place he took: one of LL1Necromancer100's ten");
+	Check(walkers::NecroBossChest(DungeonKind::Ayleid) == 0x0003753F && walkers::NecroBossChest(DungeonKind::Fort) == 0x00037542 &&
+	          walkers::NecroBossChest(DungeonKind::Cave) == 0x00037542,
+	      "the chest: the Ayleid one in a ruin, the fort's elsewhere");
+}
+
 void TestWalkers() {
 	std::printf("A hotspot's walkers\n");
 	NecroSettings s;  // 16..30
@@ -375,6 +386,7 @@ int main() {
 	TestPlaces();
 	TestImage();
 	TestWalkers();
+	TestBossActors();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

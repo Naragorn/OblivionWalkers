@@ -159,6 +159,24 @@ inline float NecroNewPlaceDays(const NecroSettings& s, const NecroState& st) {
 	           : s.newPlaceEveryDays * static_cast<float>(share) / middle;
 }
 
+// The boss of a realm's place (step 3), as an actor - the outpost's way
+// (KindLogic.h OutpostBossActor; MOO may rewrite the lists): at a home one of
+// Oblivion.esm's LL1NecromancerBoss100 (0004B949), at a place he took one of
+// LL1Necromancer100 (00034092), his under-boss. Read off Oblivion.esm
+// 2026-11-20.
+inline constexpr UInt32 kNecroBossActors[] = {0x0004B946, 0x0004B945, 0x0004B947, 0x0004B948};
+inline constexpr UInt32 kNecroUnderBossActors[] = {0x0004B939, 0x0004B93A, 0x0004B93B, 0x0004B93C, 0x0001E5E5,
+                                                   0x0004B936, 0x0004B937, 0x0004B938, 0x00069ADC, 0x00069ADD};
+inline UInt32 NecroBossActor(bool home, UInt32 roll) {
+	return home ? kNecroBossActors[roll % (sizeof(kNecroBossActors) / sizeof(kNecroBossActors[0]))]
+	            : kNecroUnderBossActors[roll % (sizeof(kNecroUnderBossActors) / sizeof(kNecroUnderBossActors[0]))];
+}
+
+// The chest at a home's boss (the outpost's chest, 4.22a 5c): the game's own
+// necromancer boss chests, the Ayleid one in a ruin (DungNecroBossChestAlyied01
+// 0003753F), else the fort's (DungNecroBossChestFort 00037542).
+inline UInt32 NecroBossChest(DungeonKind kind) { return kind == DungeonKind::Ayleid ? 0x0003753Fu : 0x00037542u; }
+
 inline UInt32 NecroHotspotWalkers(const NecroSettings& s, UInt32 roll) {
 	return dungeon_detail::Between(s.walkersMin, s.walkersMax, roll);
 }

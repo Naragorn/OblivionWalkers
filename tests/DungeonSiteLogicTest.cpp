@@ -139,7 +139,7 @@ void TestFill() {
 	Check(walkers::ActiveTarget(range, 9) == 3, "the most below the least: the least");
 	range.activeMin = 50;
 	range.activeMax = 50;
-	Check(walkers::ActiveTarget(range, 0) == walkers::kDungeonActiveMost, "held to the most there can be");
+	Check(walkers::ActiveTarget(range, 0) == walkers::kDungeonHeldMost, "held to the most held places there can be (8)");
 }
 
 DungeonSite Refuge(UInt8 people) {
@@ -691,6 +691,83 @@ void TestImage() {
 
 }  // namespace
 
+// The necromancers' places (4.23 B step 3): a realm's place is a walker
+// dungeon with a necromancer as its boss, outside the held places' count.
+void TestNecroPlaces() {
+	std::printf("The necromancers' places\n");
+	DungeonSiteSettings s;
+	s.activeMin = 1;
+	s.activeMax = 1;
+	s.leaveAfterDays = 7.0f;
+	DungeonSitesState st;
+	st.sites[0] = walkers::NecroPlace(0, 2, 20, 1.0f);
+	st.count = 1;
+	const DungeonSite& n = st.sites[0];
+	Check(n.state == DungeonState::WalkerDungeon && n.necro == 3 && n.walkersLeft == 20 && !n.daedra && n.lastSeen == 1.0f,
+	      "a walker dungeon of boss 2 (necro 3), its walkers, not the Daedra's");
+	Check(walkers::IsNecroPlace(n) && walkers::HasBoss(n) && !walkers::IsOutpost(n), "it has a boss; no outpost");
+	Check(walkers::HeldCount(st) == 0, "not one of the held places");
+	bool in[kCount] = {true, true, true, true, true, true};
+	const UInt32 zero[] = {0};
+	Rolls none{zero, 1};
+	DungeonEvent ev[8];
+	const UInt32 rolled = walkers::FillDungeons(st, s, kAll, kCount, in, 1.0f, none, ev, 8);
+	Check(rolled == 1 && st.count == 2 && walkers::HeldCount(st) == 1 && st.sites[1].candidate != 0,
+	      "the held places still roll their own beside it, never at its place");
+	DungeonSite away = walkers::NecroPlace(1, 0, 9, 0.0f);
+	Check(walkers::StepDungeonSite(away, 0, s, 30.0f, false, none, ev, 8) == 0 && away.state == DungeonState::WalkerDungeon,
+	      "unseen for 30 days: it stays (only a held place is given up)");
+	DungeonSite place = walkers::NecroPlace(1, 0, 1, 0.0f);
+	Check(walkers::DungeonWalkerEnded(place, 0, s, none, ev, 8) == 0 && place.state == DungeonState::WalkerDungeon,
+	      "its last walker ended, its boss alive: not cleared");
+	Check(walkers::OutpostBossFell(place, 0, s, none, ev, 8) == 1 && ev[0].kind == walkers::DungeonEventKind::Taken,
+	      "its boss falls: cleared and taken");
+	Check(place.state == DungeonState::Refuge && place.necro == 0 && place.won && place.people > 0,
+	      "a refuge now, nobody's realm, won");
+	DungeonSitesState held;
+	held.sites[0] = place;
+	held.count = 1;
+	Check(walkers::HeldCount(held) == 0, "a refuge won stands beyond ActiveMax: not counted");
+	DungeonSite kept = place;
+	kept.lastSeen = 0.0f;
+	kept.dayFrom = 0.0f;
+	s.attackChancePercent = 0;
+	Check(walkers::StepDungeonSite(kept, 0, s, 30.0f, false, none, ev, 8) == 0 && kept.state == DungeonState::Refuge,
+	      "a refuge won is a refuge kept: never given up unseen");
+	DungeonSite underBoss = walkers::NecroPlace(4, 1, 2, 0.0f);
+	walkers::OutpostBossFell(underBoss, 0, s, none, ev, 8);
+	Check(underBoss.bossDown && underBoss.state == DungeonState::WalkerDungeon && underBoss.necro == 2,
+	      "its boss down with walkers left: still the realm's, its walkers to end");
+	DungeonSitesState img;
+	img.count = 2;
+	img.sites[0] = walkers::NecroPlace(5, 4, 30, 2.0f);
+	img.sites[0].bossDown = true;
+	img.sites[1] = place;
+	UInt8 image[walkers::kDungeonImageBytes];
+	const UInt32 bytes = walkers::DungeonImage(img, image, sizeof image);
+	DungeonSitesState back;
+	Check(walkers::ReadDungeonImage(back, image, bytes, 100) && back.sites[0].necro == 5 && back.sites[0].bossDown &&
+	          back.sites[0].walkersLeft == 30 && back.sites[1].won && back.sites[1].necro == 0,
+	      "the co-save keeps whose place it is and a refuge won");
+	DungeonSitesState many;
+	for (UInt32 k = 0; k < walkers::kDungeonActiveMost; ++k) {
+		many.sites[k] = walkers::NecroPlace(static_cast<UInt16>(k % kCount), k % 5, 3, 0.0f);
+	}
+	many.count = walkers::kDungeonActiveMost;
+	Check(walkers::FillDungeons(many, s, kAll, kCount, in, 1.0f, none, ev, 8) == 0 && many.count == walkers::kDungeonActiveMost,
+	      "every slot taken: nothing rolled, nothing past the end");
+	UInt8 old[8 + 8 * walkers::kDungeonSiteBytes] = {};
+	walkers::Put32(old, 3);
+	walkers::Put32(old + 4, 1);
+	old[8] = 2;  // candidate 2
+	old[10] = static_cast<UInt8>(DungeonState::Refuge);
+	old[12] = 4;  // people
+	DungeonSitesState v1;
+	Check(walkers::ReadDungeonImage(v1, old, sizeof old, 100) && v1.count == 1 && v1.sites[0].people == 4 &&
+	          v1.sites[0].necro == 0 && !v1.sites[0].won,
+	      "a save of before (eight slots): read, nobody's realm");
+}
+
 void TestDaedraOutpost() {
 	std::printf("Daedra at a held place (4.22a step 5c)\n");
 	walkers::InvaderSettings inv;
@@ -789,6 +866,7 @@ int main() {
 	TestLeft();
 	TestQuestTakes();
 	TestDaedraOutpost();
+	TestNecroPlaces();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

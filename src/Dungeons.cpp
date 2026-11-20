@@ -16,6 +16,7 @@
 #include "DungeonCandidates.h"
 #include "DungeonKitLogic.h"
 #include "DungeonNoticeLogic.h"
+#include "NecroLogic.h"
 #include "Engine.h"
 #include "Horde.h"
 #include "News.h"
@@ -325,6 +326,20 @@ bool g_daedraInside = false;
 UInt32 g_siteDaedra[kDungeonPool] = {};
 UInt32 g_siteDaedraCount = 0;
 UInt32 g_boss = 0;
+
+// 4.23 B step 3: the necromancer of the realm's place the player is in -
+// asked of the placer in its first cell, deep inside (as the outpost's boss),
+// taken out when he leaves; his chest set down once at a home. Necro.cpp
+// hears of his fall and of a place cleared or given up.
+int g_necroCandidate = -1;
+UInt32 g_necroBoss = 0;
+NecroBossFellFn g_necroFell = nullptr;
+NecroPlaceGoneFn g_necroGone = nullptr;
+NecroIsHomeFn g_necroIsHome = nullptr;
+
+bool NecroHome(const DungeonSite& d) {
+	return d.necro != 0 && g_necroIsHome != nullptr && g_necroIsHome(d.necro - 1u, d.candidate);
+}
 
 const char* StateName(DungeonState s) {
 	switch (s) {
@@ -752,6 +767,11 @@ void Tell(DungeonSite& d, UInt8 stage, const char* why, LogFn log) {
 void Carry(const DungeonEvent* ev, UInt32 n, DungeonSite& d, const DungeonSite& before, LogFn log) {
 	for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
 		const DungeonEventKind kind = ev[k].kind;
+		// A necromancer's place cleared (a refuge won) or given up: his realm told.
+		if (before.necro != 0 && (kind == DungeonEventKind::Taken || kind == DungeonEventKind::Left) &&
+		    g_necroGone != nullptr) {
+			g_necroGone(before.necro - 1u, before.candidate, kind == DungeonEventKind::Taken);
+		}
 		DungeonSite gone = before;
 		DungeonSite& at = kind == DungeonEventKind::Left ? gone : d;
 		if (at.candidate >= kDungeonCandidateCount) {
@@ -1186,7 +1206,29 @@ void OnDungeonPlaced(UInt8 tag, const UInt32* refs, UInt32 count) {
 	const bool boss = (tag & kBossTag) != 0;
 	const int candidate = tag & ~kBossTag;
 	const int site = g_daedraCandidate == candidate ? SiteOfCandidate(g_sites, static_cast<UInt32>(candidate)) : -1;
+	const int necroSite = boss && g_necroCandidate == candidate ? SiteOfCandidate(g_sites, static_cast<UInt32>(candidate)) : -1;
 	for (UInt32 k = 0; k < count; ++k) {
+		if (necroSite >= 0 && g_necroBoss == 0) {
+			g_necroBoss = refs[k];
+			DungeonSite& d = g_sites.sites[necroSite];
+			const bool home = NecroHome(d);
+			if (home && !d.chestPlaced) {
+				const UInt32 chestForm = NecroBossChest(kDungeonCandidates[candidate].kind);
+				char line[48];
+				std::snprintf(line, sizeof(line), "PlaceAtMe %08X 1", chestForm);
+				Say(LookupForm(refs[k]), line);
+				d.chestPlaced = true;
+				if (g_daedraLog != nullptr) {
+					g_daedraLog("Dungeons: the necromancer's chest set down at %s (%s - chest %08X)",
+					            kDungeonCandidates[candidate].name, line, NewestPlacedOf(chestForm, refs[k]));
+				}
+			}
+			if (g_daedraLog != nullptr) {
+				g_daedraLog("Dungeons: the %s %08X came to %s", home ? "necromancer" : "necromancer's under-boss",
+				            refs[k], kDungeonCandidates[candidate].name);
+			}
+			continue;
+		}
 		if (site >= 0 && boss && g_boss == 0) {
 			g_boss = refs[k];
 			WatchDaedra(refs[k]);
@@ -1307,6 +1349,83 @@ void StepSiteDaedra(int want, const float* closeness, UInt32 playerCell, LogFn l
 	}
 }
 
+void HideNecroBoss(LogFn log) {
+	if (g_necroCandidate < 0) {
+		return;
+	}
+	const UInt8 tag = static_cast<UInt8>(g_necroCandidate | kBossTag);
+	const UInt32 dropped = DropPlacesFor(PlaceOwner::Dungeon, tag);
+	if (g_necroBoss != 0 || dropped > 0) {
+		log("Dungeons: the necromancer at %s taken out (%u requests dropped)", kDungeonCandidates[g_necroCandidate].name,
+		    dropped);
+	}
+	if (g_necroBoss != 0) {
+		RetirePlaced(g_necroBoss);
+	}
+	g_necroBoss = 0;
+	g_necroCandidate = -1;
+}
+
+// A necromancer's place the player is in (`want`, -1 none or not one; 4.23 B
+// step 3): his boss asked for once in its first cell; his fall counted -
+// a home's tells the realm. The walkers are the pool's (StepPool).
+void StepSiteNecro(int want, const float* closeness, UInt32 playerCell, LogFn log) {
+	g_daedraLog = log;
+	const bool necro = want >= 0 && IsNecroPlace(g_sites.sites[want]);
+	const bool inside = necro && closeness[want] == 0.0f;
+	const int candidate = necro && inside ? static_cast<int>(g_sites.sites[want].candidate) : -1;
+	if (candidate != g_necroCandidate) {
+		HideNecroBoss(log);
+	}
+	if (candidate < 0) {
+		return;
+	}
+	g_necroCandidate = candidate;
+	const DungeonCandidate& c = kDungeonCandidates[candidate];
+	DungeonSite& d = g_sites.sites[want];
+	if (g_necroBoss != 0) {
+		const UInt32 ref = LookupForm(g_necroBoss);
+		if (LooksLikeObject(ref) && g_dead != nullptr && g_dead(ref)) {
+			const DungeonSite before = d;
+			const bool home = NecroHome(before);
+			Roll roll;
+			DungeonEvent ev[4];
+			const UInt32 n = OutpostBossFell(d, static_cast<UInt32>(want), *g_siteSettings, roll, ev, 4);
+			log("Dungeons: %s - the %s fell; %u walkers left, now %s", c.name,
+			    home ? "necromancer" : "necromancer's under-boss", d.walkersLeft, StateName(d.state));
+			if (home && g_necroFell != nullptr) {
+				g_necroFell(before.necro - 1u, before.candidate);
+			}
+			LogEvents(ev, n, d, log);
+			Carry(ev, n, d, before, log);
+			g_necroBoss = 0;  // the body stays; the place no longer asks for him
+		}
+		return;
+	}
+	if (d.bossDown) {
+		return;
+	}
+	const bool firstCell = playerCell != 0 && FormIdOf(playerCell) == c.cells[0];
+	const UInt8 tag = static_cast<UInt8>(candidate | kBossTag);
+	if (!firstCell || PlacesPendingFor(PlaceOwner::Dungeon, tag) > 0) {
+		return;
+	}
+	const bool home = NecroHome(d);
+	const DungeonSpot deep = WalkerSpot(c, c.spotCount > 0 ? c.spotCount - 1u : 0u, false);
+	PlaceRequest r;
+	r.owner = PlaceOwner::Dungeon;
+	r.tag = tag;
+	r.list = NecroBossActor(home, g_roll != nullptr ? g_roll() : 0u);
+	r.count = 1;
+	r.anchor = c.insideDoor;
+	r.dx = deep.dx;
+	r.dy = deep.dy;
+	r.dz = static_cast<float>(deep.dz + kSpotLift + 32);
+	const bool asked = RequestPlace(r);
+	log("Dungeons: the %s asked for at %s (%08X)%s", home ? "necromancer" : "necromancer's under-boss", c.name, r.list,
+	    asked ? "" : " - the placer's queue is full");
+}
+
 // Once a second: the ended counted off, the pool to the siege or walker
 // dungeon the player is near, as many in it as the site wants.
 void StepPool(const float* closeness, LogFn log) {
@@ -1324,6 +1443,7 @@ void StepPool(const float* closeness, LogFn log) {
 			continue;
 		}
 		DungeonSite& d = g_sites.sites[siteBefore];
+		const DungeonSite was = d;  // whose place it was (4.23 B: a realm's, told when taken)
 		DungeonEvent ev[4];
 		const bool beforeDoor = g_poolAt[slot] == PoolPlace::Outside;
 		const UInt32 n =
@@ -1332,7 +1452,7 @@ void StepPool(const float* closeness, LogFn log) {
 		    kDungeonCandidates[g_poolCandidate].name, g_poolEnded[k], beforeDoor ? " before the door" : "", d.walkersLeft,
 		    d.before, StateName(d.state));
 		LogEvents(ev, n, d, log);
-		Carry(ev, n, d, d, log);
+		Carry(ev, n, d, was, log);
 	}
 	g_poolEndedCount = 0;
 	if (g_poolUnknown) {
@@ -1348,6 +1468,7 @@ void StepPool(const float* closeness, LogFn log) {
 		// 4.22a step 5c: a Daedra site has no pool walkers - the placer's.
 		const UInt32 player = LookupForm(kPlayerRefId);
 		StepSiteDaedra(want, closeness, LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0, log);
+		StepSiteNecro(want, closeness, LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0, log);
 		if (want >= 0 && g_sites.sites[want].daedra) {
 			want = -1;
 		}
@@ -1680,6 +1801,33 @@ bool NoteDungeonWalkerEnded(UInt32 refId) {
 }
 
 DungeonSitesState& CurrentDungeons() { return g_sites; }
+
+bool DungeonPoolSettledNow() { return g_selected && g_poolSettled; }
+
+void DungeonFreePlaces(bool* free) {
+	for (UInt32 c = 0; c < kDungeonCandidateCount; ++c) {
+		free[c] = g_selected && g_inPool[c] && SiteOfCandidate(g_sites, c) < 0;
+	}
+}
+
+bool AddNecroPlace(UInt32 candidate, UInt32 boss, UInt32 walkers, float now) {
+	if (candidate >= kDungeonCandidateCount || boss >= kNecroBossesMost || SiteOfCandidate(g_sites, candidate) >= 0 ||
+	    g_sites.count >= kDungeonActiveMost) {
+		return false;
+	}
+	g_sites.sites[g_sites.count++] = NecroPlace(static_cast<UInt16>(candidate), boss, walkers, now);
+	return true;
+}
+
+const char* DungeonCandidateName(UInt32 candidate) {
+	return candidate < kDungeonCandidateCount ? kDungeonCandidates[candidate].name : "?";
+}
+
+void ConfigureDungeonsNecro(NecroBossFellFn fell, NecroPlaceGoneFn gone, NecroIsHomeFn isHome) {
+	g_necroFell = fell;
+	g_necroGone = gone;
+	g_necroIsHome = isHome;
+}
 DungeonOccupants& CurrentDungeonOccupants() { return g_occupants; }
 
 UInt32 kDungeonCandidateCountForSave() { return kDungeonCandidateCount; }
@@ -1690,6 +1838,8 @@ void ResetDungeonsInGame() {
 	g_sinceLoad = 0.0f;
 	g_questRefClock = 0.0f;
 	g_poolSettled = false;
+	g_necroCandidate = -1;  // the placed one went with the load
+	g_necroBoss = 0;
 	g_occupants.count = 0;
 	g_occupantsFullLogged = false;
 	// The first step at once; the kit wherever the save holds it: every slot
@@ -1793,7 +1943,8 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			// A quest uses the place now (its reference there enabled): given up -
 			// once the pool has settled after the load (DungeonPoolSettled).
 			if (d.candidate < kDungeonCandidateCount &&
-			    DungeonQuestTakes(d, i, g_poolSettled && g_outByQuest[d.candidate], close, ev, kEventsMost) > 0) {
+			    DungeonQuestTakes(d, i, g_poolSettled && !NecroHome(d) && g_outByQuest[d.candidate], close, ev,
+			                      kEventsMost) > 0) {
 				log("Dungeons: %s given up - a quest uses it now", kDungeonCandidates[before.candidate].name);
 				LogEvents(ev, 1, before, log);
 				Carry(ev, 1, d, before, log);

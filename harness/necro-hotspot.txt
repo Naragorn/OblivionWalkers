@@ -1,0 +1,47 @@
+# A necromancer's place in the game (docs/walkers-spec.md 4.23 B, build
+# step 3), run by tools/necro-harness.sh hotspot: [Walkers] Mode=0, [Daedra]
+# Mode=0, [Necromancers] Mode=1 - the necromancers alone - with TestHome=
+# Toadstool Hollow (one boss there), its walkers 4, DieOnlyBeheaded=0 so the
+# console's killall ends them.
+#
+# Once the dungeon pool has settled after the load the boss rises at his
+# home; the player is put into its first cell: the pool's walkers come in,
+# the necromancer is asked of the placer deep inside, his chest at his feet.
+# killall: the walkers end, the necromancer falls - his realm stops, the last
+# boss: a new set later (ComeBack) - and the place is cleared and taken: a
+# refuge won.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at inside coc ToadstoolHollow
+console-at kill1 killall
+console-at kill2 killall
+console-at kill3 killall
+console-at close CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark inside
+wait 16
+mark placed
+wait 2
+mark kill1
+wait 10
+mark kill2
+wait 10
+mark kill3
+wait 10
+mark close
+wait 3
+mark end
+wait 1

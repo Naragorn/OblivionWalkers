@@ -29,7 +29,10 @@
 
 namespace walkers {
 
-inline constexpr UInt32 kDungeonActiveMost = 8;
+// The sites at once: the held places (kDungeonHeldMost) and the
+// necromancers' places (4.23 B: five realms of RealmMost, 6 by default).
+inline constexpr UInt32 kDungeonActiveMost = 40;
+inline constexpr UInt32 kDungeonHeldMost = 8;
 inline constexpr UInt16 kDungeonNoCandidate = 0xFFFF;
 inline constexpr UInt32 kDungeonTollHoursMost = 24 * 7;
 
@@ -91,6 +94,11 @@ struct DungeonSite {
 	bool daedra = false;
 	bool bossDown = false;     // the outpost's boss fell
 	bool chestPlaced = false;  // the outpost's boss chest stands in it
+	// 4.23 B: a necromancer's place - a walker dungeon whose boss is his
+	// (boss index + 1; 0 none). Outside the held places' count, never left
+	// for being unseen. Cleared, it is a refuge won: kept beyond ActiveMax.
+	UInt8 necro = 0;
+	bool won = false;
 };
 
 struct DungeonSitesState {
@@ -189,8 +197,34 @@ inline DungeonState RollVariant(const DungeonSiteSettings& s, UInt32 roll) {
 
 inline UInt32 ActiveTarget(const DungeonSiteSettings& s, UInt32 roll) {
 	const UInt32 n = dungeon_detail::Between(s.activeMin, s.activeMax, roll);
-	return n > kDungeonActiveMost ? kDungeonActiveMost : n;
+	return n > kDungeonHeldMost ? kDungeonHeldMost : n;
 }
+
+// The held places that count toward ActiveMin..ActiveMax: not a
+// necromancer's place, not a refuge won from one (4.23 B).
+inline UInt32 HeldCount(const DungeonSitesState& st) {
+	UInt32 n = 0;
+	for (UInt32 k = 0; k < st.count && k < kDungeonActiveMost; ++k) {
+		const DungeonSite& d = st.sites[k];
+		n += d.state != DungeonState::Free && d.necro == 0 && !d.won ? 1u : 0u;
+	}
+	return n;
+}
+
+// A necromancer's place (4.23 B step 3): boss `boss`'s walker dungeon with
+// `walkers` in it, from game day `now`.
+inline DungeonSite NecroPlace(UInt16 candidate, UInt32 boss, UInt32 walkers, float now) {
+	DungeonSite d;
+	d.candidate = candidate;
+	d.state = DungeonState::WalkerDungeon;
+	d.walkersLeft = static_cast<UInt16>(walkers > 0xFFFF ? 0xFFFF : walkers);
+	d.necro = static_cast<UInt8>(boss + 1);
+	d.dayFrom = now;
+	d.lastSeen = now;
+	return d;
+}
+
+inline bool IsNecroPlace(const DungeonSite& d) { return d.necro != 0 && d.state == DungeonState::WalkerDungeon; }
 
 // Rolls new places until the target count is active: each from the pool,
 // not active already, SpacingUnits from every active one; its variant, its
@@ -206,7 +240,7 @@ UInt32 FillDungeons(DungeonSitesState& st, const DungeonSiteSettings& s, const D
 		st.target = ActiveTarget(s, roll());
 	}
 	UInt32 n = 0;
-	while (st.count < st.target) {
+	while (HeldCount(st) < st.target && st.count < kDungeonActiveMost) {
 		UInt32 open = 0;
 		UInt32 pick = kDungeonNoCandidate;
 		// Near the player first (NewPlacesWithin), anywhere when none is.
@@ -338,7 +372,8 @@ UInt32 StepDungeonSite(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, f
 		}
 		return n;
 	}
-	if (s.leaveAfterDays > 0.0f && !playerClose && now - d.lastSeen >= s.leaveAfterDays) {
+	// A necromancer's place and a refuge won from one are never given up so.
+	if (s.leaveAfterDays > 0.0f && !playerClose && now - d.lastSeen >= s.leaveAfterDays && d.necro == 0 && !d.won) {
 		d = DungeonSite();
 		n = dungeon_detail::Put(out, n, most, DungeonEventKind::Left, i);
 	}
@@ -371,8 +406,12 @@ inline UInt32 DungeonPersonDied(DungeonSite& d, UInt32 i, DungeonEvent* out, UIn
 // A walker dungeon the Daedra hold: their outpost (4.22a step 5c).
 inline bool IsOutpost(const DungeonSite& d) { return d.state == DungeonState::WalkerDungeon && d.daedra; }
 
+// A walker dungeon with a boss of its own: a Daedra outpost or a
+// necromancer's place (4.23 B).
+inline bool HasBoss(const DungeonSite& d) { return IsOutpost(d) || IsNecroPlace(d); }
+
 // Whether a walker dungeon is done with its boss: none there, or it fell.
-inline bool OutpostBossDone(const DungeonSite& d) { return !IsOutpost(d) || d.bossDown; }
+inline bool OutpostBossDone(const DungeonSite& d) { return !HasBoss(d) || d.bossDown; }
 
 // Whether a new siege or walker dungeon is the Daedra's (4.22a step 5c,
 // 4.24; KindLogic.h SideOf on `roll`, 0..99): the walkers' only with the
@@ -406,6 +445,10 @@ UInt32 DungeonCleared(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, Ro
 	d.daedra = false;
 	d.bossDown = false;
 	d.chestPlaced = false;
+	// A necromancer's place cleared: a refuge won (decided 7) - the caller
+	// tells his realm (the site before it, `necro`).
+	d.won = d.won || d.necro != 0;
+	d.necro = 0;
 	return dungeon_detail::Put(out, 0, most, DungeonEventKind::Taken, i);
 }
 
@@ -439,7 +482,7 @@ UInt32 DungeonWalkerEnded(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s
 template <typename RollFn>
 UInt32 OutpostBossFell(DungeonSite& d, UInt32 i, const DungeonSiteSettings& s, RollFn& roll, DungeonEvent* out,
                        UInt32 most) {
-	if (!IsOutpost(d) || d.bossDown) {
+	if (!HasBoss(d) || d.bossDown) {
 		return 0;
 	}
 	d.bossDown = true;
@@ -601,7 +644,9 @@ inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capac
 		at[2] = static_cast<UInt8>(d.state);
 		// bit 0 seen; bits 1-3 the Daedra's, the boss, the chest (4.22a step
 		// 5c; 0 in an older save: walkers)
-		at[3] = static_cast<UInt8>((d.seen ? 1 : 0) | (d.daedra ? 2 : 0) | (d.bossDown ? 4 : 0) | (d.chestPlaced ? 8 : 0));
+		// bits 4-6 the necromancer's (boss + 1), bit 7 a refuge won (4.23 B)
+		at[3] = static_cast<UInt8>((d.seen ? 1 : 0) | (d.daedra ? 2 : 0) | (d.bossDown ? 4 : 0) | (d.chestPlaced ? 8 : 0) |
+		                           ((d.necro & 7) << 4) | (d.won ? 0x80 : 0));
 		at[4] = d.people;
 		at[5] = d.waiting;
 		at[6] = d.lost;
@@ -621,16 +666,21 @@ inline UInt32 DungeonImage(const DungeonSitesState& st, UInt8* out, UInt32 capac
 // candidate is not below `candidates` (another build's list) is dropped.
 inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 length, UInt32 candidates) {
 	st = DungeonSitesState{};
-	if (length < kDungeonImageBytes) {
+	// The image as written now, or one of before the necromancers (eight
+	// slots); anything else is cut short.
+	const UInt32 slots = length >= kDungeonImageBytes ? kDungeonActiveMost
+	                     : length == 8 + kDungeonHeldMost * kDungeonSiteBytes ? kDungeonHeldMost
+	                                                                           : 0u;
+	if (slots == 0) {
 		return false;
 	}
 	st.target = Get32(in);
-	if (st.target > kDungeonActiveMost) {
-		st.target = kDungeonActiveMost;
+	if (st.target > kDungeonHeldMost) {
+		st.target = kDungeonHeldMost;
 	}
 	UInt32 count = Get32(in + 4);
-	if (count > kDungeonActiveMost) {
-		count = kDungeonActiveMost;
+	if (count > slots) {
+		count = slots;
 	}
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt8* at = in + 8 + i * kDungeonSiteBytes;
@@ -642,6 +692,8 @@ inline bool ReadDungeonImage(DungeonSitesState& st, const UInt8* in, UInt32 leng
 		d.daedra = (at[3] & 2) != 0;
 		d.bossDown = (at[3] & 4) != 0;
 		d.chestPlaced = (at[3] & 8) != 0;
+		d.necro = static_cast<UInt8>((at[3] >> 4) & 7);
+		d.won = (at[3] & 0x80) != 0;
 		d.people = at[4];
 		d.waiting = at[5];
 		d.lost = at[6];
