@@ -139,8 +139,9 @@ inline bool Paused(const CitySiege& c, float now) { return c.pauseUntil >= 0.0f 
 // look only notes the day. `extraPercent` (nullptr: none) the points each
 // city's chance is up by - the bands that reached it (4.22 step 3,
 // BandLogic.h SiegePressure). `invaders` (nullptr: walkers only) rolls
-// each new siege's side after its gate, as the spawn replacement rolls a
-// spawn's (KindLogic.h ReplacementGroup); a Daedra siege takes
+// each new siege's side after its gate (KindLogic.h SideOf: the walkers only
+// with the apocalypse, the Daedra with a Daedra mode, both by SharePercent);
+// with no side at all no siege begins. A Daedra siege takes
 // DaedraMin..DaedraMax. Returns the events written to `out`.
 template <typename RollFn>
 UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn roll, SiegeEvent* out, UInt32 most,
@@ -168,7 +169,11 @@ UInt32 StepSiegeDays(SiegeState& st, const SiegeSettings& s, float now, RollFn r
 		UInt32 count = 0;
 		CityGates(static_cast<City>(city), first, count);
 		const UInt32 gate = first + roll() % (count > 0 ? count : 1);
-		const bool daedra = invaders != nullptr && ReplacementGroup(*invaders, roll() % 100) == Group::Daedra;
+		const Side side = invaders != nullptr ? SideOf(*invaders, roll() % 100) : Side::Walkers;
+		if (side == Side::Nobody) {
+			continue;  // 4.24: no walkers of the apocalypse and no Daedra - nobody besieges
+		}
+		const bool daedra = side == Side::Daedra;
 		siege_detail::Begin(c, gate, daedra ? siege_detail::Daedra(s, roll()) : siege_detail::Walkers(s, roll()), now,
 		                    daedra);
 		if (n < most) {

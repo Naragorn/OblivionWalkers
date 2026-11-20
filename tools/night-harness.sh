@@ -13,6 +13,8 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 grep -q '^\[Rise\]' "$ini" || { echo "no [Rise] section in $ini"; exit 1; }
 sed -i '0,/^\[Rise\]\r\?$/s//[Rise]\nAfterSeconds=10\nRandomExtraSeconds=0/' "$ini"
 if grep -q '^\[Night\]' "$ini"; then

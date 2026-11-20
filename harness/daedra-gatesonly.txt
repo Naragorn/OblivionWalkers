@@ -1,0 +1,28 @@
+# The Daedra come only out of the gates (docs/walkers-spec.md 4.22, 4.24):
+# with [Walkers] Mode=0 and [Daedra] Mode=1 and EverywhereUntilGatesOpen=0
+# the spawn replacement does not run - the game's own lists stay. The hall,
+# the harness save: the console places LL0Goblin100 (00084B2C, goblins only)
+# three times; the roster at the counted mark holds the goblins (0001FCB1,
+# 00084B29) and no walker, and the plugin's log (checked by
+# tools/daedra-harness.sh gatesonly) says "Spawns: Walkers Mode=0 Daedra
+# Mode=1 ... EverywhereNow=0 - 0 entries point at the Daedra". Nobody rises.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+console-at ready tgm
+console-at ready player.placeatme 00084B2C 3
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+right pos 0.20 -0.40 -0.30
+left pos -0.20 -0.40 -0.30
+wait 1
+mark ready
+wait 8
+mark counted
+console-at counted killall
+wait 30
+mark end
+wait 1

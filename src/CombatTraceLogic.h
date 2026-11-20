@@ -2,7 +2,7 @@
 
 // [Debug] CombatTrace (INI only, a test switch): whom the actors near the
 // player fight, logged when it changes - the harness's look at the combat
-// targets (docs/walkers-spec.md 8c: Mode 3's walkers and Daedra side by
+// targets (docs/walkers-spec.md 8c: Daedra Mode 2 (allies)'s walkers and Daedra side by
 // side, do they see each other?). Process-free: the table of the targets
 // last seen.
 

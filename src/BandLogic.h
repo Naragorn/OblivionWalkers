@@ -1,12 +1,9 @@
 #pragma once
 
 // War bands out of the open Oblivion gates - step 3 of docs/walkers-spec.md
-// 4.22 (`[Daedra] OnlyFromOblivionGates=1`), process-free; built 2026-11-15 (Nadi: "go
-// 1-7"), not wired into the game yet - the wiring reads the gates' flags
-// (GateLogic.h) and places a band's actors, which needs a harness run.
-//
-// OnlyFromOblivionGates 0: the invaders come everywhere, through the spawn replacement, as
-// now. OnlyFromOblivionGates 1: the world keeps the game's spawns; every open gate sends a
+// 4.22, process-free; built 2026-11-15 (Nadi: "go 1-7"). Since 2026-11-20
+// the Daedra come only out of the gates (4.22, 4.24): with `[Daedra] Mode`
+// on, the world keeps the game's spawns and every open gate sends a
 // band every BandEveryHours game hours toward the nearest city. A band far
 // from the player is a number only (the performance rule, 4.11c): its gate,
 // its city, its size and where it has got to. Within NearUnits of the player
@@ -15,19 +12,16 @@
 // pressure (Arrived). Closing a gate ends its far bands (Ended) and its
 // clock - every gate closed is one source less (4.22). Before any gate is
 // open nothing comes (a), or, with EverywhereUntilGatesOpen=1, the spawn
-// replacement as with OnlyFromOblivionGates 0 (c).
+// replacement gives the Daedra by SharePercent until the first gate opens (c).
 
 #include <cmath>
 #include <cstring>
 
 #include "Bytes.h"
+#include "KindLogic.h"
 #include "Types.h"
 
 namespace walkers {
-
-enum class InvaderOrigin : UInt8 { Everywhere = 0, Gates = 1 };
-
-inline InvaderOrigin OriginFromIni(int value) { return value == 1 ? InvaderOrigin::Gates : InvaderOrigin::Everywhere; }
 
 inline constexpr UInt32 kBandsMost = 32;       // far bands at once
 inline constexpr UInt32 kBandGatesMost = 128;  // OblivionGates.h holds 103
@@ -61,7 +55,6 @@ inline void BandPlaceOffset(float bx, float by, float px, float py, float& dx, f
 }
 
 struct BandSettings {
-	InvaderOrigin origin = InvaderOrigin::Everywhere;  // OnlyFromOblivionGates (named Origin, then OnlyFromGates, until 2026-11-16)
 	bool everywhereUntilGatesOpen = false;              // EverywhereUntilGatesOpen (Nadi, 2026-11-14)
 	float everyHours = 12.0f;                           // BandEveryHours: game hours between a gate's bands
 	UInt32 sizeMin = 4;                                 // BandSizeMin
@@ -102,15 +95,20 @@ inline bool TestKillLeaderDue(float seconds, float sinceFound, bool done) {
 inline constexpr UInt32 kBandCitiesMost = 8;  // CityGates.h City::Count
 inline constexpr UInt32 kSiegePressureMost = 90;
 
-// The spawn replacement on: OnlyFromOblivionGates 0, or 1 with no gate open and the
-// fallback (c) chosen.
-inline bool ReplacementOn(const BandSettings& s, UInt32 openGates) {
-	return s.origin == InvaderOrigin::Everywhere || (s.everywhereUntilGatesOpen && openGates == 0);
+// The Daedra come through the spawn replacement now: EverywhereUntilGatesOpen
+// and no gate open, with a Daedra mode on (`now`: KindLogic.h InvadersNow).
+inline bool DaedraEverywhere(const BandSettings& s, const InvaderSettings& now, UInt32 openGates) {
+	return DaedraOn(now) && s.everywhereUntilGatesOpen && openGates == 0;
 }
 
-// Bands out of the gates: OnlyFromOblivionGates 1 and at least one gate open.
-inline bool BandsOn(const BandSettings& s, UInt32 openGates) {
-	return s.origin == InvaderOrigin::Gates && openGates > 0;
+// The spawn replacement on: walkers to put in, or the Daedra everywhere.
+inline bool ReplacementOn(const BandSettings& s, const InvaderSettings& now, UInt32 openGates) {
+	return ReplacementRuns(now, DaedraEverywhere(s, now, openGates));
+}
+
+// Bands out of the gates: a Daedra mode on and at least one gate open.
+inline bool BandsOn(const InvaderSettings& now, UInt32 openGates) {
+	return DaedraOn(now) && openGates > 0;
 }
 
 inline UInt32 BandSize(UInt32 sizeMin, UInt32 sizeMax, UInt32 roll) {
@@ -222,8 +220,8 @@ inline UInt32 StepBands(BandState& st, const BandSettings& s, const BandGate* ga
 	using namespace band_detail;
 	Out out{events, room};
 	const UInt32 nGates = gateCount < kBandGatesMost ? gateCount : kBandGatesMost;
-	if (s.origin != InvaderOrigin::Gates || cityCount == 0) {
-		return 0;
+	if (cityCount == 0) {
+		return 0;  // the caller steps the bands only with a Daedra mode on (BandsOn)
 	}
 	// 0. The pressure fades.
 	const float fade = s.siegeFadePercentPerDay * (hours > 0.0f ? hours : 0.0f) / 24.0f;

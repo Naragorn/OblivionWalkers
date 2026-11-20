@@ -16,6 +16,8 @@ log="$game/OblivionWalkers.log"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 printf '\r\n[Siege]\r\nTestGate=1\r\nChancePerDayPercent=100\r\nWalkersMin=80\r\nWalkersMax=80\r\nGuardKillsPerHour=2\r\n' >> "$ini"
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/siege-full.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/siege-full-runner.txt"

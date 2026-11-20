@@ -229,7 +229,8 @@ void TestDaedraSiege() {
 	const UInt32 none[1] = {0};
 	// Anvil rolls 5 (besieged), its gate 0, its side 10, its count 3.
 	const UInt32 anvil[4] = {5, 0, 10, 3};
-	inv.kind = walkers::InvaderKind::Both;
+	inv.walkers = walkers::WalkersMode::Apocalypse;
+	inv.daedra = walkers::DaedraMode::Enemies;
 	inv.daedraPercent = 50;
 	SiegeState st;
 	Rolls first{none, 0};
@@ -237,7 +238,7 @@ void TestDaedraSiege() {
 	Rolls r{anvil, 4};
 	UInt32 n = walkers::StepSiegeDays(st, s, 11.0f, r, ev, 16, nullptr, &inv);
 	Check(n == 1 && st.cities[0].daedra && st.cities[0].walkersLeft == 13,
-	      "Mode 2, a side roll of 10 under SharePercent 50: Daedra, DaedraMin 10 + 3");
+	      "apocalypse and Daedra, a side roll of 10 under SharePercent 50: Daedra, DaedraMin 10 + 3");
 	const UInt32 walkerSide[4] = {5, 0, 60, 0};
 	SiegeState st2;
 	Rolls f2{none, 0};
@@ -246,22 +247,33 @@ void TestDaedraSiege() {
 	walkers::StepSiegeDays(st2, s, 11.0f, r2, ev, 16, nullptr, &inv);
 	Check(st2.cities[0].active && !st2.cities[0].daedra && st2.cities[0].walkersLeft == 40,
 	      "a side roll of 60: walkers, WalkersMin 40");
-	inv.kind = walkers::InvaderKind::Daedra;
+	inv.walkers = walkers::WalkersMode::Off;
 	const UInt32 always[4] = {5, 0, 99, 0};
 	SiegeState st3;
 	Rolls f3{none, 0};
 	walkers::StepSiegeDays(st3, s, 10.0f, f3, ev, 16, nullptr, &inv);
 	Rolls r3{always, 4};
 	walkers::StepSiegeDays(st3, s, 11.0f, r3, ev, 16, nullptr, &inv);
-	Check(st3.cities[0].daedra, "Mode 1: Daedra whatever the roll");
-	inv.kind = walkers::InvaderKind::Walkers;
+	Check(st3.cities[0].daedra, "Daedra alone: Daedra whatever the roll");
+	inv.walkers = walkers::WalkersMode::Apocalypse;
+	inv.daedra = walkers::DaedraMode::Off;
 	const UInt32 never[4] = {5, 0, 0, 0};
 	SiegeState st4;
 	Rolls f4{none, 0};
 	walkers::StepSiegeDays(st4, s, 10.0f, f4, ev, 16, nullptr, &inv);
 	Rolls r4{never, 4};
 	walkers::StepSiegeDays(st4, s, 11.0f, r4, ev, 16, nullptr, &inv);
-	Check(st4.cities[0].active && !st4.cities[0].daedra, "Mode 0: walkers whatever the roll");
+	Check(st4.cities[0].active && !st4.cities[0].daedra, "the apocalypse alone: walkers whatever the roll");
+	for (UInt32 w = 0; w < 2; ++w) {
+		inv.walkers = w == 0 ? walkers::WalkersMode::Off : walkers::WalkersMode::Zombies;
+		SiegeState none5;
+		Rolls f5{none, 0};
+		walkers::StepSiegeDays(none5, s, 10.0f, f5, ev, 16, nullptr, &inv);
+		Rolls r5{never, 4};
+		const UInt32 begun = walkers::StepSiegeDays(none5, s, 11.0f, r5, ev, 16, nullptr, &inv);
+		Check(begun == 0 && !none5.cities[0].active,
+		      w == 0 ? "Walkers 0, Daedra 0: nobody besieges" : "Walkers 1 (the zombies, no side), Daedra 0: nobody besieges");
+	}
 	SiegeState st5;
 	walkers::BeginSiegeAt(st5, s, 1, 7.0f, 0);
 	Check(!st5.cities[0].daedra, "a horde held at a gate: a walkers' siege");

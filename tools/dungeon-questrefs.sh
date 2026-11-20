@@ -13,6 +13,8 @@ site="${QUESTREFS_SITE:-}"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 python3 - "$ini" "$site" <<'INI'
 import re, sys
 path, site = sys.argv[1], sys.argv[2]

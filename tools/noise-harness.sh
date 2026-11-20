@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # Runs harness/noise-draws.txt on OBVR's harness (the Linux game, headless)
 # and prints the horde's and the noise's lines of OblivionWalkers.log. The
-# live INI is left as it is: [Noise] takes its defaults when the section is
-# missing (Enabled=1, Radius=1200, SearchSeconds=30).
+# INI is backed up and put back: [Walkers] Mode=2 for the run (4.24: hordes);
+# [Noise] takes its defaults when the section is missing (Enabled=1,
+# Radius=1200, SearchSeconds=30).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
+ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
+backup="$(mktemp)"
+cp "$ini" "$backup"
+trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: hordes need the apocalypse
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/noise-draws.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script")
 grep -E '^(Horde: (noise|group [0-9]+ (at the noise|done searching|.s marker to))|Hit: |Cast watch|Noise:)' \

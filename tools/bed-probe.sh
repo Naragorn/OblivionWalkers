@@ -12,6 +12,8 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 if grep -q '^\[Dungeons\]' "$ini"; then
 	sed -i '0,/^\[Dungeons\]\r\?$/s//[Dungeons]\nEnabled=0/' "$ini"
 else

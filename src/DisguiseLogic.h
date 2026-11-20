@@ -110,9 +110,9 @@ inline bool WalkerMayTurnOn(bool disguised, bool targetIsPlayer) { return !(disg
 // engine's own rule makes them attack - 0 holds it back).
 inline UInt32 DisguisedAggression(bool slow, bool disguised, UInt32 own) { return slow || disguised ? 0u : own; }
 
-// The walkers leave the player be (4.20.1, and 4.22 idea 7 in Mode 3): in
+// The walkers leave the player be (4.20.1, and 4.22 idea 7 in Daedra Mode 2 (allies)): in
 // their own disguise, or in the full Daedric set while the walkers are the
-// Daedra's allies ([Daedra] Mode=3, KindLogic.h WalkersJoinDaedra) - the
+// Daedra's allies ([Daedra] Mode=2 (allies), KindLogic.h WalkersJoinDaedra) - the
 // run of 2026-11-17 (daedra-daedricwalkers.txt): fooled by the set, the
 // player was bitten 29 times; the faction alone does not hold a walker back.
 // Him only: none turns on him, none grabs him, one fighting him stops
@@ -131,7 +131,7 @@ inline bool WalkerDropsPlayer(bool fooled, bool inCombat, bool targetIsPlayer) {
 	return fooled && inCombat && targetIsPlayer;
 }
 
-// Mode 3 (the walkers in DaedraFaction, KindLogic.h WalkersJoinDaedra): the
+// Daedra Mode 2 (allies) (the walkers in DaedraFaction, KindLogic.h WalkersJoinDaedra): the
 // faction alone does not hold a roused walker back - the harness run of
 // 2026-11-17 (daedra-sidebyside.txt): the walker's time near a Churl ran out,
 // the rouse set its Aggression to 100, and the engine had it fight the Churl.

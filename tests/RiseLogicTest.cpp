@@ -35,6 +35,7 @@ void TestVerdicts() {
 	std::printf("The verdict on a death\n");
 	using walkers::DeathVerdict;
 	walkers::RiseSettings settings;
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	walkers::WaitingList list;
 
 	Check(walkers::NoteDeath(list, settings, Bandit(), 0, 0.0f) == DeathVerdict::Waits && list.count == 1,
@@ -58,6 +59,7 @@ void TestVerdicts() {
 	      "a share below zero is clamped to zero");
 
 	walkers::RiseSettings off;
+	off.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	off.enabled = false;
 	walkers::WaitingList empty;
 	Check(walkers::NoteDeath(empty, off, Bandit(), 0, 0.0f) == DeathVerdict::Disabled && empty.count == 0,
@@ -79,6 +81,7 @@ void TestVerdicts() {
 	Check(walkers::NoteDeath(empty, settings, named, 0, 0.0f) == DeathVerdict::NotGeneric,
 	      "a named person with OnlyGeneric=1: stays down");
 	walkers::RiseSettings everyone;
+	everyone.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	everyone.onlyGeneric = false;
 	Check(walkers::NoteDeath(empty, everyone, named, 0, 0.0f) == DeathVerdict::Waits && empty.count == 1,
 	      "with OnlyGeneric=0 he waits");
@@ -89,6 +92,7 @@ void TestVerdicts() {
 	Check(walkers::NoteDeath(empty, settings, dremora, 0, 0.0f) == DeathVerdict::NotPlayableRace,
 	      "a person of no playable race (a Dremora) with OnlyPlayableRaces=1: stays down");
 	walkers::RiseSettings anyRace;
+	anyRace.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	anyRace.onlyPlayableRaces = false;
 	Check(walkers::NoteDeath(empty, anyRace, dremora, 0, 0.0f) == DeathVerdict::Waits && empty.count == 1,
 	      "with OnlyPlayableRaces=0 he waits");
@@ -105,6 +109,7 @@ void TestVerdicts() {
 	      "a Khajiit with the defaults: waits (playable)");
 	empty.count = 0;
 	walkers::RiseSettings humans;
+	humans.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	humans.onlyHumans = true;
 	Check(walkers::NoteDeath(empty, humans, khajiit, 0, 0.0f) == DeathVerdict::NotHuman && empty.count == 0,
 	      "with OnlyHumans=1: stays down");
@@ -113,11 +118,13 @@ void TestVerdicts() {
 	empty.count = 0;
 
 	walkers::RiseSettings half;
+	half.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	half.chancePercent = 50;
 	Check(walkers::NoteDeath(empty, half, Bandit(1), 49, 0.0f) == DeathVerdict::Waits, "ChancePercent=50, roll 49: waits");
 	Check(walkers::NoteDeath(empty, half, Bandit(2), 50, 0.0f) == DeathVerdict::ChanceMissed,
 	      "roll 50: the chance missed");
 	walkers::RiseSettings never;
+	never.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	never.chancePercent = 0;
 	Check(walkers::NoteDeath(empty, never, Bandit(3), 0, 0.0f) == DeathVerdict::ChanceMissed,
 	      "ChancePercent=0: always missed");
@@ -155,30 +162,30 @@ struct Presences {
 };
 
 void TestInvaderKinds() {
-	std::printf("Who rises with the invaders' kind (4.22)\n");
+	std::printf("Who rises with the walkers' switch (4.22, 4.24)\n");
 	using walkers::DeathVerdict;
-	using walkers::InvaderKind;
+	using walkers::WalkersMode;
 	walkers::RiseSettings settings;
-	settings.onlyPlayableRaces = false;  // so the Dremora reach the kind's rule
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
+	settings.onlyPlayableRaces = false;  // so the Dremora reach the switch's rule
 	walkers::Fallen dremora = Bandit(0xFF000C01);
 	dremora.daedra = true;
 	dremora.racePlayable = false;
 	dremora.raceHuman = false;
-	const InvaderKind kinds[] = {InvaderKind::Walkers, InvaderKind::Daedra, InvaderKind::Both, InvaderKind::Allied};
-	const bool banditRises[] = {true, false, true, true};
-	for (UInt32 k = 0; k < 4; ++k) {
+	const WalkersMode modes[] = {WalkersMode::Off, WalkersMode::Zombies, WalkersMode::Apocalypse};
+	const DeathVerdict banditVerdict[] = {DeathVerdict::NotForInvaders, DeathVerdict::ZombiesOnly, DeathVerdict::Waits};
+	const char* names[] = {"Walkers 0: a bandit stays down (no walkers), a Dremora too",
+	                       "Walkers 1: a bandit stays down (the zombies only), a Dremora too",
+	                       "Walkers 2: a bandit rises, a Dremora stays down"};
+	for (UInt32 k = 0; k < 3; ++k) {
 		walkers::WaitingList list;
-		settings.invaders.kind = kinds[k];
+		settings.invaders.walkers = modes[k];
 		const DeathVerdict bandit = walkers::NoteDeath(list, settings, Bandit(), 0, 0.0f);
 		const DeathVerdict daedra = walkers::NoteDeath(list, settings, dremora, 0, 0.0f);
-		char what[96];
-		std::snprintf(what, sizeof(what), "Kind %u: a bandit %s, a Dremora stays down", k,
-		              banditRises[k] ? "rises" : "stays down");
-		Check((bandit == DeathVerdict::Waits) == banditRises[k] &&
-		          (banditRises[k] || bandit == DeathVerdict::NotForInvaders) &&
-		          daedra == DeathVerdict::NotForInvaders,
-		      what);
+		Check(bandit == banditVerdict[k] && daedra == DeathVerdict::NotForInvaders, names[k]);
 	}
+	Check(std::strcmp(walkers::VerdictText(DeathVerdict::ZombiesOnly), "stays down (Walkers Mode 1: the game's zombies only)") == 0,
+	      "Walkers 1 has its own verdict text");
 	Check(std::strcmp(walkers::VerdictText(DeathVerdict::NotForInvaders), "?") != 0, "the verdict has its text");
 	Check(walkers::IsDremoraRace(0x00038010) && !walkers::IsDremoraRace(0x00000907), "the Dremora race, by its ID");
 	Check(!walkers::IsDremoraRace(0x0003E9A6), "DremoraFaction's ID is no race (the old check's mistake)");
@@ -188,6 +195,7 @@ void TestTick() {
 	std::printf("The waiting clocks over frames\n");
 	using walkers::Presence;
 	walkers::RiseSettings settings;
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	settings.afterSeconds = 1.0f;
 	settings.jitterSeconds = 0.0f;
 	walkers::WaitingList list;
@@ -291,6 +299,7 @@ void TestMissing() {
 	Check(walkers::KeepMissing(since, 4.0f) && since == 4.0f, "the clock earlier than noted (an older save): noted anew, kept");
 
 	walkers::RiseSettings settings;
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	settings.afterSeconds = 1.0f;
 	settings.jitterSeconds = 0.0f;
 	walkers::WaitingList list;
@@ -338,6 +347,7 @@ void TestCity() {
 	      "Tamriel, ruined Kvatch, no worldspace (an interior): no city");
 	walkers::WaitingList list;
 	walkers::RiseSettings s;
+	s.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	walkers::Fallen f;
 	f.refId = 0xFF000F90;
 	f.character = true;
@@ -356,6 +366,7 @@ void TestHeadOff() {
 	std::printf("A person whose head is off\n");
 	walkers::WaitingList list;
 	walkers::RiseSettings s;
+	s.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	walkers::Fallen f;
 	f.refId = 0xFF000F82;
 	f.baseId = 0x00069AD1;
@@ -615,6 +626,7 @@ bool ResolveSame(UInt32 id, UInt32& out) {
 void TestImage() {
 	std::printf("The co-save image\n");
 	walkers::RiseSettings settings;
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	walkers::WaitingList list;
 	walkers::NoteDeath(list, settings, Bandit(0xFF000BAF), 0, 0.25f);
 	walkers::NoteDeath(list, settings, Bandit(0xFF000BB0), 0, 0.0f);
@@ -778,6 +790,7 @@ void TestChapels() {
 
 	using walkers::DeathVerdict;
 	walkers::RiseSettings settings;
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	walkers::WaitingList list;
 	walkers::Fallen inside = Bandit();
 	inside.inChapel = true;
@@ -786,6 +799,7 @@ void TestChapels() {
 	Check(std::strcmp(walkers::VerdictText(DeathVerdict::InChapel), "stays down (in a chapel, AvoidChapels=1)") == 0,
 	      "and the log says why");
 	walkers::RiseSettings anywhere;
+	anywhere.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	anywhere.avoidChapels = false;
 	Check(walkers::NoteDeath(list, anywhere, inside, 0, 0.0f) == DeathVerdict::Waits && list.count == 1,
 	      "AvoidChapels=0: he rises there too");
@@ -818,6 +832,7 @@ void TestApartDue() {
 void TestZombieDefaults() {
 	std::printf("The [Zombies] defaults\n");
 	walkers::RiseSettings settings;
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;  // the dead rise only with the apocalypse (4.24)
 	Check(settings.speedMultiplier == 1.0f && settings.speedRandomPercent == 30 && settings.famePerKills == 0,
 	      "SpeedMultiplier=1.0, SpeedRandomPercent=30, FamePerKills=0 (spec 4.4, 4.8; Nadi: no fame by default)");
 	Check(settings.healthPercent == 15 && settings.avoidChapels,

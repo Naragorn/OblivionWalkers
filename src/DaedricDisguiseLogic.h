@@ -16,7 +16,7 @@
 // 2026-11-16) - a Daedra attacks when its disposition falls more than five
 // points below its aggression (UESP, Oblivion:Aggression), so a friend of
 // +100 is left alone. Every Daedra in those factions is fooled, the game's
-// own (a gate's) as well as the plugin's. With [Daedra] Mode 3 the walkers
+// own (a gate's) as well as the plugin's. With [Daedra] Mode 2 (allies) the walkers
 // stand in DaedraFaction too (Replace.cpp) - they are fooled as well.
 
 #include "Types.h"
@@ -148,7 +148,7 @@ inline DaedricChange StepDaedric(DaedricState& st, const DaedricSettings& s, boo
 }
 
 // A blow that gives the player away: his, on a Daedra - or on a walker while
-// the walkers are the Daedra's allies ([Daedra] Mode=3; Nadi, 2026-11-17:
+// the walkers are the Daedra's allies ([Daedra] Mode=2 (allies); Nadi, 2026-11-17:
 // "ja!").
 inline bool DaedricStruck(bool byPlayer, bool onDaedra, bool onAlliedWalker) {
 	return byPlayer && (onDaedra || onAlliedWalker);

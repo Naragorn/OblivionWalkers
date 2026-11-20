@@ -23,10 +23,14 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 // The open gates at the last look; -1 before the first.
 int OpenGateCount();
 
-// Whether the spawn replacement should be on now ([Daedra] Origin and
-// EverywhereUntilGatesOpen, BandLogic.h ReplacementOn); with the gates not
-// read yet, as if none were open.
-bool BandsWantReplacement(const BandSettings& bands);
+// Whether the spawn replacement should be on now (the walkers' switch and
+// [Daedra] EverywhereUntilGatesOpen, BandLogic.h ReplacementOn); with the
+// gates not read yet, as if none were open. `invaders`: InvadersNow.
+bool BandsWantReplacement(const BandSettings& bands, const InvaderSettings& invaders);
+
+// Whether the Daedra come through the spawn replacement now
+// (BandLogic.h DaedraEverywhere), the gates read as above.
+bool DaedraEverywhereNow(const BandSettings& bands, const InvaderSettings& invaders);
 
 // The band members placed this session, alive or not, for the horde's
 // candidates (Horde.h); appended after `count` entries already in `out`.

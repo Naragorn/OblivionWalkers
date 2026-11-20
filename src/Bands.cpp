@@ -155,10 +155,10 @@ bool OpenNow(const OblivionGateRef& g) {
 	                LooksLikeObject(parent) ? Read(parent + kFormFlagsOffset) : 0);
 }
 
-// The list a band of `group` is placed from.
-UInt32 BandList(Group group, const InvaderSettings& invaders) {
-	const UInt32 local = group == Group::Daedra ? InvaderDaedraLocalId(invaders) : kVariantLocalId;
-	return EspFormId(g_espBase, local);
+// The list a band is placed from: always the Daedra's (4.22, 4.24: a gate's
+// band is Daedra).
+UInt32 BandList(const InvaderSettings& invaders) {
+	return EspFormId(g_espBase, InvaderDaedraLocalId(invaders));
 }
 
 // "Close the gate" (4.22a step 6, GateQuestLogic.h).
@@ -220,7 +220,7 @@ void StepGateQuestInGame(bool* open, UInt32 n, const BandSettings& bands, const 
 		ys[g] = kOblivionGates[g].y;
 	}
 	GateQuestLook look;
-	look.daedraInPlay = InPlay(invaders.kind, Group::Daedra);
+	look.daedraInPlay = DaedraOn(invaders);
 	const UInt32 heardGlobal = EspGlobal(kGateHeardGlobalLocalId);
 	look.heard = heardGlobal != 0 && FloatAt(heardGlobal + kGlobalValueOffset) >= 1.0f;
 	look.gateOpen = g_gateQuest.gate >= 0 && static_cast<UInt32>(g_gateQuest.gate) < n && open[g_gateQuest.gate];
@@ -302,17 +302,16 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 			BandPlaceOffset(e.x, e.y, px, py, g_placing.dx, g_placing.dy);
 			float land = 0.0f;
 			const float dz = LandHeightAt(px + g_placing.dx, py + g_placing.dy, land) ? land - pz + 64.0f : 64.0f;
-			const Group group = ReplacementGroup(invaders, Random() % 100);
 			g_placing.size = e.size;
 			g_placing.gate = e.gate;
-			g_placing.list = BandList(group, invaders);
-			g_placing.daedra = group == Group::Daedra;
+			g_placing.list = BandList(invaders);
+			g_placing.daedra = true;
 			g_placing.band = g_nextBand++;
 			std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f %.0f", g_placing.dx, g_placing.dy, dz);
 			const bool moved = console(marker, line);
 			g_placing.stage = PlaceStage::MarkerMoved;
-			log("Bands: a band of %u (%s, gate %u) comes near - the marker %.0f %.0f from you (\"%s\" answered %d)",
-			    e.size, group == Group::Daedra ? "Daedra" : "walkers", e.gate, g_placing.dx, g_placing.dy, line,
+			log("Bands: a band of %u (Daedra, gate %u) comes near - the marker %.0f %.0f from you (\"%s\" answered %d)",
+			    e.size, e.gate, g_placing.dx, g_placing.dy, line,
 			    moved ? 1 : 0);
 			return;
 		}
@@ -374,8 +373,12 @@ void ConfigureBands(UInt32 espBase, LogFn log) {
 
 int OpenGateCount() { return g_openGates; }
 
-bool BandsWantReplacement(const BandSettings& bands) {
-	return ReplacementOn(bands, g_openGates < 0 ? 0u : static_cast<UInt32>(g_openGates));
+bool BandsWantReplacement(const BandSettings& bands, const InvaderSettings& invaders) {
+	return ReplacementOn(bands, invaders, g_openGates < 0 ? 0u : static_cast<UInt32>(g_openGates));
+}
+
+bool DaedraEverywhereNow(const BandSettings& bands, const InvaderSettings& invaders) {
+	return DaedraEverywhere(bands, invaders, g_openGates < 0 ? 0u : static_cast<UInt32>(g_openGates));
 }
 
 bool IsBandMember(UInt32 refId) {
@@ -532,13 +535,13 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 	StepTestKillLeader(elapsed, bands, console, log);
 
 	g_gateClock += elapsed;
-	const bool gateQuest = InPlay(invaders.kind, Group::Daedra) || g_gateQuest.gate >= 0;
+	const bool gateQuest = DaedraOn(invaders) || g_gateQuest.gate >= 0;
 	static bool s_rumorCleared = false;
 	if (!gateQuest && !s_rumorCleared) {
 		SetEspGlobal(kGateRumorGlobalLocalId, 0.0f);  // Mode 0, or the Daedra stopped: the rumor no more
 	}
 	s_rumorCleared = !gateQuest;
-	if ((bands.origin == InvaderOrigin::Gates || gateQuest) && g_gateClock >= kGateLookSeconds) {
+	if (gateQuest && g_gateClock >= kGateLookSeconds) {
 		g_gateClock = 0.0f;
 		static bool open[kBandGatesMost];
 		static BandGate gates[kBandGatesMost];
@@ -552,11 +555,11 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 		if (static_cast<int>(count) != g_openGates && g_logsLeft > 0) {
 			--g_logsLeft;
 			log("Bands: %u of %u Oblivion gates open (were %d) - the spawn replacement %s", count, n, g_openGates,
-			    ReplacementOn(bands, count) ? "on" : "off");
+			    ReplacementOn(bands, invaders, count) ? "on" : "off");
 		}
 		g_openGates = static_cast<int>(count);
 		StepGateQuestInGame(open, n, bands, invaders, px, py, console, log);
-		if (bands.origin != InvaderOrigin::Gates) {
+		if (!BandsOn(invaders, count)) {
 			BreakUpLeaderless(dead, log);
 			StepPlacing(invaders, console, log);
 			return;  // the gates read for the quest only: no bands

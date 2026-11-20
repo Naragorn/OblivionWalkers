@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
-# Runs a Daedra scenario (docs/walkers-spec.md 4.22) on OBVR's harness with
-# [Daedra] set for the run, then checks OblivionWalkers.log. The INI is put
-# back whatever happens (md5 checked). Needs tools/linux-walkers.sh on.
-# Announce "busy" to the other sessions first.
+# Runs a Daedra scenario (docs/walkers-spec.md 4.22, 4.24) on OBVR's harness
+# with [Walkers] Mode and [Daedra] Mode set for the run, then checks
+# OblivionWalkers.log. The INI is put back whatever happens (md5 checked).
+# Needs tools/linux-walkers.sh on. Announce "busy" to the other sessions
+# first.
+#
+# The "Kind" argument keeps the old meaning (2026-11-20: the key was split
+# in two) and is mapped to the two keys: 0 -> Walkers 2, Daedra 0 (the
+# apocalypse alone); 1 -> Walkers 0, Daedra 1 (the Daedra alone); 2 ->
+# Walkers 2, Daedra 1 (at war); 3 -> Walkers 2, Daedra 2 (allies).
+# The Daedra come only out of the gates since then: the scenarios that need
+# the Daedra in the spawn replacement (spawn, fight, fuel, mainquest) set
+# EverywhereUntilGatesOpen=1; "gatesonly" runs without it and checks that no
+# Daedra are written. Retired: nothing; "legionmixed" now relies on a band
+# that is always Daedra (SharePercent no longer rolls it), the walkers there
+# are the ones the scenario places.
 #
 #   tools/daedra-harness.sh spawn [Kind]     harness/daedra-spawn.txt, Kind 1 by default
+#   tools/daedra-harness.sh gatesonly [Kind] harness/daedra-gatesonly.txt: Kind 1 by default; no Daedra in the replacement, the game's own goblins stay
 #   tools/daedra-harness.sh fight [Mode]     harness/daedra-fight.txt: a walker and a Churl
-#   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: OnlyFromOblivionGates=1, a band placed and led
+#   tools/daedra-harness.sh band [Mode]      harness/daedra-band.txt: a band placed and led
 #   tools/daedra-harness.sh save [Mode]      harness/daedra-save.txt: the band and its leader across a save and a load
 #   tools/daedra-harness.sh fuel [Mode]      harness/daedra-fuel.txt: a bandit the Daedra kill rises (Mode 2)
 #   tools/daedra-harness.sh gate [Mode]      harness/daedra-gate.txt: "Close the gate" begun and done (4.22a 6)
@@ -66,9 +79,14 @@ def set_key(text, section, key, value):
         body = nl + key + "=" + value + body
     return text[:head.end()] + body + text[stop:]
 
-text = set_key(text, "Daedra", "Mode", kind)
+# the old Kind 0..3 as the two switches (4.24)
+walkers_mode, daedra_mode = {"0": ("2", "0"), "1": ("0", "1"), "2": ("2", "1"), "3": ("2", "2")}[kind]
+text = set_key(text, "Walkers", "Mode", walkers_mode)
+text = set_key(text, "Daedra", "Mode", daedra_mode)
+if scenario in ("spawn", "fight", "fuel", "mainquest"):
+    # the Daedra only out of the gates; these need them in the replacement
+    text = set_key(text, "Daedra", "EverywhereUntilGatesOpen", "1")
 if scenario in ("band", "save", "legion", "leader", "march", "legionmixed", "legionfar"):
-    text = set_key(text, "Daedra", "OnlyFromOblivionGates", "1")
     text = set_key(text, "Daedra", "TestBandSeconds", "20")
 if scenario in ("gate", "gatesave"):
     text = set_key(text, "Daedra", "TestGateOpen", "2")
@@ -76,7 +94,7 @@ if scenario in ("gate", "gatesave"):
 if scenario in ("legion", "legionmixed", "legionfar"):
     # far: the band some 3000 from the player, he 15000 before the gate
     text = set_key(text, "Guards", "LegionDistance", "24000" if scenario == "legionfar" else "16000")
-    # Mode 2 rolls a band's kind; the Legion answers only Daedra, so every band is Daedra
+    # a gate's band is always Daedra (4.22, 4.24); SharePercent no longer rolls it
     text = set_key(text, "Daedra", "SharePercent", "100")
 if scenario == "leader":
     text = set_key(text, "Daedra", "TestKillLeaderSeconds", "10")
@@ -136,9 +154,15 @@ def show(prefix, most=8):
         print("        " + l[:240])
     return found
 
-spawns = show("Spawns: Daedra Mode=")
+spawns = show("Spawns: Walkers Mode=")
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
-if kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "daedricmod", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss", "legionfar", "bosshard"):
+if scenario == "gatesonly":
+    m0 = re.search(r"- (\d+) entries point at the Daedra", spawns[-1]) if spawns else None
+    check(m0 is not None and int(m0.group(1)) == 0, "no entry names the Daedra: they come only out of the gates (%s)" % (m0.group(1) if m0 else "-"))
+    check(bool(spawns) and "EverywhereNow=0" in spawns[-1], "the replacement does not write the Daedra (EverywhereNow=0)")
+    check(any("Mod: Walkers Mode=0 (off), Daedra Mode=1" in l for l in lines), "the start line names both switches")
+    check(not any("waits to rise" in l for l in lines), "nobody waits to rise with Walkers 0")
+elif kind != 0 and scenario not in ("band", "save", "leader", "legionmixed", "march", "sidebyside", "gatesave", "siege", "gate", "piles", "daedric", "daedricmod", "legion", "siegesave", "daedricblow", "daedricspell", "daedricwalkers", "daedricguard", "boss", "legionfar", "bosshard"):
     check(m is not None and int(m.group(1)) > 0, "the replacement names the Daedra (%s entries)" % (m.group(1) if m else "-"))
     check(m is not None and m.group(2).endswith("000A94"), "the NOSUMMON list A94 (Summons=0)")
 walkers = [l for l in lines if l.startswith("Spawns: ")]
@@ -152,7 +176,8 @@ if scenario == "spawn" and kind == 1:
     check(not re.search(r"\b[0-9A-F]{2}000(80[1-4]|9[0-4][0-9A-F])\b", " ".join(full)), "no walker in the roster")
     rises = [l for l in lines if "waits to rise" in l]
     check(not rises, "nobody waits to rise with Mode=1 (%d)" % len(rises))
-    show("stays down (Daedra Mode")
+    show("stays down (Walkers Mode")
+    check(spawns and "EverywhereNow=1" in spawns[-1], "the Daedra written because EverywhereUntilGatesOpen=1 and no gate is open")
 if scenario == "band":
     gates = show("Bands: ")
     check(any(re.search(r"\d+ of 103 Oblivion gates open", l) for l in lines), "the 103 gates read")
@@ -448,7 +473,7 @@ if scenario == "mainquest":
     stop = [i for i, l in enumerate(lines) if "Daedra: the main quest is done - the Daedra stop" in l]
     check(bool(stop), "MQ16 completed: the plugin reads the main quest done, the Daedra stop")
     off = [l for l in lines[stop[0]:] if re.search(r"Spawns: .*\(Enabled=0\) .* [1-9]\d* entries back to their own", l)] if stop else []
-    check(bool(off), "Mode 1's replacement off: the entries back to their own (%d)" % len(off))
+    check(bool(off), "the Daedra alone, stopped: the replacement off, the entries back to their own (%d)" % len(off))
     check(bool(goblins.search(second)), "after: the goblin list gives goblins again")
 
 print("daedra-harness: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))

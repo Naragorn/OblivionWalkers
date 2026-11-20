@@ -1,6 +1,6 @@
 # A far band that reaches its city raises that city's siege chance
 # (docs/walkers-spec.md 4.22 step 3). tools/daedra-harness.sh march sets
-# Mode 1, OnlyFromOblivionGates=1, TestGateOpen=2 for 600 s, BandEveryHours=1,
+# Mode 1, TestGateOpen=2 for 600 s, BandEveryHours=1,
 # BandSiegePercent=50, BandSiegeFadePerDay=0 and [Siege] Enabled=1,
 # ChancePerDayPercent=0 - a city is besieged only by the bands' pressure.
 # The player stands far off at cow tamriel -3 3; the console moves the game

@@ -38,12 +38,15 @@ std::vector<UInt32> QuestRefIds();
 // The cell of a reference a quest names (0 none, or not named).
 UInt32 QuestRefCell(UInt32 refId);
 
-// With the Daedra in play ([Daedra] Kind 1, 2 or 3, KindLogic.h) a
-// replaced entry names the ESP's Daedra list instead (all of them with Kind
-// 1, SharePercent of them with 2 and 3, by each entry's stable roll), and
-// the Daedra's own categories stay the game's.
+// Walkers Mode 1 replaces the Zombies category alone; with the Daedra
+// coming everywhere (`daedraEverywhere`, Bands.h: EverywhereUntilGatesOpen
+// and no gate open) a replaced entry names the ESP's Daedra list instead -
+// all of them with no walkers, SharePercent of them otherwise, by each
+// entry's stable roll (KindLogic.h ReplacementTarget). The Daedra's own
+// categories stay the game's whenever a Daedra mode is on. With both
+// switches off nothing is replaced.
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
-                     const char* iniPath, bool mooLoaded, LogFn log);
+                     bool daedraEverywhere, const char* iniPath, bool mooLoaded, LogFn log);
 
 // The walker records' health at `percent` of their own, from the values
 // they had at the first call - the record in memory only.
@@ -53,7 +56,7 @@ void RewriteVariantCounts(UInt32 espBase, const ReplaceSettings& settings, UInt3
 
 void ScaleWalkerHealth(const UInt32* walkerIds, UInt32 count, UInt32 percent, LogFn log);
 
-// Kind 3 (KindLogic.h WalkersJoinDaedra): the walker records join
+// Daedra Mode 2 (allies) (KindLogic.h WalkersJoinDaedra): the walker records join
 // DaedraFaction (a faction entry of ours appended to each record's list in
 // memory), or leave it again - only the entries this call added.
 void SetWalkersAllied(const UInt32* walkerIds, UInt32 count, bool allied, LogFn log);

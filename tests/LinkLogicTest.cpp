@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 48\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 49\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -663,45 +663,67 @@ void TestHeadshotsCorpsesLeash() {
 }
 
 void TestInvaders() {
-	std::printf("The invaders' three in LINK (4.22 step 1, 2026-11-15)\n");
+	std::printf("Who comes in LINK (4.22 step 1, 4.24; 2026-11-20)\n");
 	walkers::RiseSettings rise;
 	walkers::ReplaceSettings replace;
-	const int kind = IndexOf("ini_daedra_mode");
+	const int walkersMode = IndexOf("ini_walkers_mode");
+	const int daedraMode = IndexOf("ini_daedra_mode");
 	const int share = IndexOf("ini_daedra_share_percent");
 	const int summons = IndexOf("ini_daedra_summons");
-	Check(kind == 208 && share == 209 && summons == 210, "three at the table's end, 208 to 210");
-	Check(walkers::LinkValue(rise, replace, kind) == 0.0 && walkers::LinkValue(rise, replace, share) == 50.0 &&
-	          walkers::LinkValue(rise, replace, summons) == 0.0,
-	      "the INI's defaults: Kind 0, SharePercent 50, Summons 0");
-	Check(walkers::SetLinkValue(rise, replace, kind, 2.0) && rise.invaders.kind == walkers::InvaderKind::Both &&
-	          walkers::LinkValue(rise, replace, kind) == 2.0,
-	      "Kind 2 from the menu: both, read back as 2");
-	Check(walkers::SetLinkValue(rise, replace, kind, 0.0) && walkers::SetLinkValue(rise, replace, kind, 7.0) &&
-	          rise.invaders.kind == walkers::InvaderKind::Allied,
-	      "above the slider: held to 3, the allies");
+	Check(walkersMode == 208 && daedraMode == 209 && share == 210 && summons == 211,
+	      "the Walkers switch before the Daedra's three, 208 to 211");
+	Check(IndexOf("ini_daedra_only_from_oblivion_gates") < 0, "OnlyFromOblivionGates is gone (the Daedra come only out of the gates)");
+	Check(walkers::LinkValue(rise, replace, walkersMode) == 1.0 && walkers::LinkValue(rise, replace, daedraMode) == 0.0 &&
+	          walkers::LinkValue(rise, replace, share) == 50.0 && walkers::LinkValue(rise, replace, summons) == 0.0,
+	      "the INI's defaults: Walkers 1, Daedra 0, SharePercent 50, Summons 0");
+	Check(walkers::SetLinkValue(rise, replace, walkersMode, 2.0) && rise.invaders.walkers == walkers::WalkersMode::Apocalypse &&
+	          walkers::LinkValue(rise, replace, walkersMode) == 2.0,
+	      "Walkers 2 from the menu: the apocalypse, read back as 2");
+	Check(walkers::SetLinkValue(rise, replace, walkersMode, 0.0) && rise.invaders.walkers == walkers::WalkersMode::Off &&
+	          walkers::SetLinkValue(rise, replace, walkersMode, 7.0) && rise.invaders.walkers == walkers::WalkersMode::Apocalypse,
+	      "Walkers 0 off; above the slider: held to 2");
+	Check(walkers::SetLinkValue(rise, replace, daedraMode, 1.0) && rise.invaders.daedra == walkers::DaedraMode::Enemies &&
+	          walkers::LinkValue(rise, replace, daedraMode) == 1.0,
+	      "Daedra 1 from the menu: enemies, read back as 1");
+	Check(walkers::SetLinkValue(rise, replace, daedraMode, 7.0) && rise.invaders.daedra == walkers::DaedraMode::Allies,
+	      "above the slider: held to 2, the allies");
 	Check(walkers::SetLinkValue(rise, replace, share, 30.0) && rise.invaders.daedraPercent == 30 &&
 	          walkers::SetLinkValue(rise, replace, summons, 1.0) && rise.invaders.summons,
 	      "the share and the summons set");
-	Check(kLinkSettings[kind].effect == walkers::LinkEffect::Spawns &&
+	Check(kLinkSettings[walkersMode].effect == walkers::LinkEffect::Spawns &&
+	          kLinkSettings[daedraMode].effect == walkers::LinkEffect::Spawns &&
 	          kLinkSettings[share].effect == walkers::LinkEffect::Spawns &&
 	          kLinkSettings[summons].effect == walkers::LinkEffect::Spawns,
-	      "all three change the spawns: the lists written anew");
-	const int origin = IndexOf("ini_daedra_only_from_oblivion_gates");
+	      "all four change the spawns: the lists written anew");
+	Check(kLinkSettings[walkersMode].kind == walkers::LinkKind::Slider && kLinkSettings[walkersMode].min == 0.0f &&
+	          kLinkSettings[walkersMode].max == 2.0f && kLinkSettings[daedraMode].min == 0.0f &&
+	          kLinkSettings[daedraMode].max == 2.0f,
+	      "both switches are sliders 0 to 2");
 	const int until = IndexOf("ini_daedra_everywhere_until_gates");
 	const int hours = IndexOf("ini_daedra_band_hours");
 	const int smallest = IndexOf("ini_daedra_band_min");
 	const int largest = IndexOf("ini_daedra_band_max");
-	Check(origin == 211 && until == 212 && hours == 213 && smallest == 214 && largest == 215,
-	      "the gates' five after them, 211 to 215");
-	Check(walkers::LinkValue(rise, replace, origin) == 0.0 && walkers::LinkValue(rise, replace, until) == 0.0 &&
+	Check(until == 212 && hours == 213 && smallest == 214 && largest == 215,
+	      "the gates' four after them, 212 to 215 (the indices from here on did not move)");
+	Check(walkers::LinkValue(rise, replace, until) == 0.0 &&
 	          walkers::LinkValue(rise, replace, hours) == 12.0 && walkers::LinkValue(rise, replace, smallest) == 4.0 &&
 	          walkers::LinkValue(rise, replace, largest) == 9.0,
-	      "the defaults: everywhere, no fallback, 12 hours, 4 to 9");
-	Check(walkers::SetLinkValue(rise, replace, origin, 1.0) && rise.bands.origin == walkers::InvaderOrigin::Gates &&
+	      "the defaults: no fallback, 12 hours, 4 to 9");
+	Check(walkers::SetLinkValue(rise, replace, until, 1.0) && rise.bands.everywhereUntilGatesOpen &&
 	          walkers::SetLinkValue(rise, replace, hours, 6.0) && rise.bands.everyHours == 6.0f,
-	      "only out of gates, every 6 hours, from the menu");
-	Check(kLinkSettings[origin].effect == walkers::LinkEffect::Spawns && kLinkSettings[hours].effect == walkers::LinkEffect::Live,
-	      "OnlyFromOblivionGates rewrites the lists (the replacement off or on), the bands' numbers are read live");
+	      "everywhere until a gate opens, every 6 hours, from the menu");
+	Check(kLinkSettings[hours].effect == walkers::LinkEffect::Live,
+	      "the bands' numbers are read live");
+	{
+		const walkers::LinkHeader* who = nullptr;
+		const walkers::LinkHeader* daedraHeader = nullptr;
+		for (const walkers::LinkHeader& h : walkers::kLinkHeaders) {
+			who = std::strcmp(h.title, "Who comes") == 0 ? &h : who;
+			daedraHeader = std::strcmp(h.title, "Daedra from Oblivion") == 0 ? &h : daedraHeader;
+		}
+		Check(who != nullptr && who->before == 208 && daedraHeader != nullptr && daedraHeader->before == 210,
+		      "a header \"Who comes\" before the two switches, \"Daedra from Oblivion\" before the share");
+	}
 	const int bosses = IndexOf("ini_replace_keep_bosses");
 	const int hard = IndexOf("ini_replace_keep_hard");
 	const int high = IndexOf("ini_replace_keep_high");
@@ -742,7 +764,7 @@ void TestInvaders() {
 		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
 	}
 	Check(live, "all six read live");
-	Check(walkers::kLinkVersion == 48.0, "the version 48 ([Daedra], 2026-11-20)");
+	Check(walkers::kLinkVersion == 49.0, "the version 49 ([Walkers] Mode, the gates only, 2026-11-20)");
 }
 
 void TestPageTest() {

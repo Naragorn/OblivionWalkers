@@ -38,6 +38,8 @@ if [[ "$mode" == fight* && -n "${3:-}" ]]; then walkers="$3"; fi
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 python3 - "$ini" "$state" "$walkers" "$behead" "$site" "$mode" "$people" <<'INI'
 import re, sys
 path, state, walkers, behead, site, mode, people = sys.argv[1:8]

@@ -1,8 +1,8 @@
-// Every flow of the invaders' kind (docs/walkers-spec.md 4.22, step 1; Nadi,
-// 2026-11-15: "a b, danach c"): one per row of 4.22's table, for Kind 0, 1
-// and 2 - which group is in play, which of the walkers' rules hold for each,
-// who rises, which group takes a replaced spawn, the Daedra's own categories
-// and the summoners held back.
+// Every flow of who comes (docs/walkers-spec.md 4.22 and 4.24; Nadi,
+// 2026-11-20): the two switches and all their combinations - which group is
+// in play, which of the walkers' rules hold for each, who rises, which group
+// takes a replaced spawn, who is a siege's or an attack's side, the Daedra's
+// own categories and the summoners held back.
 
 #include "CategoryLogic.h"
 #include "KindLogic.h"
@@ -21,46 +21,101 @@ void Check(bool condition, const char* what) {
 	}
 }
 
+using walkers::DaedraMode;
 using walkers::Group;
 using walkers::InvaderKind;
 using walkers::InvaderSettings;
+using walkers::Side;
+using walkers::SpawnTarget;
+using walkers::WalkersMode;
 
-void TestKindFromIni() {
-	std::printf("[Daedra] Kind\n");
-	Check(walkers::KindFromIni(0) == InvaderKind::Walkers && walkers::KindFromIni(1) == InvaderKind::Daedra &&
-	          walkers::KindFromIni(2) == InvaderKind::Both && walkers::KindFromIni(3) == InvaderKind::Allied,
-	      "0 the walkers, 1 the Daedra, 2 both at war, 3 both as allies");
-	Check(walkers::KindFromIni(-1) == InvaderKind::Walkers && walkers::KindFromIni(4) == InvaderKind::Walkers,
-	      "anything else: the walkers, as without the switch");
+InvaderSettings With(WalkersMode w, DaedraMode d) {
 	InvaderSettings s;
-	Check(s.kind == InvaderKind::Walkers && s.daedraPercent == 50 && !s.summons,
-	      "defaults: Kind 0 (decided 2026-11-13), SharePercent 50, Summons 0 (idea 11)");
+	s.walkers = w;
+	s.daedra = d;
+	return s;
+}
+
+const WalkersMode kWalkers[] = {WalkersMode::Off, WalkersMode::Zombies, WalkersMode::Apocalypse};
+const DaedraMode kDaedra[] = {DaedraMode::Off, DaedraMode::Enemies, DaedraMode::Allies};
+
+void TestSwitches() {
+	std::printf("[Walkers] Mode and [Daedra] Mode\n");
+	Check(walkers::WalkersModeFromIni(0) == WalkersMode::Off && walkers::WalkersModeFromIni(1) == WalkersMode::Zombies &&
+	          walkers::WalkersModeFromIni(2) == WalkersMode::Apocalypse,
+	      "Walkers: 0 off, 1 only the game's zombies, 2 the apocalypse");
+	Check(walkers::WalkersModeFromIni(-1) == WalkersMode::Zombies && walkers::WalkersModeFromIni(3) == WalkersMode::Zombies,
+	      "Walkers, anything else: the default, 1");
+	Check(walkers::DaedraModeFromIni(0) == DaedraMode::Off && walkers::DaedraModeFromIni(1) == DaedraMode::Enemies &&
+	          walkers::DaedraModeFromIni(2) == DaedraMode::Allies,
+	      "Daedra: 0 off, 1 enemies of the walkers, 2 their allies");
+	Check(walkers::DaedraModeFromIni(-1) == DaedraMode::Off && walkers::DaedraModeFromIni(3) == DaedraMode::Off,
+	      "Daedra, anything else: the default, 0");
+	InvaderSettings s;
+	Check(s.walkers == WalkersMode::Zombies && s.daedra == DaedraMode::Off && s.daedraPercent == 50 && !s.summons &&
+	          !s.afterMainQuest,
+	      "defaults: Walkers 1 (4.24), Daedra 0, SharePercent 50, Summons 0 (idea 11), AfterMainQuest 0");
+}
+
+void TestDerivedKind() {
+	std::printf("The derived kind, all nine combinations\n");
+	const InvaderKind expect[3][3] = {
+	    {InvaderKind::None, InvaderKind::Daedra, InvaderKind::Daedra},
+	    {InvaderKind::Walkers, InvaderKind::Both, InvaderKind::Allied},
+	    {InvaderKind::Walkers, InvaderKind::Both, InvaderKind::Allied},
+	};
+	const char* names[3][3] = {
+	    {"Walkers 0, Daedra 0: None (the mod off)", "Walkers 0, Daedra 1: the Daedra alone",
+	     "Walkers 0, Daedra 2: the Daedra alone"},
+	    {"Walkers 1, Daedra 0: the walkers", "Walkers 1, Daedra 1: both at war", "Walkers 1, Daedra 2: allies"},
+	    {"Walkers 2, Daedra 0: the walkers", "Walkers 2, Daedra 1: both at war", "Walkers 2, Daedra 2: allies"},
+	};
+	for (UInt32 w = 0; w < 3; ++w) {
+		for (UInt32 d = 0; d < 3; ++d) {
+			Check(walkers::KindOf(With(kWalkers[w], kDaedra[d])) == expect[w][d], names[w][d]);
+		}
+	}
+	Check(walkers::ModOff(With(WalkersMode::Off, DaedraMode::Off)) &&
+	          !walkers::ModOff(With(WalkersMode::Zombies, DaedraMode::Off)) &&
+	          !walkers::ModOff(With(WalkersMode::Off, DaedraMode::Allies)),
+	      "the mod is off only with both switches at 0");
+	Check(!walkers::SidesExist(With(WalkersMode::Off, DaedraMode::Off)) &&
+	          !walkers::SidesExist(With(WalkersMode::Zombies, DaedraMode::Off)) &&
+	          walkers::SidesExist(With(WalkersMode::Apocalypse, DaedraMode::Off)) &&
+	          walkers::SidesExist(With(WalkersMode::Zombies, DaedraMode::Enemies)) &&
+	          walkers::SidesExist(With(WalkersMode::Off, DaedraMode::Allies)),
+	      "a side exists with the apocalypse or a Daedra mode - the zombies are no side");
 }
 
 void TestInPlay() {
 	std::printf("Which group is in play\n");
 	Check(walkers::InPlay(InvaderKind::Walkers, Group::Walker) && !walkers::InPlay(InvaderKind::Walkers, Group::Daedra),
-	      "Kind 0: only the walkers");
+	      "walkers only: the walkers");
 	Check(!walkers::InPlay(InvaderKind::Daedra, Group::Walker) && walkers::InPlay(InvaderKind::Daedra, Group::Daedra),
-	      "Kind 1: only the Daedra");
+	      "Daedra alone: only the Daedra");
 	Check(walkers::InPlay(InvaderKind::Both, Group::Walker) && walkers::InPlay(InvaderKind::Both, Group::Daedra),
-	      "Kind 2: both");
+	      "both at war: both");
 	Check(walkers::InPlay(InvaderKind::Allied, Group::Walker) && walkers::InPlay(InvaderKind::Allied, Group::Daedra),
-	      "Kind 3: both");
+	      "allies: both");
+	Check(!walkers::InPlay(InvaderKind::None, Group::Walker) && !walkers::InPlay(InvaderKind::None, Group::Daedra),
+	      "none: nobody");
 	Check(!walkers::BothInPlay(InvaderKind::Walkers) && !walkers::BothInPlay(InvaderKind::Daedra) &&
-	          walkers::BothInPlay(InvaderKind::Both) && walkers::BothInPlay(InvaderKind::Allied),
-	      "both in play: Kind 2 and 3 only");
+	          !walkers::BothInPlay(InvaderKind::None) && walkers::BothInPlay(InvaderKind::Both) &&
+	          walkers::BothInPlay(InvaderKind::Allied),
+	      "both in play: at war or allied only");
 }
 
 void TestHostility() {
 	std::printf("Walkers and Daedra: foes or friends\n");
-	Check(walkers::GroupsHostile(InvaderKind::Both), "Kind 2: at war - a three-way fight where a band meets a horde");
-	Check(!walkers::GroupsHostile(InvaderKind::Allied), "Kind 3: allies, one side against the living");
-	Check(!walkers::GroupsHostile(InvaderKind::Walkers) && !walkers::GroupsHostile(InvaderKind::Daedra),
-	      "Kind 0 and 1: one group, nobody to fight");
+	Check(walkers::GroupsHostile(InvaderKind::Both), "Daedra 1 with walkers: at war - a three-way fight where a band meets a horde");
+	Check(!walkers::GroupsHostile(InvaderKind::Allied), "Daedra 2 with walkers: allies, one side against the living");
+	Check(!walkers::GroupsHostile(InvaderKind::Walkers) && !walkers::GroupsHostile(InvaderKind::Daedra) &&
+	          !walkers::GroupsHostile(InvaderKind::None),
+	      "one group or none: nobody to fight");
 	Check(walkers::WalkersJoinDaedra(InvaderKind::Allied) && !walkers::WalkersJoinDaedra(InvaderKind::Both) &&
-	          !walkers::WalkersJoinDaedra(InvaderKind::Walkers) && !walkers::WalkersJoinDaedra(InvaderKind::Daedra),
-	      "only Kind 3: the walkers join the Daedra's faction");
+	          !walkers::WalkersJoinDaedra(InvaderKind::Walkers) && !walkers::WalkersJoinDaedra(InvaderKind::Daedra) &&
+	          !walkers::WalkersJoinDaedra(InvaderKind::None),
+	      "only the allies: the walkers join the Daedra's faction");
 	Check(walkers::kDaedraFaction == 0x00053FED, "DaedraFaction, Oblivion.esm 00053FED");
 }
 
@@ -82,37 +137,95 @@ void TestRules() {
 
 void TestRise() {
 	std::printf("Who rises\n");
-	Check(walkers::MayRise(InvaderKind::Walkers, false), "Kind 0: the fallen rise, as now");
-	Check(!walkers::MayRise(InvaderKind::Daedra, false), "Kind 1: no walkers, nobody rises");
-	Check(walkers::MayRise(InvaderKind::Both, false),
-	      "Kind 2: the fallen rise - those the Daedra kill too (idea 2, the two plagues feed each other)");
-	Check(walkers::MayRise(InvaderKind::Allied, false), "Kind 3: the fallen rise as walkers");
-	Check(!walkers::MayRise(InvaderKind::Walkers, true) && !walkers::MayRise(InvaderKind::Both, true) &&
-	          !walkers::MayRise(InvaderKind::Allied, true),
-	      "a fallen Daedra never rises, whatever the kind");
+	Check(!walkers::MayRise(With(WalkersMode::Off, DaedraMode::Off), false) &&
+	          !walkers::MayRise(With(WalkersMode::Off, DaedraMode::Enemies), false),
+	      "Walkers 0: nobody rises");
+	Check(!walkers::MayRise(With(WalkersMode::Zombies, DaedraMode::Off), false) &&
+	          !walkers::MayRise(With(WalkersMode::Zombies, DaedraMode::Allies), false),
+	      "Walkers 1: the game's zombies only - the dead do not rise");
+	Check(walkers::MayRise(With(WalkersMode::Apocalypse, DaedraMode::Off), false) &&
+	          walkers::MayRise(With(WalkersMode::Apocalypse, DaedraMode::Enemies), false) &&
+	          walkers::MayRise(With(WalkersMode::Apocalypse, DaedraMode::Allies), false),
+	      "Walkers 2: the fallen rise, those the Daedra kill too (idea 2, the two plagues feed each other)");
+	for (UInt32 w = 0; w < 3; ++w) {
+		for (UInt32 d = 0; d < 3; ++d) {
+			Check(!walkers::MayRise(With(kWalkers[w], kDaedra[d]), true), "a fallen Daedra never rises, whatever the switches");
+		}
+	}
 }
 
 void TestReplacement() {
 	std::printf("Which group takes a replaced spawn\n");
-	InvaderSettings s;
-	Check(walkers::ReplacementGroup(s, 0) == Group::Walker && walkers::ReplacementGroup(s, 99) == Group::Walker,
-	      "Kind 0: a walker, whatever the roll");
-	s.kind = InvaderKind::Daedra;
-	Check(walkers::ReplacementGroup(s, 0) == Group::Daedra && walkers::ReplacementGroup(s, 99) == Group::Daedra,
-	      "Kind 1: a Daedra, whatever the roll");
-	s.kind = InvaderKind::Both;
-	Check(walkers::ReplacementGroup(s, 49) == Group::Daedra && walkers::ReplacementGroup(s, 50) == Group::Walker,
-	      "Kind 2, SharePercent 50: a roll 0..49 a Daedra, 50..99 a walker");
-	s.kind = InvaderKind::Allied;
-	Check(walkers::ReplacementGroup(s, 49) == Group::Daedra && walkers::ReplacementGroup(s, 50) == Group::Walker,
-	      "Kind 3: the same share");
-	s.kind = InvaderKind::Both;
+	for (UInt32 d = 0; d < 3; ++d) {
+		const InvaderSettings zombies = With(WalkersMode::Zombies, kDaedra[d]);
+		const InvaderSettings apoc = With(WalkersMode::Apocalypse, kDaedra[d]);
+		Check(walkers::ReplacementTarget(zombies, false, 0) == SpawnTarget::Walker &&
+		          walkers::ReplacementTarget(apoc, false, 99) == SpawnTarget::Walker,
+		      "walkers on, the Daedra not everywhere: a walker, whatever the roll and the Daedra switch");
+		Check(walkers::ReplacementTarget(With(WalkersMode::Off, kDaedra[d]), false, 0) == SpawnTarget::None,
+		      "walkers off, the Daedra not everywhere: nothing is replaced");
+	}
+	InvaderSettings s = With(WalkersMode::Apocalypse, DaedraMode::Off);
+	Check(walkers::ReplacementTarget(s, true, 0) == SpawnTarget::Walker,
+	      "everywhere but the Daedra off: no Daedra, ever");
+	s = With(WalkersMode::Apocalypse, DaedraMode::Enemies);
+	Check(walkers::ReplacementTarget(s, true, 49) == SpawnTarget::Daedra &&
+	          walkers::ReplacementTarget(s, true, 50) == SpawnTarget::Walker,
+	      "everywhere, SharePercent 50: a roll 0..49 a Daedra, 50..99 a walker");
+	s.daedra = DaedraMode::Allies;
+	Check(walkers::ReplacementTarget(s, true, 49) == SpawnTarget::Daedra && walkers::ReplacementTarget(s, true, 50) == SpawnTarget::Walker,
+	      "allies: the same share");
+	s.walkers = WalkersMode::Zombies;
+	Check(walkers::ReplacementTarget(s, true, 10) == SpawnTarget::Daedra && walkers::ReplacementTarget(s, true, 90) == SpawnTarget::Walker,
+	      "Walkers 1 and everywhere: the share too");
+	s.walkers = WalkersMode::Off;
+	Check(walkers::ReplacementTarget(s, true, 0) == SpawnTarget::Daedra && walkers::ReplacementTarget(s, true, 99) == SpawnTarget::Daedra,
+	      "no walkers, the Daedra everywhere: every replaced entry a Daedra");
+	s = With(WalkersMode::Apocalypse, DaedraMode::Enemies);
 	s.daedraPercent = 0;
-	Check(walkers::ReplacementGroup(s, 0) == Group::Walker, "SharePercent 0: never a Daedra");
+	Check(walkers::ReplacementTarget(s, true, 0) == SpawnTarget::Walker, "SharePercent 0: never a Daedra");
 	s.daedraPercent = 100;
-	Check(walkers::ReplacementGroup(s, 99) == Group::Daedra, "SharePercent 100: always a Daedra");
+	Check(walkers::ReplacementTarget(s, true, 99) == SpawnTarget::Daedra, "SharePercent 100: always a Daedra");
 	s.daedraPercent = 250;
-	Check(walkers::ReplacementGroup(s, 99) == Group::Daedra, "above 100: as 100");
+	Check(walkers::ReplacementTarget(s, true, 99) == SpawnTarget::Daedra, "above 100: as 100");
+}
+
+void TestSides() {
+	std::printf("The side of a siege, an attack, a held dungeon's attackers (4.24)\n");
+	Check(walkers::SideOf(With(WalkersMode::Off, DaedraMode::Off), 0) == Side::Nobody &&
+	          walkers::SideOf(With(WalkersMode::Zombies, DaedraMode::Off), 99) == Side::Nobody,
+	      "no apocalypse and no Daedra (the mod off, or only the zombies): nobody");
+	Check(walkers::SideOf(With(WalkersMode::Apocalypse, DaedraMode::Off), 0) == Side::Walkers &&
+	          walkers::SideOf(With(WalkersMode::Apocalypse, DaedraMode::Off), 99) == Side::Walkers,
+	      "the apocalypse alone: the walkers, whatever the roll");
+	for (UInt32 w = 0; w < 2; ++w) {
+		Check(walkers::SideOf(With(kWalkers[w], DaedraMode::Enemies), 0) == Side::Daedra &&
+		          walkers::SideOf(With(kWalkers[w], DaedraMode::Allies), 99) == Side::Daedra,
+		      "the Daedra with no apocalypse (Walkers 0 or 1): the Daedra, the zombies are no side");
+	}
+	InvaderSettings s = With(WalkersMode::Apocalypse, DaedraMode::Enemies);
+	Check(walkers::SideOf(s, 49) == Side::Daedra && walkers::SideOf(s, 50) == Side::Walkers,
+	      "the apocalypse and the Daedra: by SharePercent 50");
+	s.daedra = DaedraMode::Allies;
+	Check(walkers::SideOf(s, 49) == Side::Daedra && walkers::SideOf(s, 50) == Side::Walkers, "allies: the same");
+	s.daedraPercent = 0;
+	Check(walkers::SideOf(s, 0) == Side::Walkers, "SharePercent 0: the walkers");
+	s.daedraPercent = 100;
+	Check(walkers::SideOf(s, 99) == Side::Daedra, "SharePercent 100: the Daedra");
+}
+
+void TestReplacementRuns() {
+	std::printf("Whether the spawn replacement runs\n");
+	Check(!walkers::ReplacementRuns(With(WalkersMode::Off, DaedraMode::Off), false) &&
+	          !walkers::ReplacementRuns(With(WalkersMode::Off, DaedraMode::Off), true),
+	      "the mod off: never");
+	Check(walkers::ReplacementRuns(With(WalkersMode::Zombies, DaedraMode::Off), false) &&
+	          walkers::ReplacementRuns(With(WalkersMode::Apocalypse, DaedraMode::Allies), false),
+	      "with walkers: yes");
+	Check(!walkers::ReplacementRuns(With(WalkersMode::Off, DaedraMode::Enemies), false),
+	      "the Daedra alone out of the gates: the world keeps its spawns");
+	Check(walkers::ReplacementRuns(With(WalkersMode::Off, DaedraMode::Enemies), true),
+	      "the Daedra alone while they come everywhere: yes");
 }
 
 void TestCategories() {
@@ -140,16 +253,29 @@ void TestCategories() {
 	      "(the indices the next checks use: Dremora, Bandits)");
 	Check(walkers::CategoryReplaced(InvaderKind::Walkers, dremora, true) &&
 	          walkers::CategoryReplaced(InvaderKind::Walkers, bandits, true),
-	      "Kind 0: a category switched on is replaced, the Daedra's too - as now");
+	      "walkers only: a category switched on is replaced, the Daedra's too - as now");
+	Check(walkers::CategoryReplaced(InvaderKind::None, dremora, true),
+	      "the mod off: no kind keeps a category (the replacement does not run then)");
 	Check(!walkers::CategoryReplaced(InvaderKind::Daedra, dremora, true) &&
 	          walkers::CategoryReplaced(InvaderKind::Daedra, bandits, true),
-	      "Kind 1: the Daedra stay the game's Daedra, the bandits are replaced");
+	      "the Daedra alone: the Daedra stay the game's Daedra, the bandits are replaced");
 	Check(!walkers::CategoryReplaced(InvaderKind::Both, dremora, true) &&
 	          !walkers::CategoryReplaced(InvaderKind::Allied, dremora, true),
-	      "Kind 2 and 3: the Daedra stay too");
+	      "at war or allied: the Daedra stay too");
 	Check(!walkers::CategoryReplaced(InvaderKind::Daedra, bandits, false) &&
 	          !walkers::CategoryReplaced(InvaderKind::Walkers, bandits, false),
 	      "a category switched off: never");
+
+	std::printf("Walkers Mode 1: the Zombies category alone\n");
+	Check(std::strcmp(walkers::kReplaceCategories[walkers::kZombiesCategory].key, "Zombies") == 0,
+	      "kZombiesCategory is the Zombies key");
+	const InvaderSettings zombies = With(WalkersMode::Zombies, DaedraMode::Off);
+	Check(walkers::CategoryAllowed(zombies, walkers::kZombiesCategory) && !walkers::CategoryAllowed(zombies, bandits) &&
+	          !walkers::CategoryAllowed(zombies, dremora) && !walkers::CategoryAllowed(zombies, walkers::kNoCategory),
+	      "Walkers 1: Zombies yes, every other category (and none) off, whatever [ReplaceCategories] says");
+	Check(walkers::CategoryAllowed(With(WalkersMode::Apocalypse, DaedraMode::Off), bandits) &&
+	          walkers::CategoryAllowed(With(WalkersMode::Off, DaedraMode::Enemies), bandits),
+	      "Walkers 2 (and 0, for the Daedra alone everywhere): every category as set");
 }
 
 void TestSummoners() {
@@ -249,25 +375,31 @@ void TestAfterMainQuest() {
 	Check(walkers::DaedraStopped(false, 0x03) && !walkers::DaedraStopped(false, 0x01),
 	      "AfterMainQuest=0: stopped once MQ16 reads completed, not while it runs");
 	Check(!walkers::DaedraStopped(true, 0x03), "AfterMainQuest=1: never stopped");
-	walkers::InvaderSettings s;
-	s.kind = walkers::InvaderKind::Both;
-	Check(walkers::InvadersNow(s, true).kind == walkers::InvaderKind::Walkers &&
-	          walkers::InvadersNow(s, false).kind == walkers::InvaderKind::Both,
-	      "stopped: every new side the walkers'");
-	Check(walkers::ReplacementRuns(s, true), "Mode 2 stopped: the replacement keeps its walkers");
-	s.kind = walkers::InvaderKind::Daedra;
-	Check(!walkers::ReplacementRuns(s, true) && walkers::ReplacementRuns(s, false),
-	      "Mode 1 stopped: no replacement (no walkers in Mode 1)");
+	const InvaderSettings s = With(WalkersMode::Apocalypse, DaedraMode::Allies);
+	Check(walkers::InvadersNow(s, true).daedra == DaedraMode::Off && walkers::InvadersNow(s, true).walkers == WalkersMode::Apocalypse &&
+	          walkers::InvadersNow(s, false).daedra == DaedraMode::Allies,
+	      "stopped: only the Daedra go off, the walkers are untouched");
+	Check(walkers::KindOf(walkers::InvadersNow(s, true)) == InvaderKind::Walkers,
+	      "stopped: the derived kind is the walkers'");
+	const InvaderSettings alone = With(WalkersMode::Off, DaedraMode::Enemies);
+	Check(walkers::KindOf(walkers::InvadersNow(alone, true)) == InvaderKind::None &&
+	          !walkers::ReplacementRuns(walkers::InvadersNow(alone, true), true),
+	      "the Daedra alone, stopped: nobody - no replacement even while 'everywhere'");
+	Check(walkers::ReplacementRuns(walkers::InvadersNow(s, true), false),
+	      "walkers and Daedra, stopped: the replacement keeps its walkers");
 }
 
 int main() {
 	TestAfterMainQuest();
-	TestKindFromIni();
+	TestSwitches();
+	TestDerivedKind();
 	TestInPlay();
 	TestHostility();
 	TestRules();
 	TestRise();
 	TestReplacement();
+	TestSides();
+	TestReplacementRuns();
 	TestCategories();
 	TestSummoners();
 	TestEntryRoll();

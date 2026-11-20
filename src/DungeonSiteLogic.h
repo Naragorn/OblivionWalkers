@@ -374,12 +374,14 @@ inline bool IsOutpost(const DungeonSite& d) { return d.state == DungeonState::Wa
 // Whether a walker dungeon is done with its boss: none there, or it fell.
 inline bool OutpostBossDone(const DungeonSite& d) { return !IsOutpost(d) || d.bossDown; }
 
-// A new siege or walker dungeon's side (4.22a step 5c), rolled as a spawn's
-// (KindLogic.h ReplacementGroup) on `roll` (0..99); a refuge or a place to
-// clear has none.
+// Whether a new siege or walker dungeon is the Daedra's (4.22a step 5c,
+// 4.24; KindLogic.h SideOf on `roll`, 0..99): the walkers' only with the
+// apocalypse, the Daedra's with a Daedra mode; a refuge or a place to clear
+// has none. With neither side the held dungeons do not run at all
+// (Rise.cpp RefreshSides), so no attackers start.
 inline bool DungeonSideDaedra(const DungeonSite& d, const InvaderSettings& invaders, UInt32 roll) {
 	return (d.state == DungeonState::Besieged || d.state == DungeonState::WalkerDungeon) &&
-	       ReplacementGroup(invaders, roll % 100) == Group::Daedra;
+	       SideOf(invaders, roll % 100) == Side::Daedra;
 }
 
 // Site `i` cleared by the player: to clear - those waiting move in; a

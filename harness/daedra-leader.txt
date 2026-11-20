@@ -1,5 +1,5 @@
 # A Daedra band breaks up when its leader falls (docs/walkers-spec.md 4.22
-# idea 1). Mode 1, OnlyFromOblivionGates=1, TestBandSeconds=20 and
+# idea 1). Daedra Mode 1, TestBandSeconds=20 and
 # TestKillLeaderSeconds=10 (set by tools/daedra-harness.sh leader): the
 # band placed 20 s after the load with its leader two ranks above it; 10 s
 # after the leader was found the plugin kills him by console. The log must

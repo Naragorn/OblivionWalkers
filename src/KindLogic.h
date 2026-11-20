@@ -1,19 +1,14 @@
 #pragma once
 
-// Daedra from Oblivion, step 1 - the kind's rules, process-free
-// (docs/walkers-spec.md 4.22; Nadi, 2026-11-13: "0 zombies, 1 Dremora, 2
-// both", decided the same day; built 2026-11-15, not wired in yet).
+// Who comes - the two switches and what follows from them, process-free
+// (docs/walkers-spec.md 4.22 and 4.24; Nadi, 2026-11-20).
 //
-// `[Daedra] Mode` (named Kind until 2026-11-16, Nadi: a better key) says
-// which groups are in play: 0 the walkers as they
-// are, 1 the Daedra in their place, 2 both at war with each other, 3 both
-// as allies (Nadi, 2026-11-15: walkers and Daedra friends, the fallen rise
-// as walkers). Each group keeps or drops the
-// walkers' rules as 4.22's table has them; every "is a walker" test of the
-// plugin will ask RulesOf for its group instead of taking the walkers' rules
-// for granted. Nothing here touches the game: Rise.cpp, Grab.cpp and the
-// spawn replacement still take the walkers' rules (step 1's wiring, not
-// built - it waits for a harness run).
+// `[Walkers] Mode` (WalkersMode): 0 off, 1 only the game's zombies, 2 the
+// apocalypse. `[Daedra] Mode` (DaedraMode): 0 off, 1 the Daedra out of the
+// open gates as enemies of the walkers, 2 as their allies. The old single
+// kind stays as a value derived from the two (KindOf): the helpers that
+// ask "who is in play" and "do they fight" read it. Each group keeps or
+// drops the walkers' rules as 4.22's table has them.
 
 #include "CategoryLogic.h"
 #include "DaedraLists.h"
@@ -21,7 +16,16 @@
 
 namespace walkers {
 
-enum class InvaderKind : UInt8 { Walkers = 0, Daedra = 1, Both = 2, Allied = 3 };
+// [Walkers] Mode (4.24): 0 none, 1 only the game's zombies become walkers
+// (nobody rises, no hordes), 2 the apocalypse (every category as set, the
+// dead rise, hordes, sieges, camps, held dungeons).
+enum class WalkersMode : UInt8 { Off = 0, Zombies = 1, Apocalypse = 2 };
+// [Daedra] Mode (4.22, 4.24): 0 none, 1 out of the open gates, at war with
+// the walkers, 2 out of the open gates, the walkers' allies.
+enum class DaedraMode : UInt8 { Off = 0, Enemies = 1, Allies = 2 };
+// Derived from the two switches (KindOf): which groups are in play and how
+// they stand. None: neither.
+enum class InvaderKind : UInt8 { Walkers = 0, Daedra = 1, Both = 2, Allied = 3, None = 4 };
 enum class Group : UInt8 { Walker, Daedra };
 
 // The spawn replacement's Daedra (step 1): Oblivion.esm's LL1Daedra100
@@ -37,23 +41,50 @@ inline constexpr UInt32 kGameDaedraList = 0x00034097;
 inline constexpr UInt32 kInvaderDaedraLocalId = 0xA93;
 inline constexpr UInt32 kInvaderDaedraNoSummonLocalId = 0xA94;
 
-// [Daedra] in OblivionWalkers.ini.
+// [Walkers] Mode and [Daedra] in OblivionWalkers.ini.
 struct InvaderSettings {
-	InvaderKind kind = InvaderKind::Walkers;  // Kind: 0 by default (decided 2026-11-13)
-	UInt32 daedraPercent = 50;                 // SharePercent: Kind 2's share of the replaced spawns
-	bool summons = false;                      // Summons: the summoners keep their summons (idea 11, off)
-	bool afterMainQuest = false;               // AfterMainQuest (step 6): off - they stop with the main quest
+	WalkersMode walkers = WalkersMode::Zombies;  // [Walkers] Mode: 1 by default (4.24)
+	DaedraMode daedra = DaedraMode::Off;         // [Daedra] Mode: 0 by default
+	UInt32 daedraPercent = 50;                   // SharePercent: the Daedra's share where both can come
+	bool summons = false;                        // Summons: the summoners keep their summons (idea 11, off)
+	bool afterMainQuest = false;                 // AfterMainQuest (step 6): off - they stop with the main quest
 };
 
-// The INI's number; anything but 1, 2 and 3 is the walkers - as without
-// the switch.
-inline InvaderKind KindFromIni(int value) {
+// The INI's numbers; anything but 0, 1 and 2 is the key's default, as
+// without the key.
+inline WalkersMode WalkersModeFromIni(int value) {
 	switch (value) {
-		case 1: return InvaderKind::Daedra;
-		case 2: return InvaderKind::Both;
-		case 3: return InvaderKind::Allied;
-		default: return InvaderKind::Walkers;
+		case 0: return WalkersMode::Off;
+		case 2: return WalkersMode::Apocalypse;
+		default: return WalkersMode::Zombies;
 	}
+}
+inline DaedraMode DaedraModeFromIni(int value) {
+	switch (value) {
+		case 1: return DaedraMode::Enemies;
+		case 2: return DaedraMode::Allies;
+		default: return DaedraMode::Off;
+	}
+}
+
+inline bool WalkersOn(const InvaderSettings& s) { return s.walkers != WalkersMode::Off; }
+inline bool Apocalypse(const InvaderSettings& s) { return s.walkers == WalkersMode::Apocalypse; }
+inline bool DaedraOn(const InvaderSettings& s) { return s.daedra != DaedraMode::Off; }
+// A side for sieges, camp attacks and held dungeons exists: the apocalypse's
+// walkers or the Daedra (4.24).
+inline bool SidesExist(const InvaderSettings& s) { return Apocalypse(s) || DaedraOn(s); }
+// All switches off: the mod does nothing (4.24).
+inline bool ModOff(const InvaderSettings& s) { return !WalkersOn(s) && !DaedraOn(s); }
+
+// The derived kind: who is in play and how they stand.
+inline InvaderKind KindOf(const InvaderSettings& s) {
+	if (!DaedraOn(s)) {
+		return WalkersOn(s) ? InvaderKind::Walkers : InvaderKind::None;
+	}
+	if (!WalkersOn(s)) {
+		return InvaderKind::Daedra;
+	}
+	return s.daedra == DaedraMode::Allies ? InvaderKind::Allied : InvaderKind::Both;
 }
 
 // Both groups in play (Kind 2 or 3).
@@ -72,6 +103,9 @@ inline constexpr UInt32 kDaedraFaction = 0x00053FED;
 inline bool WalkersJoinDaedra(InvaderKind kind) { return kind == InvaderKind::Allied; }
 
 inline bool InPlay(InvaderKind kind, Group group) {
+	if (kind == InvaderKind::None) {
+		return false;
+	}
 	return group == Group::Walker ? kind != InvaderKind::Daedra : kind != InvaderKind::Walkers;
 }
 
@@ -93,22 +127,48 @@ inline constexpr GroupRules RulesOf(Group group) {
 	                              : GroupRules{false, false, false, false, false, false, true, false, false};
 }
 
-// Whether one fallen gets up as a walker: only while walkers are in play,
-// never a Daedra; with Kind 2 and 3 those the Daedra kill rise too (idea 2;
-// Nadi 2026-11-15 for Kind 3).
-inline bool MayRise(InvaderKind kind, bool fallenIsDaedra) {
-	return !fallenIsDaedra && InPlay(kind, Group::Walker);
+// Whether one fallen gets up as a walker: only with the apocalypse (4.24:
+// Walkers Mode 1 raises nobody), never a Daedra; the Daedra's kills rise
+// too (idea 2; Nadi 2026-11-15 for allies).
+inline bool MayRise(const InvaderSettings& s, bool fallenIsDaedra) { return !fallenIsDaedra && Apocalypse(s); }
+
+// The group a replaced spawn goes to, or none (4.22, 4.24). `daedraEverywhere`:
+// [Daedra] EverywhereUntilGatesOpen with no gate open (BandLogic.h) - the only
+// time the replacement writes Daedra. Then the replaced entries go to the
+// Daedra by SharePercent on `roll` (0..99), all of them with no walkers.
+enum class SpawnTarget : UInt8 { None, Walker, Daedra };
+inline SpawnTarget ReplacementTarget(const InvaderSettings& s, bool daedraEverywhere, UInt32 roll) {
+	const bool daedra = daedraEverywhere && DaedraOn(s);
+	if (!WalkersOn(s) && !daedra) {
+		return SpawnTarget::None;
+	}
+	if (!daedra) {
+		return SpawnTarget::Walker;
+	}
+	if (!WalkersOn(s)) {
+		return SpawnTarget::Daedra;
+	}
+	return roll < s.daedraPercent ? SpawnTarget::Daedra : SpawnTarget::Walker;
 }
 
-// The group that takes a replaced spawn; `roll` 0..99 (Kind 2 and 3 only).
-inline Group ReplacementGroup(const InvaderSettings& s, UInt32 roll) {
-	switch (s.kind) {
-		case InvaderKind::Walkers: return Group::Walker;
-		case InvaderKind::Daedra: return Group::Daedra;
-		case InvaderKind::Both:
-		case InvaderKind::Allied: break;
+// The side of a siege, a camp's attack or a held dungeon's attackers (4.24):
+// the walkers only with the apocalypse, the Daedra only with a Daedra mode;
+// both by SharePercent on `roll` (0..99); none: nobody - the caller starts
+// nothing.
+enum class Side : UInt8 { Walkers, Daedra, Nobody };
+inline Side SideOf(const InvaderSettings& s, UInt32 roll) {
+	const bool walkers = Apocalypse(s);
+	const bool daedra = DaedraOn(s);
+	if (!walkers && !daedra) {
+		return Side::Nobody;
 	}
-	return roll < s.daedraPercent ? Group::Daedra : Group::Walker;
+	if (!daedra) {
+		return Side::Walkers;
+	}
+	if (!walkers) {
+		return Side::Daedra;
+	}
+	return roll < s.daedraPercent ? Side::Daedra : Side::Walkers;
 }
 
 // The Daedra among the replacement categories (CategoryLogic.h), by their
@@ -133,6 +193,14 @@ inline bool IsDaedraCategory(UInt8 category) {
 // their own categories stay the game's Daedra - they are the invaders.
 inline bool CategoryReplaced(InvaderKind kind, UInt8 category, bool on) {
 	return on && !(InPlay(kind, Group::Daedra) && IsDaedraCategory(category));
+}
+
+// [ReplaceCategories] "Zombies" (CategoryLogic.h; KindLogicTest checks the key).
+inline constexpr UInt8 kZombiesCategory = 1;
+// Walkers Mode 1 replaces the Zombies category alone, whatever
+// [ReplaceCategories] says (4.24); any other mode leaves the choice to it.
+inline bool CategoryAllowed(const InvaderSettings& s, UInt8 category) {
+	return s.walkers != WalkersMode::Zombies || category == kZombiesCategory;
 }
 
 // Idea 11: the summoners (the Dremora's ranks, the spider daedra, the
@@ -216,11 +284,9 @@ inline UInt32 OutpostBossActor(const InvaderSettings& s, UInt32 level, UInt32 ro
 
 // [Daedra] AfterMainQuest (4.22a step 6): off (0, the default), the
 // Daedra stop once the main quest is done - Oblivion.esm's MQ16 (0002A38F)
-// completed (TESQuest::questFlags +0x3C, bit 1). From then on every new
-// side is the walkers' (sieges, camp attacks, held places, bands); the
-// spawn replacement keeps the walkers of Mode 2 and 3 and stops in Mode 1
-// (no walkers there). What stands is fought out. The rise keeps the Mode's
-// own rule (MayRise).
+// completed (TESQuest::questFlags +0x3C, bit 1). From then on the Daedra
+// are off (4.24): no new band, siege, camp attack or held place of theirs;
+// the walkers are untouched. What stands is fought out.
 inline constexpr UInt32 kMainQuestEnd = 0x0002A38F;
 inline constexpr UInt8 kQuestCompleted = 0x02;
 inline bool DaedraStopped(bool afterMainQuest, UInt8 mainQuestEndFlags) {
@@ -229,14 +295,15 @@ inline bool DaedraStopped(bool afterMainQuest, UInt8 mainQuestEndFlags) {
 inline InvaderSettings InvadersNow(const InvaderSettings& s, bool stopped) {
 	InvaderSettings now = s;
 	if (stopped) {
-		now.kind = InvaderKind::Walkers;
+		now.daedra = DaedraMode::Off;
 	}
 	return now;
 }
-// Whether the spawn replacement runs at all: Mode 1 has no walkers to put
-// in once the Daedra stopped.
-inline bool ReplacementRuns(const InvaderSettings& s, bool stopped) {
-	return !(stopped && s.kind == InvaderKind::Daedra);
+// Whether the spawn replacement runs at all: with walkers, or for the Daedra
+// alone while they come everywhere (`daedraEverywhere`, BandLogic.h). `now`
+// is InvadersNow's answer.
+inline bool ReplacementRuns(const InvaderSettings& now, bool daedraEverywhere) {
+	return WalkersOn(now) || (daedraEverywhere && DaedraOn(now));
 }
 
 // The outpost's boss chest: Oblivion.esm's DungOblivionBossSack01

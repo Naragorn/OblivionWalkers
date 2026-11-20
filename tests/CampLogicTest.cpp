@@ -676,15 +676,30 @@ void TestNearestGate() {
 
 void TestCampDaedra() {
 	std::printf("A Daedra attack on a camp (4.22a step 5c)\n");
+	using walkers::DaedraMode;
+	using walkers::Side;
+	using walkers::WalkersMode;
 	walkers::InvaderSettings inv;
-	Check(!walkers::CampAttackDaedra(inv, 0), "Mode 0: walkers");
-	inv.kind = walkers::InvaderKind::Daedra;
-	Check(walkers::CampAttackDaedra(inv, 99), "Mode 1: Daedra");
-	inv.kind = walkers::InvaderKind::Both;
+	inv.walkers = WalkersMode::Apocalypse;
+	inv.daedra = DaedraMode::Off;
+	Check(!walkers::CampAttackDaedra(inv, 0) && walkers::CampAttackSide(inv, 0) == Side::Walkers,
+	      "the apocalypse alone: walkers");
+	inv.walkers = WalkersMode::Off;
+	inv.daedra = DaedraMode::Enemies;
+	Check(walkers::CampAttackDaedra(inv, 99), "Daedra alone: Daedra");
+	inv.walkers = WalkersMode::Apocalypse;
 	inv.daedraPercent = 30;
-	Check(walkers::CampAttackDaedra(inv, 29) && !walkers::CampAttackDaedra(inv, 30), "Mode 2: by SharePercent");
-	inv.kind = walkers::InvaderKind::Allied;
-	Check(walkers::CampAttackDaedra(inv, 129), "Mode 3 too; the roll taken mod 100");
+	Check(walkers::CampAttackDaedra(inv, 29) && !walkers::CampAttackDaedra(inv, 30), "both: by SharePercent");
+	inv.daedra = DaedraMode::Allies;
+	Check(walkers::CampAttackDaedra(inv, 129), "allies too; the roll taken mod 100");
+	inv.walkers = WalkersMode::Zombies;
+	Check(walkers::CampAttackSide(inv, 0) == Side::Daedra && walkers::CampAttackSide(inv, 99) == Side::Daedra,
+	      "Walkers 1 and Daedra: the zombies are no side - the Daedra");
+	inv.daedra = DaedraMode::Off;
+	Check(walkers::CampAttackSide(inv, 0) == Side::Nobody && !walkers::CampAttackDaedra(inv, 0),
+	      "Walkers 1, Daedra 0: nobody attacks");
+	inv.walkers = WalkersMode::Off;
+	Check(walkers::CampAttackSide(inv, 50) == Side::Nobody, "the mod off: nobody attacks");
 	CampEvent ev[4];
 	Camp c;
 	c.roster = 1;

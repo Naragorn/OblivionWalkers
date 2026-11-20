@@ -11,6 +11,8 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 if grep -q '^\[Safeguard\]' "$ini"; then
 	sed -i 's/^\[Safeguard\]\r\?$/[Safeguard]\r\nTestVictim=0002CA3B\r/' "$ini"
 else

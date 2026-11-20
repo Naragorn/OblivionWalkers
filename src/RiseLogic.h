@@ -192,7 +192,7 @@ struct RiseSettings {
 	// [Daedra] (4.22, KindLogic.h): who comes - the spawn replacement and
 	// the rise follow it.
 	InvaderSettings invaders;
-	// [Daedra] Origin and the bands out of the gates (4.22 step 3,
+	// [Daedra] Mode and the bands out of the gates (4.22 step 3, 4.24;
 	// BandLogic.h).
 	BandSettings bands;
 	// [Daedra] BanishSeconds, BanishShader (4.22a step 5b, BanishLogic.h):
@@ -600,7 +600,8 @@ enum class DeathVerdict : UInt8 {
 	HeadOff,          // OBVR cut his head off: no walker with a head from him
 	InCity,           // NoRiseInCities=1 and he fell in a city's streets
 	ListFull,         // kWaitingMost references wait already
-	NotForInvaders,   // [Daedra] Kind: no walkers in play (1), or a Daedra fell (4.22 MayRise)
+	NotForInvaders,   // [Walkers] Mode 0: no walkers, or a Daedra fell (4.22, 4.24 MayRise)
+	ZombiesOnly,      // [Walkers] Mode 1: the game's zombies only - the dead do not rise (4.24)
 };
 
 inline const char* VerdictText(DeathVerdict verdict) {
@@ -632,7 +633,9 @@ inline const char* VerdictText(DeathVerdict verdict) {
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
 		case DeathVerdict::NotForInvaders:
-			return "stays down (Daedra Mode: no walkers, or a Daedra)";
+			return "stays down (Walkers Mode 0: no walkers, or a Daedra fell)";
+		case DeathVerdict::ZombiesOnly:
+			return "stays down (Walkers Mode 1: the game's zombies only)";
 	}
 	return "?";
 }
@@ -698,8 +701,10 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 	if (fallen.essential) {
 		return DeathVerdict::Essential;
 	}
-	if (!MayRise(settings.invaders.kind, fallen.daedra)) {
-		return DeathVerdict::NotForInvaders;
+	if (!MayRise(settings.invaders, fallen.daedra)) {
+		// A Daedra never rises; otherwise it is the walkers' switch: 0 none, 1 only the zombies.
+		return fallen.daedra || settings.invaders.walkers == WalkersMode::Off ? DeathVerdict::NotForInvaders
+		                                                                     : DeathVerdict::ZombiesOnly;
 	}
 	if (fallen.headOff) {
 		return DeathVerdict::HeadOff;

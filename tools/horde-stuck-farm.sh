@@ -13,8 +13,10 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
 for on in 0 1; do
 	cp "$backup" "$ini"
+	walkers_apocalypse "$ini"  # 4.24: hordes run only with the apocalypse
 	python3 - "$ini" "$on" <<'INI'
 import re, sys
 path, on = sys.argv[1], sys.argv[2]

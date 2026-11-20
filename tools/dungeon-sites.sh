@@ -5,6 +5,12 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
+ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
+backup="$(mktemp)"
+cp "$ini" "$backup"
+trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: held dungeons need the apocalypse
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/dungeon-sites.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/dungeon-sites-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/dungeon-sites/*/ | head -1)"

@@ -3932,9 +3932,10 @@ started - Nadi's go for each):
 | 7 | The looks: the siege gate prop, the marching weather, the Daedric disguise, the Legion's answer | 3, 9, 7, 10 | medium each; 3 and 9 touch sky and weather (9 off by default) |
 
 **The key is `[Daedra] Mode`** (Nadi, 2026-11-16: a better name than
-`Kind`; the section's "Kind 0..3" below are its values): 0 the walkers, 1
+`Kind`; the section's "Kind 0..3" below are its old values): 0 the walkers, 1
 the Daedra in their place, 2 both at war, 3 both as allies. LINK
-`ini_daedra_mode`, "Daedra: who comes".
+`ini_daedra_mode`, "Daedra: who comes". Superseded 2026-11-20 by 4.24:
+`[Walkers] Mode` (0, 1, 2) and `[Daedra] Mode` (0 off, 1 enemies, 2 allies).
 
 **The section is `[Daedra]`** (Nadi, 2026-11-20: "Invaders" too generic).
 It was `[Invaders]` until then, with `DaedraPercent` (now `SharePercent`)
@@ -3945,8 +3946,8 @@ old names: the section never shipped (v0.1.0 is older). The code's own names
 the invaders there.
 
 **The Daedra come only out of the gates** (Nadi, 2026-11-20, asked: he
-took the Daedra for the gates' and not for the walkers' places; decided,
-not built). Each threat has its own source: the walkers everywhere
+took the Daedra for the gates' and not for the walkers' places; decided;
+BUILT 2026-11-20, harness owed). Each threat has its own source: the walkers everywhere
 through the spawn replacement (the plague), the Daedra only out of open
 Oblivion gates (the invasion), the necromancers out of their realms (4.23
 B).
@@ -5614,7 +5615,7 @@ Recommended order: B first (it stands on what is built and proven today),
 A after its hit hook is read - the cheapest step to settle A's cost is to
 read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
 
-### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos", then "a 0 that switches everything off and a 1 that only replaces the existing zombies"; designed, not built)
+### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos", then "a 0 that switches everything off and a 1 that only replaces the existing zombies"; BUILT 2026-11-20 for Walkers and Daedra, harness owed; the necromancers' switch waits for 4.23 B)
 
 Until now one key mixed two questions: `[Daedra] Mode` 1 meant "the
 Daedra, and no walkers", and the necromancers' design had "alone" and
@@ -5670,6 +5671,33 @@ whether one walker can be in the DaedraFaction and in a team's faction
 that is the enemy of another team's (engine, to be read); (c) whether
 the necromancer bosses themselves (the game's NPCs) are the Daedra's
 allies with Daedra 2.
+
+As built 2026-11-20 (code read; unit flows in KindLogicTest, BandLogicTest,
+RiseLogicTest, SiegeLogicTest, CampLogicTest, DungeonSiteLogicTest,
+LinkLogicTest; the harness runs are owed) - where the code differed from
+the design below:
+- The hordes: `StepHordeInGame` also moves the Daedra bands (they are
+  its candidates), so it runs with the apocalypse or a Daedra mode; with
+  Walkers 0 or 1 its candidates are the bands' members only, no walkers.
+- Camps and held dungeons run only when a side exists: Rise.cpp hands
+  them copies of their settings with `enabled` cleared while there is
+  none (the user's own settings stay).
+- Walkers 1 also leaves out `[Replace] ExtraSpawnPercent`'s extra entries
+  (only the zombies are replaced); entries added earlier in a session
+  stay until the next start - they were never taken out with Enabled=0
+  either.
+- Walkers 1 with `EverywhereUntilGatesOpen=1` and no gate open: the
+  Zombies entries alone go to the Daedra by SharePercent.
+- A gate's band is always Daedra; the bands stop with `AfterMainQuest=0`
+  once MQ16 is done (before, they went on as walker bands).
+- LINK: `ini_walkers_mode` is index 208, `ini_daedra_mode` 209; the old
+  `ini_daedra_only_from_oblivion_gates` (211) is gone, so nothing after
+  index 211 moved. Version 49.
+- Logs: "Mod: Walkers Mode=.. Daedra Mode=.." at the start (a clear
+  "the mod is off" line with both 0), "Spawns: Walkers Mode=.. Daedra
+  Mode=.. SharePercent=.. EverywhereNow=.." after every pass, and the
+  rise verdicts "stays down (Walkers Mode 0 ...)" and "(Walkers Mode 1: the
+  game's zombies only)".
 
 What changes in the code (design):
 - `KindLogic.h`: "walkers in play" is `[Walkers] Mode` 1 or 2 or a

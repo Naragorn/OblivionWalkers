@@ -958,7 +958,7 @@ void GuardBossLists(UInt32 espBase, const ReplaceSettings& settings, LogFn log) 
 bool IsBossCopy(UInt32 form) { return g_copySet.count(form) != 0; }
 
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
-                     const char* iniPath, bool mooLoaded, LogFn log) {
+                     bool daedraEverywhere, const char* iniPath, bool mooLoaded, LogFn log) {
 	CollectQuestNames(log);
 	if (!g_bossesScanned) {
 		ScanBosses(settings, iniPath, log);
@@ -981,20 +981,27 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	const UInt32 daedraWithSummons = espList(kInvaderDaedraLocalId);
 	const UInt32 daedraNoSummons = espList(kInvaderDaedraNoSummonLocalId);
 	const UInt32 daedraList = espList(InvaderDaedraLocalId(invaders));
-	const bool daedraInPlay = InPlay(invaders.kind, Group::Daedra);
-	if (daedraInPlay && daedraList == 0) {
+	const InvaderKind kind = KindOf(invaders);
+	if (daedraEverywhere && daedraList == 0) {
 		log("Spawns: Daedra Mode=%u, but %08X is no leveled creature list (an older ESP) - no Daedra in the lists",
-		    static_cast<UInt32>(invaders.kind), EspFormId(espBase, InvaderDaedraLocalId(invaders)));
+		    static_cast<UInt32>(invaders.daedra), EspFormId(espBase, InvaderDaedraLocalId(invaders)));
 	}
 	const auto ours = [&](UInt32 form) {
 		return form == variant || (form != 0 && (form == daedraWithSummons || form == daedraNoSummons));
 	};
-	// The list a replaced entry names: by the kind and the entry's roll.
+	// The list a replaced entry names: by the switches and the entry's roll
+	// (KindLogic.h ReplacementTarget); the Daedra only while they come
+	// everywhere (4.22, 4.24).
 	const auto targetOf = [&](UInt32 data) {
-		if (!daedraInPlay || daedraList == 0) {
-			return invaders.kind == InvaderKind::Daedra ? 0u : variant;
+		switch (ReplacementTarget(invaders, daedraEverywhere, EntryRoll(data))) {
+			case SpawnTarget::Daedra:
+				return daedraList != 0 ? daedraList : (WalkersOn(invaders) ? variant : 0u);
+			case SpawnTarget::Walker:
+				return variant;
+			case SpawnTarget::None:
+				break;
 		}
-		return ReplacementGroup(invaders, EntryRoll(data)) == Group::Daedra ? daedraList : variant;
+		return 0u;
 	};
 	static bool s_countsWritten = false;
 	if (!s_countsWritten) {
@@ -1089,13 +1096,15 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 				}
 				const Known& known = Learn(own, espBase, settings, section.data(), exceptions.data(), added,
 				                           addedUsed, newLines, log);
+				// Walkers Mode 1: the Zombies category alone (KindLogic.h CategoryAllowed).
 				const bool listed =
+				    CategoryAllowed(invaders, known.category) &&
 				    ReplaceInList(settings, questList, known.facts, known.category, known.line, known.exception, bossList);
 				if (bossList && ReplaceOn(settings, known.facts, known.category, known.line, known.exception)) {
 					++bossEntriesKept;
 				}
 				// The Daedra in play keep their own categories (KindLogic.h).
-				const bool daedraKeeps = listed && !CategoryReplaced(invaders.kind, known.category, true);
+				const bool daedraKeeps = listed && !CategoryReplaced(kind, known.category, true);
 				daedraKept += daedraKeeps ? 1 : 0;
 				const UInt32 replacement = listed && !daedraKeeps ? targetOf(data) : 0u;
 				const bool on = replacement != 0;
@@ -1119,7 +1128,9 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 			// Extra walkers only where something of the list's own stays: a
 			// list all walkers has nothing to add to, one of lists only feeds
 			// its nested lists, which get theirs.
-			if (settings.extraPercent > 0 && kept > 0 && !(questList && settings.keepQuestLists) && !bossList) {
+			// None in Walkers Mode 1: only the game's zombies are replaced.
+			if (settings.extraPercent > 0 && invaders.walkers != WalkersMode::Zombies && kept > 0 &&
+			    !(questList && settings.keepQuestLists) && !bossList) {
 				const UInt32 extraTarget = targetOf(form);
 				const UInt32 more = extraTarget == 0 ? 0 : AddExtraEntries(form, extraTarget, settings.extraPercent);
 				extraAdded += more;
@@ -1136,12 +1147,14 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	    "them new, %u entries back to their own; %u creatures and people known, %u of them walkers",
 	    forms, lists, settings.enabled ? 1 : 0, walkerEntries, listsTouched, replaced, restored,
 	    static_cast<UInt32>(g_known.size()), on);
-	if (invaders.kind != InvaderKind::Walkers) {
-		log("Spawns: Daedra Mode=%u SharePercent=%u Summons=%d - %u entries point at the Daedra (%08X), %u entries "
-		    "of the Daedra's own categories stay the game's",
-		    static_cast<UInt32>(invaders.kind), invaders.daedraPercent, invaders.summons ? 1 : 0, daedraEntries,
-		    daedraList != 0 ? FormIdOf(daedraList) : 0u, daedraKept);
+	if (ModOff(invaders)) {
+		log("Spawns: Walkers Mode=0 Daedra Mode=0 - the mod is off: the lists stay the game's");
 	}
+	log("Spawns: Walkers Mode=%u Daedra Mode=%u SharePercent=%u Summons=%d EverywhereNow=%d - %u entries point at the "
+	    "Daedra (%08X), %u entries of the Daedra's own categories stay the game's",
+	    static_cast<UInt32>(invaders.walkers), static_cast<UInt32>(invaders.daedra), invaders.daedraPercent,
+	    invaders.summons ? 1 : 0, daedraEverywhere ? 1 : 0, daedraEntries, daedraList != 0 ? FormIdOf(daedraList) : 0u,
+	    daedraKept);
 	log("Spawns: KeepBosses=%d KeepHardLists=%d KeepHighLists=%d - %u lists kept by their names; %u entries in them "
 	    "that would be replaced stay their own",
 	    settings.bosses.keepBosses ? 1 : 0, settings.bosses.keepHard ? 1 : 0, settings.bosses.keepHigh ? 1 : 0,

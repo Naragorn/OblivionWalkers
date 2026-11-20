@@ -1,5 +1,5 @@
 // Every flow of the war bands out of the open gates (docs/walkers-spec.md
-// 4.22 step 3, Origin=1; Nadi 2026-11-15 "go 1-7"): where the invaders come
+// 4.22 step 3 and 4.24; Nadi 2026-11-15 "go 1-7"): where the Daedra come
 // from, the band's size, a band per open gate and its clock, far bands as
 // numbers walking to the nearest city, a band near the player put into the
 // world, a closed gate ending its far bands, the cap.
@@ -22,7 +22,16 @@ void Check(bool condition, const char* what) {
 using walkers::BandEvent;
 using walkers::BandSettings;
 using walkers::BandState;
-using walkers::InvaderOrigin;
+using walkers::DaedraMode;
+using walkers::InvaderSettings;
+using walkers::WalkersMode;
+
+InvaderSettings Now(WalkersMode w, DaedraMode d) {
+	InvaderSettings s;
+	s.walkers = w;
+	s.daedra = d;
+	return s;
+}
 
 // Two gates and two cities on a line, far from each other.
 const walkers::BandGate kGates[] = {{0.0f, 0.0f}, {100000.0f, 0.0f}};
@@ -47,22 +56,33 @@ struct Run {
 };
 
 void TestOrigin() {
-	std::printf("Where the invaders come from\n");
+	std::printf("Where the Daedra come from\n");
 	BandSettings s;
-	Check(s.origin == InvaderOrigin::Everywhere && !s.everywhereUntilGatesOpen,
-	      "defaults: Origin 0, EverywhereUntilGatesOpen 0 (decided 2026-11-13/14)");
-	Check(walkers::ReplacementOn(s, 0) && walkers::ReplacementOn(s, 5) && !walkers::BandsOn(s, 5),
-	      "Origin 0: the spawn replacement, open gates or not; no bands");
-	s.origin = InvaderOrigin::Gates;
-	Check(!walkers::ReplacementOn(s, 0) && !walkers::ReplacementOn(s, 3),
-	      "Origin 1: the world keeps the game's spawns");
-	Check(!walkers::BandsOn(s, 0) && walkers::BandsOn(s, 1), "Origin 1: bands only while a gate is open (a)");
+	Check(!s.everywhereUntilGatesOpen, "default: EverywhereUntilGatesOpen 0 (decided 2026-11-13/14)");
+	const InvaderSettings walkersOnly = Now(WalkersMode::Apocalypse, DaedraMode::Off);
+	const InvaderSettings both = Now(WalkersMode::Apocalypse, DaedraMode::Enemies);
+	const InvaderSettings alone = Now(WalkersMode::Off, DaedraMode::Enemies);
+	const InvaderSettings off = Now(WalkersMode::Off, DaedraMode::Off);
+	Check(walkers::ReplacementOn(s, walkersOnly, 0) && walkers::ReplacementOn(s, walkersOnly, 5) &&
+	          !walkers::BandsOn(walkersOnly, 5),
+	      "walkers only: the spawn replacement, open gates or not; no bands");
+	Check(walkers::ReplacementOn(s, both, 0) && walkers::ReplacementOn(s, both, 3),
+	      "walkers and Daedra: the replacement stays the walkers' - the Daedra come only out of the gates");
+	Check(!walkers::DaedraEverywhere(s, both, 0) && !walkers::DaedraEverywhere(s, both, 3),
+	      "EverywhereUntilGatesOpen 0: the Daedra never through the replacement");
+	Check(!walkers::BandsOn(both, 0) && walkers::BandsOn(both, 1) && walkers::BandsOn(alone, 2),
+	      "a Daedra mode: bands only while a gate is open (a)");
+	Check(!walkers::ReplacementOn(s, alone, 0) && !walkers::ReplacementOn(s, alone, 3),
+	      "the Daedra alone: the world keeps the game's spawns");
 	s.everywhereUntilGatesOpen = true;
-	Check(walkers::ReplacementOn(s, 0) && !walkers::ReplacementOn(s, 1),
-	      "EverywhereUntilGatesOpen 1: as Origin 0 until the first gate opens (c), then only out of gates");
-	Check(walkers::OriginFromIni(1) == InvaderOrigin::Gates && walkers::OriginFromIni(0) == InvaderOrigin::Everywhere &&
-	          walkers::OriginFromIni(9) == InvaderOrigin::Everywhere,
-	      "the INI's number: 1 the gates, anything else everywhere");
+	Check(walkers::DaedraEverywhere(s, both, 0) && !walkers::DaedraEverywhere(s, both, 1),
+	      "EverywhereUntilGatesOpen 1: the Daedra come through the replacement until the first gate opens (c), then only out of gates");
+	Check(walkers::ReplacementOn(s, alone, 0) && !walkers::ReplacementOn(s, alone, 1),
+	      "the Daedra alone: the replacement runs for them until a gate opens");
+	Check(!walkers::DaedraEverywhere(s, walkersOnly, 0) && !walkers::DaedraEverywhere(s, off, 0),
+	      "no Daedra mode: nothing comes everywhere");
+	Check(!walkers::ReplacementOn(s, off, 0) && !walkers::BandsOn(off, 3),
+	      "the mod off: no replacement, no bands");
 }
 
 void TestPace() {
@@ -81,7 +101,6 @@ void TestSize() {
 void TestClock() {
 	std::printf("A band per open gate, every BandEveryHours\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.unitsPerHour = 100.0f;  // slow: none arrives within the day
 	Run r;
 	const bool closed[] = {false, false};
@@ -96,15 +115,11 @@ void TestClock() {
 	Check(r.Count(walkers::BandEventKind::Formed) == 0, "eleven hours on: not yet");
 	r.Step(s, first, 1.0f, 500000.0f, 500000.0f);
 	Check(r.Count(walkers::BandEventKind::Formed) == 1 && r.state.count == 2, "twelve: the next band");
-	s.origin = InvaderOrigin::Everywhere;
-	Run other;
-	Check(other.Step(s, first, 24.0f, 500000.0f, 500000.0f) == 0, "Origin 0: no bands, gates or not");
 }
 
 void TestMarch() {
 	std::printf("Far bands walk as numbers\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.everyHours = 1000.0f;
 	Run r;
 	const bool open[] = {true, false};
@@ -122,7 +137,6 @@ void TestMarch() {
 void TestNear() {
 	std::printf("A band near the player comes into the world\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.everyHours = 1000.0f;
 	Run r;
 	const bool open[] = {true, false};
@@ -153,7 +167,6 @@ void TestPlace() {
 void TestClosed() {
 	std::printf("A closed gate ends its bands\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.everyHours = 1.0f;
 	Run r;
 	const bool both[] = {true, true};
@@ -173,7 +186,6 @@ void TestClosed() {
 void TestCap() {
 	std::printf("The cap\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.everyHours = 0.1f;
 	Run r;
 	const bool open[] = {true, true};
@@ -198,7 +210,6 @@ void TestCap() {
 void TestPressure() {
 	std::printf("A band at its city: the siege's pressure\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.everyHours = 1000.0f;
 	Check(s.siegePercentPerBand == 5 && s.siegeFadePercentPerDay == 5.0f,
 	      "defaults: 5 points a band, 5 points fade a day");
@@ -231,7 +242,6 @@ UInt32 Resolve(UInt32 saved, UInt32& loaded) {
 void TestImage() {
 	std::printf("The bands in the co-save\n");
 	BandSettings s;
-	s.origin = InvaderOrigin::Gates;
 	s.everyHours = 7.0f;
 	Run r;
 	const bool open[] = {true, true};

@@ -337,7 +337,7 @@ bool IsDead(UInt32 actor) {
 }
 
 // Whether `ref` is a walker: a creature of the ESP's walker bases.
-// Mode 3 in effect (defined after g_invadersNow below).
+// Daedra Mode 2 (allies) in effect (defined after g_invadersNow below).
 bool WalkersAlliedNow();
 
 bool IsWalkerRef(UInt32 ref) {
@@ -574,7 +574,7 @@ void __cdecl OnHit(void* arg0, void* arg1, void* thisObj) {
 	// 4.20.1: the player striking a walker ends the disguise.
 	NoteDisguiseHit(g_lastHit.target, g_lastHit.attacker);
 	// 4.22 idea 7: the player striking a Daedra ends the Daedric disguise.
-	// In Mode 3 a walker is one of them too (Nadi, 2026-11-17).
+	// In Daedra Mode 2 (allies) a walker is one of them too (Nadi, 2026-11-17).
 	NoteDaedricHit(g_lastHit.target, g_lastHit.attacker,
 	               LooksLikeObject(g_lastHit.target) && IsWalkerRef(g_lastHit.target) && WalkersAlliedNow());
 	// 4.20.2: a blow that lands is heard where it lands.
@@ -2284,7 +2284,7 @@ void KeepWalkerRecords() {
 struct NearOne {
 	UInt32 refId;
 	float x, y, z;
-	bool daedra;  // a Daedra (Mode 3: the walkers' ally)
+	bool daedra;  // a Daedra (Daedra Mode 2 (allies): the walkers' ally)
 };
 
 UInt32 CollectNearOnes(NearOne* out, UInt32 most) {
@@ -2396,7 +2396,7 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 	g_nearClock = 0.0f;
 	const SlowAggressionSettings& slow = g_settings.slowAggression;
 	// The walkers' own disguise holds every walker back; the Daedric set in
-	// Mode 3 only keeps them off the player (WalkerMayTurnOn below) - the
+	// Daedra Mode 2 (allies) only keeps them off the player (WalkerMayTurnOn below) - the
 	// others they are roused by as ever (Nadi, 2026-11-17).
 	const bool disguised = Disguised();
 	const bool fooled = WalkersFooledNow();
@@ -2434,7 +2434,7 @@ void StepSlowAggression(const UInt32* walkerRefs, UInt32 count, float dt) {
 			if (!WalkerMayTurnOn(fooled, ones[k].refId == kPlayerRefId)) {
 				continue;
 			}
-			// Mode 3: none turns on a Daedra, its ally (DisguiseLogic.h WalkerMayRouseAt).
+			// Daedra Mode 2 (allies): none turns on a Daedra, its ally (DisguiseLogic.h WalkerMayRouseAt).
 			if (allied && !WalkerMayRouseAt(allied, ones[k].daedra)) {
 				continue;
 			}
@@ -2602,7 +2602,7 @@ void StepWalkers(float dt) {
 	}, true);
 	Timed(21, "w.aggression", [count, dt] { StepSlowAggression(refs, count, dt); }, true);
 	// 4.20.1: the disguise begun - the walkers fighting stop (Nadi: "ok").
-	// 4.22 idea 7: so too the Daedric set put on in Mode 3 (DisguiseLogic.h WalkersFooled).
+	// 4.22 idea 7: so too the Daedric set put on in Daedra Mode 2 (allies) (DisguiseLogic.h WalkersFooled).
 	static bool s_daedricFooled = false;
 	const bool allied = WalkersAlliedNow();
 	const bool daedricBegins = WalkersFoolingBegins(s_daedricFooled, false, DaedricDisguised(), allied);
@@ -2641,7 +2641,7 @@ void StepWalkers(float dt) {
 				++dropped;
 				continue;
 			}
-			// Mode 3: a walker fighting a Daedra, its ally, lets go (DisguiseLogic.h WalkerDropsAlly).
+			// Daedra Mode 2 (allies): a walker fighting a Daedra, its ally, lets go (DisguiseLogic.h WalkerDropsAlly).
 			if (WalkerDropsAlly(allied, fighting, target != 0 && target != kPlayerRefId &&
 			                                          IsDaedraActor(LookupForm(target))) &&
 			    ConsoleOn(actor, "StopCombat")) {
@@ -2651,11 +2651,11 @@ void StepWalkers(float dt) {
 		if ((dropped > 0 || daedricBegins) && s_dropLines > 0) {
 			--s_dropLines;
 			g_log("Disguise: %u walkers fighting the player told StopCombat (%s; %u near, the others fight on)", dropped,
-			      daedricBegins ? "the Daedric set on in Mode 3" : "fooled", count);
+			      daedricBegins ? "the Daedric set on in Daedra Mode 2 (allies)" : "fooled", count);
 		}
 		if (droppedAllies > 0 && s_dropLines > 0) {
 			--s_dropLines;
-			g_log("Daedra: %u walkers fighting a Daedra told StopCombat (Mode 3: allies; %u near)", droppedAllies, count);
+			g_log("Daedra: %u walkers fighting a Daedra told StopCombat (Daedra Mode 2 (allies): allies; %u near)", droppedAllies, count);
 		}
 	}
 	UInt32 high = 0;
@@ -2865,15 +2865,40 @@ void StepNight(float dt) {
 	}
 }
 
-// The spawn replacement as it runs now: off with [Daedra] OnlyFromOblivionGates=1 while
-// the bands come out of the gates (Bands.h BandsWantReplacement).
-// [Daedra] as they stand now (4.22a step 6): with AfterMainQuest=0
-// the Daedra stop once MQ16 is completed - every new side the walkers'
-// (KindLogic.h InvadersNow). Read at most once a second.
+// The switches as they stand now (4.22a step 6): with AfterMainQuest=0
+// the Daedra stop once MQ16 is completed - the Daedra off from then on, the
+// walkers untouched (KindLogic.h InvadersNow). Read at most once a second.
 InvaderSettings g_invadersNow;
-bool WalkersAlliedNow() { return WalkersJoinDaedra(g_invadersNow.kind); }
+bool WalkersAlliedNow() { return WalkersJoinDaedra(KindOf(g_invadersNow)); }
+
+// One line at the start saying who comes (4.24); a clear one when all is off.
+void LogWhoComes() {
+	if (ModOff(g_settings.invaders)) {
+		g_log("Mod: Walkers Mode=0 and Daedra Mode=0 - the mod is off: nothing replaced, nobody rises, no hordes, "
+		      "bands, sieges, camps or held dungeons");
+		return;
+	}
+	static const char* const walkers[] = {"off", "only the game's zombies", "the apocalypse"};
+	static const char* const daedra[] = {"off", "out of the gates, enemies of the walkers",
+	                                     "out of the gates, allies of the walkers"};
+	g_log("Mod: Walkers Mode=%u (%s), Daedra Mode=%u (%s)", static_cast<UInt32>(g_settings.invaders.walkers),
+	      walkers[static_cast<UInt32>(g_settings.invaders.walkers) % 3], static_cast<UInt32>(g_settings.invaders.daedra),
+	      daedra[static_cast<UInt32>(g_settings.invaders.daedra) % 3]);
+}
 bool g_daedraStopped = false;
 float g_invadersClock = 1.0f;
+
+// The survivors' camps and the held dungeons run only when a side exists
+// (4.24: the apocalypse's walkers or the Daedra); the systems read these
+// copies, the user's own settings stay as set. Refreshed with the switches.
+CampSettings g_campsNow;
+DungeonSiteSettings g_dungeonsNow;
+void RefreshSides() {
+	g_campsNow = g_settings.camps;
+	g_campsNow.enabled = g_campsNow.enabled && SidesExist(g_invadersNow);
+	g_dungeonsNow = g_settings.dungeons;
+	g_dungeonsNow.enabled = g_dungeonsNow.enabled && SidesExist(g_invadersNow);
+}
 
 bool MainQuestDone() {
 	const UInt32 quest = LookupForm(kMainQuestEnd);
@@ -2886,21 +2911,28 @@ bool UpdateInvadersNow() {
 	const bool changed = stopped != g_daedraStopped;
 	g_daedraStopped = stopped;
 	g_invadersNow = InvadersNow(g_settings.invaders, stopped);
+	RefreshSides();
 	if (changed) {
-		g_log("Daedra: the main quest %s - the Daedra %s (AfterMainQuest=%d, Mode %u)",
-		      stopped ? "is done" : "is not done", stopped ? "stop: every new side the walkers'" : "come on",
-		      g_settings.invaders.afterMainQuest ? 1 : 0, static_cast<UInt32>(g_settings.invaders.kind));
+		g_log("Daedra: the main quest %s - the Daedra %s (AfterMainQuest=%d, Daedra Mode %u)",
+		      stopped ? "is done" : "is not done", stopped ? "stop: the walkers go on" : "come on",
+		      g_settings.invaders.afterMainQuest ? 1 : 0, static_cast<UInt32>(g_settings.invaders.daedra));
 	}
 	return changed;
 }
 
 ReplaceSettings EffectiveReplace() {
 	ReplaceSettings r = g_replace;
-	r.enabled = r.enabled && BandsWantReplacement(g_settings.bands) &&
-	            ReplacementRuns(g_settings.invaders, g_daedraStopped);
+	r.enabled = r.enabled && BandsWantReplacement(g_settings.bands, g_invadersNow);
 	return r;
 }
+// The spawn replacement's pass: the Daedra everywhere now (4.22) is part of
+// what it needs to know.
+void ReplaceNow() {
+	ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, DaedraEverywhereNow(g_settings.bands, g_invadersNow),
+	              g_iniPath, g_mooLoaded, g_log);
+}
 bool g_replaceWantedLast = true;
+bool g_daedraEverywhereLast = false;
 
 // The spawn replacement (4.6) and the walkers' health (4.5), once the ESP's
 // walkers are known: at the first tick (the main menu - the records are
@@ -2917,12 +2949,13 @@ void StepSpawns(float dt) {
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
 		SelectDungeonPool(g_iniPath, g_settings.dungeonsOnlyChosen, g_log);
-		if (WalkersJoinDaedra(g_settings.invaders.kind)) {
+		if (WalkersJoinDaedra(KindOf(g_settings.invaders))) {
 			SetWalkersAllied(g_walkers, g_walkerCount, true, g_log);
 		}
-		g_replaceWantedLast = BandsWantReplacement(g_settings.bands);
+		g_replaceWantedLast = BandsWantReplacement(g_settings.bands, g_invadersNow);
+		g_daedraEverywhereLast = DaedraEverywhereNow(g_settings.bands, g_invadersNow);
 		if (g_replace.enabled) {
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
+			ReplaceNow();
 		}
 		return;
 	}
@@ -2934,17 +2967,20 @@ void StepSpawns(float dt) {
 		}
 		WatchTestList(g_replace.testLogList, g_log);
 		if (UpdateInvadersNow() && g_replace.enabled) {
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
+			ReplaceNow();
 		}
 	}
-	// OnlyFromOblivionGates=1: a gate opened or closed the replacement's way (BandLogic.h).
-	const bool wanted = BandsWantReplacement(g_settings.bands);
-	if (wanted != g_replaceWantedLast) {
+	// EverywhereUntilGatesOpen: a gate opened or closed - the replacement's
+	// walkers or Daedra change (BandLogic.h).
+	const bool wanted = BandsWantReplacement(g_settings.bands, g_invadersNow);
+	const bool everywhere = DaedraEverywhereNow(g_settings.bands, g_invadersNow);
+	if (wanted != g_replaceWantedLast || everywhere != g_daedraEverywhereLast) {
 		g_replaceWantedLast = wanted;
+		g_daedraEverywhereLast = everywhere;
 		if (g_replace.enabled) {
-			g_log("Spawns: Daedra OnlyFromOblivionGates=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
-			      OpenGateCount(), wanted ? "on" : "off");
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
+			g_log("Spawns: %d gates open, the Daedra %s everywhere - the replacement %s", OpenGateCount(),
+			      everywhere ? "come" : "do not come", wanted ? "on" : "off");
+			ReplaceNow();
 		}
 	}
 	if (g_spawnsAgainSeconds < 0.0f) {
@@ -2953,7 +2989,7 @@ void StepSpawns(float dt) {
 	g_spawnsAgainSeconds -= dt;
 	if (g_spawnsAgainSeconds <= 0.0f) {
 		g_spawnsAgainSeconds = -1.0f;
-		ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
+		ReplaceNow();
 	}
 }
 
@@ -3005,8 +3041,8 @@ void ApplyLinkEffect(LinkEffect effect) {
 			break;
 		case LinkEffect::Spawns:
 			UpdateInvadersNow();
-			SetWalkersAllied(g_walkers, g_walkerCount, WalkersJoinDaedra(g_settings.invaders.kind), g_log);
-			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
+			SetWalkersAllied(g_walkers, g_walkerCount, WalkersJoinDaedra(KindOf(g_settings.invaders)), g_log);
+			ReplaceNow();
 			break;
 		default:
 			break;
@@ -3196,6 +3232,16 @@ UInt32 HordeCandidates(HordeCandidate* out, UInt32 most) {
 	// The war bands' members (4.22 steps 2 and 3, Bands.h): led as the walkers
 	// are - a Daedra band's too.
 	return AppendBandMembers(out, count, most, &IsDead);
+}
+
+// What the hordes work with (4.24): with the apocalypse every walker and the
+// bands' members; otherwise only the bands' members - Walkers Mode 0 and 1
+// have no hordes, the Daedra's war bands still march.
+UInt32 HordeCandidatesNow(HordeCandidate* out, UInt32 most) {
+	if (Apocalypse(g_settings.invaders)) {
+		return HordeCandidates(out, most);
+	}
+	return AppendBandMembers(out, 0, most, &IsDead);
 }
 
 // The grab's test switch (GrabLogic.h testGrabSeconds): the living walker
@@ -3528,7 +3574,9 @@ void Tick() {
 		StepPlacer(dt);
 		StepBanishInGame(dt);
 		StepMarchWeatherInGame(dt);
-		StepHordeInGame(dt, &HordeCandidates, &ConsoleOn, &IsDead, g_log);
+		if (Apocalypse(g_settings.invaders) || DaedraOn(g_settings.invaders)) {
+			StepHordeInGame(dt, &HordeCandidatesNow, &ConsoleOn, &IsDead, g_log);
+		}
 	});
 	Timed(10, "safeguard", [dt] { StepSafeguardInGame(dt); });
 	Timed(11, "news", [dt] { StepNewsInGame(dt, HordeHeadingCity(), g_log); });
@@ -3979,12 +4027,14 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	grab.log = log;
 	ConfigureGrab(&g_settings.grab, grab, g_messaging, xse.GetPluginHandle != nullptr ? xse.GetPluginHandle() : 0);
 	g_invadersNow = g_settings.invaders;
+	RefreshSides();
+	LogWhoComes();
 	ConfigureSiege(&g_settings.siege, &g_invadersNow, &ConsoleOn, &NextRandom, &IsDead, log);
 	ConfigureBanish(&g_settings.banish, &ConsoleOn, &IsDead, log);
-	ConfigureCamps(&g_settings.camps, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
+	ConfigureCamps(&g_campsNow, &ConsoleOn, &NextRandom, &IsDead, &UnlistRising, log);
 	ConfigureCampsInvaders(&g_invadersNow);
 	ConfigureDungeonsInvaders(&g_invadersNow);
-	ConfigureDungeons(&g_settings.dungeons, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
+	ConfigureDungeons(&g_dungeonsNow, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);

@@ -261,15 +261,16 @@ bool ReadSettings(walkers::Settings* settings) {
 		const int others = IniInt("Walkers", "OthersKillsEndPercent", 100, path);
 		rise.end.othersEndPercent = static_cast<UInt32>(others < 0 ? 0 : (others > 100 ? 100 : others));
 	}
-	// 4.22 [Daedra] (KindLogic.h): the spawn replacement and the rise follow it.
-	rise.invaders.kind = walkers::KindFromIni(IniInt("Daedra", "Mode", 0, path));
+	// 4.24 who comes (KindLogic.h): the spawn replacement, the rise, the hordes,
+	// sieges, camps and held dungeons follow the two switches.
+	rise.invaders.walkers = walkers::WalkersModeFromIni(IniInt("Walkers", "Mode", 1, path));
+	rise.invaders.daedra = walkers::DaedraModeFromIni(IniInt("Daedra", "Mode", 0, path));
 	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Daedra", "SharePercent", 50, path)))));
 	rise.invaders.summons = IniInt("Daedra", "Summons", 0, path) != 0;
 	rise.invaders.afterMainQuest = IniInt("Daedra", "AfterMainQuest", 0, path) != 0;
 	rise.march.enabled = IniInt("Daedra", "MarchWeather", 0, path) != 0;
 	rise.march.units = std::max(0.0f, IniFloat("Daedra", "MarchWeatherDistance", 12000.0f, path));
-	// 4.22 step 3 (BandLogic.h): only out of the open gates, and the bands.
-	rise.bands.origin = walkers::OriginFromIni(IniInt("Daedra", "OnlyFromOblivionGates", 0, path));
+	// 4.22 step 3 (BandLogic.h): the Daedra only out of the open gates, and the bands.
 	rise.bands.everywhereUntilGatesOpen = IniInt("Daedra", "EverywhereUntilGatesOpen", 0, path) != 0;
 	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(IniInt("Daedra", "BandEveryHours", 12, path)))));
 	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(IniInt("Daedra", "BandSizeMin", 4, path)))));

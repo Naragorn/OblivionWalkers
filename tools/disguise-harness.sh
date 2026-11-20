@@ -12,6 +12,8 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_apocalypse "$ini"  # 4.24: these runs need the apocalypse
 keys='Test=1\nSeconds=40'
 if grep -q '^\[Disguise\]' "$ini"; then
 	sed -i "s/^\[Disguise\]\r\?$/[Disguise]\n$keys/" "$ini"

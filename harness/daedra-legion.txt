@@ -1,5 +1,5 @@
 # The Legion's answer (docs/walkers-spec.md 4.22 idea 10). With [Daedra]
-# OnlyFromOblivionGates=1 TestBandSeconds=20 and [Guards] LegionDistance=16000 (tools/daedra-harness.sh
+# TestBandSeconds=20 and [Guards] LegionDistance=16000 (tools/daedra-harness.sh
 # legion) the player stands 5000 units before Anvil's Castle Gate (its door
 # 00006FBA), unseen: 20 s after the load a Daedra band is placed 3000 units
 # before him - within 16000 of the gate, the gate's guards come out and are

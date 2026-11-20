@@ -694,7 +694,8 @@ void TestImage() {
 void TestDaedraOutpost() {
 	std::printf("Daedra at a held place (4.22a step 5c)\n");
 	walkers::InvaderSettings inv;
-	inv.kind = walkers::InvaderKind::Both;
+	inv.walkers = walkers::WalkersMode::Apocalypse;
+	inv.daedra = walkers::DaedraMode::Enemies;
 	inv.daedraPercent = 40;
 	DungeonSite b;
 	b.state = DungeonState::Besieged;
@@ -702,8 +703,19 @@ void TestDaedraOutpost() {
 	DungeonSite r;
 	r.state = DungeonState::Refuge;
 	Check(!walkers::DungeonSideDaedra(r, inv, 0), "a refuge has no side");
-	inv.kind = walkers::InvaderKind::Walkers;
-	Check(!walkers::DungeonSideDaedra(b, inv, 0), "Mode 0: walkers");
+	DungeonSite held;
+	held.state = DungeonState::WalkerDungeon;
+	Check(walkers::DungeonSideDaedra(held, inv, 39) && !walkers::DungeonSideDaedra(held, inv, 40),
+	      "a held place: by SharePercent too");
+	inv.daedra = walkers::DaedraMode::Off;
+	Check(!walkers::DungeonSideDaedra(b, inv, 0), "the apocalypse alone: walkers");
+	inv.walkers = walkers::WalkersMode::Off;
+	inv.daedra = walkers::DaedraMode::Allies;
+	Check(walkers::DungeonSideDaedra(b, inv, 99) && walkers::DungeonSideDaedra(held, inv, 0),
+	      "Daedra alone: the Daedra's whatever the roll");
+	inv.daedra = walkers::DaedraMode::Off;
+	Check(!walkers::DungeonSideDaedra(b, inv, 0) && !walkers::DungeonSideDaedra(held, inv, 0),
+	      "no side at all: not the Daedra's (and the held dungeons do not run then)");
 	DungeonSiteSettings s;
 	const UInt32 v[1] = {0};
 	Rolls roll{v, 1};

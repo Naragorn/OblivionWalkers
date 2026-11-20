@@ -551,11 +551,15 @@ inline UInt32 Held(Camp& c, UInt32 camp, CampEvent* out, UInt32 n, UInt32 most) 
 
 }  // namespace camp_detail
 
-// Whether an attack that begins is a Daedra one (4.22a step 5c): rolled as
-// a spawn's side is (KindLogic.h ReplacementGroup) - Mode 0 never, Mode 1
-// always, Mode 2 and 3 by SharePercent on `roll` (0..99).
+// The side of an attack that begins (4.22a step 5c, 4.24; KindLogic.h
+// SideOf): the walkers only with the apocalypse, the Daedra with a Daedra
+// mode, both by SharePercent on `roll`; nobody with neither - the caller
+// starts no attack then (StepCampsInGame runs only when a side exists).
+inline Side CampAttackSide(const InvaderSettings& invaders, UInt32 roll) { return SideOf(invaders, roll % 100); }
+
+// Whether an attack that begins is a Daedra one.
 inline bool CampAttackDaedra(const InvaderSettings& invaders, UInt32 roll) {
-	return ReplacementGroup(invaders, roll % 100) == Group::Daedra;
+	return CampAttackSide(invaders, roll) == Side::Daedra;
 }
 
 // Once a second with game day `now`: a new whole day rolls each camp once -
