@@ -5803,14 +5803,29 @@ Wege mit eigenen Harness-Läufen prüfen"; 9c8d346, c833add):
      not the Daedra's allies (KindOf: Daedra, not Allied) - the Dremora
      killed both. Now KindLogic.h WalkersAllied: Daedra 2 and any walkers,
      the free or the necromancers'; the LINK switch sets it anew.
-  3. *Gap, open:* StopCombat does not hold a necromancer and a Daedra
-     apart: both told to let go every half second (24 and 14 times), the
-     Dremora hit him six times between. The walkers' alliance stands on
-     DaedraFaction (the records, in memory); the necromancer needs the
-     same - his four records (0004B945-0004B948, LL1NecromancerBoss100)
-     joining it in memory would make every necromancer boss of that list
-     the Daedra's friend with Daedra 2, the game's own too; copies of them
-     in the ESP would not. Nadi's to decide.
+  3. *Before the fixes* StopCombat did not hold the necromancer and the
+     Dremora apart: both told to let go every half second (24 and 14
+     times), the Dremora hit him six times between - while it fought his
+     walkers beside him. The walkers' alliance stands on DaedraFaction (the
+     records, in memory); for him the same would be his four records
+     (0004B945-0004B948, LL1NecromancerBoss100) joining it in memory - every
+     necromancer boss of that list, the game's own too, the Daedra's friend
+     with Daedra 2 - or copies of them in the ESP.
+  Rerun with c833add (Dremora 0001E5EF put down by the harness - the list
+  gave none once): `hotspot` PASS - his 4 walkers killed by the test, "0
+  walkers left", he was not taken out, the roster at "alone" holds him
+  alive, then killall: he fell, a refuge won. `daedra` PASS - "the walkers
+  join DaedraFaction - 64 records", the two set on each other, each told
+  to let go once, no hit in 40 s, the necromancer, the Dremora and his two
+  walkers alive. So with his walkers allied one StopCombat each held - why
+  it held now and not before is not measured (a guess: before, the Dremora
+  still fought his walkers beside him). One run of three crashed 2 s after
+  the stop: an access violation in Oblivion.exe+25D2 (a heap pool's
+  allocation) on the loader's thread loading MagicEffects\fireShield.NIF,
+  OBNG 68e6b3c2 in the game; not reproduced, cause unknown (told OBNG).
+  Regression whocomes apocalypse PASS. Deployed 047e0345 to both games.
+  The faction for him is not built; it stays the fallback if he and the
+  Daedra are seen fighting in play.
   Found too: a walker roused near its own necromancer turned on him and
   was told to let go (the allies' rule) - it holds.
 - Seen in the teams run, not changed: the hordes put both teams' walkers
