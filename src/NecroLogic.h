@@ -593,8 +593,9 @@ inline bool NecroDaedraLetGo(bool daedraAllies, bool oneIsBoss, bool otherIsDaed
 // one walker is set on the other, so the allies' StopCombat shows; `daedra` -
 // a Daedra near is brought to the necromancer placed and the two set on each
 // other, so decided 12's StopCombat shows; `far` - two enemy bands formed far
-// from the player at one spot, so they meet as numbers.
-enum class NecroTestFight : UInt8 { Off, Ally, Daedra, Far };
+// from the player at one spot, so they meet as numbers; `walkers` - the
+// walkers at the necromancer's place killed, he left alone (he must stay).
+enum class NecroTestFight : UInt8 { Off, Ally, Daedra, Far, Walkers };
 
 inline NecroTestFight ParseNecroTestFight(const char* text) {
 	if (text == nullptr) {
@@ -623,6 +624,9 @@ inline NecroTestFight ParseNecroTestFight(const char* text) {
 	if (std::strcmp(word, "daedra") == 0) {
 		return NecroTestFight::Daedra;
 	}
+	if (std::strcmp(word, "walkers") == 0) {
+		return NecroTestFight::Walkers;
+	}
 	return std::strcmp(word, "far") == 0 ? NecroTestFight::Far : NecroTestFight::Off;
 }
 
@@ -634,6 +638,8 @@ inline const char* NecroTestFightName(NecroTestFight t) {
 			return "daedra";
 		case NecroTestFight::Far:
 			return "far";
+		case NecroTestFight::Walkers:
+			return "walkers";
 		default:
 			return "off";
 	}

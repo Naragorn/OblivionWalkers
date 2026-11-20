@@ -700,10 +700,12 @@ void TestNecromancers() {
 	}
 	Check(header, "a header \"Necromancers\" before them");
 	bool live = true;
-	for (int i = mode; i <= within; ++i) {
+	for (int i = mode + 1; i <= within; ++i) {
 		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
 	}
-	Check(live, "all fourteen read where they are used");
+	Check(live, "the other thirteen read where they are used");
+	Check(kLinkSettings[mode].effect == walkers::LinkEffect::Spawns,
+	      "Mode as the other two switches: the walkers' alliance with Daedra 2 set anew (KindLogic.h WalkersAllied)");
 	Check(walkers::LinkValue(rise, replace, mode) == 0.0, "Mode: off by default");
 	Check(walkers::SetLinkValue(rise, replace, mode, 1.0) && rise.invaders.necromancers, "on from the menu");
 	const int bands = IndexOf("ini_necro_bands_per_day");

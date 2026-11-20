@@ -80,6 +80,14 @@ inline int WalkerSite(const DungeonSitesState& st, const float* closeness, bool 
 	                [](const DungeonSite& d) { return DungeonWalkersOut(d, kDungeonPool) > 0; });
 }
 
+// The necromancer's place the player is inside, -1 none (4.23 B): his own
+// choice, not the walkers' pool's - with his walkers all ended the pool
+// leaves, he stays (harness necro-daedra 2026-11-20: taken out alive).
+inline int NecroSite(const DungeonSitesState& st, const float* closeness, bool enabled) {
+	const int here = NearSite(st, closeness, enabled, -1, [](const DungeonSite& d) { return IsNecroPlace(d); });
+	return here >= 0 && closeness[here] == 0.0f ? here : -1;
+}
+
 inline bool KitTrader(DungeonState s) { return s == DungeonState::Refuge; }
 
 // The slots shown for `people` alive: a man, a woman, a man ... skipping

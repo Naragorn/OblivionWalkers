@@ -2905,7 +2905,7 @@ void StepNight(float dt) {
 // the Daedra stop once MQ16 is completed - the Daedra off from then on, the
 // walkers untouched (KindLogic.h InvadersNow). Read at most once a second.
 InvaderSettings g_invadersNow;
-bool WalkersAlliedNow() { return WalkersJoinDaedra(KindOf(g_invadersNow)); }
+bool WalkersAlliedNow() { return WalkersAllied(g_invadersNow); }
 
 // One line at the start saying who comes (4.24); a clear one when all is off.
 void LogWhoComes() {
@@ -2987,7 +2987,7 @@ void StepSpawns(float dt) {
 		ScaleWalkerSpeed(g_walkers, g_walkerCount, NightSpeedMultiplier(), g_settings.speedRandomPercent, g_log);
 		RenameZombies(g_walkers, g_walkerCount, FindEspBase(), g_settings, g_log);
 		SelectDungeonPool(g_iniPath, g_settings.dungeonsOnlyChosen, g_log);
-		if (WalkersJoinDaedra(KindOf(g_settings.invaders))) {
+		if (WalkersAllied(g_settings.invaders)) {
 			SetWalkersAllied(g_walkers, g_walkerCount, true, g_log);
 		}
 		g_replaceWantedLast = BandsWantReplacement(g_settings.bands, g_invadersNow);
@@ -3079,7 +3079,7 @@ void ApplyLinkEffect(LinkEffect effect) {
 			break;
 		case LinkEffect::Spawns:
 			UpdateInvadersNow();
-			SetWalkersAllied(g_walkers, g_walkerCount, WalkersJoinDaedra(KindOf(g_settings.invaders)), g_log);
+			SetWalkersAllied(g_walkers, g_walkerCount, WalkersAllied(g_settings.invaders), g_log);
 			ReplaceNow();
 			break;
 		default:

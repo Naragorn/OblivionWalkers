@@ -27,7 +27,6 @@ constexpr UInt32 kGameHourId = 0x00000038;  // News.cpp
 constexpr UInt32 kGameDaysPassedId = 0x00000039;
 constexpr UInt32 kRefBaseOffset = 0x1C;
 constexpr UInt32 kNpcLevelOffset = 0x24 + 0x0E;  // TESActorBaseData's level (Camps.cpp)
-constexpr UInt32 kVariantLocalId = 0x805;  // the walkers' list (Replace.cpp)
 constexpr UInt32 kAnyWalkerLocalId = 0x94A;  // one walker a pick (ReplaceLogic.h kAnyWalkerLocalId)
 constexpr float kStepSeconds = 1.0f;
 // A member is one of ours when it stands this near the marker the second

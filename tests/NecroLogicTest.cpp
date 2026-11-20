@@ -454,10 +454,12 @@ void TestTestFight() {
 	      "empty or none: off");
 	Check(walkers::ParseNecroTestFight("ally") == walkers::NecroTestFight::Ally &&
 	          walkers::ParseNecroTestFight("Daedra") == walkers::NecroTestFight::Daedra &&
-	          walkers::ParseNecroTestFight(" FAR ") == walkers::NecroTestFight::Far,
-	      "ally, daedra, far - in any case, spaces around ignored");
+	          walkers::ParseNecroTestFight(" FAR ") == walkers::NecroTestFight::Far &&
+	          walkers::ParseNecroTestFight("walkers") == walkers::NecroTestFight::Walkers,
+	      "ally, daedra, far, walkers - in any case, spaces around ignored");
 	Check(walkers::ParseNecroTestFight("allies") == walkers::NecroTestFight::Off, "anything else: off");
 	Check(std::strcmp(walkers::NecroTestFightName(walkers::NecroTestFight::Far), "far") == 0 &&
+	          std::strcmp(walkers::NecroTestFightName(walkers::NecroTestFight::Walkers), "walkers") == 0 &&
 	          std::strcmp(walkers::NecroTestFightName(walkers::NecroTestFight::Off), "off") == 0,
 	      "its name for the log");
 }

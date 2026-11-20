@@ -565,7 +565,7 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 	{"ini_necro_mode", "Necromancers: who comes",
 	 "On: a few rival necromancers hold dungeons full of walkers. They send walker bands toward the cities and take more dungeons near their own. Kill one and refugees move into his places.",
-	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},  // the walkers' alliance with Daedra 2 (KindLogic.h WalkersAllied)
 	{"ini_necro_bosses_min", "Necromancers: fewest at the start",
 	 "How many necromancers rise at least.",
 	 LinkKind::Slider, 1, 5, 1, 0, false, LinkEffect::Live},

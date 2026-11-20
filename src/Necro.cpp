@@ -440,6 +440,25 @@ void StepTestFight(const Fighter* f, UInt32 n, UInt32 bossId, UInt32 bossActor, 
 		}
 		return;
 	}
+	// TestFight=walkers: 3 s after he is placed, his place's walkers killed - he must stay.
+	if (g_testFight == NecroTestFight::Walkers && g_testFightStage == 0 && bossId != 0) {
+		g_testFightClock += 0.5f;
+		if (g_testFightClock < 3.0f || g_poolTeamedCount == 0) {
+			return;
+		}
+		g_testFightStage = 2;
+		UInt32 killed = 0;
+		for (UInt32 k = 0; k < g_poolTeamedCount; ++k) {
+			const UInt32 walker = LookupForm(g_poolTeamed[k]);
+			if (LooksLikeObject(walker) && (g_dead == nullptr || !g_dead(walker))) {
+				g_console(walker, "Kill");
+				++killed;
+			}
+		}
+		log("Necromancers: test - TestFight=walkers: %u walkers at his place killed, the necromancer %08X left alone",
+		    killed, bossId);
+		return;
+	}
 	if (g_testFight != NecroTestFight::Daedra || g_testFightStage >= 2 || bossId == 0) {
 		return;
 	}

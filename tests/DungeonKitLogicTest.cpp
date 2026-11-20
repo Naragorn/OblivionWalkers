@@ -102,6 +102,22 @@ void TestKitSite() {
 	w.sites[0].walkersLeft = 0;
 	Check(walkers::WalkerSite(w, both, true, 0) == 1, "its walkers all ended: to the other");
 	Check(walkers::WalkerSite(w, both, false, 1) == -1, "[Dungeons] Enabled=0: nowhere");
+	// 4.23 B: the necromancer stays while the player is in his place, its walkers ended or not
+	// (harness necro-daedra 2026-11-20: his two walkers ended, he was taken out alive)
+	DungeonSitesState n = Two(DungeonState::WalkerDungeon, DungeonState::Refuge);
+	n.sites[0].necro = 1;
+	n.sites[0].walkersLeft = 0;
+	const float in0[] = {0.0f, 2500.0f};
+	Check(walkers::WalkerSite(n, in0, true, 0) == -1, "(the walkers' pool: none left there)");
+	Check(walkers::NecroSite(n, in0, true) == 0, "his place, no walkers left, the player inside: still his");
+	const float out0[] = {900.0f, -1.0f};
+	Check(walkers::NecroSite(n, out0, true) == -1, "the player before its door, not inside: none");
+	Check(walkers::NecroSite(n, in0, false) == -1, "[Dungeons] Enabled=0: none");
+	n.sites[0].necro = 0;
+	Check(walkers::NecroSite(n, in0, true) == -1, "a walker dungeon of no necromancer: none");
+	n.sites[0].necro = 1;
+	n.sites[0].state = DungeonState::Refuge;
+	Check(walkers::NecroSite(n, in0, true) == -1, "cleared, a refuge now: none");
 }
 
 void TestKitWanted() {

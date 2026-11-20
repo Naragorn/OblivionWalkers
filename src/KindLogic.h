@@ -103,6 +103,13 @@ inline bool GroupsHostile(InvaderKind kind) { return kind == InvaderKind::Both; 
 // 2026-11-15, one of the two dead within 45 s).
 inline constexpr UInt32 kDaedraFaction = 0x00053FED;
 inline bool WalkersJoinDaedra(InvaderKind kind) { return kind == InvaderKind::Allied; }
+// Whether the walkers in play are the Daedra's allies now: Daedra Mode 2 and
+// any walkers - the free ones (KindOf's Allied) or the necromancers' (4.23 B
+// decided 12: "his walkers, the Daedra's allies"; harness necro-daedra
+// 2026-11-20 with Walkers 0: not allied, a Dremora killed his two walkers).
+inline bool WalkersAllied(const InvaderSettings& s) {
+	return s.daedra == DaedraMode::Allies && (WalkersOn(s) || s.necromancers);
+}
 
 inline bool InPlay(InvaderKind kind, Group group) {
 	if (kind == InvaderKind::None) {

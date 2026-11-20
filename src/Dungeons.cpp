@@ -1468,7 +1468,9 @@ void StepPool(const float* closeness, LogFn log) {
 		// 4.22a step 5c: a Daedra site has no pool walkers - the placer's.
 		const UInt32 player = LookupForm(kPlayerRefId);
 		StepSiteDaedra(want, closeness, LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0, log);
-		StepSiteNecro(want, closeness, LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0, log);
+		// the necromancer by his own place, not the pool's: his walkers all ended, he stays
+		StepSiteNecro(NecroSite(g_sites, closeness, enabled), closeness,
+		              LooksLikeObject(player) ? Read(player + kRefParentCellOffset) : 0, log);
 		if (want >= 0 && g_sites.sites[want].daedra) {
 			want = -1;
 		}

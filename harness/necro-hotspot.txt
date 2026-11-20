@@ -7,9 +7,10 @@
 # Once the dungeon pool has settled after the load the boss rises at his
 # home; the player is put into its first cell: the pool's walkers come in,
 # the necromancer is asked of the placer deep inside, his chest at his feet.
-# killall: the walkers end, the necromancer falls - his realm stops, the last
-# boss: a new set later (ComeBack) - and the place is cleared and taken: a
-# refuge won.
+# TestFight=walkers: 3 s after he came his walkers are killed - he must stay
+# (2026-11-20, necro-daedra: with his walkers ended he was taken out alive).
+# killall: the necromancer falls - his realm stops, the last boss: a new set
+# later (ComeBack) - and the place is cleared and taken: a refuge won.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0
@@ -34,6 +35,8 @@ wait 8
 mark inside
 wait 16
 mark placed
+wait 8
+mark alone
 wait 2
 mark kill1
 wait 10

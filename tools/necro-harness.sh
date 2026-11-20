@@ -6,7 +6,8 @@
 #
 #   tools/necro-harness.sh hotspot   harness/necro-hotspot.txt: the necromancers alone, one boss at
 #                                    Toadstool Hollow - he rises, his walkers and he are placed when the
-#                                    player is inside, killall: he falls, the realm stops, a refuge won
+#                                    player is inside, his walkers killed: he stays, killall: he falls,
+#                                    the realm stops, a refuge won
 #   tools/necro-harness.sh band      harness/necro-band.txt: one boss at Toadstool Hollow, the player before
 #                                    its door, the clock fast - a band of his comes into the world near him
 #   tools/necro-harness.sh teams     harness/necro-teams.txt: two bands of enemy teams near the player - set
@@ -81,6 +82,8 @@ elif scenario == "allies":
              ("Necromancers", "TestFight", "ally"), ("Necromancers", "Teams", "1,1,1,1,1")]
 else:
     keys += [("Necromancers", "TestBandsSeconds", "0")]
+if scenario == "hotspot":
+    keys += [("Necromancers", "TestFight", "walkers")]
 if scenario == "daedra":
     keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "daedra"),
              ("Necromancers", "WalkersMin", "2"), ("Necromancers", "WalkersMax", "2")]
@@ -207,13 +210,19 @@ if scenario == "daedra":
     print("  roster after: " + after[:300])
     boss = re.findall(r"\b(0004B94[5-8]) x\d+(?: \(dead (\d+)\))?", after)
     check(bool(boss) and all(not d or d == "0" for _, d in boss), "the necromancer in the roster, alive (%s)" % boss)
-    dremora = re.findall(r"\b(00092D[0-9A-F]{2}) x\d+(?: \(dead (\d+)\))?", after)
-    check(bool(dremora) and all(not d or d == "0" for _, d in dremora), "the Dremora in the roster, alive (%s)" % dremora)
+    # the Dremora: the base at 'fight' that was not there at 'placed' (the list picks it)
+    new = set(re.findall(r"\b([0-9A-F]{8}) x\d+", roster.get("fight", ""))) - set(re.findall(r"\b([0-9A-F]{8}) x\d+", roster.get("placed", "")))
+    dremora = [(b, d) for b, d in re.findall(r"\b([0-9A-F]{8}) x\d+(?: \(dead (\d+)\))?", after) if b in new]
+    check(bool(dremora) and all(not d or d == "0" for _, d in dremora), "the Dremora (%s) in the roster, alive (%s)" % (sorted(new), dremora))
+    walkers_after = re.findall(r"\b(2B000[89A][0-9A-F]{2}) x\d+(?: \(dead (\d+)\))?", after)
+    check(all(not d or d == "0" for _, d in walkers_after), "his walkers alive - Daedra 2 makes them the Daedra's allies (%s)" % walkers_after)
     hits = [l for l in log if re.match(r"Hit: ", l)]
     print("  hits logged: %d" % len(hits))
     end(scenario)
 if scenario == "march":
-    load_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: \d+ necromancers' bosses read", l)] or [len(log)])
+    # the load: the first co-save line read after the last written
+    saved_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: .* written", l)] or [len(log)])
+    load_at = min([i for i, l in enumerate(log) if i > saved_at and re.match(r"Co-save: .* read", l)] or [len(log)])
     before, after = log[:load_at], log[load_at:]
     def findin(lines, pattern):
         return [l for l in lines if re.search(pattern, l)]
@@ -266,6 +275,14 @@ check(bool(came), "he came")
 check(bool(show(find(r"the necromancer's chest set down at " + place + r" .*chest \w+\)"))), "his chest at his feet")
 bases = re.findall(r"\b([0-9A-F]{8}) x\d+", roster.get("placed", ""))
 check(any(re.match(r"0004B94[5-8]$", b) for b in bases), "the roster at 'placed' holds him (%s)" % [b for b in bases if b.startswith("0004B9")])
+check(bool(show(find(r"Necromancers: test - TestFight=walkers: [1-9]\d* walkers at his place killed"))), "his walkers killed, he left alone")
+check(bool(show(find(place + r" - walker [0-9A-F]{8} ended; 0 walkers left"))), "his place: 0 walkers left")
+fell_at = min([i for i, l in enumerate(log) if re.search(place + r" - the necromancer fell", l)] or [len(log)])
+taken = [l for l in log[:fell_at] if re.search(r"Dungeons: the necromancer at " + place + r" taken out", l)]
+show(taken)
+check(not taken, "alone, he is not taken out while the player is inside")
+alone = re.findall(r"\b(0004B94[5-8]) x\d+(?: \(dead (\d+)\))?", roster.get("alone", ""))
+check(bool(alone) and all(not d or d == "0" for _, d in alone), "the roster at 'alone' holds him alive (%s)" % alone)
 check(bool(show(find(place + r" - the necromancer fell"))), "killall: the necromancer fell")
 check(bool(show(find(r"Necromancers: boss 0 \(team 1\) fell - his realm stops"))), "his realm stops")
 check(bool(show(find(r"Necromancers: the last of them fell - a new set rises later"))), "the last of them: a new set later (ComeBack=1)")

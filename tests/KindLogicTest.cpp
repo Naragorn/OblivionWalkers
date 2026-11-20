@@ -136,6 +136,28 @@ void TestHostility() {
 	          !walkers::WalkersJoinDaedra(InvaderKind::None),
 	      "only the allies: the walkers join the Daedra's faction");
 	Check(walkers::kDaedraFaction == 0x00053FED, "DaedraFaction, Oblivion.esm 00053FED");
+	// 4.23 B decided 12: the necromancers' walkers are walkers in play - with Daedra 2 the Daedra's
+	// allies too, the free walkers off (harness necro-daedra 2026-11-20: a Dremora killed his two)
+	InvaderSettings necro = With(WalkersMode::Off, DaedraMode::Allies);
+	necro.necromancers = true;
+	Check(walkers::WalkersAllied(necro), "Walkers 0, the necromancers, Daedra 2: their walkers the Daedra's allies");
+	necro.necromancers = false;
+	Check(!walkers::WalkersAllied(necro), "Walkers 0, no necromancers, Daedra 2: no walkers to ally");
+	Check(walkers::WalkersAllied(With(WalkersMode::Zombies, DaedraMode::Allies)) &&
+	          walkers::WalkersAllied(With(WalkersMode::Apocalypse, DaedraMode::Allies)),
+	      "free walkers and Daedra 2: allies (as KindOf's Allied)");
+	necro = With(WalkersMode::Apocalypse, DaedraMode::Enemies);
+	necro.necromancers = true;
+	Check(!walkers::WalkersAllied(necro) && !walkers::WalkersAllied(With(WalkersMode::Off, DaedraMode::Off)),
+	      "Daedra 1 or 0: never");
+	for (WalkersMode w : kWalkers) {
+		for (DaedraMode d : kDaedra) {
+			const InvaderSettings s = With(w, d);
+			if (walkers::WalkersAllied(s) != walkers::WalkersJoinDaedra(walkers::KindOf(s))) {
+				Check(false, "without the necromancers: the same as KindOf's Allied");
+			}
+		}
+	}
 }
 
 void TestRules() {
