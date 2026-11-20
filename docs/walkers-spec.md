@@ -5541,6 +5541,11 @@ Read and derived for it:
 11. **The free walkers of the apocalypse stay neutral** to every team:
     they attack people as now; walkers of different teams fight each
     other, free walkers fight nobody's walkers.
+12. **With `[Daedra] Mode=2` (allies) the bosses stand with the Daedra
+    too**, not only their walkers: the Daedra leave a boss alone and he
+    leaves them alone. Otherwise a passing Daedra band would kill a boss
+    while his walkers, the Daedra's allies, stood by. With Daedra 0 or 1
+    the question does not arise.
 
 **Proposed for it (mine, 2026-11-20; 9-11 above confirmed it where it says so):**
 
@@ -5666,12 +5671,13 @@ What it settles of 4.23 B's gaps (2026-11-20):
   on - whatever the apocalypse and the Daedra say.
 - (d) `[Daedra] AfterMainQuest=0` stops only the Daedra (the gates are
   shut); the walkers of the apocalypse and of the necromancers go on.
+- (c) Decided by Nadi 2026-11-20: with Daedra 2 the bosses themselves
+  (the game's NPCs) are the Daedra's allies too (4.23 B, decided 12).
 
 Still open: (b) the teams against the Daedra with Daedra 2 (allies) -
 whether one walker can be in the DaedraFaction and in a team's faction
-that is the enemy of another team's (engine, to be read); (c) whether
-the necromancer bosses themselves (the game's NPCs) are the Daedra's
-allies with Daedra 2.
+that is the enemy of another team's (engine, to be read). The same read
+covers the bosses (12): a boss in his team's faction and the Daedra's.
 
 As built 2026-11-20 (code read; unit flows in KindLogicTest, BandLogicTest,
 RiseLogicTest, SiegeLogicTest, CampLogicTest, DungeonSiteLogicTest,
