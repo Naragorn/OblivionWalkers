@@ -13,7 +13,7 @@ namespace walkers {
 using OnboardingConsoleFn = bool (*)(UInt32 ref, const char* line);
 // The player pressed Start: the switches to apply to the running settings,
 // the LINK variables and the spawn replacement.
-using OnboardingChosenFn = void (*)(WalkersMode walkers, DaedraMode daedra);
+using OnboardingChosenFn = void (*)(WalkersMode walkers, DaedraMode daedra, bool necromancers);
 
 // Once a session: the live settings (LINK writes into `show`), the plugin
 // INI's path (the choice is written into it), the console (the test

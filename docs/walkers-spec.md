@@ -5929,7 +5929,10 @@ Read and derived for it:
 As built 2026-11-20 (OnboardingLogic.h and IniEditLogic.h with
 OnboardingLogicTest and IniEditLogicTest; Onboarding.cpp shows the boxes):
 - Pages 1, 2, 3 and 5; no necromancers' page and no "Necromancers" line in
-  the summary until 4.23 B is built. Page 3 folds to two buttons with
+  the summary until 4.23 B is built. Since 4.23 B step 3 (2026-11-20):
+  page 4 "No necromancers" / "Necromancers" after page 3, the summary's
+  "Necromancers: their realms / none", [Necromancers] Mode written with
+  the rest; the shortcuts of page 1 leave them off. Page 3 folds to two buttons with
   walkers off ("No Daedra" / "Daedra", the second sets Daedra 1).
 - Each page's text is one paragraph that starts with its title and a colon
   ("Walkers: Walkers are undead ..."), no line breaks: whether the game's

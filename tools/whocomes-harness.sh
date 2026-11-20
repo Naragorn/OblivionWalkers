@@ -7,7 +7,7 @@
 #   tools/whocomes-harness.sh zombies     [Walkers] Mode=1: only the zombie list gives walkers, the bandit stays down
 #   tools/whocomes-harness.sh apocalypse  [Walkers] Mode=2: both lists give walkers, the bandit waits to rise
 #   tools/whocomes-harness.sh off         Walkers 0, Daedra 0: the mod off - nothing replaced, nobody rises
-#   tools/whocomes-harness.sh onboard     the onboarding answered Choose, Apocalypse, Daedra enemies, Start:
+#   tools/whocomes-harness.sh onboard     the onboarding answered Choose, Apocalypse, Daedra enemies, No necromancers, Start:
 #                                         Walkers 2, Daedra 1, written to the INI (the INI copied into the run first)
 #   tools/whocomes-harness.sh onboardoff  the onboarding answered "Turn the mod off", Start: all 0
 set -euo pipefail
@@ -49,7 +49,7 @@ walkers, daedra, show, answers = {
     "apocalypse": ("2", "0", "0", ""),
     "off": ("0", "0", "0", ""),
     # the start before the choice: the default switches, the boxes on
-    "onboard": ("1", "0", "1", "0,1,1,0"),
+    "onboard": ("1", "0", "1", "0,1,1,0,0"),
     "onboardoff": ("1", "0", "1", "2,0"),
 }[scenario]
 for section, key, value in (("Walkers", "Mode", walkers), ("Daedra", "Mode", daedra),

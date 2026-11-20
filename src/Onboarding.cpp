@@ -100,9 +100,10 @@ void Ask() {
 	      OnboardingPageName(g_state.page), static_cast<UInt32>(std::strlen(text)), buttons);
 }
 
-// The choice into the plugin INI: [Walkers] Mode, [Daedra] Mode and
-// [Onboarding] Show=0, everything else of the file as it was (IniEditLogic.h).
-bool WriteChoiceToIni(WalkersMode walkers, DaedraMode daedra) {
+// The choice into the plugin INI: [Walkers] Mode, [Daedra] Mode,
+// [Necromancers] Mode and [Onboarding] Show=0, everything else of the file
+// as it was (IniEditLogic.h).
+bool WriteChoiceToIni(WalkersMode walkers, DaedraMode daedra, bool necromancers) {
 	if (g_iniPath == nullptr || g_iniPath[0] == '\0') {
 		return false;
 	}
@@ -121,8 +122,9 @@ bool WriteChoiceToIni(WalkersMode walkers, DaedraMode daedra) {
 		const char* key;
 		char value[2];
 	};
-	Key keys[3] = {{"Walkers", "Mode", {static_cast<char>('0' + static_cast<UInt32>(walkers)), '\0'}},
+	Key keys[4] = {{"Walkers", "Mode", {static_cast<char>('0' + static_cast<UInt32>(walkers)), '\0'}},
 	               {"Daedra", "Mode", {static_cast<char>('0' + static_cast<UInt32>(daedra)), '\0'}},
+	               {"Necromancers", "Mode", {necromancers ? '1' : '0', '\0'}},
 	               {"Onboarding", "Show", {'0', '\0'}}};
 	for (const Key& k : keys) {
 		std::vector<char> out(text.size() + 128);
@@ -158,12 +160,14 @@ bool WriteChoiceToIni(WalkersMode walkers, DaedraMode daedra) {
 void Finish() {
 	const WalkersMode walkers = g_state.walkers;
 	const DaedraMode daedra = g_state.daedra;
+	const bool necromancers = g_state.necromancers;
 	g_settings->show = false;
 	if (g_chosen != nullptr) {
-		g_chosen(walkers, daedra);
+		g_chosen(walkers, daedra, necromancers);
 	}
-	const bool written = WriteChoiceToIni(walkers, daedra);
-	g_log("Onboarding: chosen Walkers %u Daedra %u, %s", static_cast<UInt32>(walkers), static_cast<UInt32>(daedra),
+	const bool written = WriteChoiceToIni(walkers, daedra, necromancers);
+	g_log("Onboarding: chosen Walkers %u Daedra %u Necromancers %u, %s", static_cast<UInt32>(walkers),
+	      static_cast<UInt32>(daedra), necromancers ? 1u : 0u,
 	      written ? "written to the INI" : "NOT written to the INI (the file could not be read or replaced)");
 	g_state = OnboardingState{};
 	g_chainBegun = false;

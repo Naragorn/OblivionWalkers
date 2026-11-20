@@ -3057,11 +3057,12 @@ void ApplyLinkEffect(LinkEffect effect) {
 // running settings (Onboarding.cpp has switched `show` off), the LINK
 // variables of the three, and the spawn replacement written anew as a LINK
 // change of the Daedra mode does. The INI is written by the caller.
-void ApplyOnboardingChoice(WalkersMode walkers, DaedraMode daedra) {
+void ApplyOnboardingChoice(WalkersMode walkers, DaedraMode daedra, bool necromancers) {
 	g_settings.invaders.walkers = walkers;
 	g_settings.invaders.daedra = daedra;
+	g_settings.invaders.necromancers = necromancers;
 	const UInt32 quest = EspFormId(FindEspBase(), kLinkQuestLocalId);
-	const char* const vars[3] = {"ini_walkers_mode", "ini_daedra_mode", "ini_onboarding_show"};
+	const char* const vars[4] = {"ini_walkers_mode", "ini_daedra_mode", "ini_necro_mode", "ini_onboarding_show"};
 	UInt32 written = 0;
 	for (const char* name : vars) {
 		const int index = LinkIndexOf(name);
@@ -3071,8 +3072,9 @@ void ApplyOnboardingChoice(WalkersMode walkers, DaedraMode daedra) {
 			++written;
 		}
 	}
-	g_log("Onboarding: Walkers Mode %u, Daedra Mode %u set; %u of 3 LINK variables written; the spawns written anew",
-	      static_cast<UInt32>(walkers), static_cast<UInt32>(daedra), written);
+	g_log("Onboarding: Walkers Mode %u, Daedra Mode %u, Necromancers Mode %u set; %u of 4 LINK variables written; the "
+	      "spawns written anew",
+	      static_cast<UInt32>(walkers), static_cast<UInt32>(daedra), necromancers ? 1u : 0u, written);
 	ApplyLinkEffect(LinkEffect::Spawns);
 }
 

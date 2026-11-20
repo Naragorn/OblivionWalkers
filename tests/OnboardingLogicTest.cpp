@@ -115,26 +115,47 @@ void TestPage2() {
 void TestPage3() {
 	std::printf("Page 3\n");
 	const DaedraMode expect[3] = {DaedraMode::Off, DaedraMode::Enemies, DaedraMode::Allies};
-	const char* names[3] = {"No Daedra: Daedra 0, on to the summary", "enemies: Daedra 1, on to the summary",
-	                        "allies: Daedra 2, on to the summary"};
+	const char* names[3] = {"No Daedra: Daedra 0, on to the necromancers", "enemies: Daedra 1, on to the necromancers",
+	                        "allies: Daedra 2, on to the necromancers"};
 	for (UInt32 b = 0; b < 3; ++b) {
 		OnboardingState s = At(OnboardingPage::Daedra, WalkersMode::Apocalypse, DaedraMode::Allies);
 		s.daedra = b == 0 ? DaedraMode::Allies : DaedraMode::Off;
-		Check(walkers::OnboardingAnswer(s, b) == OnboardingNext::Show && s.page == OnboardingPage::World &&
+		Check(walkers::OnboardingAnswer(s, b) == OnboardingNext::Show && s.page == OnboardingPage::Necromancers &&
 		          s.daedra == expect[b] && s.walkers == WalkersMode::Apocalypse,
 		      names[b]);
 	}
 	OnboardingState none = At(OnboardingPage::Daedra, WalkersMode::Off);
 	Check(walkers::OnboardingAnswer(none, 0) == OnboardingNext::Show && none.daedra == DaedraMode::Off &&
-	          none.page == OnboardingPage::World,
+	          none.page == OnboardingPage::Necromancers,
 	      "without walkers, No Daedra: Daedra 0");
 	none = At(OnboardingPage::Daedra, WalkersMode::Off);
 	Check(walkers::OnboardingAnswer(none, 1) == OnboardingNext::Show && none.daedra == DaedraMode::Enemies &&
-	          none.page == OnboardingPage::World,
+	          none.page == OnboardingPage::Necromancers,
 	      "without walkers, Daedra: Daedra 1 (enemies and allies are one then)");
 	none = At(OnboardingPage::Daedra, WalkersMode::Off);
 	Check(walkers::OnboardingAnswer(none, 2) == OnboardingNext::Again && none.page == OnboardingPage::Daedra,
 	      "without walkers there is no third button: asked again");
+}
+
+void TestPage4() {
+	std::printf("Page 4 (the necromancers, 4.23 B)\n");
+	Check(Labels(At(OnboardingPage::Necromancers)) == "No necromancers | Necromancers" &&
+	          walkers::OnboardingButtonCount(At(OnboardingPage::Necromancers)) == 2,
+	      "two buttons");
+	OnboardingState s = At(OnboardingPage::Necromancers, WalkersMode::Off);
+	Check(walkers::OnboardingAnswer(s, 1) == OnboardingNext::Show && s.necromancers && s.page == OnboardingPage::World,
+	      "Necromancers: on, on to the summary");
+	s = At(OnboardingPage::Necromancers);
+	s.necromancers = true;
+	Check(walkers::OnboardingAnswer(s, 0) == OnboardingNext::Show && !s.necromancers && s.page == OnboardingPage::World,
+	      "No necromancers: off, on to the summary");
+	s = At(OnboardingPage::Necromancers);
+	Check(walkers::OnboardingAnswer(s, 2) == OnboardingNext::Again && s.page == OnboardingPage::Necromancers,
+	      "a third button: asked again");
+	s = At(OnboardingPage::Welcome);
+	s.necromancers = true;
+	walkers::OnboardingAnswer(s, 1);
+	Check(!s.necromancers && s.page == OnboardingPage::World, "a shortcut of page 1: no necromancers");
 }
 
 void TestPage5() {
@@ -159,9 +180,18 @@ void TestPaths() {
 	walkers::OnboardingAnswer(s, 0);
 	walkers::OnboardingAnswer(s, 1);
 	walkers::OnboardingAnswer(s, 1);
+	walkers::OnboardingAnswer(s, 0);
 	Check(s.page == OnboardingPage::World && s.walkers == WalkersMode::Apocalypse && s.daedra == DaedraMode::Enemies &&
-	          walkers::OnboardingAnswer(s, 0) == OnboardingNext::Finish,
-	      "Choose, Apocalypse, Daedra enemies, Start: Walkers 2, Daedra 1");
+	          !s.necromancers && walkers::OnboardingAnswer(s, 0) == OnboardingNext::Finish,
+	      "Choose, Apocalypse, Daedra enemies, No necromancers, Start: Walkers 2, Daedra 1, Necromancers 0");
+	s = OnboardingState{};
+	walkers::OnboardingAnswer(s, 0);
+	walkers::OnboardingAnswer(s, 2);
+	walkers::OnboardingAnswer(s, 0);
+	walkers::OnboardingAnswer(s, 1);
+	Check(s.page == OnboardingPage::World && s.walkers == WalkersMode::Off && s.daedra == DaedraMode::Off &&
+	          s.necromancers && walkers::OnboardingAnswer(s, 0) == OnboardingNext::Finish,
+	      "Choose, No walkers, No Daedra, Necromancers, Start: the necromancers alone");
 	s = OnboardingState{};
 	walkers::OnboardingAnswer(s, 2);
 	Check(walkers::OnboardingAnswer(s, 0) == OnboardingNext::Finish && s.walkers == WalkersMode::Off &&
@@ -171,8 +201,9 @@ void TestPaths() {
 	walkers::OnboardingAnswer(s, 0);
 	walkers::OnboardingAnswer(s, 2);
 	walkers::OnboardingAnswer(s, 1);
-	Check(s.walkers == WalkersMode::Off && s.daedra == DaedraMode::Enemies,
-	      "Choose, No walkers, Daedra: the Daedra alone (Walkers 0, Daedra 1)");
+	walkers::OnboardingAnswer(s, 0);
+	Check(s.walkers == WalkersMode::Off && s.daedra == DaedraMode::Enemies && !s.necromancers,
+	      "Choose, No walkers, Daedra, No necromancers: the Daedra alone (Walkers 0, Daedra 1)");
 	walkers::OnboardingAnswer(s, 1);  // choose again
 	walkers::OnboardingAnswer(s, 1);  // the shortcut
 	Check(s.page == OnboardingPage::World && s.walkers == WalkersMode::Zombies && s.daedra == DaedraMode::Off,
@@ -186,6 +217,7 @@ void TestTexts() {
 	                                 At(OnboardingPage::Walkers),
 	                                 At(OnboardingPage::Daedra, WalkersMode::Zombies),
 	                                 At(OnboardingPage::Daedra, WalkersMode::Off),
+	                                 At(OnboardingPage::Necromancers),
 	                                 At(OnboardingPage::World, WalkersMode::Apocalypse, DaedraMode::Allies),
 	                                 At(OnboardingPage::World, WalkersMode::Off, DaedraMode::Enemies)};
 	bool short_enough = true;
@@ -222,6 +254,17 @@ void TestTexts() {
 	      "page 5 without walkers: the Daedra out of the gates");
 	walkers::OnboardingText(At(OnboardingPage::World, WalkersMode::Off, DaedraMode::Allies), text, sizeof(text));
 	Check(std::strstr(text, "Daedra: out of the gates.") != nullptr, "page 5 without walkers, allies: the same");
+	walkers::OnboardingText(At(OnboardingPage::Necromancers), text, sizeof(text));
+	Check(std::strstr(text, "Necromancers: A few rival necromancers hold dungeons full of walkers.") != nullptr &&
+	          std::strstr(text, "Kill one and refugees move into his place.") != nullptr,
+	      "page 4 says what the necromancers do");
+	OnboardingState world = At(OnboardingPage::World, WalkersMode::Off, DaedraMode::Off);
+	world.necromancers = true;
+	walkers::OnboardingText(world, text, sizeof(text));
+	Check(std::strstr(text, "Walkers: none. Daedra: none. Necromancers: their realms.") != nullptr,
+	      "page 5 names the necromancers' choice");
+	walkers::OnboardingText(At(OnboardingPage::World), text, sizeof(text));
+	Check(std::strstr(text, "Necromancers: none.") != nullptr, "and their absence");
 	char small[8];
 	Check(walkers::OnboardingText(At(OnboardingPage::Walkers), small, sizeof(small)) == 0,
 	      "a buffer too small: nothing, not half a text");
@@ -232,11 +275,14 @@ void TestNames() {
 	Check(std::strcmp(walkers::OnboardingPageName(OnboardingPage::Welcome), "Welcome") == 0 &&
 	          std::strcmp(walkers::OnboardingPageName(OnboardingPage::Walkers), "Walkers") == 0 &&
 	          std::strcmp(walkers::OnboardingPageName(OnboardingPage::Daedra), "Daedra") == 0 &&
+	          std::strcmp(walkers::OnboardingPageName(OnboardingPage::Necromancers), "Necromancers") == 0 &&
 	          std::strcmp(walkers::OnboardingPageName(OnboardingPage::World), "Your world") == 0,
 	      "page names");
 	Check(walkers::OnboardingPageNumber(OnboardingPage::Welcome) == 1 && walkers::OnboardingPageNumber(OnboardingPage::Walkers) == 2 &&
-	          walkers::OnboardingPageNumber(OnboardingPage::Daedra) == 3 && walkers::OnboardingPageNumber(OnboardingPage::World) == 5,
-	      "page numbers as 4.24a counts them (4, the necromancers', is not built)");
+	          walkers::OnboardingPageNumber(OnboardingPage::Daedra) == 3 &&
+	          walkers::OnboardingPageNumber(OnboardingPage::Necromancers) == 4 &&
+	          walkers::OnboardingPageNumber(OnboardingPage::World) == 5,
+	      "page numbers as 4.24a counts them");
 	Check(std::strcmp(walkers::OnboardingButtonLabel(At(OnboardingPage::Walkers), 1), "Apocalypse") == 0 &&
 	          std::strcmp(walkers::OnboardingButtonLabel(At(OnboardingPage::Walkers), 5), "(no such button)") == 0,
 	      "a button's label, or that there is none");
@@ -300,6 +346,7 @@ int main() {
 	TestPage1();
 	TestPage2();
 	TestPage3();
+	TestPage4();
 	TestPage5();
 	TestPaths();
 	TestTexts();

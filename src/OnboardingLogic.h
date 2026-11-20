@@ -8,12 +8,13 @@
 // box may open and how the test answers are read. Rise.cpp / Onboarding.cpp
 // show the boxes.
 //
-// The pages (4.24a; the necromancers' page waits for 4.23 B):
-//   Welcome  Choose / Just the game's zombies / Turn the mod off
-//   Walkers  Zombies only / Apocalypse / No walkers
-//   Daedra   No Daedra / Daedra, enemies / Daedra, allies (with walkers off:
-//            No Daedra / Daedra)
-//   World    the summary; Start / Choose again
+// The pages (4.24a; the necromancers' since 4.23 B step 3):
+//   Welcome       Choose / Just the game's zombies / Turn the mod off
+//   Walkers       Zombies only / Apocalypse / No walkers
+//   Daedra        No Daedra / Daedra, enemies / Daedra, allies (with walkers
+//                 off: No Daedra / Daedra)
+//   Necromancers  No necromancers / Necromancers
+//   World         the summary; Start / Choose again
 
 #include <cstdio>
 #include <cstring>
@@ -29,7 +30,7 @@ struct OnboardingSettings {
 	char testAnswers[48] = {};  // TestAnswers (INI only, a test switch): "1,1,2,0" - the buttons pressed, one a second
 };
 
-enum class OnboardingPage : UInt8 { Welcome, Walkers, Daedra, World };
+enum class OnboardingPage : UInt8 { Welcome, Walkers, Daedra, Necromancers, World };
 
 // Where the chain is and what has been chosen so far. The defaults are the
 // mod's own (4.24: the game's zombies, no Daedra).
@@ -37,6 +38,7 @@ struct OnboardingState {
 	OnboardingPage page = OnboardingPage::Welcome;
 	WalkersMode walkers = WalkersMode::Zombies;
 	DaedraMode daedra = DaedraMode::Off;
+	bool necromancers = false;
 };
 
 // What an answer leads to: the next page to show, the same page asked
@@ -53,6 +55,7 @@ inline UInt32 OnboardingButtonCount(const OnboardingState& s) {
 		case OnboardingPage::Welcome: return 3;
 		case OnboardingPage::Walkers: return 3;
 		case OnboardingPage::Daedra: return DaedraPageFolds(s) ? 2 : 3;
+		case OnboardingPage::Necromancers: return 2;
 		case OnboardingPage::World: return 2;
 	}
 	return 0;
@@ -81,6 +84,10 @@ inline UInt32 OnboardingButtons(const OnboardingState& s, const char** labels) {
 			labels[1] = "Daedra, enemies of the walkers";
 			labels[2] = "Daedra, allies of the walkers";
 			return 3;
+		case OnboardingPage::Necromancers:
+			labels[0] = "No necromancers";
+			labels[1] = "Necromancers";
+			return 2;
 		case OnboardingPage::World:
 			labels[0] = "Start";
 			labels[1] = "Choose again";
@@ -104,6 +111,7 @@ inline OnboardingNext OnboardingAnswer(OnboardingState& s, UInt32 button) {
 			// The two shortcuts go straight to the summary.
 			s.walkers = button == 1 ? WalkersMode::Zombies : WalkersMode::Off;
 			s.daedra = DaedraMode::Off;
+			s.necromancers = false;
 			s.page = OnboardingPage::World;
 			return OnboardingNext::Show;
 		case OnboardingPage::Walkers:
@@ -113,6 +121,10 @@ inline OnboardingNext OnboardingAnswer(OnboardingState& s, UInt32 button) {
 		case OnboardingPage::Daedra:
 			// Without walkers "enemies" and "allies" are one: the Daedra alone.
 			s.daedra = button == 0 ? DaedraMode::Off : (button == 1 ? DaedraMode::Enemies : DaedraMode::Allies);
+			s.page = OnboardingPage::Necromancers;
+			return OnboardingNext::Show;
+		case OnboardingPage::Necromancers:
+			s.necromancers = button == 1;
 			s.page = OnboardingPage::World;
 			return OnboardingNext::Show;
 		case OnboardingPage::World:
@@ -170,10 +182,17 @@ inline UInt32 OnboardingText(const OnboardingState& s, char* out, UInt32 capacit
 			                  "Close the gate and its bands stop.%s",
 			                  DaedraPageFolds(s) ? "" : " Do they fight the walkers or stand with them?");
 			break;
+		case OnboardingPage::Necromancers:
+			n = std::snprintf(out, capacity,
+			                  "Necromancers: A few rival necromancers hold dungeons full of walkers. They send walkers "
+			                  "toward the cities and take more places. Kill one and refugees move into his place.");
+			break;
 		case OnboardingPage::World:
 			n = std::snprintf(out, capacity,
-			                  "Your world: Walkers: %s. Daedra: %s. Change it any time in LINK, page 'Who comes'.",
-			                  OnboardingWalkersWord(s.walkers), OnboardingDaedraWord(s.walkers, s.daedra));
+			                  "Your world: Walkers: %s. Daedra: %s. Necromancers: %s. Change it any time in LINK, page "
+			                  "'Who comes'.",
+			                  OnboardingWalkersWord(s.walkers), OnboardingDaedraWord(s.walkers, s.daedra),
+			                  s.necromancers ? "their realms" : "none");
 			break;
 	}
 	return n > 0 && static_cast<UInt32>(n) < capacity ? static_cast<UInt32>(n) : 0;
@@ -185,17 +204,19 @@ inline const char* OnboardingPageName(OnboardingPage page) {
 		case OnboardingPage::Welcome: return "Welcome";
 		case OnboardingPage::Walkers: return "Walkers";
 		case OnboardingPage::Daedra: return "Daedra";
+		case OnboardingPage::Necromancers: return "Necromancers";
 		case OnboardingPage::World: return "Your world";
 	}
 	return "?";
 }
 
-// The page's number as 4.24a counts them (the necromancers' is 4, not built).
+// The page's number as 4.24a counts them.
 inline UInt32 OnboardingPageNumber(OnboardingPage page) {
 	switch (page) {
 		case OnboardingPage::Welcome: return 1;
 		case OnboardingPage::Walkers: return 2;
 		case OnboardingPage::Daedra: return 3;
+		case OnboardingPage::Necromancers: return 4;
 		case OnboardingPage::World: return 5;
 	}
 	return 0;
