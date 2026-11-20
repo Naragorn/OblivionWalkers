@@ -12,12 +12,24 @@
 namespace walkers {
 
 using NecroRollFn = UInt32 (*)();
+using NecroConsoleFn = bool (*)(UInt32 ref, const char* line);
+using NecroDeadFn = bool (*)(UInt32 actor);
+using NecroIsWalkerFn = bool (*)(UInt32 ref);
 
 // `settings` and `invaders` are read at every step (LINK changes them);
 // `testHome` ([Necromancers] TestHome, INI only, a test switch): one boss
 // only, at that dungeon (DungeonCandidates.h's name), instead of the roll.
 void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, NecroRollFn roll,
-                    const char* testHome, LogFn log);
+                    NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker, const char* testHome,
+                    float testBandsSeconds, LogFn log);
+
+// Step 5, the teams: twice a second the walkers of a team near let go of an
+// ally's or a free walker and are set on an enemy team's (NecroLogic.h);
+// with [Daedra] Mode=2 a necromancer lets go of a Daedra. Every frame.
+void StepNecroTeams(float dt, LogFn log);
+// Whether `refId` belongs to a necromancer: a walker of a team, or a
+// necromancer placed - a free walker fighting it lets go (decided 11).
+bool NecroTeamed(UInt32 refId);
 
 // Every frame (stepped once a game second inside): with [Necromancers]
 // Mode=1 and the dungeon pool settled after the load, the realms risen and

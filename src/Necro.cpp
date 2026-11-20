@@ -1,19 +1,35 @@
 #include "Necro.h"
 
+#include <cmath>
 #include <cstdio>
+#include <unordered_map>
 
 #include "Bands.h"
 #include "CityGates.h"
+#include "DaedricDisguise.h"
 #include "DungeonCandidates.h"
 #include "Dungeons.h"
+#include "Engine.h"
+#include "Horde.h"
 #include "News.h"
 
 namespace walkers {
+using namespace engine;
 namespace {
 
 const NecroSettings* g_settings = nullptr;
 const InvaderSettings* g_invaders = nullptr;
 NecroRollFn g_roll = nullptr;
+NecroConsoleFn g_console = nullptr;
+NecroDeadFn g_dead = nullptr;
+NecroIsWalkerFn g_isWalker = nullptr;
+// Step 5: the team of every necromancer's walker known (its form ID): the
+// bands' members as placed, the pool's while it stands at one of their places.
+std::unordered_map<UInt32, UInt8> g_teams;
+UInt32 g_poolTeamed[16] = {};
+UInt32 g_poolTeamedCount = 0;
+float g_teamClock = 0.0f;
+UInt32 g_teamLogsLeft = 40;
 LogFn g_log = nullptr;
 char g_testHome[64] = {};
 NecroState g_state;
@@ -25,6 +41,15 @@ bool g_testLogged = false;
 constexpr float kStepSeconds = 1.0f;
 constexpr UInt32 kEventsMost = 32;
 UInt32 g_bandLogsLeft = 60;
+// Far bands this near each other meet (a guess: within sight of each other).
+constexpr float kNecroBandsMeetUnits = 3000.0f;
+// [Necromancers] TestBandsSeconds (INI only, a test switch; harness
+// necro-teams.txt): this many seconds after the pool settled two bands of 3,
+// of the first two bosses' teams (or 1 and 2), come near the player from the
+// same side - they meet. 0: off.
+float g_testBandsSeconds = 0.0f;
+float g_testBandsClock = 0.0f;
+bool g_testBandsDone = false;
 
 // The cities the bands head for: the gates' outside spots (CityGates.h), as
 // the gates' bands.
@@ -61,6 +86,12 @@ void CarryBandEvents(const NecroBandEvent* ev, UInt32 n, LogFn log) {
 				break;
 			case NecroBandEventKind::Dropped:
 				BandLog(log, "dropped - the most are on their way", b);
+				break;
+			case NecroBandEventKind::Met:
+				BandLog(log, "met an enemy band - fought as numbers, now this size", b);
+				break;
+			case NecroBandEventKind::Destroyed:
+				BandLog(log, "destroyed by an enemy band", b);
 				break;
 		}
 	}
@@ -132,6 +163,20 @@ void OnPlaceGone(UInt32 boss, UInt32 candidate, bool won) {
 	}
 }
 
+void NoteTeam(UInt32 refId, UInt8 team) {
+	if (team == 0) {
+		g_teams.erase(refId);
+	} else {
+		g_teams[refId] = team;
+	}
+}
+
+UInt8 BossTeam(int boss) {
+	return boss >= 0 && static_cast<UInt32>(boss) < g_state.count && boss < static_cast<int>(kNecroBossesMost)
+	           ? g_state.bosses[boss].team
+	           : 0;
+}
+
 bool IsHome(UInt32 boss, UInt32 candidate) {
 	return boss < g_state.count && boss < kNecroBossesMost && g_state.bosses[boss].home == candidate;
 }
@@ -139,10 +184,16 @@ bool IsHome(UInt32 boss, UInt32 candidate) {
 }  // namespace
 
 void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, NecroRollFn roll,
-                    const char* testHome, LogFn log) {
+                    NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker, const char* testHome,
+                    float testBandsSeconds, LogFn log) {
+	g_testBandsSeconds = testBandsSeconds;
 	g_settings = settings;
 	g_invaders = invaders;
 	g_roll = roll;
+	g_console = console;
+	g_dead = dead;
+	g_isWalker = isWalker;
+	ConfigureBandsTeams(&NoteTeam);
 	g_log = log;
 	std::snprintf(g_testHome, sizeof(g_testHome), "%s", testHome != nullptr ? testHome : "");
 	ConfigureDungeonsNecro(&OnBossFell, &OnPlaceGone, &IsHome);
@@ -154,6 +205,10 @@ NecroBands& CurrentNecroBands() { return g_bands; }
 void ResetNecroInGame() {
 	g_state = NecroState{};
 	g_bands = NecroBands{};
+	g_teams.clear();  // the bands' members went with the load (Bands.cpp keeps its own)
+	g_testBandsClock = 0.0f;
+	g_testBandsDone = false;
+	g_poolTeamedCount = 0;
 	g_lastDays = -1.0f;
 	g_clock = kStepSeconds;  // the first step at once
 	g_waitLogged = false;
@@ -186,6 +241,18 @@ void StepNecroInGame(float dt, LogFn log) {
 	float px = 0.0f;
 	float py = 0.0f;
 	const bool playerKnown = DungeonPlayerPlace(px, py);
+	if (g_testBandsSeconds > 0.0f && !g_testBandsDone && playerKnown) {
+		g_testBandsClock += kStepSeconds;
+		if (g_testBandsClock >= g_testBandsSeconds) {
+			g_testBandsDone = true;
+			const UInt8 a = g_state.count > 0 ? g_state.bosses[0].team : 1;
+			const UInt8 b = g_state.count > 1 ? g_state.bosses[1].team : static_cast<UInt8>(a == 1 ? 2 : 1);
+			QueueWalkerBand(px + 10000.0f, py, 3, a);
+			QueueWalkerBand(px + 10000.0f, py, 3, b);
+			log("Necromancers: test - TestBandsSeconds=%.0f: two bands of 3, teams %u and %u, near you from the same side",
+			    g_testBandsSeconds, a, b);
+		}
+	}
 	if (!playerKnown) {
 		px = py = 1.0e9f;  // nowhere near: no band comes into the world
 	}
@@ -196,6 +263,9 @@ void StepNecroInGame(float dt, LogFn log) {
 		NecroBandEvent bev[kEventsMost];
 		const UInt32 bn = StepNecroBands(g_bands, s, g_cities, kCityGateCount, hours, px, py, bev, kEventsMost);
 		CarryBandEvents(bev, bn, log);
+		Roll meetRoll;
+		const UInt32 mn = NecroBandsMeet(g_bands, kNecroBandsMeetUnits, meetRoll, bev, kEventsMost);
+		CarryBandEvents(bev, mn, log);
 	}
 	bool free[kDungeonCandidateCount];
 	DungeonFreePlaces(free);
@@ -254,6 +324,148 @@ void StepNecroInGame(float dt, LogFn log) {
 			default:
 				break;
 		}
+	}
+}
+
+namespace {
+
+constexpr UInt32 kRefPositionOffset = 0x2C;
+constexpr UInt32 kRefParentCellOffset = 0x40;
+constexpr UInt32 kPlayerId = 0x14;
+constexpr UInt32 kFightersMost = 64;
+
+struct Fighter {
+	UInt32 id;
+	UInt32 actor;
+	UInt8 team;
+	bool boss;
+};
+
+float Distance(UInt32 a, UInt32 b) {
+	if (Read(a + kRefParentCellOffset) == 0 || Read(b + kRefParentCellOffset) == 0) {
+		return -1.0f;
+	}
+	const float dx = FloatAt(a + kRefPositionOffset) - FloatAt(b + kRefPositionOffset);
+	const float dy = FloatAt(a + kRefPositionOffset + 4) - FloatAt(b + kRefPositionOffset + 4);
+	const float dz = FloatAt(a + kRefPositionOffset + 8) - FloatAt(b + kRefPositionOffset + 8);
+	return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// The team of the one `targetId`: its team, a necromancer's; `known` false
+// when it is neither a team's walker, a necromancer placed nor a free walker
+// (a living one, a Daedra: fought as ever).
+UInt8 TeamOfTarget(UInt32 targetId, const Fighter* f, UInt32 n, bool& known) {
+	for (UInt32 k = 0; k < n; ++k) {
+		if (f[k].id == targetId) {
+			known = true;
+			return f[k].team;
+		}
+	}
+	const auto it = g_teams.find(targetId);
+	if (it != g_teams.end()) {
+		known = true;
+		return it->second;
+	}
+	const UInt32 target = LookupForm(targetId);
+	known = g_isWalker != nullptr && g_isWalker(target);
+	return 0;
+}
+
+}  // namespace
+
+bool NecroTeamed(UInt32 refId) {
+	if (g_teams.find(refId) != g_teams.end()) {
+		return true;
+	}
+	int boss = -1;
+	const UInt32 placed = NecroBossPlacedNow(boss);
+	return placed != 0 && placed == refId;
+}
+
+void StepNecroTeams(float dt, LogFn log) {
+	g_teamClock += dt;
+	if (g_teamClock < 0.5f) {
+		return;
+	}
+	g_teamClock = 0.0f;
+	if (g_invaders == nullptr || !g_invaders->necromancers || g_console == nullptr) {
+		return;
+	}
+	// The pool's walkers carry the team of the place they stand at.
+	{
+		UInt32 refs[16];
+		int boss = -1;
+		const UInt32 n = DungeonPoolAtNecro(refs, 16, boss);
+		const UInt8 team = BossTeam(boss);
+		for (UInt32 k = 0; k < g_poolTeamedCount; ++k) {
+			NoteTeam(g_poolTeamed[k], 0);
+		}
+		g_poolTeamedCount = 0;
+		for (UInt32 k = 0; k < n && team != 0; ++k) {
+			NoteTeam(refs[k], team);
+			g_poolTeamed[g_poolTeamedCount++] = refs[k];
+		}
+	}
+	Fighter f[kFightersMost];
+	UInt32 n = 0;
+	for (auto it = g_teams.begin(); it != g_teams.end() && n < kFightersMost;) {
+		const UInt32 actor = LookupForm(it->first);
+		if (!LooksLikeObject(actor)) {
+			it = g_teams.erase(it);  // gone from the game
+			continue;
+		}
+		if (Read(actor + kRefParentCellOffset) != 0 && (g_dead == nullptr || !g_dead(actor))) {
+			f[n++] = Fighter{it->first, actor, it->second, false};
+		}
+		++it;
+	}
+	int boss = -1;
+	const UInt32 bossId = NecroBossPlacedNow(boss);
+	const UInt32 bossActor = bossId != 0 ? LookupForm(bossId) : 0;
+	if (LooksLikeObject(bossActor) && n < kFightersMost && (g_dead == nullptr || !g_dead(bossActor))) {
+		f[n++] = Fighter{bossId, bossActor, BossTeam(boss), true};
+	}
+	const bool daedraAllies = g_invaders->daedra == DaedraMode::Allies;
+	UInt32 stopped = 0;
+	UInt32 set = 0;
+	for (UInt32 i = 0; i < n; ++i) {
+		const bool fighting = ActorInCombat(f[i].id);
+		const UInt32 target = fighting ? ActorCombatTargetId(f[i].id) : 0;
+		if (fighting && target != 0 && target != kPlayerId) {
+			bool known = false;
+			const UInt8 theirs = TeamOfTarget(target, f, n, known);
+			const bool daedra = !known && f[i].boss && daedraAllies && IsDaedraActor(LookupForm(target));
+			if (((known && NecroFightStops(f[i].team, theirs)) || daedra) && g_console(f[i].actor, "StopCombat")) {
+				++stopped;
+			}
+			continue;
+		}
+		if (fighting || f[i].boss) {
+			continue;
+		}
+		// Not fighting: the nearest enemy team's within reach.
+		int best = -1;
+		float bestDistance = kNecroSetOnUnits;
+		for (UInt32 k = 0; k < n; ++k) {
+			const float d = k == i ? -1.0f : Distance(f[i].actor, f[k].actor);
+			if (NecroSetOn(f[i].team, f[k].team, false, d, bestDistance)) {
+				best = static_cast<int>(k);
+				bestDistance = d;
+			}
+		}
+		if (best >= 0) {
+			char line[32];
+			std::snprintf(line, sizeof(line), "StartCombat %08X", f[best].id);
+			if (g_console(f[i].actor, line)) {
+				++set;
+			}
+		}
+	}
+	if ((stopped > 0 || set > 0) && g_teamLogsLeft > 0) {
+		--g_teamLogsLeft;
+		log("Necromancers: teams - %u of theirs near; %u told StopCombat (an ally, a free walker or a Daedra of "
+		    "Daedra Mode 2), %u set on an enemy team's",
+		    n, stopped, set);
 	}
 }
 

@@ -1804,6 +1804,33 @@ DungeonSitesState& CurrentDungeons() { return g_sites; }
 
 bool DungeonPoolSettledNow() { return g_selected && g_poolSettled; }
 
+UInt32 DungeonPoolAtNecro(UInt32* refIds, UInt32 most, int& boss) {
+	boss = -1;
+	const int site = g_poolCandidate >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(g_poolCandidate)) : -1;
+	if (site < 0 || !IsNecroPlace(g_sites.sites[site])) {
+		return 0;
+	}
+	boss = static_cast<int>(g_sites.sites[site].necro) - 1;
+	UInt32 n = 0;
+	for (UInt32 slot = 0; slot < kDungeonPool && n < most; ++slot) {
+		const UInt32 ref = g_poolOut[slot] ? PoolRef(slot) : 0;
+		if (LooksLikeObject(ref)) {
+			refIds[n++] = FormIdOf(ref);
+		}
+	}
+	return n;
+}
+
+UInt32 NecroBossPlacedNow(int& boss) {
+	boss = -1;
+	const int site = g_necroBoss != 0 && g_necroCandidate >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(g_necroCandidate)) : -1;
+	if (site < 0 || g_sites.sites[site].necro == 0) {
+		return 0;
+	}
+	boss = static_cast<int>(g_sites.sites[site].necro) - 1;
+	return g_necroBoss;
+}
+
 bool DungeonPlayerPlace(float& x, float& y) {
 	x = g_playerX;
 	y = g_playerY;

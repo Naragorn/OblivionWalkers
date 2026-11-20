@@ -446,6 +446,7 @@ bool ReadSettings(walkers::Settings* settings) {
 		n.walkersMax = std::max(n.walkersMin, necroWhole("WalkersMax", 30, 1, 60));
 		n.realmMost = necroWhole("RealmMost", 6, 1, 20);
 		IniString("Necromancers", "TestHome", "", rise.necroTestHome, sizeof(rise.necroTestHome), path);
+		rise.necroTestBandsSeconds = std::max(0.0f, IniFloat("Necromancers", "TestBandsSeconds", 0.0f, path));
 		Log("Settings from %s: [Necromancers] Mode=%d BossesMin=%u BossesMax=%u BandsPerDay=%.2f BandSizeMin=%u "
 		    "BandSizeMax=%u NewPlaceEveryDays=%.1f Teams=%u,%u,%u,%u,%u ComeBack=%d ComeBackDays=%.1f PaceByLiving=%d "
 		    "RiseWithin=%.0f WalkersMin=%u WalkersMax=%u RealmMost=%u TestHome=%s",

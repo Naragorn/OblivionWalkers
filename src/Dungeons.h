@@ -90,6 +90,11 @@ void ResetDungeonsInGame();
 bool DungeonPoolSettledNow();
 // The player's last place in Tamriel (inside, the one before going in).
 bool DungeonPlayerPlace(float& x, float& y);
+// 4.23 B step 5: the pool's walkers out at a necromancer's place now (their
+// form IDs) and his boss index (-1: the pool is not at one); the
+// necromancer placed now (0 none) and his boss index.
+UInt32 DungeonPoolAtNecro(UInt32* refIds, UInt32 most, int& boss);
+UInt32 NecroBossPlacedNow(int& boss);
 void DungeonFreePlaces(bool* free);
 bool AddNecroPlace(UInt32 candidate, UInt32 boss, UInt32 walkers, float now);
 const char* DungeonCandidateName(UInt32 candidate);

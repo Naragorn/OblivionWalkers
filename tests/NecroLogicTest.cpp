@@ -54,6 +54,14 @@ void AllFree(bool* free) {
 	}
 }
 
+UInt32 CountBand(const walkers::NecroBandEvent* ev, UInt32 n, walkers::NecroBandEventKind kind) {
+	UInt32 k = 0;
+	for (UInt32 i = 0; i < n; ++i) {
+		k += ev[i].kind == kind ? 1u : 0u;
+	}
+	return k;
+}
+
 UInt32 CountKind(const NecroEvent* ev, UInt32 n, NecroEventKind kind) {
 	UInt32 k = 0;
 	for (UInt32 i = 0; i < n; ++i) {
@@ -417,6 +425,54 @@ void TestBands() {
 	      "the clock set back: no step");
 }
 
+void TestTeamsFight() {
+	std::printf("Who fights whom (step 5; decided 5, 11)\n");
+	Check(!walkers::NecroFightStops(1, 2), "team 1 against team 2 (enemies): fights on");
+	Check(walkers::NecroFightStops(1, 1), "against its own team (or its own necromancer): lets go");
+	Check(walkers::NecroFightStops(3, 0) && walkers::NecroFightStops(0, 3), "a team's and a free walker: let go (decided 11)");
+	Check(!walkers::NecroFightStops(0, 0), "free walkers among themselves: as ever");
+	Check(walkers::NecroSetOn(1, 2, false, 1000.0f, walkers::kNecroSetOnUnits), "an enemy's walker within reach: set on");
+	Check(!walkers::NecroSetOn(1, 2, true, 1000.0f, walkers::kNecroSetOnUnits), "already fighting: not set on another");
+	Check(!walkers::NecroSetOn(1, 2, false, 2000.0f, walkers::kNecroSetOnUnits), "too far: not");
+	Check(!walkers::NecroSetOn(1, 1, false, 100.0f, walkers::kNecroSetOnUnits) &&
+	          !walkers::NecroSetOn(0, 2, false, 100.0f, walkers::kNecroSetOnUnits) &&
+	          !walkers::NecroSetOn(2, 0, false, 100.0f, walkers::kNecroSetOnUnits),
+	      "an ally, a free walker, or none's: never set on");
+	Check(!walkers::NecroSetOn(1, 2, false, -1.0f, walkers::kNecroSetOnUnits), "not measurable (another cell): not");
+}
+
+void TestBandsMeet() {
+	std::printf("Enemy bands meet far away (step 5)\n");
+	walkers::NecroBands st;
+	st.count = 3;
+	st.bands[0] = {0, 1, 0, 8, 0.0f, 0.0f};
+	st.bands[1] = {1, 2, 0, 6, 1000.0f, 0.0f};
+	st.bands[2] = {2, 1, 0, 5, 1500.0f, 0.0f};  // team 1: band 0's ally
+	const UInt32 full[] = {50, 50, 50, 50};  // 50 + 50 % 51 = 100%: all of the other's size
+	Rolls all{full, 4};
+	walkers::NecroBandEvent ev[16];
+	// band 0 (8) and band 1 (6) meet: 0 loses 6 -> 2, 1 loses 8 -> 0; band 2 (team 1) is band 0's ally
+	// and band 1 (team 2) at 500 meets band 2 too - but band 1 is down to none after the first fight
+	UInt32 n = walkers::NecroBandsMeet(st, 2000.0f, all, ev, 16);
+	Check(st.count == 2 && st.bands[0].size == 2 && st.bands[1].size == 5 && st.bands[1].team == 1,
+	      "the enemies fight: 8 against 6 at the full roll - 2 left of the first, the second gone; the ally untouched");
+	Check(CountBand(ev, n, walkers::NecroBandEventKind::Met) == 2 && CountBand(ev, n, walkers::NecroBandEventKind::Destroyed) == 1,
+	      "met, and one destroyed");
+	walkers::NecroBands half;
+	half.count = 2;
+	half.bands[0] = {0, 1, 0, 8, 0.0f, 0.0f};
+	half.bands[1] = {1, 2, 0, 6, 0.0f, 0.0f};
+	const UInt32 low[] = {0};  // 50%
+	Rolls least{low, 1};
+	walkers::NecroBandsMeet(half, 2000.0f, least, ev, 16);
+	Check(half.count == 2 && half.bands[0].size == 5 && half.bands[1].size == 2, "at the least roll: half of the other's size");
+	walkers::NecroBands apart;
+	apart.count = 2;
+	apart.bands[0] = {0, 1, 0, 8, 0.0f, 0.0f};
+	apart.bands[1] = {1, 2, 0, 6, 9000.0f, 0.0f};
+	Check(walkers::NecroBandsMeet(apart, 2000.0f, least, ev, 16) == 0 && apart.bands[0].size == 8, "too far apart: nothing");
+}
+
 void TestWalkers() {
 	std::printf("A hotspot's walkers\n");
 	NecroSettings s;  // 16..30
@@ -441,6 +497,8 @@ int main() {
 	TestWalkers();
 	TestBossActors();
 	TestBands();
+	TestTeamsFight();
+	TestBandsMeet();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

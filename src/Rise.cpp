@@ -2660,6 +2660,31 @@ void StepWalkers(float dt) {
 			g_log("Daedra: %u walkers fighting a Daedra told StopCombat (Daedra Mode 2 (allies): allies; %u near)", droppedAllies, count);
 		}
 	}
+	// 4.23 B step 5: a free walker fighting a necromancer's walker or a
+	// necromancer lets go - the free walkers fight nobody's walkers (decided
+	// 11). Twice a second; the teams' own fights are Necro.cpp's.
+	static float s_teamClock = 0.0f;
+	static UInt32 s_teamLines = 20;
+	s_teamClock += dt;
+	if (g_settings.invaders.necromancers && s_teamClock >= 0.5f) {
+		s_teamClock = 0.0f;
+		UInt32 let = 0;
+		for (UInt32 i = 0; i < count; ++i) {
+			const UInt32 actor = LookupForm(refs[i]);
+			if (!LooksLikeObject(actor) || !IsActor(actor) || IsDead(actor) || NecroTeamed(refs[i])) {
+				continue;
+			}
+			const UInt32 id = FormIdOf(actor);
+			const UInt32 target = ActorInCombat(id) ? ActorCombatTargetId(id) : 0;
+			if (target != 0 && target != kPlayerRefId && NecroTeamed(target) && ConsoleOn(actor, "StopCombat")) {
+				++let;
+			}
+		}
+		if (let > 0 && s_teamLines > 0) {
+			--s_teamLines;
+			g_log("Necromancers: %u free walkers fighting a necromancer's told StopCombat (decided 11; %u near)", let, count);
+		}
+	}
 	UInt32 high = 0;
 	for (UInt32 i = 0; i < count; ++i) {
 		const UInt32 actor = actors[i];  // off the high process list this frame
@@ -3595,6 +3620,7 @@ void Tick() {
 		StepDungeonQuestRefs(dt, g_log);
 		// the realms first: a home is claimed before a held place may roll there
 		StepNecroInGame(dt, g_log);
+		StepNecroTeams(dt, g_log);
 		StepDungeonsInGame(dt, g_log);
 	});
 	Timed(6, "night", [dt] { StepNight(dt); });
@@ -4091,7 +4117,8 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureDungeonsInvaders(&g_invadersNow);
 	ConfigureDungeons(&g_dungeonsNow, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
-	ConfigureNecro(&g_settings.necro, &g_invadersNow, &NextRandom, g_settings.necroTestHome, log);
+	ConfigureNecro(&g_settings.necro, &g_invadersNow, &NextRandom, &ConsoleOn, &IsDead, &IsWalkerRef,
+	               g_settings.necroTestHome, g_settings.necroTestBandsSeconds, log);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);
 	ConfigureOnboarding(&g_settings.onboarding, g_iniPath, &ConsoleOn, &ApplyOnboardingChoice, log);

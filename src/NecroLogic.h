@@ -447,7 +447,7 @@ struct NecroBands {
 	UInt32 count = 0;
 };
 
-enum class NecroBandEventKind : UInt8 { Formed, Near, Arrived, Dropped };
+enum class NecroBandEventKind : UInt8 { Formed, Near, Arrived, Dropped, Met, Destroyed };
 
 struct NecroBandEvent {
 	NecroBandEventKind kind;
@@ -538,6 +538,80 @@ inline UInt32 StepNecroBands(NecroBands& st, const NecroSettings& s, const Necro
 			st.bands[k - 1] = st.bands[k];
 		}
 		--st.count;
+	}
+	return n;
+}
+
+// --- the teams (build step 5) ----------------------------------------------
+// A team is the plugin's, a reference's (read 2: a faction on a reference is
+// one on its base): every walker of a necromancer's place or band carries his
+// team. The engine's own factions do not decide a walker's fights (measured
+// 2026-11-17), so the plugin does, twice a second, for the walkers near:
+//  - a walker fighting an ally's walker, its own or an ally's necromancer,
+//    stops; one of a team fighting a free walker (none's) or a free walker
+//    fighting one of a team stops - the free walkers fight nobody's walkers
+//    (decided 11);
+//  - one of a team not fighting is set on an enemy team's walker or
+//    necromancer within reach (StartCombat).
+// With [Daedra] Mode=2 a necromancer and a Daedra stop their fight
+// (decided 12); the walkers stand to the Daedra as the free ones do.
+
+// Whether a walker of team `mine` (0 a free walker) fighting one of team
+// `theirs` (0 a free walker) - a walker or a necromancer - lets go.
+inline bool NecroFightStops(UInt8 mine, UInt8 theirs) {
+	if (mine == 0 && theirs == 0) {
+		return false;  // free walkers among themselves: as ever
+	}
+	if (mine == 0 || theirs == 0) {
+		return true;  // decided 11
+	}
+	return NecroAllied(mine, theirs);
+}
+
+// Whether a walker of team `mine`, not fighting, is set on one of team
+// `theirs` `distance` away (a walker or a necromancer of that team).
+inline bool NecroSetOn(UInt8 mine, UInt8 theirs, bool fighting, float distance, float reach) {
+	return !fighting && mine != 0 && theirs != 0 && !NecroAllied(mine, theirs) && distance >= 0.0f &&
+	       distance <= reach;
+}
+
+// How near an enemy team's walker must be to be set on (units; a guess - the
+// walkers' own sight is slow, 4.21).
+inline constexpr float kNecroSetOnUnits = 1500.0f;
+
+// Enemy bands far away that meet - within `meetUnits` - fight as numbers:
+// each loses by the other's size, between half and all of it by the roll
+// (the sizes before the fight); a band down to none is gone (Destroyed).
+// Allied bands pass each other. Returns the events (Met, Destroyed).
+template <typename RollFn>
+UInt32 NecroBandsMeet(NecroBands& st, float meetUnits, RollFn& roll, NecroBandEvent* out, UInt32 room) {
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < st.count; ++i) {
+		for (UInt32 j = i + 1; j < st.count; ++j) {
+			NecroBand& a = st.bands[i];
+			NecroBand& b = st.bands[j];
+			if (a.size == 0 || b.size == 0 || NecroAllied(a.team, b.team) ||
+			    std::hypot(a.x - b.x, a.y - b.y) > meetUnits) {
+				continue;
+			}
+			const UInt32 lossA = static_cast<UInt32>(b.size) * (50 + roll() % 51) / 100;
+			const UInt32 lossB = static_cast<UInt32>(a.size) * (50 + roll() % 51) / 100;
+			a.size = static_cast<UInt8>(lossA >= a.size ? 0 : a.size - lossA);
+			b.size = static_cast<UInt8>(lossB >= b.size ? 0 : b.size - lossB);
+			n = necro_detail::PutBand(out, n, room, NecroBandEventKind::Met, a);
+			n = necro_detail::PutBand(out, n, room, NecroBandEventKind::Met, b);
+		}
+	}
+	for (UInt32 i = 0; i < st.count;) {
+		if (st.bands[i].size == 0) {
+			n = necro_detail::PutBand(out, n, room, NecroBandEventKind::Destroyed, st.bands[i]);
+			for (UInt32 k = i + 1; k < st.count; ++k) {
+				st.bands[k - 1] = st.bands[k];
+			}
+			--st.count;
+		} else {
+			++i;
+		}
 	}
 	return n;
 }
