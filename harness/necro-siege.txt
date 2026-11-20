@@ -4,9 +4,10 @@
 # BandsPerDay=4, SiegeJoinPercent=100, [Daedra] BandSiegePercent=50,
 # BandSiegeFadePerDay=0, [Siege] ChancePerDayPercent=0, WalkersMin=WalkersMax
 # =40. The player stands far off at cow tamriel -3 3; the console moves the
-# game a day on every 8 s: the first boss's bands reach Bruma (East Gate) and
-# raise his points to 100, the next day team 1 besieges it - he and his ally,
-# who joins: 80 walkers. Then the player is put at Bruma East Gate: the
+# game a day on twice: the first boss's bands reach Bruma (East Gate) and
+# raise his points to 100, and team 1 besieges it - he and his ally, who
+# joins: 80 walkers. Then the player is put at Bruma East Gate at once (more
+# days away and the guards' toll ends it - the first run, 2026-11-20): the
 # siege's walkers come out and carry team 1. Saved and loaded: the siege is
 # still theirs.
 
@@ -20,8 +21,6 @@ console-at ready player.setav chameleon 100
 console-at ready cow tamriel -3 3
 console-at d1 set gamedayspassed to 2
 console-at d2 set gamedayspassed to 3
-console-at d3 set gamedayspassed to 4
-console-at d4 set gamedayspassed to 5
 console-at gate player.moveto 00003614
 console-at saved save WalkersNecroSiege
 console-at reload load WalkersNecroSiege
@@ -36,10 +35,6 @@ wait 15
 mark d1
 wait 8
 mark d2
-wait 8
-mark d3
-wait 8
-mark d4
 wait 8
 mark gate
 wait 20
