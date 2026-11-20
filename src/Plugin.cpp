@@ -422,6 +422,37 @@ bool ReadSettings(walkers::Settings* settings) {
 	// 4.24a the onboarding: shown once; the test answers are INI only.
 	rise.onboarding.show = IniInt("Onboarding", "Show", 1, path) != 0;
 	IniString("Onboarding", "TestAnswers", "", rise.onboarding.testAnswers, sizeof(rise.onboarding.testAnswers), path);
+	// 4.23 B the necromancers' realms: Mode is the third switch of who comes.
+	{
+		const auto necroWhole = [path](const char* key, int fallback, int least, int most) {
+			return static_cast<UInt32>(std::max(least, std::min(most, static_cast<int>(IniInt("Necromancers", key, fallback, path)))));
+		};
+		walkers::NecroSettings& n = rise.necro;
+		rise.invaders.necromancers = IniInt("Necromancers", "Mode", 0, path) == 1;
+		n.bossesMin = necroWhole("BossesMin", 3, 1, static_cast<int>(walkers::kNecroBossesMost));
+		n.bossesMax = std::max(n.bossesMin, necroWhole("BossesMax", 5, 1, static_cast<int>(walkers::kNecroBossesMost)));
+		n.bandsPerDay = std::max(0.0f, std::min(24.0f, IniFloat("Necromancers", "BandsPerDay", 1.0f, path)));
+		n.bandSizeMin = necroWhole("BandSizeMin", 4, 1, 30);
+		n.bandSizeMax = std::max(n.bandSizeMin, necroWhole("BandSizeMax", 9, 1, 30));
+		n.newPlaceEveryDays = std::max(0.0f, std::min(365.0f, IniFloat("Necromancers", "NewPlaceEveryDays", 3.0f, path)));
+		char teams[64] = {};
+		IniString("Necromancers", "Teams", "1,2,3,4,5", teams, sizeof(teams), path);
+		walkers::ParseNecroTeams(teams, n.teams);
+		n.comeBack = IniInt("Necromancers", "ComeBack", 1, path) != 0;
+		n.comeBackDays = std::max(0.0f, std::min(365.0f, IniFloat("Necromancers", "ComeBackDays", 3.0f, path)));
+		n.paceByLiving = IniInt("Necromancers", "PaceByLiving", 1, path) != 0;
+		n.riseWithin = std::max(0.0f, IniFloat("Necromancers", "RiseWithin", 8000.0f, path));
+		n.walkersMin = necroWhole("WalkersMin", 16, 1, 60);
+		n.walkersMax = std::max(n.walkersMin, necroWhole("WalkersMax", 30, 1, 60));
+		n.realmMost = necroWhole("RealmMost", 6, 1, 20);
+		Log("Settings from %s: [Necromancers] Mode=%d BossesMin=%u BossesMax=%u BandsPerDay=%.2f BandSizeMin=%u "
+		    "BandSizeMax=%u NewPlaceEveryDays=%.1f Teams=%u,%u,%u,%u,%u ComeBack=%d ComeBackDays=%.1f PaceByLiving=%d "
+		    "RiseWithin=%.0f WalkersMin=%u WalkersMax=%u RealmMost=%u",
+		    path, rise.invaders.necromancers ? 1 : 0, n.bossesMin, n.bossesMax, n.bandsPerDay, n.bandSizeMin,
+		    n.bandSizeMax, n.newPlaceEveryDays, n.teams[0], n.teams[1], n.teams[2], n.teams[3], n.teams[4],
+		    n.comeBack ? 1 : 0, n.comeBackDays, n.paceByLiving ? 1 : 0, n.riseWithin, n.walkersMin, n.walkersMax,
+		    n.realmMost);
+	}
 	camps.testEscort = IniInt("Survivors", "TestEscort", -1, path);
 	camps.testEscortBehind = IniInt("Survivors", "TestEscortBehind", 0, path) != 0;
 	camps.escortFollowSeconds = std::max(0.0f, IniFloat("Survivors", "EscortFollowSeconds", 5.0f, path));

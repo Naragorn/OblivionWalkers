@@ -22,6 +22,7 @@ EXPECTED = {
     "Horde": "Enabled",
     "Survivors": "Enabled",
     "Dungeons": "OnlyChosen",
+    "Necromancers": "Mode",
     "News": "Courier",
     "Grab": "Enabled",
     "Daedra": "Mode",

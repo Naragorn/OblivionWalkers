@@ -46,10 +46,10 @@ void TestTable() {
 		prefixed = prefixed && std::strncmp(kLinkSettings[i].var, "ini_", 4) == 0;
 		ranged = ranged && kLinkSettings[i].min < kLinkSettings[i].max;
 	}
-	Check(kLinkSettingCount == 232,
-	      "232 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the Walkers switch and the Daedra's three, the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and AfterMainQuest, LegionDistance, the Daedric disguise's three, the marching weather's two, the onboarding's Show - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
-	      "StruggleControl, the lists and the test and proof switches");
+	Check(kLinkSettingCount == 246,
+	      "246 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the Walkers switch and the Daedra's three, the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and AfterMainQuest, LegionDistance, the Daedric disguise's three, the marching weather's two, the onboarding's Show, the necromancers' fourteen - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
+	      "StruggleControl, the necromancers' Teams, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
 		std::string var = "ini_cat_";
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 50\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 51\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -667,8 +667,7 @@ void TestOnboarding() {
 	walkers::RiseSettings rise;
 	walkers::ReplaceSettings replace;
 	const int show = IndexOf("ini_onboarding_show");
-	Check(show == 231 && static_cast<UInt32>(show) == kLinkSettingCount - 1,
-	      "at the table's end, 231 - no index before it moved");
+	Check(show == 231, "231 - no index before it moved (the necromancers' fourteen came after it)");
 	Check(kLinkSettings[show].kind == walkers::LinkKind::Toggle && kLinkSettings[show].effect == walkers::LinkEffect::Live,
 	      "a toggle read where it is used");
 	Check(walkers::LinkValue(rise, replace, show) == 1.0, "the INI's default: on");
@@ -685,6 +684,37 @@ void TestOnboarding() {
 	Check(walkers::LinkIndexOf("ini_onboarding_show") == 231 && walkers::LinkIndexOf("ini_walkers_mode") == 208 &&
 	          walkers::LinkIndexOf("ini_daedra_mode") == 209 && walkers::LinkIndexOf("ini_nothing") == -1,
 	      "LinkIndexOf finds a variable by name, -1 for none");
+}
+
+void TestNecromancers() {
+	std::printf("The necromancers in LINK (4.23 B, 2026-11-20)\n");
+	walkers::RiseSettings rise;
+	walkers::ReplaceSettings replace;
+	const int mode = IndexOf("ini_necro_mode");
+	const int within = IndexOf("ini_necro_rise_within");
+	Check(mode == 232 && within == 245 && static_cast<UInt32>(within) == kLinkSettingCount - 1,
+	      "232 to 245 at the table's end - no index before them moved");
+	bool header = false;
+	for (const walkers::LinkHeader& h : walkers::kLinkHeaders) {
+		header = header || (std::strcmp(h.title, "Necromancers") == 0 && h.before == 232);
+	}
+	Check(header, "a header \"Necromancers\" before them");
+	bool live = true;
+	for (int i = mode; i <= within; ++i) {
+		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
+	}
+	Check(live, "all fourteen read where they are used");
+	Check(walkers::LinkValue(rise, replace, mode) == 0.0, "Mode: off by default");
+	Check(walkers::SetLinkValue(rise, replace, mode, 1.0) && rise.invaders.necromancers, "on from the menu");
+	const int bands = IndexOf("ini_necro_bands_per_day");
+	Check(walkers::LinkValue(rise, replace, bands) == 100.0, "bands a day 1.0 held as 100");
+	Check(walkers::SetLinkValue(rise, replace, bands, 250.0) && std::fabs(rise.necro.bandsPerDay - 2.5f) < 1e-5f,
+	      "250 from the menu: 2.5 a day");
+	const int bossesMin = IndexOf("ini_necro_bosses_min");
+	Check(walkers::SetLinkValue(rise, replace, bossesMin, 9.0) && rise.necro.bossesMin == 5, "9 from a script: 5, the slider's end");
+	const int pace = IndexOf("ini_necro_pace_by_living");
+	Check(walkers::SetLinkValue(rise, replace, pace, 0.0) && !rise.necro.paceByLiving, "the pace by the living off");
+	Check(walkers::SetLinkValue(rise, replace, within, 12000.0) && rise.necro.riseWithin == 12000.0f, "RiseWithin 12000");
 }
 
 void TestInvaders() {
@@ -789,7 +819,7 @@ void TestInvaders() {
 		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
 	}
 	Check(live, "all six read live");
-	Check(walkers::kLinkVersion == 50.0, "the version 50 (the onboarding, 2026-11-20)");
+	Check(walkers::kLinkVersion == 51.0, "the version 51 (the necromancers, 2026-11-20)");
 }
 
 void TestPageTest() {
@@ -823,6 +853,7 @@ int main() {
 	TestHeadshotsCorpsesLeash();
 	TestInvaders();
 	TestOnboarding();
+	TestNecromancers();
 	if (g_failures != 0) {
 		std::printf("%d failed\n", g_failures);
 		return 1;

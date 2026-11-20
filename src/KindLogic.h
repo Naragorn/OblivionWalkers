@@ -48,6 +48,7 @@ struct InvaderSettings {
 	UInt32 daedraPercent = 50;                   // SharePercent: the Daedra's share where both can come
 	bool summons = false;                        // Summons: the summoners keep their summons (idea 11, off)
 	bool afterMainQuest = false;                 // AfterMainQuest (step 6): off - they stop with the main quest
+	bool necromancers = false;                   // [Necromancers] Mode (4.23 B): 0 off by default, 1 their realms
 };
 
 // The INI's numbers; anything but 0, 1 and 2 is the key's default, as
@@ -73,8 +74,9 @@ inline bool DaedraOn(const InvaderSettings& s) { return s.daedra != DaedraMode::
 // A side for sieges, camp attacks and held dungeons exists: the apocalypse's
 // walkers or the Daedra (4.24).
 inline bool SidesExist(const InvaderSettings& s) { return Apocalypse(s) || DaedraOn(s); }
-// All switches off: the mod does nothing (4.24).
-inline bool ModOff(const InvaderSettings& s) { return !WalkersOn(s) && !DaedraOn(s); }
+// All switches off: the mod does nothing (4.24; the necromancers' the third,
+// 4.23 B).
+inline bool ModOff(const InvaderSettings& s) { return !WalkersOn(s) && !DaedraOn(s) && !s.necromancers; }
 
 // The derived kind: who is in play and how they stand.
 inline InvaderKind KindOf(const InvaderSettings& s) {

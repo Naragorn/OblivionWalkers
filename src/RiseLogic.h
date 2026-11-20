@@ -26,6 +26,7 @@
 #include "KindLogic.h"
 #include "MissingLogic.h"
 #include "NewsLogic.h"
+#include "NecroLogic.h"
 #include "OnboardingLogic.h"
 #include "NightLogic.h"
 #include "SafeguardLogic.h"
@@ -234,6 +235,8 @@ struct RiseSettings {
 	char sampleLine[24] = {};
 	// [Onboarding] Show and TestAnswers (4.24a, OnboardingLogic.h).
 	OnboardingSettings onboarding;
+	// [Necromancers] but Mode (4.23 B, NecroLogic.h; Mode is invaders.necromancers).
+	NecroSettings necro;
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

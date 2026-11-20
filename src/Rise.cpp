@@ -2875,16 +2875,17 @@ bool WalkersAlliedNow() { return WalkersJoinDaedra(KindOf(g_invadersNow)); }
 // One line at the start saying who comes (4.24); a clear one when all is off.
 void LogWhoComes() {
 	if (ModOff(g_settings.invaders)) {
-		g_log("Mod: Walkers Mode=0 and Daedra Mode=0 - the mod is off: nothing replaced, nobody rises, no hordes, "
-		      "bands, sieges, camps or held dungeons");
+		g_log("Mod: Walkers Mode=0, Daedra Mode=0 and Necromancers Mode=0 - the mod is off: nothing replaced, nobody "
+		      "rises, no hordes, bands, sieges, camps or held dungeons");
 		return;
 	}
 	static const char* const walkers[] = {"off", "only the game's zombies", "the apocalypse"};
 	static const char* const daedra[] = {"off", "out of the gates, enemies of the walkers",
 	                                     "out of the gates, allies of the walkers"};
-	g_log("Mod: Walkers Mode=%u (%s), Daedra Mode=%u (%s)", static_cast<UInt32>(g_settings.invaders.walkers),
-	      walkers[static_cast<UInt32>(g_settings.invaders.walkers) % 3], static_cast<UInt32>(g_settings.invaders.daedra),
-	      daedra[static_cast<UInt32>(g_settings.invaders.daedra) % 3]);
+	g_log("Mod: Walkers Mode=%u (%s), Daedra Mode=%u (%s), Necromancers Mode=%u (%s)",
+	      static_cast<UInt32>(g_settings.invaders.walkers), walkers[static_cast<UInt32>(g_settings.invaders.walkers) % 3],
+	      static_cast<UInt32>(g_settings.invaders.daedra), daedra[static_cast<UInt32>(g_settings.invaders.daedra) % 3],
+	      g_settings.invaders.necromancers ? 1u : 0u, g_settings.invaders.necromancers ? "their realms" : "off");
 }
 bool g_daedraStopped = false;
 float g_invadersClock = 1.0f;

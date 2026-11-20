@@ -5721,8 +5721,10 @@ and pushed with its unit flows, the harness where it shows in the game):**
    living (decided 3, 9), a band due per boss, a new place due (the
    nearest free one in his share - read 3), a boss's fall, the last fall
    and `ComeBack`, the co-save image. Unit flows only.
-2. *The switch* - `[Necromancers]` in the INI, LINK and the start's log
-   line; onboarding page 4 and the summary's line (4.24a).
+2. *The switch* - `[Necromancers]` in the INI, LINK (version 51, indices
+   232-245; Teams INI only) and the start's log line. Onboarding page 4
+   and the summary's line (4.24a) come with step 3, once a hotspot can
+   be seen in the game - not a choice that does nothing.
 3. *A hotspot in the game* - a realm's place is a held dungeon's site of
    its own (a walker dungeon with a necromancer as its boss: the outpost's
    way, 4.22a 5c, with LL1NecromancerBoss100 0004B949 at a home and

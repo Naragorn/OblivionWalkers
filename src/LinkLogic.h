@@ -40,7 +40,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 50.0;  // 50: ini_onboarding_show (4.24a), 2026-11-20; 49: [Walkers] Mode (ini_walkers_mode) added, [Daedra] Mode 0-2 (0 off, 1 enemies, 2 allies) and OnlyFromOblivionGates removed - the Daedra come only out of the gates, 2026-11-20; 48: [Invaders] named [Daedra], its variables ini_daedra_*, DaedraPercent named SharePercent and DaedraAfterMainQuest AfterMainQuest, 2026-11-20; 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and AfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 51.0;  // 51: the necromancers' fourteen (4.23 B), 2026-11-20; 50: ini_onboarding_show (4.24a), 2026-11-20; 49: [Walkers] Mode (ini_walkers_mode) added, [Daedra] Mode 0-2 (0 off, 1 enemies, 2 allies) and OnlyFromOblivionGates removed - the Daedra come only out of the gates, 2026-11-20; 48: [Invaders] named [Daedra], its variables ini_daedra_*, DaedraPercent named SharePercent and DaedraAfterMainQuest AfterMainQuest, 2026-11-20; 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and AfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -100,6 +100,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 95, "Who comes"},
 	{68 + kReplaceCategoryCount + 97, "Daedra from Oblivion"},
 	{68 + kReplaceCategoryCount + 118, "Onboarding"},
+	{68 + kReplaceCategoryCount + 119, "Necromancers"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -562,6 +563,48 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_onboarding_show", "Show the onboarding again",
 	 "On: the boxes that explain the mod and take your choice of who comes show again at the next quiet moment in the game. It switches itself off once you have chosen.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_mode", "Necromancers: who comes",
+	 "On: a few rival necromancers hold dungeons full of walkers. They send walker bands toward the cities and take more dungeons near their own. Kill one and refugees move into his places.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_bosses_min", "Necromancers: fewest at the start",
+	 "How many necromancers rise at least.",
+	 LinkKind::Slider, 1, 5, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_bosses_max", "Necromancers: most at the start",
+	 "How many necromancers rise at most.",
+	 LinkKind::Slider, 1, 5, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_bands_per_day", "Necromancers: bands a day",
+	 "Bands one necromancer sends a game day while as many live as the middle of fewest and most; 100% is one band. The fewer live, the more each one sends.",
+	 LinkKind::Slider, 0, 1000, 25, 0, true, LinkEffect::Live},
+	{"ini_necro_band_min", "Necromancers: smallest band",
+	 "The fewest walkers in one of their bands.",
+	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_band_max", "Necromancers: largest band",
+	 "The most walkers in one of their bands.",
+	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_new_place_days", "Necromancers: a new dungeon every",
+	 "A necromancer takes one more dungeon near his own this often (game days; the fewer live, the sooner). 0: never.",
+	 LinkKind::Slider, 0, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_realm_most", "Necromancers: dungeons each at most",
+	 "The most dungeons one necromancer holds, his own among them.",
+	 LinkKind::Slider, 1, 20, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_walkers_min", "Necromancers: walkers in a dungeon, fewest",
+	 "The fewest walkers in one of their dungeons.",
+	 LinkKind::Slider, 1, 60, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_walkers_max", "Necromancers: walkers in a dungeon, most",
+	 "The most walkers in one of their dungeons.",
+	 LinkKind::Slider, 1, 60, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_come_back", "Necromancers: they come back",
+	 "On: once the last necromancer is dead, a new set rises some days later. Off: then it is over.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_come_back_days", "Necromancers: back after",
+	 "Game days until a new set rises once the last is dead.",
+	 LinkKind::Slider, 0, 30, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_pace_by_living", "Necromancers: the rest go faster",
+	 "On: when one dies, those left share his pace - kill two of four and the other two go twice as fast. Off: a death changes nothing for them.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
+	{"ini_necro_rise_within", "Necromancers: the dead rise within",
+	 "Without the apocalypse the dead rise only this near a necromancer's dungeon or where his band killed them (units; 70 are about 1 m).",
+	 LinkKind::Slider, 0, 40000, 500, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
@@ -779,6 +822,20 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 229: return rise.march.enabled ? 1.0 : 0.0;
 		case 230: return rise.march.units;
 		case 231: return rise.onboarding.show ? 1.0 : 0.0;
+		case 232: return rise.invaders.necromancers ? 1.0 : 0.0;
+		case 233: return rise.necro.bossesMin;
+		case 234: return rise.necro.bossesMax;
+		case 235: return LinkScaled(rise.necro.bandsPerDay, 100.0);
+		case 236: return rise.necro.bandSizeMin;
+		case 237: return rise.necro.bandSizeMax;
+		case 238: return rise.necro.newPlaceEveryDays;
+		case 239: return rise.necro.realmMost;
+		case 240: return rise.necro.walkersMin;
+		case 241: return rise.necro.walkersMax;
+		case 242: return rise.necro.comeBack ? 1.0 : 0.0;
+		case 243: return rise.necro.comeBackDays;
+		case 244: return rise.necro.paceByLiving ? 1.0 : 0.0;
+		case 245: return rise.necro.riseWithin;
 		default: return 0.0;
 	}
 }
@@ -997,6 +1054,20 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 229: rise.march.enabled = on; break;
 		case 230: rise.march.units = fraction; break;
 		case 231: rise.onboarding.show = on; break;
+		case 232: rise.invaders.necromancers = on; break;
+		case 233: rise.necro.bossesMin = whole; break;
+		case 234: rise.necro.bossesMax = whole; break;
+		case 235: rise.necro.bandsPerDay = fraction / 100.0f; break;
+		case 236: rise.necro.bandSizeMin = whole; break;
+		case 237: rise.necro.bandSizeMax = whole; break;
+		case 238: rise.necro.newPlaceEveryDays = fraction; break;
+		case 239: rise.necro.realmMost = whole; break;
+		case 240: rise.necro.walkersMin = whole; break;
+		case 241: rise.necro.walkersMax = whole; break;
+		case 242: rise.necro.comeBack = on; break;
+		case 243: rise.necro.comeBackDays = fraction; break;
+		case 244: rise.necro.paceByLiving = on; break;
+		case 245: rise.necro.riseWithin = fraction; break;
 		default: return false;
 	}
 	return true;

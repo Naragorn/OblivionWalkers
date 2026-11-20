@@ -79,6 +79,9 @@ void TestDerivedKind() {
 	          !walkers::ModOff(With(WalkersMode::Zombies, DaedraMode::Off)) &&
 	          !walkers::ModOff(With(WalkersMode::Off, DaedraMode::Allies)),
 	      "the mod is off only with both switches at 0");
+	walkers::InvaderSettings necro = With(WalkersMode::Off, DaedraMode::Off);
+	necro.necromancers = true;
+	Check(!walkers::ModOff(necro), "the necromancers alone (4.23 B): the mod is on - all three switches decide");
 	Check(!walkers::SidesExist(With(WalkersMode::Off, DaedraMode::Off)) &&
 	          !walkers::SidesExist(With(WalkersMode::Zombies, DaedraMode::Off)) &&
 	          walkers::SidesExist(With(WalkersMode::Apocalypse, DaedraMode::Off)) &&
