@@ -5400,7 +5400,7 @@ take it. (B) `FillDungeons` rolls among the free candidates within
 none is that near; 0 anywhere. LINK `ini_dungeons_new_within` (version
 45, 220 variables). DungeonQuestLogicTest, DungeonSiteLogicTest.
 
-### 4.23 Patient zero and the necromancers' hotspots (Nadi, 2026-11-16: "neue idee in die spec: patient zero ... und weitere szenario: ... necromancer hotspot"; ideas, not decided, not built)
+### 4.23 Patient zero and the necromancers' hotspots (Nadi, 2026-11-16: "neue idee in die spec: patient zero ... und weitere szenario: ... necromancer hotspot"; A ideas, not decided; B designed with Nadi 2026-11-20, not built)
 
 Two new ways for the outbreak to begin and spread - each a scenario beside
 the present one (the walkers everywhere from the start).
@@ -5464,15 +5464,116 @@ Read and derived for it:
   out "by a loaded quest" - B needs many free places; that cut-off has to
   be understood first.
 
-Open, to decide: (1) beside the refugee places or instead of them; (2)
-towers only, or forts and ruins too; (3) how many hotspots at once and how
-fast they spread; (4) a cleared hotspot - a refuge, or empty.
+**Decided (Nadi, 2026-11-20, asked one by one; design only, not built):**
+
+1. **Beside the refugee places**, not instead. One pool of free dungeons;
+   a place belongs to one side at a time - refugees, a necromancer, or
+   nobody.
+2. **Every kind of place**: caves, mines, forts, Ayleid ruins - all 91
+   candidates (no towers among them, see above).
+3. **The necromancers are a few bosses spread over the world, rivals.**
+   Their number is the player's: `BossesMin`/`BossesMax`, default 3 to 5.
+   The pace is the player's too, default **1** (one band a day a boss).
+   **The fewer they are, the more aggressive each one expands** (Nadi: "if
+   only 1, then he is all the more aggressive").
+4. **Expanding is both**: a boss sends walker bands toward the nearest city
+   (the way an open gate sends its Daedra bands, 4.22 step 3) **and** takes
+   a further free dungeon near his own every few days, an apprentice in it
+   as his under-boss - his realm grows and can be seen to grow.
+5. **They are enemies of each other by default** - their walkers fight -
+   and the player can make them allies: all with all, or only some with
+   some.
+6. **The modes the player can set** (Nadi: important): the necromancers
+   **alone**, the necromancers **with** the walker apocalypse as it is
+   today, and either one **with or without** the Daedra.
+7. **A cleared hotspot** (its boss dead) **becomes a refuge**: refugees
+   move in and it is a refugee place of 4.20.7 from then on, with its
+   journal and rumors.
+8. **When the last boss is dead**: a switch; default, the necromancers come
+   back after some days.
+9. **The pace follows the living bosses**, by default also when one dies
+   (kill two of four and the two left double their pace) - a switch.
+10. **With the necromancers alone the dead rise only near them** - near
+    their places and where their bands killed - not everywhere.
+11. **The free walkers of the apocalypse stay neutral** to every team:
+    they attack people as now; walkers of different teams fight each
+    other, free walkers fight nobody's walkers.
+
+**Proposed for it (mine, 2026-11-20; 9-11 above confirmed it where it says so):**
+
+- **The section** `[Necromancers]` (INI and LINK):
+
+  | key | default | what |
+  |---|---|---|
+  | `Mode` | 0 | 0 off. 1 beside the apocalypse: the walkers everywhere as today, and the necromancers. 2 the necromancers alone: the spawn replacement puts no walkers in the world - walkers come only out of the necromancers' places and bands |
+  | `BossesMin`, `BossesMax` | 3, 5 | how many bosses at the start (rolled in between) |
+  | `BandsPerDay` | 1 | a boss's bands a game day, at the middle of BossesMin..BossesMax |
+  | `BandSizeMin`, `BandSizeMax` | 4, 9 | a band's walkers (the Daedra bands' defaults) |
+  | `NewPlaceEveryDays` | 3 | a boss takes one more free dungeon near his own this often (the same scaling as the bands) |
+  | `Teams` | `1,2,3,4,5` | a team a boss, in the order they rose; the same number = allies. `1,1,1,1,1` all allied, `1,1,2,3,3` some. Every boss on another team (the default) - all enemies |
+  | `ComeBack` | 1 | 1: after the last boss falls, a new set rises after `ComeBackDays` (default 3); 0: it is over |
+  | `PaceByLiving` | 1 | 1: the pace shared among the bosses alive (decided 9); 0: only the configured count scales it, a death changes nothing for the others |
+  | `RiseWithin` | 8000 | Mode 2: the dead rise within this many units of a necromancer's door (decided 10; the number a guess, about two cells) |
+
+- **"The fewer, the more aggressive"** as one rule: the necromancers'
+  pace is the world's, shared among the living bosses - BandsPerDay times
+  the middle of BossesMin..BossesMax, divided by the bosses alive (and the
+  same for NewPlaceEveryDays). With the defaults (3-5, middle 4) one boss
+  alone sends 4 bands a day. Kill two of four, and the two left double
+  their pace (decided 9; `PaceByLiving=0` turns that off).
+- **The modes as a table** - `[Necromancers] Mode` and `[Daedra] Mode`
+  (4.22) are independent:
+
+  | `[Necromancers] Mode` | `[Daedra] Mode` 0 | `[Daedra] Mode` 1-3 |
+  |---|---|---|
+  | 0 | today's apocalypse | today's Daedra modes |
+  | 1 | apocalypse + necromancers | apocalypse + necromancers + Daedra |
+  | 2 | necromancers alone | necromancers + Daedra (the replacement's Daedra share comes, its walker share stays the world's own creatures) |
+
+- **Who fights whom:** a boss's walkers carry his team (a faction per
+  team); other teams' walkers and their bosses are enemies. The free
+  walkers of Mode 1 (the apocalypse's) stand with nobody: they attack
+  people as now, not walkers of any team (decided 11).
+  Against the Daedra the teams follow `[Daedra] Mode` (2 at war, 3
+  allies), as the free walkers do.
+- **The rise in Mode 2:** if the dead rose everywhere, the necromancers
+  alone would be the apocalypse again after a day. So in Mode 2 the dead
+  rise only near a necromancer's places (within `RiseWithin` of their
+  doors) and where a team's band killed them (decided 10).
+- **A boss's death:** his realm stops - no more bands, no new places. His
+  under-bosses' places stay full of walkers until each is cleared; every
+  cleared place becomes a refuge (beyond `[Dungeons] ActiveMax` - a refuge
+  won is a refuge kept).
+- **Far away, as numbers:** a hotspot's walkers are a count until the
+  player is near (WalkersAtOnce, Nadi's performance rule), a band far away
+  is a number on the map (as the Daedra bands); two enemy bands that meet
+  far away fight as numbers - each loses by the other's size and a roll.
+  Actors only where the player is.
+- **Found and told:** the news and the rumors name the nearest hotspot as
+  they name the nearest held place now (4.20.7a A); the journal gets a
+  hotspot as it gets a refuge.
+
+**Before building, to be read:** (1) the quest cut-off - on the Linux list
+of 2026-11-18 54 of the 91 candidates are out "by a loaded quest" (it was
+80 on 2026-11-16, 0 on 2026-11-14), not understood; 3-5 bosses, their new
+places and 3-5 refuges need many free places. (2) A faction per team for
+references of one walker base: whether the game takes a faction on a
+placed reference (`SetFactionRank` on a ref of a levelled walker) or needs
+a base a team in the ESP. (3) Which free places lie far enough apart for
+3-5 bosses to start "spread over the world".
+
+Nothing left to decide before the reads above; the proposed keys and
+defaults are confirmed or changed when B is built.
 
 **Cost (first guess, from what exists):**
 
 | part | cost | why |
 |---|---|---|
-| B: hotspots on the held dungeons and the outpost | medium | site, placer, boss, chest, quest exist; new: a state, the boss's lists, the hordes starting there, the news; unit flows + 2 harness runs |
+| B core: the bosses on the held dungeons and the outpost, bands out of them, a cleared one a refuge, ComeBack | medium | site, placer, boss, chest, quest, journal, rumors and the gates' bands exist; new: the hotspot state, the boss's lists, the bands' source, the pace rule; unit flows + 2-3 harness runs |
+| B: the realm grows (new places, under-bosses) | small to medium | a site taken like a refuge is rolled; the under-boss is the apprentice list |
+| B: teams (factions, allies, enemies' walkers fighting) | medium | engine unknown (2); off-screen fights as numbers are new; one harness run with two teams' bands meeting |
+| B: Mode 2 - walkers only from the necromancers, the rise near them | medium | the replacement's walker share off, the rise gated by distance; touches the hordes and the sieges (they start from walkers that are there) |
+| B: the quest cut-off understood (prerequisite) | small to medium | a read of Replace.cpp CollectQuestNames against the load order |
 | A: patient zero placed, unkillable, the chain | medium-large | the hit hook is the unknown (to be read in xOBSE/the EXE); the infection timer, the count, the restart new |
 | A: "spread over the whole game" as a gate on the mod | large | touches the replacement, hordes, sieges, camps, dungeons; every one needs its "not yet" |
 
