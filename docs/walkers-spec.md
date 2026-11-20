@@ -5757,18 +5757,70 @@ realm stopped, the last fall set a comeback, the place taken - a refuge
 won; band - a band of 3 near the player placed as the gates' bands are, no
 leader (the first run placed 15 for 3: the variant list 0805 gives up to
 MaxCount a pick - now WalkersAnyWalker 094A, one a pick); teams - two
-bands of teams 1 and 2: the engine had them fight each other at once (4 to
-5 "fight an enemy team's" a look, the six down to two) - the plugin's
-StartCombat was not needed, so that path is not seen in the game; no
-ally fought an ally, so the StopCombat path is not seen either; rise - a
+bands of teams 1 and 2 fought, the six down to two; rise - a
 bandit killed before Toadstool Hollow's door waits to rise, one killed at
 Abandoned Mine's (some 200000 units off) stays down. Regression with the
-final DLL: whocomes apocalypse, dungeon-settle PASS. Step 7 not begun. Not covered by the build so far:
-a Daedra that fights a necromancer is not stopped (only he lets go); the
-risen near the necromancers are free walkers, of no team; with the
-necromancers alone the held places' sieges and walker dungeons are the
-free walkers' (no team); [Dungeons] Enabled=0 leaves the realms numbers
-only.
+final DLL: whocomes apocalypse, dungeon-settle PASS. Step 7 not begun.
+
+**The unchecked paths, 2026-11-20 evening** (Nadi: "go die ungeprüften
+Wege mit eigenen Harness-Läufen prüfen"; 9c8d346, c833add):
+
+- *Corrected:* the first teams run read "the engine had them fight on its
+  own - the plugin's StartCombat not needed". Wrong: the teams' rule
+  counted a fight only when the console answered 1, and StartCombat
+  answers 0 though the fight starts (4.21, 2026-11-08) - the plugin's
+  fights never showed. Now a line sent counts and each is logged. Rerun
+  `necro-harness.sh teams` PASS: "6 set on an enemy team's", then "5 fight
+  an enemy team's", 21 "set on" lines, three dead of it - the plugin starts
+  the teams' fights.
+- Far bands meeting (`TestFight=far`, two bands of 4 of teams 1 and 2
+  formed 40000 units off at one spot) - in the teams run: "met an enemy
+  band", then the smaller destroyed. PASS.
+- Allies (`allies`: Teams=1,1,1,1,1, `TestFight=ally` sets one walker on
+  its ally) - "told to let go of ... (an ally of its team)" once, no fight
+  again, all six alive at the end. PASS.
+- Growth, a city, save and load (`march`: one boss, NewPlaceEveryDays=1,
+  BandsPerDay=4, the days set by console 2..6) - he took five more dungeons
+  (RealmMost 6), 20 bands formed, 16 "reached its city - the siege pressure
+  up"; saved and loaded: "1 necromancers' bosses and 4 far bands written",
+  "1 ... read, 1 alive, 4 far bands (version 2)", 7 held dungeons written
+  and read, no new boss after the load. PASS (the first check read the
+  held dungeons' line after the necromancers' - the harness's error).
+  Found: with the necromancers alone **no city is ever besieged** - the
+  bands raise the pressure, but a siege needs the apocalypse's walkers or
+  the Daedra (SiegeLogic.h SideOf: Nobody) - open, Nadi's to decide.
+- Daedra Mode 2 (`daedra`: a Dremora put down, `TestFight=daedra` brings it
+  to the necromancer and sets the two on each other) - FAILED, two bugs and
+  one gap:
+  1. *Bug, fixed (c833add):* the necromancer was taken out of the world
+     alive once his place's walkers were all ended - he followed the
+     walkers' pool's site (DungeonKitLogic.h WalkerSite: walkers left), so
+     a player who kills the walkers first never meets him and his realm
+     never stops. Now DungeonKitLogic.h NecroSite: his place while the
+     player is inside. `hotspot` now kills his walkers first
+     (`TestFight=walkers`) and checks he stays.
+  2. *Bug, fixed (c833add):* with Walkers 0 the necromancers' walkers were
+     not the Daedra's allies (KindOf: Daedra, not Allied) - the Dremora
+     killed both. Now KindLogic.h WalkersAllied: Daedra 2 and any walkers,
+     the free or the necromancers'; the LINK switch sets it anew.
+  3. *Gap, open:* StopCombat does not hold a necromancer and a Daedra
+     apart: both told to let go every half second (24 and 14 times), the
+     Dremora hit him six times between. The walkers' alliance stands on
+     DaedraFaction (the records, in memory); the necromancer needs the
+     same - his four records (0004B945-0004B948, LL1NecromancerBoss100)
+     joining it in memory would make every necromancer boss of that list
+     the Daedra's friend with Daedra 2, the game's own too; copies of them
+     in the ESP would not. Nadi's to decide.
+  Found too: a walker roused near its own necromancer turned on him and
+  was told to let go (the allies' rule) - it holds.
+- Seen in the teams run, not changed: the hordes put both teams' walkers
+  into one group (team 2 followed team 1's leader) - harmless while the
+  set-on reach (1500) is the join reach (1500), they fight at once.
+
+Not covered by the build so far: the risen near the necromancers are free
+walkers, of no team; with the necromancers alone the held places' sieges
+and walker dungeons are the free walkers' (no team) and no city siege
+comes; [Dungeons] Enabled=0 leaves the realms numbers only.
 
 Mine, for the build (not asked; changed on a word): a hotspot holds
 `WalkersMin`..`WalkersMax` walkers, default 16 to 30 (the held walker
