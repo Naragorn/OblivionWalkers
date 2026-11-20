@@ -1804,6 +1804,12 @@ DungeonSitesState& CurrentDungeons() { return g_sites; }
 
 bool DungeonPoolSettledNow() { return g_selected && g_poolSettled; }
 
+bool DungeonPlayerPlace(float& x, float& y) {
+	x = g_playerX;
+	y = g_playerY;
+	return g_playerKnown;
+}
+
 void DungeonFreePlaces(bool* free) {
 	for (UInt32 c = 0; c < kDungeonCandidateCount; ++c) {
 		free[c] = g_selected && g_inPool[c] && SiteOfCandidate(g_sites, c) < 0;

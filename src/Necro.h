@@ -20,12 +20,15 @@ void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invade
                     const char* testHome, LogFn log);
 
 // Every frame (stepped once a game second inside): with [Necromancers]
-// Mode=1 and the dungeon pool settled after the load, the realms risen,
-// grown, their bands due logged (the bands come with step 4).
+// Mode=1 and the dungeon pool settled after the load, the realms risen and
+// grown; their bands formed at their homes, walked on far away, put into the
+// world near the player (Bands.cpp QueueWalkerBand) or at their city the
+// city's siege pressure.
 void StepNecroInGame(float dt, LogFn log);
 
 // The realms as they stand, for the co-save; emptied at a load and a new game.
 NecroState& CurrentNecro();
+NecroBands& CurrentNecroBands();
 void ResetNecroInGame();
 
 }  // namespace walkers

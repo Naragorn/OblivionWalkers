@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "Bands.h"
+#include "CityGates.h"
 #include "DungeonCandidates.h"
 #include "Dungeons.h"
 #include "News.h"
@@ -15,17 +17,59 @@ NecroRollFn g_roll = nullptr;
 LogFn g_log = nullptr;
 char g_testHome[64] = {};
 NecroState g_state;
+NecroBands g_bands;
+float g_lastDays = -1.0f;  // the game day of the bands' last step
 float g_clock = 0.0f;
 bool g_waitLogged = false;
 bool g_testLogged = false;
-UInt32 g_bandLogsLeft = 40;
+constexpr float kStepSeconds = 1.0f;
+constexpr UInt32 kEventsMost = 32;
+UInt32 g_bandLogsLeft = 60;
+
+// The cities the bands head for: the gates' outside spots (CityGates.h), as
+// the gates' bands.
+NecroCity g_cities[kCityGateCount];
+void FillCities() {
+	for (UInt32 c = 0; c < kCityGateCount; ++c) {
+		g_cities[c] = NecroCity{kCityGates[c].outX, kCityGates[c].outY};
+	}
+}
+
+void BandLog(LogFn log, const char* what, const NecroBand& b) {
+	if (g_bandLogsLeft == 0) {
+		return;
+	}
+	--g_bandLogsLeft;
+	log("Necromancers: a band of %u walkers (boss %u, team %u) %s, heading for %s; %u far bands", b.size, b.boss,
+	    b.team, what, kCityGates[b.city < kCityGateCount ? b.city : 0].name, g_bands.count);
+}
+
+void CarryBandEvents(const NecroBandEvent* ev, UInt32 n, LogFn log) {
+	for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
+		const NecroBand& b = ev[k].band;
+		switch (ev[k].kind) {
+			case NecroBandEventKind::Formed:
+				BandLog(log, "left its home", b);
+				break;
+			case NecroBandEventKind::Near:
+				QueueWalkerBand(b.x, b.y, b.size, b.team);
+				BandLog(log, "comes near you - into the world", b);
+				break;
+			case NecroBandEventKind::Arrived:
+				AddCityPressureNow(static_cast<UInt8>(kCityGates[b.city < kCityGateCount ? b.city : 0].city));
+				BandLog(log, "reached its city - the city's siege pressure up", b);
+				break;
+			case NecroBandEventKind::Dropped:
+				BandLog(log, "dropped - the most are on their way", b);
+				break;
+		}
+	}
+}
 
 struct Roll {
 	UInt32 operator()() { return g_roll != nullptr ? g_roll() : 0u; }
 };
 
-constexpr float kStepSeconds = 1.0f;
-constexpr UInt32 kEventsMost = 32;
 
 // The settings as they stand now: on with the switch.
 NecroSettings Now() {
@@ -105,9 +149,12 @@ void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invade
 }
 
 NecroState& CurrentNecro() { return g_state; }
+NecroBands& CurrentNecroBands() { return g_bands; }
 
 void ResetNecroInGame() {
 	g_state = NecroState{};
+	g_bands = NecroBands{};
+	g_lastDays = -1.0f;
 	g_clock = kStepSeconds;  // the first step at once
 	g_waitLogged = false;
 	g_testLogged = false;
@@ -134,6 +181,21 @@ void StepNecroInGame(float dt, LogFn log) {
 			g_waitLogged = true;
 		}
 		return;
+	}
+	FillCities();
+	float px = 0.0f;
+	float py = 0.0f;
+	const bool playerKnown = DungeonPlayerPlace(px, py);
+	if (!playerKnown) {
+		px = py = 1.0e9f;  // nowhere near: no band comes into the world
+	}
+	// The far bands walk on.
+	{
+		const float hours = g_lastDays >= 0.0f && now > g_lastDays ? (now - g_lastDays) * 24.0f : 0.0f;
+		g_lastDays = now;
+		NecroBandEvent bev[kEventsMost];
+		const UInt32 bn = StepNecroBands(g_bands, s, g_cities, kCityGateCount, hours, px, py, bev, kEventsMost);
+		CarryBandEvents(bev, bn, log);
 	}
 	bool free[kDungeonCandidateCount];
 	DungeonFreePlaces(free);
@@ -181,13 +243,14 @@ void StepNecroInGame(float dt, LogFn log) {
 				}
 				break;
 			}
-			case NecroEventKind::BandDue:
-				if (g_bandLogsLeft > 0) {
-					--g_bandLogsLeft;
-					log("Necromancers: boss %u's band is due (%.2f a day now) - the bands march with build step 4",
-					    e.boss, NecroBandsPerDay(s, g_state));
-				}
+			case NecroEventKind::BandDue: {
+				const DungeonCandidate& home = kDungeonCandidates[e.place < kDungeonCandidateCount ? e.place : 0];
+				NecroBandEvent bev[4];
+				const UInt32 bn = NecroBandFormed(g_bands, s, e.boss, b.team, NecroBandSize(s, roll()), home.x, home.y,
+				                                  g_cities, kCityGateCount, px, py, bev, 4);
+				CarryBandEvents(bev, bn, log);
 				break;
+			}
 			default:
 				break;
 		}

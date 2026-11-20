@@ -88,6 +88,8 @@ void ResetDungeonsInGame();
 // the pool, no site there (`free` takes kDungeonCandidateCount); a realm's
 // place added (false: no slot free or a site holds it); a candidate's name.
 bool DungeonPoolSettledNow();
+// The player's last place in Tamriel (inside, the one before going in).
+bool DungeonPlayerPlace(float& x, float& y);
 void DungeonFreePlaces(bool* free);
 bool AddNecroPlace(UInt32 candidate, UInt32 boss, UInt32 walkers, float now);
 const char* DungeonCandidateName(UInt32 candidate);

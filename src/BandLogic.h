@@ -167,6 +167,7 @@ struct BandEvent {
 	UInt8 city;
 	UInt8 size;
 	float x, y;
+	UInt8 team = 0;  // 0 a gate's Daedra band; else a necromancer's team (4.23 B step 4): walkers
 };
 
 namespace band_detail {

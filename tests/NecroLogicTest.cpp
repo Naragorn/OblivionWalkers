@@ -333,24 +333,40 @@ void TestImage() {
 	st.bosses[2].bandCarry = 0.75f;
 	st.bosses[2].places = 4;
 	st.comeBackAt = 12.0f;
+	walkers::NecroBands bands;
+	bands.count = 2;
+	bands.bands[1].boss = 2;
+	bands.bands[1].team = 7;
+	bands.bands[1].city = 3;
+	bands.bands[1].size = 9;
+	bands.bands[1].x = -1234.5f;
+	bands.bands[1].y = 6789.25f;
 	UInt8 image[walkers::kNecroImageBytes];
-	Check(walkers::NecroImage(st, image, sizeof image) == walkers::kNecroImageBytes, "written whole");
+	Check(walkers::NecroImage(st, bands, image, sizeof image) == walkers::kNecroImageBytes, "written whole");
 	NecroState back;
-	Check(walkers::ReadNecroImage(back, image, sizeof image, 91), "read back");
+	walkers::NecroBands backBands;
+	Check(walkers::ReadNecroImage(back, backBands, image, sizeof image, 91), "read back");
+	const walkers::NecroBand& b1 = backBands.bands[1];
+	Check(backBands.count == 2 && b1.boss == 2 && b1.team == 7 && b1.city == 3 && b1.size == 9 && b1.x == -1234.5f &&
+	          b1.y == 6789.25f,
+	      "the far bands with it");
 	Check(back.count == 3 && !back.bosses[1].alive && back.bosses[2].home == 77 && back.bosses[2].team == 9 &&
 	          back.bosses[2].places == 4 && std::fabs(back.bosses[2].bandCarry - 0.75f) < 1e-6f &&
 	          std::fabs(back.bosses[0].bandFrom - 2.5f) < 1e-6f && std::fabs(back.comeBackAt - 12.0f) < 1e-6f,
 	      "every field as it was");
 	NecroState shorter;
-	Check(!walkers::ReadNecroImage(shorter, image, 8, 91) && shorter.count == 0, "too short: nothing, rolled anew");
+	walkers::NecroBands shorterBands;
+	shorterBands.count = 3;
+	Check(!walkers::ReadNecroImage(shorter, shorterBands, image, 8, 91) && shorter.count == 0 && shorterBands.count == 0,
+	      "too short: nothing, rolled anew");
 	NecroState other;
-	Check(walkers::ReadNecroImage(other, image, sizeof image, 50) && !other.bosses[2].alive,
+	Check(walkers::ReadNecroImage(other, backBands, image, sizeof image, 50) && !other.bosses[2].alive,
 	      "a home past this build's candidates: that boss counted fallen");
 	st.over = true;
-	walkers::NecroImage(st, image, sizeof image);
-	walkers::ReadNecroImage(back, image, sizeof image, 91);
+	walkers::NecroImage(st, bands, image, sizeof image);
+	walkers::ReadNecroImage(back, backBands, image, sizeof image, 91);
 	Check(back.over, "over stays over");
-	Check(walkers::NecroImage(st, image, 4) == 0, "no room: nothing written");
+	Check(walkers::NecroImage(st, bands, image, 4) == 0, "no room: nothing written");
 }
 
 void TestBossActors() {
@@ -362,6 +378,43 @@ void TestBossActors() {
 	Check(walkers::NecroBossChest(DungeonKind::Ayleid) == 0x0003753F && walkers::NecroBossChest(DungeonKind::Fort) == 0x00037542 &&
 	          walkers::NecroBossChest(DungeonKind::Cave) == 0x00037542,
 	      "the chest: the Ayleid one in a ruin, the fort's elsewhere");
+}
+
+void TestBands() {
+	std::printf("The bands far away (step 4)\n");
+	NecroSettings s;  // 10000 units an hour, near within 6000
+	const walkers::NecroCity cities[] = {{100000.0f, 0.0f}, {-100000.0f, 0.0f}};
+	walkers::NecroBands st;
+	walkers::NecroBandEvent ev[8];
+	UInt32 n = walkers::NecroBandFormed(st, s, 1, 2, 6, 40000.0f, 0.0f, cities, 2, -200000.0f, 0.0f, ev, 8);
+	Check(n == 1 && ev[0].kind == walkers::NecroBandEventKind::Formed && st.count == 1 && st.bands[0].city == 0 &&
+	          st.bands[0].team == 2 && st.bands[0].size == 6,
+	      "formed at his home, toward the nearest city, far from the player: a number");
+	n = walkers::StepNecroBands(st, s, cities, 2, 3.0f, -200000.0f, 0.0f, ev, 8);
+	Check(n == 0 && st.bands[0].x == 70000.0f, "three hours: 30000 units nearer its city");
+	n = walkers::StepNecroBands(st, s, cities, 2, 1.0f, 85000.0f, 0.0f, ev, 8);
+	Check(n == 1 && ev[0].kind == walkers::NecroBandEventKind::Near && st.count == 0 && ev[0].band.x == 80000.0f,
+	      "the player 5000 from it: Near - the caller places its walkers");
+	walkers::NecroBandFormed(st, s, 0, 1, 4, 95000.0f, 0.0f, cities, 2, -200000.0f, 0.0f, ev, 8);
+	n = walkers::StepNecroBands(st, s, cities, 2, 1.0f, -200000.0f, 0.0f, ev, 8);
+	Check(n == 1 && ev[0].kind == walkers::NecroBandEventKind::Arrived && st.count == 0 && ev[0].band.city == 0,
+	      "at its city: Arrived - the city's siege pressure");
+	n = walkers::NecroBandFormed(st, s, 0, 1, 4, 1000.0f, 0.0f, cities, 2, 0.0f, 0.0f, ev, 8);
+	Check(n == 2 && ev[1].kind == walkers::NecroBandEventKind::Near && st.count == 0, "formed near the player: Near at once");
+	for (UInt32 k = 0; k < walkers::kNecroBandsMost; ++k) {
+		walkers::NecroBandFormed(st, s, 0, 1, 4, 0.0f, 50000.0f, cities, 2, -200000.0f, 0.0f, ev, 8);
+	}
+	n = walkers::NecroBandFormed(st, s, 0, 1, 4, 0.0f, 50000.0f, cities, 2, -200000.0f, 0.0f, ev, 8);
+	Check(n == 2 && ev[1].kind == walkers::NecroBandEventKind::Dropped && st.count == walkers::kNecroBandsMost,
+	      "the most on their way: one more dropped");
+	walkers::NecroBands none;
+	Check(walkers::NecroBandFormed(none, s, 0, 1, 4, 0.0f, 0.0f, cities, 0, 0.0f, 0.0f, ev, 8) == 0 &&
+	          walkers::StepNecroBands(none, s, cities, 0, 1.0f, 0.0f, 0.0f, ev, 8) == 0,
+	      "no city known: nothing");
+	walkers::NecroBands still;
+	walkers::NecroBandFormed(still, s, 0, 1, 4, 50000.0f, 0.0f, cities, 2, -200000.0f, 0.0f, ev, 8);
+	Check(walkers::StepNecroBands(still, s, cities, 2, -2.0f, -200000.0f, 0.0f, ev, 8) == 0 && still.bands[0].x == 50000.0f,
+	      "the clock set back: no step");
 }
 
 void TestWalkers() {
@@ -387,6 +440,7 @@ int main() {
 	TestImage();
 	TestWalkers();
 	TestBossActors();
+	TestBands();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

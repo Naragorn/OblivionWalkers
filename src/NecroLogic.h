@@ -43,6 +43,10 @@ struct NecroSettings {
 	UInt32 walkersMin = 16;         // WalkersMin: a hotspot's walkers
 	UInt32 walkersMax = 30;         // WalkersMax
 	UInt32 realmMost = 6;           // RealmMost: a boss's places, his home among them
+	// A band's pace on the map and where it comes into the world: the gates'
+	// bands' (BandLogic.h BandSettings unitsPerHour, nearUnits; not in the INI).
+	float bandUnitsPerHour = 10000.0f;
+	float bandNearUnits = 6000.0f;
 };
 
 // "1,1,2,3,3": a team a boss in the order they rose. An entry missing, empty,
@@ -417,15 +421,140 @@ inline void NecroPlaceLost(NecroState& st, UInt32 b) {
 	}
 }
 
-// The co-save record: type "NCRO", version 1 - the count, comeBackAt's bits,
-// over; then per boss of kNecroBossesMost: the home (16 bits), the team,
-// alive, bandFrom, bandCarry, placeFrom as their bits, the places.
-inline constexpr UInt32 kNecroRecordType = 0x4E43524F;  // 'NCRO'
-inline constexpr UInt32 kNecroRecordVersion = 1;
-inline constexpr UInt32 kNecroBossBytes = 20;
-inline constexpr UInt32 kNecroImageBytes = 12 + kNecroBossesMost * kNecroBossBytes;
+// --- the bands far away (build step 4) -------------------------------------
+// A boss's band leaves his home toward the nearest city, the way an open
+// gate's does (BandLogic.h StepBands): far from the player a number only,
+// within bandNearUnits of him the caller puts its walkers into the world
+// (Near) and they are the hordes'; one that reaches its city is the city's
+// siege pressure (Arrived). A boss's fall leaves his bands under way.
+inline constexpr UInt32 kNecroBandsMost = 16;
 
-inline UInt32 NecroImage(const NecroState& st, UInt8* out, UInt32 capacity) {
+struct NecroBand {
+	UInt8 boss = 0;
+	UInt8 team = 0;
+	UInt8 city = 0;  // the index into the caller's cities
+	UInt8 size = 0;
+	float x = 0.0f;
+	float y = 0.0f;
+};
+
+struct NecroCity {
+	float x, y;
+};
+
+struct NecroBands {
+	NecroBand bands[kNecroBandsMost];
+	UInt32 count = 0;
+};
+
+enum class NecroBandEventKind : UInt8 { Formed, Near, Arrived, Dropped };
+
+struct NecroBandEvent {
+	NecroBandEventKind kind;
+	NecroBand band;
+};
+
+namespace necro_detail {
+
+inline UInt8 NearestCity(const NecroCity* cities, UInt32 count, float x, float y) {
+	UInt32 best = 0;
+	for (UInt32 c = 1; c < count; ++c) {
+		if (std::hypot(cities[c].x - x, cities[c].y - y) < std::hypot(cities[best].x - x, cities[best].y - y)) {
+			best = c;
+		}
+	}
+	return static_cast<UInt8>(best);
+}
+
+inline UInt32 PutBand(NecroBandEvent* out, UInt32 n, UInt32 room, NecroBandEventKind kind, const NecroBand& b) {
+	if (out != nullptr && n < room) {
+		out[n] = {kind, b};
+	}
+	return n + 1;
+}
+
+}  // namespace necro_detail
+
+// Boss `boss` of team `team` sends a band of `size` from (x, y), his home's
+// door: toward the nearest city, at once Near when the player is that close;
+// dropped when kNecroBandsMost are on their way already.
+inline UInt32 NecroBandFormed(NecroBands& st, const NecroSettings& s, UInt32 boss, UInt8 team, UInt32 size, float x,
+                              float y, const NecroCity* cities, UInt32 cityCount, float px, float py,
+                              NecroBandEvent* out, UInt32 room) {
+	if (cityCount == 0) {
+		return 0;
+	}
+	NecroBand b;
+	b.boss = static_cast<UInt8>(boss);
+	b.team = team;
+	b.city = necro_detail::NearestCity(cities, cityCount, x, y);
+	b.size = static_cast<UInt8>(size > 255 ? 255 : size);
+	b.x = x;
+	b.y = y;
+	UInt32 n = necro_detail::PutBand(out, 0, room, NecroBandEventKind::Formed, b);
+	if (std::hypot(x - px, y - py) < s.bandNearUnits) {
+		return necro_detail::PutBand(out, n, room, NecroBandEventKind::Near, b);
+	}
+	if (st.count >= kNecroBandsMost) {
+		return necro_detail::PutBand(out, n, room, NecroBandEventKind::Dropped, b);
+	}
+	st.bands[st.count++] = b;
+	return n;
+}
+
+// `hours` game hours on: every far band walks toward its city; Near once
+// the player (px, py) is within bandNearUnits, Arrived at its city.
+inline UInt32 StepNecroBands(NecroBands& st, const NecroSettings& s, const NecroCity* cities, UInt32 cityCount,
+                             float hours, float px, float py, NecroBandEvent* out, UInt32 room) {
+	if (cityCount == 0) {
+		return 0;
+	}
+	const float step = s.bandUnitsPerHour * (hours > 0.0f ? hours : 0.0f);
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < st.count;) {
+		NecroBand& b = st.bands[i];
+		const NecroCity& c = cities[b.city < cityCount ? b.city : 0];
+		const float left = std::hypot(c.x - b.x, c.y - b.y);
+		NecroBandEventKind done = NecroBandEventKind::Formed;  // none
+		if (left <= step) {
+			b.x = c.x;
+			b.y = c.y;
+			done = NecroBandEventKind::Arrived;
+		} else {
+			if (step > 0.0f && left > 0.0f) {
+				b.x += (c.x - b.x) / left * step;
+				b.y += (c.y - b.y) / left * step;
+			}
+			if (std::hypot(b.x - px, b.y - py) < s.bandNearUnits) {
+				done = NecroBandEventKind::Near;
+			}
+		}
+		if (done == NecroBandEventKind::Formed) {
+			++i;
+			continue;
+		}
+		n = necro_detail::PutBand(out, n, room, done, b);
+		for (UInt32 k = i + 1; k < st.count; ++k) {
+			st.bands[k - 1] = st.bands[k];
+		}
+		--st.count;
+	}
+	return n;
+}
+
+// The co-save record: type "NCRO", version 2 - the count, comeBackAt's bits,
+// over; then per boss of kNecroBossesMost: the home (16 bits), the team,
+// alive, bandFrom, bandCarry, placeFrom as their bits, the places; then the
+// far bands' count and per band of kNecroBandsMost: boss, team, city, size,
+// x and y as their bits.
+inline constexpr UInt32 kNecroRecordType = 0x4E43524F;  // 'NCRO'
+inline constexpr UInt32 kNecroRecordVersion = 2;
+inline constexpr UInt32 kNecroBossBytes = 20;
+inline constexpr UInt32 kNecroBandBytes = 12;
+inline constexpr UInt32 kNecroImageBytes =
+    12 + kNecroBossesMost * kNecroBossBytes + 4 + kNecroBandsMost * kNecroBandBytes;
+
+inline UInt32 NecroImage(const NecroState& st, const NecroBands& bands, UInt8* out, UInt32 capacity) {
 	if (capacity < kNecroImageBytes) {
 		return 0;
 	}
@@ -445,13 +574,26 @@ inline UInt32 NecroImage(const NecroState& st, UInt8* out, UInt32 capacity) {
 		Put32(at + 12, dungeon_detail::Bits(boss.placeFrom));
 		at[16] = boss.places;
 	}
+	UInt8* far = out + 12 + kNecroBossesMost * kNecroBossBytes;
+	Put32(far, bands.count);
+	for (UInt32 i = 0; i < kNecroBandsMost; ++i) {
+		const NecroBand& b = bands.bands[i];
+		UInt8* at = far + 4 + i * kNecroBandBytes;
+		at[0] = b.boss;
+		at[1] = b.team;
+		at[2] = b.city;
+		at[3] = b.size;
+		Put32(at + 4, dungeon_detail::Bits(b.x));
+		Put32(at + 8, dungeon_detail::Bits(b.y));
+	}
 	return kNecroImageBytes;
 }
 
 // `st` emptied first; false when too short (a new set rises then). A boss
 // whose home is not below `candidates` (another build's list) counts fallen.
-inline bool ReadNecroImage(NecroState& st, const UInt8* in, UInt32 length, UInt32 candidates) {
+inline bool ReadNecroImage(NecroState& st, NecroBands& bands, const UInt8* in, UInt32 length, UInt32 candidates) {
 	st = NecroState{};
+	bands = NecroBands{};
 	if (length < kNecroImageBytes) {
 		return false;
 	}
@@ -469,6 +611,19 @@ inline bool ReadNecroImage(NecroState& st, const UInt8* in, UInt32 length, UInt3
 		boss.bandCarry = dungeon_detail::Float(Get32(at + 8));
 		boss.placeFrom = dungeon_detail::Float(Get32(at + 12));
 		boss.places = at[16];
+	}
+	const UInt8* far = in + 12 + kNecroBossesMost * kNecroBossBytes;
+	const UInt32 farCount = Get32(far);
+	bands.count = farCount > kNecroBandsMost ? kNecroBandsMost : farCount;
+	for (UInt32 i = 0; i < bands.count; ++i) {
+		const UInt8* at = far + 4 + i * kNecroBandBytes;
+		NecroBand& b = bands.bands[i];
+		b.boss = at[0];
+		b.team = at[1];
+		b.city = at[2];
+		b.size = at[3];
+		b.x = dungeon_detail::Float(Get32(at + 4));
+		b.y = dungeon_detail::Float(Get32(at + 8));
 	}
 	return true;
 }

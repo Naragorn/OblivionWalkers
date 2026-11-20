@@ -61,12 +61,15 @@ struct Placing {
 	UInt32 list = 0;  // the list's form ID
 	UInt16 gate = 0;
 	bool daedra = false;  // a Daedra band gets a leader (idea 1)
+	UInt8 team = 0;       // a necromancer's band (4.23 B step 4): walkers of his team, no leader
 	UInt8 band = 0;
 	UInt32 before[kNearMost] = {};  // the FF actors near the marker before the PlaceAtMe
 	UInt32 beforeCount = 0;
 	UInt32 leaderBase = 0;  // the leader's actor: only a new one of this base is taken for him
 };
 Placing g_placing;
+TeamMemberFn g_onTeamMember = nullptr;
+const BandSettings* g_lastBands = nullptr;
 // Near bands waiting for the marker (one is placed at a time).
 BandEvent g_queue[8];
 UInt32 g_queueCount = 0;
@@ -124,6 +127,9 @@ UInt32 TakeNewMembers(UInt32 marker, bool leader, UInt32& last, UInt32 onlyBase 
 			g_members[g_memberCount++] = BandMember{now[i], g_placing.band, leader};
 			if (g_placing.daedra) {
 				WatchDaedra(now[i]);  // 4.22a step 5b: banished once dead
+			}
+			if (g_placing.team != 0 && g_onTeamMember != nullptr) {
+				g_onTeamMember(now[i], g_placing.team);
 			}
 			last = now[i];
 			++found;
@@ -304,15 +310,22 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 			const float dz = LandHeightAt(px + g_placing.dx, py + g_placing.dy, land) ? land - pz + 64.0f : 64.0f;
 			g_placing.size = e.size;
 			g_placing.gate = e.gate;
-			g_placing.list = BandList(invaders);
-			g_placing.daedra = true;
+			g_placing.team = e.team;
+			// a gate's band is Daedra; a necromancer's the walkers' list (Replace.cpp's)
+			g_placing.list = e.team != 0 ? EspFormId(g_espBase, kVariantLocalId) : BandList(invaders);
+			g_placing.daedra = e.team == 0;
 			g_placing.band = g_nextBand++;
 			std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f %.0f", g_placing.dx, g_placing.dy, dz);
 			const bool moved = console(marker, line);
 			g_placing.stage = PlaceStage::MarkerMoved;
-			log("Bands: a band of %u (Daedra, gate %u) comes near - the marker %.0f %.0f from you (\"%s\" answered %d)",
-			    e.size, e.gate, g_placing.dx, g_placing.dy, line,
-			    moved ? 1 : 0);
+			if (e.team != 0) {
+				log("Bands: a band of %u walkers (a necromancer's, team %u) comes near - the marker %.0f %.0f from you "
+				    "(\"%s\" answered %d)",
+				    e.size, e.team, g_placing.dx, g_placing.dy, line, moved ? 1 : 0);
+			} else {
+				log("Bands: a band of %u (Daedra, gate %u) comes near - the marker %.0f %.0f from you (\"%s\" answered %d)",
+				    e.size, e.gate, g_placing.dx, g_placing.dy, line, moved ? 1 : 0);
+			}
 			return;
 		}
 		case PlaceStage::MarkerMoved: {
@@ -425,6 +438,20 @@ void ResetBands() {
 
 UInt32 SiegePressureOf(UInt32 city) { return SiegePressure(g_state, city); }
 
+void QueueWalkerBand(float x, float y, UInt32 size, UInt8 team) {
+	BandEvent e{BandEventKind::Near, 0, 0, static_cast<UInt8>(size > 255 ? 255 : size), x, y};
+	e.team = team == 0 ? 1 : team;
+	Queue(e);
+}
+
+void AddCityPressureNow(UInt8 city) {
+	if (g_lastBands != nullptr) {
+		AddSiegePressure(g_state, *g_lastBands, city);
+	}
+}
+
+void ConfigureBandsTeams(TeamMemberFn onMember) { g_onTeamMember = onMember; }
+
 UInt32 BandsImage(UInt8* out, UInt32 capacity) { return BandImage(g_state, g_members, g_memberCount, out, capacity); }
 
 bool ReadBandsImage(const UInt8* in, UInt32 length, UInt32 version, bool (*resolve)(UInt32, UInt32&)) {
@@ -503,6 +530,7 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 	if (g_espBase == kNoEsp) {
 		return;
 	}
+	g_lastBands = &bands;
 	g_clock += dt;
 	if (g_clock < kStepSeconds) {
 		return;

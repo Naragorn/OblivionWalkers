@@ -1,0 +1,34 @@
+# A necromancer's band (docs/walkers-spec.md 4.23 B, build step 4), run by
+# tools/necro-harness.sh band: the necromancers alone, one boss at Toadstool
+# Hollow (TestHome), BossesMin=BossesMax=1 and BandsPerDay=4. The player stands
+# before its door outside; the game's clock runs fast (timescale 2000, a game
+# hour in under two seconds), so a band is due within seconds. Formed at the
+# home within 6000 units of the player it comes into the world at once: the
+# walkers' list placed at the bands' marker, no leader, its members the
+# hordes'.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set gamehour to 12
+console-at ready player.moveto 00015243
+console-at fast set timescale to 2000
+console-at slow set timescale to 30
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 14
+mark fast
+wait 12
+mark slow
+wait 10
+mark counted
+wait 2
+mark end
+wait 1

@@ -46,6 +46,15 @@ void ResetBands();
 // that reached it lately.
 UInt32 SiegePressureOf(UInt32 city);
 
+// 4.23 B step 4: a necromancer's band near the player, put into the world as
+// the gates' are (the walkers' list, no leader, `team` its necromancer's);
+// a far one that reached its city adds to that city's siege pressure; each
+// of its walkers placed is told to `onMember` (the teams, step 5).
+using TeamMemberFn = void (*)(UInt32 refId, UInt8 team);
+void QueueWalkerBand(float x, float y, UInt32 size, UInt8 team);
+void AddCityPressureNow(UInt8 city);
+void ConfigureBandsTeams(TeamMemberFn onMember);
+
 // The co-save record 'BAND' (BandLogic.h BandImage): written on save, read
 // on load after ResetBands; `resolve` xOBSE's ResolveRefID.
 UInt32 BandsImage(UInt8* out, UInt32 capacity);

@@ -3605,7 +3605,8 @@ void Tick() {
 		StepPlacer(dt);
 		StepBanishInGame(dt);
 		StepMarchWeatherInGame(dt);
-		if (Apocalypse(g_settings.invaders) || DaedraOn(g_settings.invaders)) {
+		// the hordes move the bands' members too: the necromancers' walkers (4.23 B step 4)
+		if (Apocalypse(g_settings.invaders) || DaedraOn(g_settings.invaders) || g_settings.invaders.necromancers) {
 			StepHordeInGame(dt, &HordeCandidatesNow, &ConsoleOn, &IsDead, g_log);
 		}
 	});
@@ -3701,10 +3702,11 @@ void OnSave(void*) {
 	    g_serialization->OpenRecord(kDungeonOccupantRecordType, kDungeonOccupantRecordVersion) &&
 	    g_serialization->WriteRecordData(occupants, occupantsLength);
 	UInt8 necro[kNecroImageBytes];
-	const UInt32 necroLength = NecroImage(CurrentNecro(), necro, sizeof(necro));
+	const UInt32 necroLength = NecroImage(CurrentNecro(), CurrentNecroBands(), necro, sizeof(necro));
 	const bool necroWritten = g_serialization->OpenRecord(kNecroRecordType, kNecroRecordVersion) &&
 	                          g_serialization->WriteRecordData(necro, necroLength);
-	g_log("Co-save: %u necromancers' bosses %s", CurrentNecro().count, necroWritten ? "written" : "could not be written");
+	g_log("Co-save: %u necromancers' bosses and %u of their far bands %s", CurrentNecro().count,
+	      CurrentNecroBands().count, necroWritten ? "written" : "could not be written");
 	g_log("Co-save: %u held dungeons %s, %u occupants taken out of them %s", CurrentDungeons().count,
 	      dungeonsWritten ? "written" : "could not be written", CurrentDungeonOccupants().count,
 	      occupantsWritten ? "written" : "could not be written");
@@ -3889,9 +3891,11 @@ void OnLoad(void*) {
 			const UInt32 read = version == kNecroRecordVersion && length <= sizeof(necro)
 			                        ? g_serialization->ReadRecordData(necro, length)
 			                        : 0;
-			const bool whole = ReadNecroImage(CurrentNecro(), necro, read, kDungeonCandidateCountForSave());
-			g_log("Co-save: %u necromancers' bosses read, %u of them alive (version %u)%s", CurrentNecro().count,
-			      NecroAlive(CurrentNecro()), version, whole ? "" : " (version or length off: a new set rises)");
+			const bool whole =
+			    ReadNecroImage(CurrentNecro(), CurrentNecroBands(), necro, read, kDungeonCandidateCountForSave());
+			g_log("Co-save: %u necromancers' bosses read, %u of them alive, %u far bands (version %u)%s",
+			      CurrentNecro().count, NecroAlive(CurrentNecro()), CurrentNecroBands().count, version,
+			      whole ? "" : " (version or length off: a new set rises)");
 			continue;
 		}
 		if (type == kDungeonRecordType) {
