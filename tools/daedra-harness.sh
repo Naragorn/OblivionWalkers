@@ -156,6 +156,11 @@ def show(prefix, most=8):
     return found
 
 spawns = show("Spawns: Walkers Mode=")
+if scenario == "mainquest":
+    # the replacement before MQ16: after it the Daedra are off and the line
+    # (now written with the effective switches) says 0 entries
+    done = [i for i, l in enumerate(lines) if "Daedra: the main quest is done" in l]
+    spawns = [l for l in lines[:done[0]] if l.startswith("Spawns: Walkers Mode=")] if done else spawns
 m = re.search(r"- (\d+) entries point at the Daedra \(([0-9A-F]{8})\), (\d+) entries", spawns[-1]) if spawns else None
 if scenario == "gatesonly":
     m0 = re.search(r"- (\d+) entries point at the Daedra", spawns[-1]) if spawns else None
