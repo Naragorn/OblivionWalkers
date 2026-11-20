@@ -4801,6 +4801,15 @@ roster line's counts.
   medium (the plugin hooks no engine code yet). Not read yet: the disable
   routine's address - xOBSE's GameObjects.cpp names 0x004FBB30 (deepwiki),
   but the bytes there read as a list insert (REA), so that is unverified.
+- **OPEN 2026-11-20 - the held dungeons' first roll after a start uses the
+  menu's pool.** Found by 4.23 B's read 1 (the details there): the pool's
+  quest check runs at the main menu, where references have their plugins'
+  state, not the save's; the sites roll before the 5 s refresh brings the
+  places back (whocomes run 2026-11-20 11:54: rolled with 37 of 91 in the
+  pool, then all 91 back; a peer's run 15:13: rolled with 33, then 77).
+  So the first roll picks from a third of the places, and can pick a
+  place a running quest needs in the save. Fix: refresh the quests'
+  references and the pool right before FillDungeons. Small; not built.
 
 ## 7b. Open decisions (2026-11-14)
 
@@ -5553,7 +5562,7 @@ Read and derived for it:
 
   | key | default | what |
   |---|---|---|
-  | `Mode` | 0 | 0 off, 1 on. Alone or beside the walkers is `[Walkers] Mode` (4.24) - first written here as Mode 1 beside it, 2 alone |
+  | `Mode` | 0 | 0 off, 1 on. Alone or beside the walkers is `[Walkers] Mode` (4.24): the necromancers alone with Walkers 0, beside the free walkers with Walkers 1 or 2 |
   | `BossesMin`, `BossesMax` | 3, 5 | how many bosses at the start (rolled in between) |
   | `BandsPerDay` | 1 | a boss's bands a game day, at the middle of BossesMin..BossesMax |
   | `BandSizeMin`, `BandSizeMax` | 4, 9 | a band's walkers (the Daedra bands' defaults) |
@@ -5561,7 +5570,7 @@ Read and derived for it:
   | `Teams` | `1,2,3,4,5` | a team a boss, in the order they rose; the same number = allies. `1,1,1,1,1` all allied, `1,1,2,3,3` some. Every boss on another team (the default) - all enemies |
   | `ComeBack` | 1 | 1: after the last boss falls, a new set rises after `ComeBackDays` (default 3); 0: it is over |
   | `PaceByLiving` | 1 | 1: the pace shared among the bosses alive (decided 9); 0: only the configured count scales it, a death changes nothing for the others |
-  | `RiseWithin` | 8000 | Mode 2: the dead rise within this many units of a necromancer's door (decided 10; the number a guess, about two cells) |
+  | `RiseWithin` | 8000 | with `[Walkers] Mode` 0 or 1 (no rise everywhere): the dead rise within this many units of a necromancer's door (decided 10; the number a guess, about two cells) |
 
 - **"The fewer, the more aggressive"** as one rule: the necromancers'
   pace is the world's, shared among the living bosses - BandsPerDay times
@@ -5570,16 +5579,17 @@ Read and derived for it:
   alone sends 4 bands a day. Kill two of four, and the two left double
   their pace (decided 9; `PaceByLiving=0` turns that off).
 - **The modes**: see 4.24 - three switches, every combination.
-- **Who fights whom:** a boss's walkers carry his team (a faction per
-  team); other teams' walkers and their bosses are enemies. The free
-  walkers of Mode 1 (the apocalypse's) stand with nobody: they attack
-  people as now, not walkers of any team (decided 11).
-  Against the Daedra the teams follow `[Daedra] Mode` (2 at war, 3
-  allies), as the free walkers do.
-- **The rise in Mode 2:** if the dead rose everywhere, the necromancers
-  alone would be the apocalypse again after a day. So in Mode 2 the dead
-  rise only near a necromancer's places (within `RiseWithin` of their
-  doors) and where a team's band killed them (decided 10).
+- **Who fights whom:** a boss's walkers carry his team (the plugin's, not
+  a faction - read 2 below); other teams' walkers and their bosses are
+  enemies. The free walkers (`[Walkers] Mode` 1 or 2) stand with nobody:
+  they attack people as now, not walkers of any team (decided 11).
+  Against the Daedra the teams follow `[Daedra] Mode` (1 enemies, 2
+  allies), as the free walkers do; with 2 the bosses too (decided 12).
+- **The rise without the apocalypse:** if the dead rose everywhere, the
+  necromancers alone would be the apocalypse again after a day. So with
+  `[Walkers] Mode` 0 or 1 the dead rise only near a necromancer's places
+  (within `RiseWithin` of their doors) and where a team's band killed
+  them (decided 10); with Walkers 2 they rise everywhere as now.
 - **A boss's death:** his realm stops - no more bands, no new places. His
   under-bosses' places stay full of walkers until each is cleared; every
   cleared place becomes a refuge (beyond `[Dungeons] ActiveMax` - a refuge
@@ -5593,16 +5603,84 @@ Read and derived for it:
   they name the nearest held place now (4.20.7a A); the journal gets a
   hotspot as it gets a refuge.
 
-**Before building, to be read:** (1) the quest cut-off - on the Linux list
-of 2026-11-18 54 of the 91 candidates are out "by a loaded quest" (it was
-80 on 2026-11-16, 0 on 2026-11-14), not understood; 3-5 bosses, their new
-places and 3-5 refuges need many free places. (2) A faction per team for
-references of one walker base: whether the game takes a faction on a
-placed reference (`SetFactionRank` on a ref of a levelled walker) or needs
-a base a team in the ESP. (3) Which free places lie far enough apart for
-3-5 bosses to start "spread over the world".
+**The three reads before building (done 2026-11-20):**
 
-Nothing left to decide before the reads above; the proposed keys and
+1. **The quest cut-off - understood; no limit for B.** The pool's first
+   count is taken at the main menu, before a save is loaded, when every
+   reference has its state from the plugins, not from the save.
+   InfinitumCompendium.esp (on the Linux game since 2026-11-15 21:16, its
+   file time) places 100 Worm Cult necromancers and undead, one in each of
+   100 dungeons (bases MGRTNecro01.., MGRTUndead..; enabled in the ESP),
+   and its quest MGRTMotherBrain names them. Its start script
+   (aaMageKickoffScript, once a game) disables all 100; its contract
+   script (aaaMGRTRadiantScript) enables one at a time. So at the menu
+   44-54 places are "out by MGRTMotherBrain"; once the save's states are
+   read they come back. Measured: the whocomes runs of 2026-11-20 go from
+   37 in the pool to 91 of 91; a peer's run of 2026-11-20 15:13 (a larger
+   load order, OblivionWalkers.esp at index 48) from 33 to 77 - 14 stay
+   out by other plugins' quests (QOTW024..QOTW078, BANGHCDeliveriesRural,
+   BANGHCGoldHorseRanks, BANSkingradThePlotThickensQuest,
+   BANLeyawiinNewGreylandDefender; their plugins not found by name in
+   Data). The counts before: 0 on 11-14 (Infinitum not installed), 80 on
+   11-16 (references counted enabled or not, before c751c79), 54 on 11-18
+   (the menu's count). A Worm Cult contract running keeps its one dungeon
+   out while it runs (the 5 s refresh) - as it should.
+   **Open bug found by it:** the held dungeons roll their first sites
+   before the pool is refreshed after the load. Measured: the whocomes
+   run 2026-11-20 11:54 rolled at log lines 4478 and 4632 with 37 in the
+   pool, the places came back at 4810; the 15:13 run rolled at 4633 and
+   4789 with 33 in the pool, 77 at 4989. The first roll picks from a third
+   of the places, and could pick a place a running quest needs (its
+   reference enabled in the save, disabled in the plugin). Fix: refresh
+   the quests' references and the pool right before a fill
+   (FillDungeons). Small; a unit flow and the whocomes log order as the
+   harness check.
+2. **A faction per team - not the engine's; the plugin keeps the teams.**
+   `SetFactionRank` on a reference sets the faction on its base too:
+   every actor of that base has it (the CS wiki,
+   https://cs.uesp.net/wiki/SetFactionRank, Notes). The walkers are 64
+   bases shared by every walker; a boss is one of LL1NecromancerBoss100's
+   NPCs, shared with the game's necromancers. A faction a team on them
+   would put every walker or every necromancer of the base in it. A base
+   a team in the ESP (64 x 5) or a copy a walker at run time
+   (CreateFullActorCopy) would work; both heavy. And a faction does not
+   decide a walker's fights anyway: measured 2026-11-17
+   (daedra-sidebyside, daedra-daedricwalkers), a roused walker at
+   Aggression 100 fights a Daedra of its own faction, and the plugin holds
+   it back (DisguiseLogic.h WalkerMayRouseAt, WalkerDropsAlly). So: a team
+   a reference, kept by the plugin (in the co-save, as the risen are);
+   enemies set on each other with `StartCombat` (used already: Horde.cpp's
+   guards, Rise.cpp's rouse); allies and their own boss left alone by the
+   rules that hold the Daedra's allies back today (no rouse at them, a
+   fight with one stopped, `StopCombat` as the Daedric disguise does).
+   - (b) settled by it: with Daedra 2 every walker base stays in
+     DaedraFaction as now; the teams are no factions, nothing clashes.
+   - Decided 12 the same way: no DaedraFaction on a boss's base (it would
+     ally every necromancer of the game with the Daedra); a Daedra
+     fighting a boss, or a boss fighting a Daedra, is told `StopCombat`.
+   - Not read, for the harness: whether the engine has the Daedra join a
+     fight between two teams on one side (they are allies of both), and
+     whether a team's walkers turn on their own boss (a necromancer is in
+     none of the walkers' factions). One run: two teams' bands meeting
+     near a Daedra band, Daedra 2.
+3. **Free places far apart - enough.** From DungeonCandidates.h's outer
+   doors and the 77 places of the 15:13 run's pool (the smaller of the
+   two): the places span x -178176..195630, y -132589..157952; a place's
+   nearest other is 16415 units away (median, 4 cells). The widest start:
+   3 bosses at least 267376 units apart (65 cells), 4 at 172406, 5 at
+   151732 (Capstone Cave, Veyond, Garlas Agea, Doomed Mine, Nisin Cave).
+   Five rolled at random: only 21% have every pair 60000 or more apart,
+   6% 80000. So the start is not rolled blindly: the first boss's place
+   at random, every next one among the few places farthest from those
+   taken (a roll among them, so starts differ). Each boss's share with 5
+   (the places nearer to him than to any other): 12 to 20 - room for his
+   new places and the refuges. "Near his own" for a new place: within
+   30000 units a place has 3 free neighbours (median; 0 to 7), within
+   16000 none (median) - so a new place is the nearest free one in his
+   share, not one within a fixed radius (no key for it). 69 of the 77 lie
+   20000 units or more from a city (MOO's boards' places as the cities).
+
+Nothing left to decide or to read before building; the proposed keys and
 defaults are confirmed or changed when B is built.
 
 **Cost (first guess, from what exists):**
@@ -5611,9 +5689,9 @@ defaults are confirmed or changed when B is built.
 |---|---|---|
 | B core: the bosses on the held dungeons and the outpost, bands out of them, a cleared one a refuge, ComeBack | medium | site, placer, boss, chest, quest, journal, rumors and the gates' bands exist; new: the hotspot state, the boss's lists, the bands' source, the pace rule; unit flows + 2-3 harness runs |
 | B: the realm grows (new places, under-bosses) | small to medium | a site taken like a refuge is rolled; the under-boss is the apprentice list |
-| B: teams (factions, allies, enemies' walkers fighting) | medium | engine unknown (2); off-screen fights as numbers are new; one harness run with two teams' bands meeting |
-| B: Mode 2 - walkers only from the necromancers, the rise near them | medium | the replacement's walker share off, the rise gated by distance; touches the hordes and the sieges (they start from walkers that are there) |
-| B: the quest cut-off understood (prerequisite) | small to medium | a read of Replace.cpp CollectQuestNames against the load order |
+| B: teams (allies, enemies' walkers fighting, the bosses with the Daedra) | medium | no faction (read 2): a team a reference in the plugin, StartCombat/StopCombat and the allies' rules exist; off-screen fights as numbers are new; risk: the Daedra joining a team fight; one harness run with two teams' bands meeting near Daedra |
+| B: the necromancers alone (Walkers 0) - the rise near them | medium | the rise gated by distance; touches the hordes and the sieges (they start from walkers that are there) |
+| B: the first roll after the refreshed pool (read 1's open bug) | small | the refresh before FillDungeons; also fixes the refugees' places today |
 | A: patient zero placed, unkillable, the chain | medium-large | the hit hook is the unknown (to be read in xOBSE/the EXE); the infection timer, the count, the restart new |
 | A: "spread over the whole game" as a gate on the mod | large | touches the replacement, hordes, sieges, camps, dungeons; every one needs its "not yet" |
 
@@ -5673,11 +5751,10 @@ What it settles of 4.23 B's gaps (2026-11-20):
   shut); the walkers of the apocalypse and of the necromancers go on.
 - (c) Decided by Nadi 2026-11-20: with Daedra 2 the bosses themselves
   (the game's NPCs) are the Daedra's allies too (4.23 B, decided 12).
-
-Still open: (b) the teams against the Daedra with Daedra 2 (allies) -
-whether one walker can be in the DaedraFaction and in a team's faction
-that is the enemy of another team's (engine, to be read). The same read
-covers the bosses (12): a boss in his team's faction and the Daedra's.
+- (b) Settled by a read 2026-11-20 (4.23 B, read 2): the teams are kept
+  by the plugin, not by factions, so every walker base stays in
+  DaedraFaction with Daedra 2 and nothing clashes; the bosses (12) are
+  held back from the Daedra by StopCombat.
 
 As built 2026-11-20 (code read; unit flows in KindLogicTest, BandLogicTest,
 RiseLogicTest, SiegeLogicTest, CampLogicTest, DungeonSiteLogicTest,
