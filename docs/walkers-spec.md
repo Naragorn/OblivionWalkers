@@ -5675,7 +5675,7 @@ allies with Daedra 2.
 
 As built 2026-11-20 (code read; unit flows in KindLogicTest, BandLogicTest,
 RiseLogicTest, SiegeLogicTest, CampLogicTest, DungeonSiteLogicTest,
-LinkLogicTest; the harness runs are owed) - where the code differed from
+LinkLogicTest; the harness runs passed 2026-11-20, see the heading) - where the code differed from
 the design below:
 - The hordes: `StepHordeInGame` also moves the Daedra bands (they are
   its candidates), so it runs with the apocalypse or a Daedra mode; with
