@@ -3971,7 +3971,9 @@ To change (design):
   camp's attack, a held dungeon's attackers (Mode 2, 3).
 - The modes read: 0 no Daedra; 1 the Daedra alone (no walker
   apocalypse); 2 the walkers everywhere and the Daedra out of the gates,
-  at war; 3 the same as allies.
+  at war; 3 the same as allies. Superseded the same day by 4.24: the
+  walker apocalypse is a switch of its own, and `[Daedra] Mode` is 0 off,
+  1 at war with the walkers, 2 their allies.
 - The early game stays as decided 2026-11-13 (a): no gate open, no
   Daedra.
 
@@ -5544,7 +5546,7 @@ Read and derived for it:
 
   | key | default | what |
   |---|---|---|
-  | `Mode` | 0 | 0 off. 1 beside the apocalypse: the walkers everywhere as today, and the necromancers. 2 the necromancers alone: the spawn replacement puts no walkers in the world - walkers come only out of the necromancers' places and bands |
+  | `Mode` | 0 | 0 off, 1 on. Alone or beside the apocalypse is `[Walkers] Apocalypse` (4.24) - first written here as Mode 1 beside it, 2 alone |
   | `BossesMin`, `BossesMax` | 3, 5 | how many bosses at the start (rolled in between) |
   | `BandsPerDay` | 1 | a boss's bands a game day, at the middle of BossesMin..BossesMax |
   | `BandSizeMin`, `BandSizeMax` | 4, 9 | a band's walkers (the Daedra bands' defaults) |
@@ -5560,15 +5562,7 @@ Read and derived for it:
   same for NewPlaceEveryDays). With the defaults (3-5, middle 4) one boss
   alone sends 4 bands a day. Kill two of four, and the two left double
   their pace (decided 9; `PaceByLiving=0` turns that off).
-- **The modes as a table** - `[Necromancers] Mode` and `[Daedra] Mode`
-  (4.22) are independent:
-
-  | `[Necromancers] Mode` | `[Daedra] Mode` 0 | `[Daedra] Mode` 1-3 |
-  |---|---|---|
-  | 0 | today's apocalypse | today's Daedra modes |
-  | 1 | apocalypse + necromancers | apocalypse + necromancers + the Daedra out of the gates |
-  | 2 | necromancers alone | necromancers + the Daedra out of the gates |
-
+- **The modes**: see 4.24 - three switches, every combination.
 - **Who fights whom:** a boss's walkers carry his team (a faction per
   team); other teams' walkers and their bosses are enemies. The free
   walkers of Mode 1 (the apocalypse's) stand with nobody: they attack
@@ -5619,3 +5613,76 @@ defaults are confirmed or changed when B is built.
 Recommended order: B first (it stands on what is built and proven today),
 A after its hit hook is read - the cheapest step to settle A's cost is to
 read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
+
+### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos"; designed, not built)
+
+Until now one key mixed two questions: `[Daedra] Mode` 1 meant "the
+Daedra, and no walkers", and the necromancers' design had "alone" and
+"beside the apocalypse" as two modes. Now each threat is one switch, and
+the walker apocalypse is a switch too:
+
+| key | values | default |
+|---|---|---|
+| `[Walkers] Apocalypse` | 1 the walkers everywhere: the spawn replacement puts them in, every dead rises, their hordes, sieges, camp attacks and held dungeons. 0 none of it | 1 |
+| `[Daedra] Mode` | 0 off. 1 the Daedra out of the open gates, enemies of the walkers. 2 the same, allies of the walkers | 0 |
+| `[Necromancers] Mode` | 0 off. 1 the necromancers' realms (4.23 B) | 0 |
+
+Twelve combinations; the defaults are today's mod. **All three at 0 is
+the mod off**: no walkers, no Daedra, no necromancers - the plugin loads
+and does nothing that changes the game.
+
+| Apocalypse | Daedra | Necromancers | the world |
+|---|---|---|---|
+| 1 | 0 | 0 | today's apocalypse (the default) |
+| 1 | 1 / 2 | 0 | walkers everywhere, Daedra out of the gates, at war / allied |
+| 1 | 0 | 1 | walkers everywhere, the necromancers' realms beside them |
+| 1 | 1 / 2 | 1 | all three |
+| 0 | 0 | 0 | **the mod off** |
+| 0 | 1 / 2 | 0 | the Daedra invasion alone; nobody rises |
+| 0 | 0 | 1 | the necromancers alone; the dead rise only near them (4.23 B, 10) |
+| 0 | 1 / 2 | 1 | the necromancers and the Daedra |
+
+With Daedra 1 or 2 and no walkers of any source (Apocalypse 0,
+Necromancers 0), "enemies" or "allies" changes nothing - both mean the
+invasion alone.
+
+What it settles of 4.23 B's gaps (2026-11-20):
+- (a) The necromancers' walkers are there whenever the necromancers are
+  on - whatever the apocalypse and the Daedra say.
+- (d) `[Daedra] AfterMainQuest=0` stops only the Daedra (the gates are
+  shut); the walkers of the apocalypse and of the necromancers go on.
+
+Still open: (b) the teams against the Daedra with Daedra 2 (allies) -
+whether one walker can be in the DaedraFaction and in a team's faction
+that is the enemy of another team's (engine, to be read); (c) whether
+the necromancer bosses themselves (the game's NPCs) are the Daedra's
+allies with Daedra 2.
+
+What changes in the code (design):
+- `KindLogic.h`: "walkers in play" is `Apocalypse` or a necromancer's
+  realm, not a Daedra mode; `InPlay`, `MayRise`, `ReplacementRuns` ask
+  the three switches. The old Mode 1 is Apocalypse 0 with Daedra 1; the
+  old 2 and 3 are Daedra 1 and 2. No fallback for the old numbers: the
+  section never shipped.
+- Read 2026-11-20: only the replacement (`Replace.cpp`) and the rise
+  (`RiseLogic.h` MayRise) ask whether walkers are in play. The sieges, the
+  camps' attacks and the held dungeons' attackers roll their side with
+  `ReplacementGroup` (Mode 1 always Daedra, Mode 0 always walkers) and
+  never ask whether anyone is in play; the hordes form from the walkers
+  that are there and need nothing. So `ReplacementGroup` gets a third
+  answer, nobody (no walkers and no Daedra in play), and each of its three
+  callers starts no siege, attack or attackers on it.
+- INI and LINK: the new key at the top of a LINK page "Who comes" with the
+  other two (LINK version 49, with the gates-only change of 4.22).
+
+Cost: medium, together with 4.22's "only out of the gates" - the
+switches are a few functions' answers in `KindLogic.h`, but five systems
+take them (replacement, rise, sieges, camps, held dungeons).
+Unit flows: the twelve combinations in KindLogicTest (who is in play,
+who rises, does the replacement run, what a gate's band is). Harness: the
+Daedra runs that set Mode 1 for "Daedra alone" set Apocalypse 0 and
+Daedra 1 instead; one run with all three at 0 (the mod off: no
+replacement in the log, nobody rises). Sonnet 5.5 high: plain code over
+read and tested logic; the risk is a system that starts walkers without
+any of these functions (the nights' extra spawns, the noise) - every
+place that places a walker read first.
