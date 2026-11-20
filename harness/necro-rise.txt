@@ -1,0 +1,42 @@
+# The rise near the necromancers (docs/walkers-spec.md 4.23 B, build step 6;
+# decided 10), run by tools/necro-harness.sh rise: the necromancers alone
+# (no apocalypse), one boss at Toadstool Hollow (TestHome), RiseWithin 8000.
+# A bandit placed and killed before its door outside waits to rise; one
+# placed and killed at Abandoned Mine's door (some 200000 units off) stays
+# down - "only near the necromancers".
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready player.setav chameleon 100
+console-at near player.moveto 00015243
+console-at nearbandit player.placeatme 00069AD1 1 300 0
+console-at kill1 killall
+console-at far player.moveto 00033B0A
+console-at farbandit player.placeatme 00069AD1 1 300 0
+console-at kill2 killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark near
+wait 4
+mark nearbandit
+wait 3
+mark kill1
+wait 4
+mark far
+wait 4
+mark farbandit
+wait 3
+mark kill2
+wait 4
+mark end
+wait 1

@@ -11,6 +11,8 @@
 #                                    its door, the clock fast - a band of his comes into the world near him
 #   tools/necro-harness.sh teams     harness/necro-teams.txt: two bands of enemy teams near the player - set
 #                                    on each other by the plugin
+#   tools/necro-harness.sh rise      harness/necro-rise.txt: a bandit killed before a necromancer's door
+#                                    waits to rise, one killed far off stays down
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -18,8 +20,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams) ;;
-	*) echo "scenario: hotspot | band | teams" >&2; exit 2 ;;
+	hotspot | band | teams | rise) ;;
+	*) echo "scenario: hotspot | band | teams | rise" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -104,6 +106,15 @@ for l in obvr:
 print("  roster " + roster.get("placed", "")[:300])
 place = "Toadstool Hollow"
 check(bool(show(find(r"^Mod: .*Necromancers Mode=1 \(their realms\)"))), "the start: Walkers 0, Daedra 0, Necromancers 1")
+if scenario == "rise":
+    check(bool(show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    verdicts = [l for l in log if "00069AD1" in l and ("waits to rise" in l or "stays down" in l)]
+    verdicts = verdicts or [l for l in log if ("waits to rise" in l or "stays down (no apocalypse" in l)]
+    show(verdicts, 6)
+    check(len(verdicts) >= 2 and "waits to rise" in verdicts[0], "the bandit before the necromancer's door waits to rise")
+    check(len(verdicts) >= 2 and "only near the necromancers" in verdicts[1], "the one far off stays down - only near them")
+    print("necro %s: %s" % (scenario, "PASS" if failures == 0 else "FAIL (%d)" % failures))
+    sys.exit(1 if failures else 0)
 if scenario == "teams":
     check(bool(show(find(r"Necromancers: test - TestBandsSeconds=3: two bands of 3, teams (\d+) and (\d+)"))),
           "the test's two bands queued")
