@@ -3591,8 +3591,9 @@ void Tick() {
 	Timed(5, "dungeons", [dt] {
 		StepDungeonPool(g_settings.dungeonsOnlyChosen, g_log);
 		StepDungeonQuestRefs(dt, g_log);
-		StepDungeonsInGame(dt, g_log);
+		// the realms first: a home is claimed before a held place may roll there
 		StepNecroInGame(dt, g_log);
+		StepDungeonsInGame(dt, g_log);
 	});
 	Timed(6, "night", [dt] { StepNight(dt); });
 	Timed(7, "walkers", [dt] { StepWalkers(dt); });
