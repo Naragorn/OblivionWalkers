@@ -18,7 +18,7 @@ namespace walkers {
 
 inline constexpr UInt32 kMarchWeatherForm = 0x000836D5;  // OblivionStormTamriel
 
-// [Invaders] in OblivionWalkers.ini.
+// [Daedra] in OblivionWalkers.ini.
 struct MarchWeatherSettings {
 	bool enabled = false;          // MarchWeather
 	float units = 12000.0f;        // MarchWeatherDistance: a Daedra siege's gate this near (some 170 m)

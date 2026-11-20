@@ -150,7 +150,7 @@ void ConfigureBanish(const BanishSettings* settings, ConsoleFn console, DeadFn d
 	g_console = console;
 	g_dead = dead;
 	g_log = log;
-	log("Banish: [Invaders] BanishSeconds=%.0f BanishShader=%08X", settings->seconds, settings->shader);
+	log("Banish: [Daedra] BanishSeconds=%.0f BanishShader=%08X", settings->seconds, settings->shader);
 }
 
 

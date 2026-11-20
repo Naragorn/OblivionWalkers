@@ -1,6 +1,6 @@
 # A Daedra attack on a survivors' camp (docs/walkers-spec.md 4.22a step 5c):
 # CAMP_SCENARIO=daedra tools/camp-harness.sh sets [Survivors] TestCamp=7,
-# TestDaedra=1 and AttackWalkersMin/Max=4, [Invaders] BanishSeconds=5: camp
+# TestDaedra=1 and AttackWalkersMin/Max=4, [Daedra] BanishSeconds=5: camp
 # 07 is attacked 30 s after the load by 4 Daedra, the player taken 1000 units
 # off its fire (tgm). "camp 07 ... attacked - 4 Daedra", "4 Daedra asked for
 # at camp 07", "4 Daedra came to attack camp 07 (AddScriptPackage ...)": they

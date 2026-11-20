@@ -1,5 +1,5 @@
 # The Daedric disguise in Mode 3 (docs/walkers-spec.md 8c, idea 7): with
-# [Invaders] Mode=3 the walkers are the Daedra's allies - each walker record
+# [Daedra] Mode=3 the walkers are the Daedra's allies - each walker record
 # joins DaedraFaction (Replace.cpp SetWalkersAllied) - so the player in the
 # five Daedric pieces, a member of DaedraFaction himself, should fool them
 # too. In the TestingHall (nothing of its own spawns there), tgm: dressed,

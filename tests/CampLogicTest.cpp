@@ -682,7 +682,7 @@ void TestCampDaedra() {
 	Check(walkers::CampAttackDaedra(inv, 99), "Mode 1: Daedra");
 	inv.kind = walkers::InvaderKind::Both;
 	inv.daedraPercent = 30;
-	Check(walkers::CampAttackDaedra(inv, 29) && !walkers::CampAttackDaedra(inv, 30), "Mode 2: by DaedraPercent");
+	Check(walkers::CampAttackDaedra(inv, 29) && !walkers::CampAttackDaedra(inv, 30), "Mode 2: by SharePercent");
 	inv.kind = walkers::InvaderKind::Allied;
 	Check(walkers::CampAttackDaedra(inv, 129), "Mode 3 too; the roll taken mod 100");
 	CampEvent ev[4];

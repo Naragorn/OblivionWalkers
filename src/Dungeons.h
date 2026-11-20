@@ -52,7 +52,7 @@ void ConfigureDungeons(const DungeonSiteSettings* settings, DungeonRollFn roll, 
 // The ESP's base (RiseLogic.h EspFormId), once it is known.
 void ConfigureDungeonsEsp(UInt32 espBase);
 
-// [Invaders] (4.22a step 5c): a siege's or a walker dungeon's side rolled as
+// [Daedra] (4.22a step 5c): a siege's or a walker dungeon's side rolled as
 // a spawn's ([Dungeons] TestDaedra: TestSite's one Daedra).
 void ConfigureDungeonsInvaders(const InvaderSettings* invaders);
 // MOO's quest "MOO" once the load order is read, 0 when MOO is not loaded:

@@ -3705,7 +3705,7 @@ Harness `harness/slow-aggression.txt`, 2026-11-08 (Linux, headless):
 Not measured: how guards, sieges and camps feel with calm walkers (the
 guards are sent by StartCombat already, 4.11b); the headset.
 
-### 4.22 Invaders from Oblivion - Daedra instead of, or beside, the walkers (Nadi's idea, 2026-11-13; decided the same day - see "Decided" at the section's end; not built)
+### 4.22 Daedra from Oblivion - Daedra instead of, or beside, the walkers (Nadi's idea, 2026-11-13; decided the same day - see "Decided" at the section's end; not built)
 
 Nadi, 2026-11-13: swap the zombies for Dremora "and everything that runs
 about the Oblivion world" - as a mod of its own or as a switch in this
@@ -3796,7 +3796,7 @@ the same day):
 A second Nexus page with its own INI defaults (the same DLL and ESP,
 `Kind=1`) would give the Daedra variant a face of its own at no code cost.
 
-**The switch**, proposed `[Invaders] Kind=0|1|2` (LINK): 0 the walkers as
+**The switch**, proposed `[Daedra] Kind=0|1|2` (LINK): 0 the walkers as
 now, 1 Daedra in their place, 2 both. What each kind takes from the
 walkers' rules:
 
@@ -3812,11 +3812,11 @@ walkers' rules:
 | nights are worse (4.20.5) | yes | open: by the weather instead (below) |
 | strength | HealthPercent, the level-free walker | the game's own leveling (the Lvl lists), a cap by INI |
 
-Kind 2, proposed: `DaedraPercent=50` of the budget, the two hostile to each
+Kind 2, proposed: `SharePercent=50` of the budget, the two hostile to each
 other (factions: the walkers' creature faction against the Daedra's - a
 three-way fight where a band meets a horde), each from its own origin.
 
-**The new option for all kinds**, proposed `[Invaders] Origin=0|1` (LINK):
+**The new option for all kinds**, proposed `[Daedra] Origin=0|1` (LINK):
 0 everywhere, as now (the leveled lists rewritten); 1 only out of open
 Oblivion gates: the spawn replacement off (the world keeps the game's
 spawns), a band forms at an open gate and walks to the nearest city
@@ -3905,7 +3905,7 @@ a forced-open gate to Kvatch or Skingrad, a mixed fight, the timing run
 with 60 Daedra beside the 60 walkers' numbers.
 
 **Decided** (Nadi, 2026-11-13):
-- A switch in Walkers, one DLL: `[Invaders] Kind=0|1|2`, default 0. No mod
+- A switch in Walkers, one DLL: `[Daedra] Kind=0|1|2`, default 0. No mod
   of its own. (The second Nexus page with other INI defaults is a matter
   of the release, not decided.)
 - What the Daedra keep of the walkers' rules: the table above as it
@@ -3914,7 +3914,7 @@ with 60 Daedra beside the 60 walkers' numbers.
 - The early game with `Origin=1`: nothing comes until gates open (a). The
   plugin opens no gate itself ((b) is not built). The fallback (c) stays
   an INI choice, off by default, under a name that says what it does:
-  `[Invaders] EverywhereUntilGatesOpen=0` (Nadi, 2026-11-14: keep it, a
+  `[Daedra] EverywhereUntilGatesOpen=0` (Nadi, 2026-11-14: keep it, a
   better name).
 - All thirteen ideas, each with the default named in it.
 
@@ -3923,18 +3923,26 @@ started - Nadi's go for each):
 
 | step | what | ideas | cost |
 |---|---|---|---|
-| 1 | The kind's rules as a unit (`KindLogic.h`): which of rise, head rule, grab, slow aggression, disguise, pace apply to a group; `[Invaders]` in the INI and LINK; Kind 1 with Origin 0 through the spawn replacement and the game's Daedra lists | 11 | medium - every "is a walker" test gets its second answer; the lists and categories are there |
+| 1 | The kind's rules as a unit (`KindLogic.h`): which of rise, head rule, grab, slow aggression, disguise, pace apply to a group; `[Daedra]` in the INI and LINK; Kind 1 with Origin 0 through the spawn replacement and the game's Daedra lists | 11 | medium - every "is a walker" test gets its second answer; the lists and categories are there |
 | 2 | War bands: a horde of Daedra, Dremora (NPCs) among them, with a leader; the one budget | 1, 12 | medium to large - packages on NPCs in a horde are new; 12 is the far hordes' option B |
 | 3 | `Origin=1`: the open gates read at run time, a band per open gate, far gates as numbers, a closed gate ends its bands | - | medium - the gates' logic is read (above); the field behind GetDestroyed is not |
-| 4 | Kind 2: the two hostile to each other, `DaedraPercent`, the fallen as fuel | 2 | small to medium - a faction pair in the ESP, the rise is there |
+| 4 | Kind 2: the two hostile to each other, `SharePercent`, the fallen as fuel | 2 | small to medium - a faction pair in the ESP, the rise is there |
 | 5 | Sieges, gate guards, camps and held dungeons with Daedra pools; the outpost with its boss; banished bodies | 6, 8 | medium to large - new pools in the ESP, 8 needs the summon-end shader read |
 | 6 | The news and rumors name the feeding gate; "close the gate" as a journal quest; after the main quest | 4, 5, 13 | small to medium - 5 waits for the journal frame of 4.20.7 step 4 |
 | 7 | The looks: the siege gate prop, the marching weather, the Daedric disguise, the Legion's answer | 3, 9, 7, 10 | medium each; 3 and 9 touch sky and weather (9 off by default) |
 
-**The key is `[Invaders] Mode`** (Nadi, 2026-11-16: a better name than
+**The key is `[Daedra] Mode`** (Nadi, 2026-11-16: a better name than
 `Kind`; the section's "Kind 0..3" below are its values): 0 the walkers, 1
 the Daedra in their place, 2 both at war, 3 both as allies. LINK
-`ini_invaders_mode`, "Invaders: who comes".
+`ini_daedra_mode`, "Daedra: who comes".
+
+**The section is `[Daedra]`** (Nadi, 2026-11-20: "Invaders" too generic).
+It was `[Invaders]` until then, with `DaedraPercent` (now `SharePercent`)
+and `DaedraAfterMainQuest` (now `AfterMainQuest`); the LINK variables were
+`ini_invaders_*` (now `ini_daedra_*`, LINK version 48). No fallback to the
+old names: the section never shipped (v0.1.0 is older). The code's own names
+(`InvaderSettings`, `InvaderKind`, `rise.invaders`) stay - the Daedra are
+the invaders there.
 
 **Kind 3, the allies** (Nadi, 2026-11-15): walkers and Daedra on one
 side, the fallen rise as walkers - Kind 2's spawns and rise, without the
@@ -3942,12 +3950,12 @@ war between the two (`GroupsHostile` only for Kind 2).
 
 **Step 1, BUILT 2026-11-15 on the branch `daedra`** (Nadi: A and
 B without harness runs, then C; nothing wired into the game):
-- A, the unit: `KindLogic.h` - `[Invaders] Kind` (0/1/2), `DaedraPercent=50`,
-  `Summons=0` in the INI and LINK (version 42, header "Invaders from
+- A, the unit: `KindLogic.h` - `[Daedra] Kind` (0/1/2), `SharePercent=50`,
+  `Summons=0` in the INI and LINK (version 42, header "Daedra from
   Oblivion", the descriptions say "not in the game yet"); `RulesOf(group)`
   row by row of the table above, `InPlay`, `MayRise` (Kind 1 nobody, Kind
   2 the fallen of either, a Daedra never), `ReplacementGroup` (Kind 2 by
-  DaedraPercent), the seven Daedra categories by index (Atronachs,
+  SharePercent), the seven Daedra categories by index (Atronachs,
   Clannfears, Daedroths, Scamps, SpiderDaedra, Xivilai, Dremora - the SI
   Hungers stay the walkers'), `CategoryReplaced` (with Daedra in play
   their own categories are never made walkers). KindLogicTest.
@@ -3972,7 +3980,7 @@ B without harness runs, then C; nothing wired into the game):
   the summoners' twins), in the free IDs after the held dungeons' beds.
   LL1Daedra100 itself is never rewritten: it stands 176 times in the
   game's own Oblivion and shrines. Kind 1: every replaced entry; Kind 2
-  and 3: DaedraPercent of them by each entry's stable roll (`EntryRoll`,
+  and 3: SharePercent of them by each entry's stable roll (`EntryRoll`,
   its address - a LINK change moves only the entries it must); the extra
   entries (4.13) follow the same roll. The Daedra's own categories stay
   the game's. The rise: `NoteDeath` asks `MayRise` - Kind 1 nobody, a
@@ -4010,7 +4018,7 @@ B without harness runs, then C; nothing wired into the game):
   (the 103 gates' flags read once a game minute, a Near band placed as a
   horde with the Daedra list) waits for a harness run.
 - **Steps 2 and 3 wired 2026-11-16** (Nadi: "harness erlaubt. go"):
-  `[Invaders] OnlyFromOblivionGates` (named `Origin`, then `OnlyFromGates`, until 2026-11-16 - Nadi: a
+  `[Daedra] OnlyFromOblivionGates` (named `Origin`, then `OnlyFromGates`, until 2026-11-16 - Nadi: a
   clearer name; `Origin=1` below means `OnlyFromOblivionGates=1`), `EverywhereUntilGatesOpen`, `BandEveryHours`,
   `BandSizeMin`, `BandSizeMax`, `BandsMost` in the INI (LINK the first
   five, version 43; `NearUnits` 6000 now - inside the loaded grid, so a band
@@ -4023,10 +4031,10 @@ B without harness runs, then C; nothing wired into the game):
   A Near band: the ESP's `WalkersBandMarker` (A95, in the horde markers'
   cell) moved to the band's spot (at least 3000 from the player, on the
   land), `PlaceAtMe` of the mode's list (the Daedra's A93/A94 or the
-  walkers' 805; Mode 2 and 3 by DaedraPercent), the new FF actors within
+  walkers' 805; Mode 2 and 3 by SharePercent), the new FF actors within
   1500 units found the next second and handed to the horde as candidates -
   step 2: the horde leads a Daedra band as it leads walkers (leader,
-  marker, followers, the gates and sieges). `[Invaders] TestBandSeconds`
+  marker, followers, the gates and sieges). `[Daedra] TestBandSeconds`
   (test switch). Harness `daedra-band.txt` (`tools/daedra-harness.sh band
   <Mode>`, outdoors at cow Tamriel -3 3): 2026-11-16 Mode 1 PASS - 8
   stunted scamps placed, found, one group formed, its leader on the
@@ -4854,7 +4862,7 @@ Building B:
 **Decided (Nadi, 2026-11-14): B** - right after 0.2.0. The two smaller
 points below are still open.
 
-Step 1 of 4.22 (the `KindLogic.h` unit, `[Invaders] Kind`, Kind 1 through
+Step 1 of 4.22 (the `KindLogic.h` unit, `[Daedra] Kind`, Kind 1 through
 the spawn replacement and the game's Daedra lists, the summoners held back),
 medium. Every "is a walker" test gets a second answer: 16 matches in
 Rise.cpp (the definitions among them), 1 in Grab.cpp (grep 2026-11-14,
@@ -4875,7 +4883,7 @@ of what has been tested.
 
 Two smaller points of 4.22:
 - The fallback (c) for Origin=1 with no gate open: **kept** (Nadi,
-  2026-11-14), named `[Invaders] EverywhereUntilGatesOpen=0` (LINK): 1 -
+  2026-11-14), named `[Daedra] EverywhereUntilGatesOpen=0` (LINK): 1 -
   as long as no gate is open, the invaders come everywhere as with
   Origin=0; the first gate open, only out of gates. Built with step 3
   (Origin=1), its flows in that step's tests.
@@ -4894,7 +4902,7 @@ Then the call sites take the kind:
 - Each `IsWalkerRef` site asks `RulesOf(KindOf(ref))`.
 - Replace gets the Daedra lists through CategoryLogic.h's existing
   categories.
-- `[Invaders] Kind` goes into the INI and LINK, which bumps the LINK
+- `[Daedra] Kind` goes into the INI and LINK, which bumps the LINK
   version and needs a new ESP.
 
 Harness: a forced Kind=1 spawn at Tamriel -29,5. Dremora and beasts have to
@@ -5181,7 +5189,7 @@ the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
 | LINK's page with 231 variables, shown, left, written back | `tools/link-page.sh` PASS |
 | 9: the red sky over a Daedra siege - 000836D5 set at the gate, let go once over (00038EEC after) | `daedra-harness.sh siege 1` PASS |
 | 5/6 and 9 across a save: 4 standing Daedra written ('PLAC'), taken out after the load, the siege places its own again, the sky red again and let go at the end | `daedra-harness.sh siegesave 1` PASS (new `daedra-siegesave.txt`) |
-| 10: the Legion comes out against a Daedra band within LegionDistance, 7 guards, sent at the band | `daedra-harness.sh legion 2` PASS - the wrapper now sets DaedraPercent=100: the first run rolled a walker band (Mode 2, 50 %), which the Legion rightly ignored |
+| 10: the Legion comes out against a Daedra band within LegionDistance, 7 guards, sent at the band | `daedra-harness.sh legion 2` PASS - the wrapper now sets SharePercent=100: the first run rolled a walker band (Mode 2, 50 %), which the Legion rightly ignored |
 | 7: the disguise across a save: out of the factions after the load, the full set fools again (ranks 0 0); too close (200) it ends and the Dremora fights | `daedra-harness.sh daedricblow 1` (the blow itself FAILED, above) |
 | 5c: a camp's Daedra attack beaten - "the Daedra are beaten" (+1 fame, 150 gold, a thing of theirs) | `CAMP_SCENARIO=daedra tools/camp-harness.sh` PASS |
 | A held place's outpost: its Daedra and boss placed, counted off, the place cleared and taken | `tools/dungeon-walkers.sh outpost` PASS |
@@ -5189,9 +5197,9 @@ the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
 | 7: a spell ends the Daedric disguise - xOBSE's OnHit fires for a spell's hit: StandardFireDamageTouch1Novice (0004C91E) cast from OBVR's left hand on the one Dremora 60 units ahead - "Magic hit: effect FIDG" and "Hit: FF000FA6 hit by 00000014" in the same frame, "You struck one of them", out of the factions, he fights once let go. Six target bolts (35-300 units) before touched no one: the harness cannot aim a bolt, the touch spell needs no aim | `daedra-harness.sh daedricspell 1` PASS |
 | 7 in Mode 3: the walkers fooled by the Daedric set. First run: fooled (ranks 0 0), the player bitten and hit 29 times - the faction alone does not hold a walker back. Built (DisguiseLogic.h WalkersFooled, Rise.cpp WalkersFooledNow): in the set with the walkers the Daedra's allies they are held as in their own disguise - records' aggression 0, none turns on him, no grab, the fighting ones told StopCombat when the set goes on. Then: none hit or bit him in 40 s with three walkers; the helmet off, two hits (the control) | `daedra-harness.sh daedricwalkers 3` PASS (new `daedra-daedricwalkers.txt`) |
 | 7 in Mode 3, decided (Nadi, 2026-11-17: "in mode 3 greifen auch walker mich nicht an wg der vollen daedra rüstung. aber sie greifen alles andere an. und mich auch wenn ich auffliege"): the first build held the walker records' aggression at 0 while fooled, so they attacked no one - wrong. Now the player only: none turns on him, none grabs him, a walker fighting him is told StopCombat (Actor::GetCombatTarget, vtable +0x338, read twice a second; DisguiseLogic.h WalkerDropsPlayer); the records keep their aggression, the others are fought as ever; found out, the set no longer holds them. And a blow on a walker in Mode 3 gives him away as one on a Daedra does (Nadi, 2026-11-17: "ja!"; DaedricDisguiseLogic.h DaedricStruck) | `daedra-harness.sh daedricwalkers 3` PASS (a walker struck by a touch spell gives him away; then 4 attacks on him) and `daedricguard 3` PASS (fooled beside a guard: none on him, 4 hits among walkers and guard) - 2026-11-17; on the way: the rouse was blocked for every walker while fooled (the walkers' own disguise's rule), now only the player is left out |
-| Idea 1: a band breaks up when its leader falls - the leader killed by the test switch `[Invaders] TestKillLeaderSeconds` (INI only, BandLogic.h): "band 0's leader FF000FB0 is dead - 8 of them break up". **Found on the way and fixed:** the leader was placed through the Dremora rank list (LL0Dremora2Kynval100NOSUMMON), which MOO's dynamic lists rewrite in the game - placed by console it gave MOODremora0ChurlMelee4 (2316C9CA) - a Dremora of MOO's, but a Churl for a Kynval leader - and the plain list two clannfear runts; and the leader's look took any new actor near the marker, so in the first run three new actors were taken for him (10 broke up for a band of 7 and one leader; the dead in the roster afterwards were MOO's rabbits, MOORabbit02/04/06), in another a Caitiff of MOO's (MOODremora1CaitiffMelee2) for a Kynval (corrected 2026-11-18: the first note said "MOO's creatures"; the band's men through the ESP list A94 come as MOO's Dremora variants, which is fine). Now the leader and an outpost's boss are placed as one of the rank list's own actors in the file (DaedraLists.h kRankListActors, tools/daedra-lists.py; KindLogic.h LeaderActor, OutpostBossActor), and only a new actor of that base is taken for the leader | `daedra-harness.sh leader 1` PASS twice (new `daedra-leader.txt`; the leader 00000FD3, Dremora2KynvalMeleeNOSUMMON); `dungeon-walkers.sh outpost` PASS (the boss 00000FD6, a Kynreeve) - 2026-11-17 |
+| Idea 1: a band breaks up when its leader falls - the leader killed by the test switch `[Daedra] TestKillLeaderSeconds` (INI only, BandLogic.h): "band 0's leader FF000FB0 is dead - 8 of them break up". **Found on the way and fixed:** the leader was placed through the Dremora rank list (LL0Dremora2Kynval100NOSUMMON), which MOO's dynamic lists rewrite in the game - placed by console it gave MOODremora0ChurlMelee4 (2316C9CA) - a Dremora of MOO's, but a Churl for a Kynval leader - and the plain list two clannfear runts; and the leader's look took any new actor near the marker, so in the first run three new actors were taken for him (10 broke up for a band of 7 and one leader; the dead in the roster afterwards were MOO's rabbits, MOORabbit02/04/06), in another a Caitiff of MOO's (MOODremora1CaitiffMelee2) for a Kynval (corrected 2026-11-18: the first note said "MOO's creatures"; the band's men through the ESP list A94 come as MOO's Dremora variants, which is fine). Now the leader and an outpost's boss are placed as one of the rank list's own actors in the file (DaedraLists.h kRankListActors, tools/daedra-lists.py; KindLogic.h LeaderActor, OutpostBossActor), and only a new actor of that base is taken for the leader | `daedra-harness.sh leader 1` PASS twice (new `daedra-leader.txt`; the leader 00000FD3, Dremora2KynvalMeleeNOSUMMON); `dungeon-walkers.sh outpost` PASS (the boss 00000FD6, a Kynreeve) - 2026-11-17 |
 | Step 3: far bands reach their city and its siege chance rises - gate 2 held open (TestGateOpen), BandEveryHours=1, the game moved a day on every 8 s: 8 bands "reached its city from gate 2 ... Bravil", and with ChancePerDayPercent=0 and BandSiegePercent=50 "Bravil besieged - 13 Daedra (game day 403.55)" by their pressure alone | `daedra-harness.sh march 1` PASS (new `daedra-march.txt`, no test switch needed: GameDaysPassed set by console) |
-| 6: `DaedraAfterMainQuest=0` - no save after the main quest, so MQ16 completed by console (`CompleteQuest MQ16`, the flag only): "Invaders: the main quest is done - the Daedra stop", Mode 1's replacement off ("entries back to their own"); LL0Goblin100 gave scamps before, goblins (0001FCB1) after | `daedra-harness.sh mainquest 1` PASS (new `daedra-mainquest.txt`) |
+| 6: `AfterMainQuest=0` - no save after the main quest, so MQ16 completed by console (`CompleteQuest MQ16`, the flag only): "Daedra: the main quest is done - the Daedra stop", Mode 1's replacement off ("entries back to their own"); LL0Goblin100 gave scamps before, goblins (0001FCB1) after | `daedra-harness.sh mainquest 1` PASS (new `daedra-mainquest.txt`) |
 | Mode 3, whom they fight: a walker, a Churl (00000FCC) and a guard, `[Debug] CombatTrace=1` (new, CombatTraceLogic.h: each actor's combat target as it changes, four times a second). **First run FAILED:** the walker's time near the Churl ran out, the rouse set its Aggression to 100, and the engine had it fight the Churl - the faction alone does not hold a roused walker back. Built (DisguiseLogic.h WalkerMayRouseAt, WalkerDropsAlly; Rise.cpp): allied, a Daedra near never rouses a walker, and a walker fighting a Daedra is told StopCombat. Then twice: both fight the guard, never each other; the control (Mode 2): they fight each other | `daedra-harness.sh sidebyside 3` PASS twice, `sidebyside 2` PASS (new `daedra-sidebyside.txt`) |
 | 6 across a save: "Close the gate" begun, saved and loaded - "the gate quest (gate 2) written", "read - gate 2", then done (stage 20) when the gate reads shut | `daedra-harness.sh gatesave 1` PASS (new `daedra-gatesave.txt`) |
 | 5c across a save: a camp's Daedra attack saved while they fight - "the camps read - 1 attacked (1 by Daedra)" (the read's log names the Daedra now), the camp asks for 3 Daedra again before the test switch's next attack, then "the Daedra are beaten" | `CAMP_SCENARIO=daedrasave tools/camp-harness.sh` (new `camp-daedrasave.txt`; checked by its log) |
@@ -5221,7 +5229,7 @@ the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
   actors). The placed ones still standing go into the co-save ('PLAC') and
   are deleted after a load - their owner places its own again.
 - 5a: each new siege's side is rolled as a spawn's (Mode 0 walkers, 1
-  Daedra, 2/3 by DaedraPercent). A Daedra siege is smaller: [Siege]
+  Daedra, 2/3 by SharePercent). A Daedra siege is smaller: [Siege]
   DaedraMin 10 .. DaedraMax 30, DaedraAtGate 8 (1-24) at once - not in the
   plan, new keys (LINK 46). The side sits in the co-save's former pad byte.
   The gate guards come out against the plugin's Daedra too (built
@@ -5233,7 +5241,7 @@ the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
   disabled through its cell's reset). **Deviation: the shader is not the
   game's summon-end shader** - there is none to read: the summon effects
   name no shader (MGEF DATA), the EXE names only 0x144-0x146 by ID. So
-  [Invaders] BanishShader picks one, effectEnchantConjuration (0018B576).
+  [Daedra] BanishShader picks one, effectEnchantConjuration (0018B576).
   The pile is the game's own LootBag (0000000E), no ESP ID. The piles are
   in the co-save ('PILE', built 2026-11-16): read back after a load, they go
   once the player is far, as before.
@@ -5254,7 +5262,7 @@ the Dream Air's 4036x3376 at 72 Hz; the scenarios' runs under
   rewritten at run time to that gate's door (not its map marker), and a
   Message says where it lies ("north-east of Chorrol"). Done when the gate
   no longer reads open; the camps' reward. Co-save 'GATQ'.
-  `DaedraAfterMainQuest` (INI, LINK): off, MQ16 completed stops the Daedra -
+  `AfterMainQuest` (INI, LINK): off, MQ16 completed stops the Daedra -
   every new side the walkers', Mode 1's spawn replacement off.
 - IDs used: 0xA96..0xA9B (6); 0xA9C..0xAA3 free (8).
 
@@ -5283,7 +5291,7 @@ their city and raise its siege chance, step 3):
   of a city's gate brings that gate's guards out of the pool on foot, sent
   at the band's nearest Daedra (`DaedraNearGate`).
 - Idea 9, the red sky (`MarchWeatherLogic.h`, `MarchWeather.cpp`,
-  `[Invaders] MarchWeather=0`): built first for a Daedra band near the
+  `[Daedra] MarchWeather=0`): built first for a Daedra band near the
   player; **moved the same day to the sieges** (Nadi, 2026-11-16: "Idee 9,
   roter Himmel, nicht bei daedra bande sondern bei belagerung durch daedra
   der stadt", then "bau das um"): the player outdoors in Tamriel within
@@ -5339,7 +5347,7 @@ names what it takes of them.
 
 - **5, Daedra in sieges, camps and dungeons.** A Daedra siege's foes come by
   `PlaceAtMe` of the Daedra list at its start (Mode 2 and 3 mixed by
-  DaedraPercent) and are deleted at its end - no new pool. The camps' and
+  SharePercent) and are deleted at its end - no new pool. The camps' and
   the held dungeons' attacks the same way. An overrun dungeon becomes a
   Daedra outpost with a boss - a Dremora three ranks above the level - and
   **a boss chest of its own** (1-2 IDs). Idea 8: a dead Daedra goes back to
@@ -5352,7 +5360,7 @@ names what it takes of them.
   gate that feeds a city's attacks, its direction from the coordinates.
   "Close the gate" as a journal quest with the camps' reward, its target
   the gate's map marker, done when the door reads destroyed (1 ID).
-  `DaedraAfterMainQuest=0`: with the spawn replacement the Daedra stop when
+  `AfterMainQuest=0`: with the spawn replacement the Daedra stop when
   the main quest ends (with OnlyFromOblivionGates they stop anyway - the
   quest shuts every gate). Reopening gates afterwards: not built (their
   script not read, a risk to the main quest).

@@ -698,7 +698,7 @@ void TestDaedraOutpost() {
 	inv.daedraPercent = 40;
 	DungeonSite b;
 	b.state = DungeonState::Besieged;
-	Check(walkers::DungeonSideDaedra(b, inv, 39) && !walkers::DungeonSideDaedra(b, inv, 40), "a siege: by DaedraPercent");
+	Check(walkers::DungeonSideDaedra(b, inv, 39) && !walkers::DungeonSideDaedra(b, inv, 40), "a siege: by SharePercent");
 	DungeonSite r;
 	r.state = DungeonState::Refuge;
 	Check(!walkers::DungeonSideDaedra(r, inv, 0), "a refuge has no side");

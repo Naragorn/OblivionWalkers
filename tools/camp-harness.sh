@@ -22,10 +22,10 @@ elif [[ "$scenario" == leash ]]; then
 	keys='TestLeash=7\nAttackChancePercent=0'
 elif [[ "$scenario" == daedra || "$scenario" == daedrasave ]]; then
 	keys='TestCamp=7\nTestDaedra=1\nAttackWalkersMin=4\nAttackWalkersMax=4'
-	if grep -q '^\[Invaders\]' "$ini"; then
-		sed -i '0,/^\[Invaders\]\r\?$/s//[Invaders]\nBanishSeconds=5/' "$ini"
+	if grep -q '^\[Daedra\]' "$ini"; then
+		sed -i '0,/^\[Daedra\]\r\?$/s//[Daedra]\nBanishSeconds=5/' "$ini"
 	else
-		printf "\n[Invaders]\nBanishSeconds=5\n" >> "$ini"
+		printf "\n[Daedra]\nBanishSeconds=5\n" >> "$ini"
 	fi
 else
 	keys='TestCamp=7\nAttackWalkersMin=6\nAttackWalkersMax=6'

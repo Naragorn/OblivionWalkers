@@ -27,7 +27,7 @@ void ConfigureCamps(const CampSettings* settings, CampConsoleFn console, CampRol
 // The ESP's base (RiseLogic.h EspFormId), once it is known.
 void ConfigureCampsEsp(UInt32 espBase);
 
-// [Invaders] (4.22a step 5c): a camp attack's side rolled as a spawn's.
+// [Daedra] (4.22a step 5c): a camp attack's side rolled as a spawn's.
 void ConfigureCampsInvaders(const InvaderSettings* invaders);
 
 // A walker ended for good (4.17, Rise.cpp - from inside the death path, so

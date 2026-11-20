@@ -23,7 +23,7 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 // The open gates at the last look; -1 before the first.
 int OpenGateCount();
 
-// Whether the spawn replacement should be on now ([Invaders] Origin and
+// Whether the spawn replacement should be on now ([Daedra] Origin and
 // EverywhereUntilGatesOpen, BandLogic.h ReplacementOn); with the gates not
 // read yet, as if none were open.
 bool BandsWantReplacement(const BandSettings& bands);

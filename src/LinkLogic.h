@@ -39,7 +39,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 47.0;  // 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 48.0;  // 48: [Invaders] named [Daedra], its variables ini_daedra_*, DaedraPercent named SharePercent and DaedraAfterMainQuest AfterMainQuest, 2026-11-20; 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and AfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -96,7 +96,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 84, "Only a lost head ends a walker - shots, spells and fire"},
 	{68 + kReplaceCategoryCount + 91, "Ended walkers' bodies"},
 	{68 + kReplaceCategoryCount + 94, "Survivors' camps - home"},
-	{68 + kReplaceCategoryCount + 95, "Invaders from Oblivion"},
+	{68 + kReplaceCategoryCount + 95, "Daedra from Oblivion"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -487,28 +487,28 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_camps_leash", "Camps: lead strays home",
 	 "A refugee farther than this from the camp is put back there while you cannot see it or the camp (units; 70 are about 1 m). 0: never.",
 	 LinkKind::Slider, 0, 5000, 100, 0, false, LinkEffect::Live},
-	{"ini_invaders_mode", "Invaders: who comes",
+	{"ini_daedra_mode", "Daedra: who comes",
 	 "0 the walkers, 1 the Daedra in their place, 2 both at war with each other, 3 both as allies.",
 	 LinkKind::Slider, 0, 3, 1, 0, false, LinkEffect::Spawns},
-	{"ini_invaders_daedra_percent", "Invaders: Daedra share",
+	{"ini_daedra_share_percent", "Daedra: share of the spawns",
 	 "With both (2 or 3): how many of the replaced spawns are Daedra, in percent.",
 	 LinkKind::Slider, 0, 100, 5, 0, true, LinkEffect::Spawns},
-	{"ini_invaders_summons", "Invaders: summoners summon",
+	{"ini_daedra_summons", "Daedra: summoners summon",
 	 "Off: the Dremora, spider daedra and xivilai come without their summons - fewer actors, steadier frames.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
-	{"ini_invaders_only_from_oblivion_gates", "Invaders: only out of gates",
+	{"ini_daedra_only_from_oblivion_gates", "Daedra: only out of gates",
 	 "Off: they come everywhere, in place of the world's creatures. On: the world keeps its creatures, and bands march out of the open Oblivion gates toward the nearest city.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
-	{"ini_invaders_everywhere_until_gates", "Invaders: everywhere until a gate opens",
+	{"ini_daedra_everywhere_until_gates", "Daedra: everywhere until a gate opens",
 	 "With only out of gates: until the first gate opens, they come everywhere as without it.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_invaders_band_hours", "Invaders: hours between a gate's bands",
+	{"ini_daedra_band_hours", "Daedra: hours between a gate's bands",
 	 "Each open gate sends a band this often (game hours).",
 	 LinkKind::Slider, 1, 72, 1, 0, false, LinkEffect::Live},
-	{"ini_invaders_band_min", "Invaders: smallest band",
+	{"ini_daedra_band_min", "Daedra: smallest band",
 	 "The fewest in one band.",
 	 LinkKind::Slider, 1, 20, 1, 0, false, LinkEffect::Live},
-	{"ini_invaders_band_max", "Invaders: largest band",
+	{"ini_daedra_band_max", "Daedra: largest band",
 	 "The most in one band.",
 	 LinkKind::Slider, 1, 30, 1, 0, false, LinkEffect::Live},
 	{"ini_replace_keep_bosses", "Spawns: bosses stay",
@@ -532,10 +532,10 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_siege_daedra_max", "Daedra in a siege, most",
 	 "The most Daedra a Daedra siege brings.",
 	 LinkKind::Slider, 5, 300, 5, 0, false, LinkEffect::Live},
-	{"ini_invaders_banish_seconds", "Invaders: dead Daedra vanish after",
+	{"ini_daedra_banish_seconds", "Daedra: dead Daedra vanish after",
 	 "Seconds until a dead Daedra the mod brought goes back to Oblivion; its things stay in a sack. 0: the bodies stay.",
 	 LinkKind::Slider, 0, 120, 5, 0, false, LinkEffect::Live},
-	{"ini_invaders_after_main_quest", "Invaders: Daedra after the main quest",
+	{"ini_daedra_after_main_quest", "Daedra: after the main quest",
 	 "On: the Daedra keep coming once the main quest is done. Off: they stop then, and only walkers come.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Spawns},
 	{"ini_guards_legion_distance", "Guards: the Legion meets the Daedra",
@@ -550,10 +550,10 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_disguise_daedric_forget", "Disguise: the Daedra forget you after",
 	 "Seconds with no Daedra near before they forget you and the armor fools them again.",
 	 LinkKind::Slider, 0, 600, 10, 0, false, LinkEffect::Live},
-	{"ini_invaders_march_weather", "Invaders: a red sky over a Daedra siege",
+	{"ini_daedra_march_weather", "Daedra: a red sky over a Daedra siege",
 	 "On: a city the Daedra besiege lies under the Oblivion gates' red sky. It fights weather mods, so it is off by default.",
 	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
-	{"ini_invaders_march_weather_distance", "Invaders: the red sky within",
+	{"ini_daedra_march_weather_distance", "Daedra: the red sky within",
 	 "The red sky within this distance of a gate the Daedra besiege (units; 70 are about 1 m).",
 	 LinkKind::Slider, 2000, 40000, 1000, 0, false, LinkEffect::Live},
 };

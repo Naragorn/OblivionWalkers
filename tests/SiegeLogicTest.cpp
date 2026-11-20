@@ -237,7 +237,7 @@ void TestDaedraSiege() {
 	Rolls r{anvil, 4};
 	UInt32 n = walkers::StepSiegeDays(st, s, 11.0f, r, ev, 16, nullptr, &inv);
 	Check(n == 1 && st.cities[0].daedra && st.cities[0].walkersLeft == 13,
-	      "Mode 2, a side roll of 10 under DaedraPercent 50: Daedra, DaedraMin 10 + 3");
+	      "Mode 2, a side roll of 10 under SharePercent 50: Daedra, DaedraMin 10 + 3");
 	const UInt32 walkerSide[4] = {5, 0, 60, 0};
 	SiegeState st2;
 	Rolls f2{none, 0};

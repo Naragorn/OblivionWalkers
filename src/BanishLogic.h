@@ -17,7 +17,7 @@
 // The shader: the game has no summon-end shader to take - the summon effects
 // of Oblivion.esm (ZDRE, ZSCA, ZXIV, ...) name none (MGEF DATA's effect
 // shader 0, read 2026-11-16), and the EXE names only three shaders by ID
-// (0x144-0x146: absorb, reflect, life detected). So [Invaders] BanishShader
+// (0x144-0x146: absorb, reflect, life detected). So [Daedra] BanishShader
 // picks one, by default effectEnchantConjuration (0018B576), the school's
 // own.
 
@@ -30,7 +30,7 @@ inline constexpr UInt32 kLootBag = 0x0000000E;
 inline constexpr UInt32 kBanishShaderDefault = 0x0018B576;  // effectEnchantConjuration
 inline constexpr UInt32 kBanishMost = 160;
 
-// [Invaders] in OblivionWalkers.ini.
+// [Daedra] in OblivionWalkers.ini.
 struct BanishSettings {
 	float seconds = 10.0f;        // BanishSeconds: dead this long, the shader plays; 0 never banished
 	float fadeSeconds = 2.0f;     // the shader this long before the body goes

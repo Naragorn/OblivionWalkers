@@ -1,4 +1,4 @@
-# Invaders step 4 (docs/walkers-spec.md 4.22): do a walker and a Dremora
+# The Daedra, step 4 (docs/walkers-spec.md 4.22): do a walker and a Dremora
 # fight each other? The player unseen (Chameleon 100, tgm), a walker
 # (WalkersZombie1) and a Churl (LL0Dremora0Churl100NOSUMMON, 00000FE7)
 # placed 300 units before him. The rosters at the marks say who is dead;

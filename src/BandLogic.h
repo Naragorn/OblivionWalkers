@@ -1,7 +1,7 @@
 #pragma once
 
 // War bands out of the open Oblivion gates - step 3 of docs/walkers-spec.md
-// 4.22 (`[Invaders] OnlyFromOblivionGates=1`), process-free; built 2026-11-15 (Nadi: "go
+// 4.22 (`[Daedra] OnlyFromOblivionGates=1`), process-free; built 2026-11-15 (Nadi: "go
 // 1-7"), not wired into the game yet - the wiring reads the gates' flags
 // (GateLogic.h) and places a band's actors, which needs a harness run.
 //
@@ -74,12 +74,12 @@ struct BandSettings {
 	// the loaded grid of 5x5 (two cells each way, 8192), so its actors are
 	// placed into loaded cells; past the fog of a VR view in most weather.
 	float nearUnits = 6000.0f;
-	// [Invaders] TestBandSeconds (INI only, a test switch; harness
+	// [Daedra] TestBandSeconds (INI only, a test switch; harness
 	// daedra-band.txt): this many seconds after a load one band is placed
 	// before the player whatever the gates, through the same path as a Near
 	// band. 0: off.
 	float testBandSeconds = 0.0f;
-	// [Invaders] TestKillLeaderSeconds (INI only, a test switch; harness
+	// [Daedra] TestKillLeaderSeconds (INI only, a test switch; harness
 	// daedra-leader.txt): this many seconds after a band's leader was found
 	// the plugin kills him by console - the band breaks up (idea 1). 0: off.
 	float testKillLeaderSeconds = 0.0f;

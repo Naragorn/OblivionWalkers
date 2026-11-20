@@ -26,7 +26,7 @@ using walkers::InvaderKind;
 using walkers::InvaderSettings;
 
 void TestKindFromIni() {
-	std::printf("[Invaders] Kind\n");
+	std::printf("[Daedra] Kind\n");
 	Check(walkers::KindFromIni(0) == InvaderKind::Walkers && walkers::KindFromIni(1) == InvaderKind::Daedra &&
 	          walkers::KindFromIni(2) == InvaderKind::Both && walkers::KindFromIni(3) == InvaderKind::Allied,
 	      "0 the walkers, 1 the Daedra, 2 both at war, 3 both as allies");
@@ -34,7 +34,7 @@ void TestKindFromIni() {
 	      "anything else: the walkers, as without the switch");
 	InvaderSettings s;
 	Check(s.kind == InvaderKind::Walkers && s.daedraPercent == 50 && !s.summons,
-	      "defaults: Kind 0 (decided 2026-11-13), DaedraPercent 50, Summons 0 (idea 11)");
+	      "defaults: Kind 0 (decided 2026-11-13), SharePercent 50, Summons 0 (idea 11)");
 }
 
 void TestInPlay() {
@@ -102,15 +102,15 @@ void TestReplacement() {
 	      "Kind 1: a Daedra, whatever the roll");
 	s.kind = InvaderKind::Both;
 	Check(walkers::ReplacementGroup(s, 49) == Group::Daedra && walkers::ReplacementGroup(s, 50) == Group::Walker,
-	      "Kind 2, DaedraPercent 50: a roll 0..49 a Daedra, 50..99 a walker");
+	      "Kind 2, SharePercent 50: a roll 0..49 a Daedra, 50..99 a walker");
 	s.kind = InvaderKind::Allied;
 	Check(walkers::ReplacementGroup(s, 49) == Group::Daedra && walkers::ReplacementGroup(s, 50) == Group::Walker,
 	      "Kind 3: the same share");
 	s.kind = InvaderKind::Both;
 	s.daedraPercent = 0;
-	Check(walkers::ReplacementGroup(s, 0) == Group::Walker, "DaedraPercent 0: never a Daedra");
+	Check(walkers::ReplacementGroup(s, 0) == Group::Walker, "SharePercent 0: never a Daedra");
 	s.daedraPercent = 100;
-	Check(walkers::ReplacementGroup(s, 99) == Group::Daedra, "DaedraPercent 100: always a Daedra");
+	Check(walkers::ReplacementGroup(s, 99) == Group::Daedra, "SharePercent 100: always a Daedra");
 	s.daedraPercent = 250;
 	Check(walkers::ReplacementGroup(s, 99) == Group::Daedra, "above 100: as 100");
 }
@@ -247,8 +247,8 @@ void TestTwins() {
 void TestAfterMainQuest() {
 	std::printf("After the main quest (4.22a step 6)\n");
 	Check(walkers::DaedraStopped(false, 0x03) && !walkers::DaedraStopped(false, 0x01),
-	      "DaedraAfterMainQuest=0: stopped once MQ16 reads completed, not while it runs");
-	Check(!walkers::DaedraStopped(true, 0x03), "DaedraAfterMainQuest=1: never stopped");
+	      "AfterMainQuest=0: stopped once MQ16 reads completed, not while it runs");
+	Check(!walkers::DaedraStopped(true, 0x03), "AfterMainQuest=1: never stopped");
 	walkers::InvaderSettings s;
 	s.kind = walkers::InvaderKind::Both;
 	Check(walkers::InvadersNow(s, true).kind == walkers::InvaderKind::Walkers &&

@@ -1,6 +1,6 @@
 # The Legion's answer at a gate whose cell is not loaded (docs/walkers-spec.md
-# 8c, idea 10: a band near a city the player is far from). With [Invaders]
-# OnlyFromOblivionGates=1 TestBandSeconds=20, DaedraPercent=100 and [Guards]
+# 8c, idea 10: a band near a city the player is far from). With [Daedra]
+# OnlyFromOblivionGates=1 TestBandSeconds=20, SharePercent=100 and [Guards]
 # LegionDistance=24000 (tools/daedra-harness.sh legionfar) the player stands
 # 15000 units before Chorrol's South Gate (its door 0000092F), unseen - the
 # gate's cell out of the loaded grid (uGridsToLoad=5). 20 s after the load a

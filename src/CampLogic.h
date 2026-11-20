@@ -553,7 +553,7 @@ inline UInt32 Held(Camp& c, UInt32 camp, CampEvent* out, UInt32 n, UInt32 most) 
 
 // Whether an attack that begins is a Daedra one (4.22a step 5c): rolled as
 // a spawn's side is (KindLogic.h ReplacementGroup) - Mode 0 never, Mode 1
-// always, Mode 2 and 3 by DaedraPercent on `roll` (0..99).
+// always, Mode 2 and 3 by SharePercent on `roll` (0..99).
 inline bool CampAttackDaedra(const InvaderSettings& invaders, UInt32 roll) {
 	return ReplacementGroup(invaders, roll % 100) == Group::Daedra;
 }

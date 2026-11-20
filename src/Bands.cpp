@@ -471,7 +471,7 @@ void BreakUpLeaderless(DeadFn dead, LogFn log) {
 }  // namespace
 
 namespace {
-// [Invaders] TestKillLeaderSeconds (BandLogic.h): the first living leader
+// [Daedra] TestKillLeaderSeconds (BandLogic.h): the first living leader
 // killed by console that many seconds after he was found.
 void StepTestKillLeader(float elapsed, const BandSettings& bands, ConsoleFn console, LogFn log) {
 	if (bands.testKillLeaderSeconds <= 0.0f || g_killDone) {

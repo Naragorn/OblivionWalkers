@@ -112,7 +112,7 @@ inline UInt32 DisguisedAggression(bool slow, bool disguised, UInt32 own) { retur
 
 // The walkers leave the player be (4.20.1, and 4.22 idea 7 in Mode 3): in
 // their own disguise, or in the full Daedric set while the walkers are the
-// Daedra's allies ([Invaders] Mode=3, KindLogic.h WalkersJoinDaedra) - the
+// Daedra's allies ([Daedra] Mode=3, KindLogic.h WalkersJoinDaedra) - the
 // run of 2026-11-17 (daedra-daedricwalkers.txt): fooled by the set, the
 // player was bitten 29 times; the faction alone does not hold a walker back.
 // Him only: none turns on him, none grabs him, one fighting him stops

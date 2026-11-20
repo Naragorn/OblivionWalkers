@@ -4,7 +4,7 @@
 # A Daedra siege before Anvil's Castle Gate (docs/walkers-spec.md 4.22a step
 # 5a) and its dead banished (step 5b). The run's plugin INI (tools/daedra-
 # harness.sh siege) carries [Siege] TestGate=1 TestDaedra=1 DaedraMin=6
-# DaedraMax=6 DaedraAtGate=4 ChancePerDayPercent=0 and [Invaders]
+# DaedraMax=6 DaedraAtGate=4 ChancePerDayPercent=0 and [Daedra]
 # BanishSeconds=5. The player is moved before the gate (its door 00006FBA,
 # 500 units out): the placer brings 4 Daedra, killall ends them, 5 s later
 # each goes back to Oblivion and leaves a sack; 2 more come, killall ends

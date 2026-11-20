@@ -81,7 +81,7 @@ text = put(text, "Walkers", "DieOnlyBeheaded", behead)  # [Zombies] until 2026-1
 # outpost (4.22a step 5c): the walker dungeon a Daedra outpost, its dead banished after 5 s
 text = put(text, "Dungeons", "TestDaedra", "1" if mode in ("outpost", "daedrasiege", "daedrasiegesave") else "0")
 if mode in ("outpost", "daedrasiege", "daedrasiegesave"):
-    text = put(text, "Invaders", "BanishSeconds", "5")
+    text = put(text, "Daedra", "BanishSeconds", "5")
 text = put(text, "Debug", "StepTiming", "1")
 # the journal's SetStage looked inside (SamplerLogic.h): where its 20 to 40 ms go
 text = put(text, "Debug", "SampleLine", "SetStage")

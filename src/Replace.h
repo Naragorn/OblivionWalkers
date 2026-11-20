@@ -38,9 +38,9 @@ std::vector<UInt32> QuestRefIds();
 // The cell of a reference a quest names (0 none, or not named).
 UInt32 QuestRefCell(UInt32 refId);
 
-// With the Daedra in play ([Invaders] Kind 1, 2 or 3, KindLogic.h) a
+// With the Daedra in play ([Daedra] Kind 1, 2 or 3, KindLogic.h) a
 // replaced entry names the ESP's Daedra list instead (all of them with Kind
-// 1, DaedraPercent of them with 2 and 3, by each entry's stable roll), and
+// 1, SharePercent of them with 2 and 3, by each entry's stable roll), and
 // the Daedra's own categories stay the game's.
 UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const InvaderSettings& invaders,
                      const char* iniPath, bool mooLoaded, LogFn log);

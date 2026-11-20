@@ -2655,7 +2655,7 @@ void StepWalkers(float dt) {
 		}
 		if (droppedAllies > 0 && s_dropLines > 0) {
 			--s_dropLines;
-			g_log("Invaders: %u walkers fighting a Daedra told StopCombat (Mode 3: allies; %u near)", droppedAllies, count);
+			g_log("Daedra: %u walkers fighting a Daedra told StopCombat (Mode 3: allies; %u near)", droppedAllies, count);
 		}
 	}
 	UInt32 high = 0;
@@ -2865,9 +2865,9 @@ void StepNight(float dt) {
 	}
 }
 
-// The spawn replacement as it runs now: off with [Invaders] OnlyFromOblivionGates=1 while
+// The spawn replacement as it runs now: off with [Daedra] OnlyFromOblivionGates=1 while
 // the bands come out of the gates (Bands.h BandsWantReplacement).
-// [Invaders] as they stand now (4.22a step 6): with DaedraAfterMainQuest=0
+// [Daedra] as they stand now (4.22a step 6): with AfterMainQuest=0
 // the Daedra stop once MQ16 is completed - every new side the walkers'
 // (KindLogic.h InvadersNow). Read at most once a second.
 InvaderSettings g_invadersNow;
@@ -2887,7 +2887,7 @@ bool UpdateInvadersNow() {
 	g_daedraStopped = stopped;
 	g_invadersNow = InvadersNow(g_settings.invaders, stopped);
 	if (changed) {
-		g_log("Invaders: the main quest %s - the Daedra %s (DaedraAfterMainQuest=%d, Mode %u)",
+		g_log("Daedra: the main quest %s - the Daedra %s (AfterMainQuest=%d, Mode %u)",
 		      stopped ? "is done" : "is not done", stopped ? "stop: every new side the walkers'" : "come on",
 		      g_settings.invaders.afterMainQuest ? 1 : 0, static_cast<UInt32>(g_settings.invaders.kind));
 	}
@@ -2942,7 +2942,7 @@ void StepSpawns(float dt) {
 	if (wanted != g_replaceWantedLast) {
 		g_replaceWantedLast = wanted;
 		if (g_replace.enabled) {
-			g_log("Spawns: Invaders OnlyFromOblivionGates=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
+			g_log("Spawns: Daedra OnlyFromOblivionGates=%d, %d gates open - the replacement %s", g_settings.bands.origin == InvaderOrigin::Gates ? 1 : 0,
 			      OpenGateCount(), wanted ? "on" : "off");
 			ReplaceSpawns(FindEspBase(), EffectiveReplace(), g_invadersNow, g_iniPath, g_mooLoaded, g_log);
 		}

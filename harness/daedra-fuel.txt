@@ -1,4 +1,4 @@
-# Invaders step 4, the fallen as fuel (docs/walkers-spec.md 4.22 idea 2):
+# The Daedra, step 4, the fallen as fuel (docs/walkers-spec.md 4.22 idea 2):
 # with Mode 2 a person the Daedra kill rises as a walker. The player unseen
 # (Chameleon 100, tgm); a bandit (00069AD1, generic) and a Churl
 # (LL0Dremora0Churl100NOSUMMON, 00000FE7) placed 300 units before him. The

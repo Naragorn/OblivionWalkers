@@ -24,7 +24,7 @@ EXPECTED = {
     "Dungeons": "OnlyChosen",
     "News": "Courier",
     "Grab": "Enabled",
-    "Invaders": "Mode",
+    "Daedra": "Mode",
     "Debug": "StepTiming",
 }
 

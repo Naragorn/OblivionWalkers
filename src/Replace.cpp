@@ -983,7 +983,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	const UInt32 daedraList = espList(InvaderDaedraLocalId(invaders));
 	const bool daedraInPlay = InPlay(invaders.kind, Group::Daedra);
 	if (daedraInPlay && daedraList == 0) {
-		log("Spawns: Invaders Mode=%u, but %08X is no leveled creature list (an older ESP) - no Daedra in the lists",
+		log("Spawns: Daedra Mode=%u, but %08X is no leveled creature list (an older ESP) - no Daedra in the lists",
 		    static_cast<UInt32>(invaders.kind), EspFormId(espBase, InvaderDaedraLocalId(invaders)));
 	}
 	const auto ours = [&](UInt32 form) {
@@ -1137,7 +1137,7 @@ UInt32 ReplaceSpawns(UInt32 espBase, const ReplaceSettings& settings, const Inva
 	    forms, lists, settings.enabled ? 1 : 0, walkerEntries, listsTouched, replaced, restored,
 	    static_cast<UInt32>(g_known.size()), on);
 	if (invaders.kind != InvaderKind::Walkers) {
-		log("Spawns: Invaders Mode=%u DaedraPercent=%u Summons=%d - %u entries point at the Daedra (%08X), %u entries "
+		log("Spawns: Daedra Mode=%u SharePercent=%u Summons=%d - %u entries point at the Daedra (%08X), %u entries "
 		    "of the Daedra's own categories stay the game's",
 		    static_cast<UInt32>(invaders.kind), invaders.daedraPercent, invaders.summons ? 1 : 0, daedraEntries,
 		    daedraList != 0 ? FormIdOf(daedraList) : 0u, daedraKept);
@@ -1251,7 +1251,7 @@ std::unordered_map<UInt32, UInt32> g_alliedNode;
 void SetWalkersAllied(const UInt32* walkerIds, UInt32 count, bool allied, LogFn log) {
 	const UInt32 faction = LookupForm(kDaedraFaction);
 	if (!LooksLikeObject(faction)) {
-		log("Invaders: DaedraFaction %08X not found - the walkers keep their factions", kDaedraFaction);
+		log("Daedra: DaedraFaction %08X not found - the walkers keep their factions", kDaedraFaction);
 		return;
 	}
 	using AllocateFn = void*(__cdecl*)(UInt32 size);
@@ -1319,7 +1319,7 @@ void SetWalkersAllied(const UInt32* walkerIds, UInt32 count, bool allied, LogFn 
 			++left;
 		}
 	}
-	log("Invaders: the walkers %s DaedraFaction (%08X) - %u records joined, %u left, %u members already",
+	log("Daedra: the walkers %s DaedraFaction (%08X) - %u records joined, %u left, %u members already",
 	    allied ? "join" : "keep out of", kDaedraFaction, joined, left, already);
 }
 

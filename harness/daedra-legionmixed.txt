@@ -1,5 +1,5 @@
 # The Legion beside walkers at the same gate (docs/walkers-spec.md 8c, idea
-# 10): as daedra-legion.txt - Mode 2 (DaedraPercent=100: the band is
+# 10): as daedra-legion.txt - Mode 2 (SharePercent=100: the band is
 # Daedra), OnlyFromOblivionGates=1, TestBandSeconds=20, LegionDistance=16000,
 # the player 5000 units before Anvil's Castle Gate, unseen - and four
 # walkers (WalkersZombie1) placed 2500 units before him at the band's time.

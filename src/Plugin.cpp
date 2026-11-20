@@ -261,32 +261,32 @@ bool ReadSettings(walkers::Settings* settings) {
 		const int others = IniInt("Walkers", "OthersKillsEndPercent", 100, path);
 		rise.end.othersEndPercent = static_cast<UInt32>(others < 0 ? 0 : (others > 100 ? 100 : others));
 	}
-	// 4.22 [Invaders] (KindLogic.h): the spawn replacement and the rise follow it.
-	rise.invaders.kind = walkers::KindFromIni(IniInt("Invaders", "Mode", 0, path));
-	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Invaders", "DaedraPercent", 50, path)))));
-	rise.invaders.summons = IniInt("Invaders", "Summons", 0, path) != 0;
-	rise.invaders.afterMainQuest = IniInt("Invaders", "DaedraAfterMainQuest", 0, path) != 0;
-	rise.march.enabled = IniInt("Invaders", "MarchWeather", 0, path) != 0;
-	rise.march.units = std::max(0.0f, IniFloat("Invaders", "MarchWeatherDistance", 12000.0f, path));
+	// 4.22 [Daedra] (KindLogic.h): the spawn replacement and the rise follow it.
+	rise.invaders.kind = walkers::KindFromIni(IniInt("Daedra", "Mode", 0, path));
+	rise.invaders.daedraPercent = static_cast<UInt32>(std::max(0, std::min(100, static_cast<int>(IniInt("Daedra", "SharePercent", 50, path)))));
+	rise.invaders.summons = IniInt("Daedra", "Summons", 0, path) != 0;
+	rise.invaders.afterMainQuest = IniInt("Daedra", "AfterMainQuest", 0, path) != 0;
+	rise.march.enabled = IniInt("Daedra", "MarchWeather", 0, path) != 0;
+	rise.march.units = std::max(0.0f, IniFloat("Daedra", "MarchWeatherDistance", 12000.0f, path));
 	// 4.22 step 3 (BandLogic.h): only out of the open gates, and the bands.
-	rise.bands.origin = walkers::OriginFromIni(IniInt("Invaders", "OnlyFromOblivionGates", 0, path));
-	rise.bands.everywhereUntilGatesOpen = IniInt("Invaders", "EverywhereUntilGatesOpen", 0, path) != 0;
-	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(IniInt("Invaders", "BandEveryHours", 12, path)))));
-	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(IniInt("Invaders", "BandSizeMin", 4, path)))));
-	rise.bands.sizeMax = static_cast<UInt32>(std::max(1, std::min(30, static_cast<int>(IniInt("Invaders", "BandSizeMax", 9, path)))));
-	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegePercent", 5, path)))));
-	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(IniInt("Invaders", "BandSiegeFadePerDay", 5, path)))));
-	rise.bands.testBandSeconds = static_cast<float>(IniInt("Invaders", "TestBandSeconds", 0, path));
-	rise.bands.testKillLeaderSeconds = static_cast<float>(IniInt("Invaders", "TestKillLeaderSeconds", 0, path));
-	rise.bands.testGateOpen = static_cast<int>(IniInt("Invaders", "TestGateOpen", -1, path));
-	rise.bands.testGateOpenSeconds = static_cast<float>(IniInt("Invaders", "TestGateOpenSeconds", 0, path));
+	rise.bands.origin = walkers::OriginFromIni(IniInt("Daedra", "OnlyFromOblivionGates", 0, path));
+	rise.bands.everywhereUntilGatesOpen = IniInt("Daedra", "EverywhereUntilGatesOpen", 0, path) != 0;
+	rise.bands.everyHours = static_cast<float>(std::max(1, std::min(72, static_cast<int>(IniInt("Daedra", "BandEveryHours", 12, path)))));
+	rise.bands.sizeMin = static_cast<UInt32>(std::max(1, std::min(20, static_cast<int>(IniInt("Daedra", "BandSizeMin", 4, path)))));
+	rise.bands.sizeMax = static_cast<UInt32>(std::max(1, std::min(30, static_cast<int>(IniInt("Daedra", "BandSizeMax", 9, path)))));
+	rise.bands.siegePercentPerBand = static_cast<UInt32>(std::max(0, std::min(50, static_cast<int>(IniInt("Daedra", "BandSiegePercent", 5, path)))));
+	rise.bands.siegeFadePercentPerDay = static_cast<float>(std::max(0, std::min(50, static_cast<int>(IniInt("Daedra", "BandSiegeFadePerDay", 5, path)))));
+	rise.bands.testBandSeconds = static_cast<float>(IniInt("Daedra", "TestBandSeconds", 0, path));
+	rise.bands.testKillLeaderSeconds = static_cast<float>(IniInt("Daedra", "TestKillLeaderSeconds", 0, path));
+	rise.bands.testGateOpen = static_cast<int>(IniInt("Daedra", "TestGateOpen", -1, path));
+	rise.bands.testGateOpenSeconds = static_cast<float>(IniInt("Daedra", "TestGateOpenSeconds", 0, path));
 	// 4.22a step 5b: the plugin's dead Daedra back to Oblivion.
-	rise.banish.seconds = static_cast<float>(std::max(0, std::min(600, static_cast<int>(IniInt("Invaders", "BanishSeconds", 10, path)))));
+	rise.banish.seconds = static_cast<float>(std::max(0, std::min(600, static_cast<int>(IniInt("Daedra", "BanishSeconds", 10, path)))));
 	char shader[16] = {};
-	IniString("Invaders", "BanishShader", "0018B576", shader, sizeof(shader), path);
+	IniString("Daedra", "BanishShader", "0018B576", shader, sizeof(shader), path);
 	rise.banish.shader = static_cast<UInt32>(std::strtoul(shader, nullptr, 16));
 	rise.banish.shader = rise.banish.shader != 0 ? rise.banish.shader : walkers::kBanishShaderDefault;
-	rise.bands.bandsMost = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kBandsMost), static_cast<int>(IniInt("Invaders", "BandsMost", 32, path)))));
+	rise.bands.bandsMost = static_cast<UInt32>(std::max(1, std::min(static_cast<int>(walkers::kBandsMost), static_cast<int>(IniInt("Daedra", "BandsMost", 32, path)))));
 	rise.headshots.arrows = IniInt("Headshots", "Arrows", 1, path) != 0;
 	rise.headshots.bolts = IniInt("Headshots", "Bolts", 1, path) != 0;
 	rise.headshots.headRadius = IniFloat("Headshots", "HeadRadius", 30.0f, path);

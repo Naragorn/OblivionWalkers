@@ -48,7 +48,7 @@ void TestTable() {
 	}
 	Check(kLinkSettingCount == 231,
 	      "231 settings: the 26 agreed, NoLevelingXP, NoSkillGain, the grab's three, the struggle's four, the 31 "
-	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and DaedraAfterMainQuest, LegionDistance, the Daedric disguise's three, the marching weather's two - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
+	      "advanced ones, the VR shake's two, the 45 replacement categories, 4.17's three, the siege's seven, the grab's reach and lunge, NoRiseInCities and RaiseAtHome, the night's six, the noise's three, the camps' fifteen, the camps' count, the grab's shock sound, the slow aggression's five, KeepQuestLists, the camps' things and the escort's five, OthersEndPercent, the disguise's two, EscortIntoCity, the gates' waiting three, the slow aggression's calm time, the dungeons' OnlyChosen, the held dungeons' sixteen, WalkersAtOnce, Journal, Rumors, MessengerHours, Beds and WalkersOutsidePercent, the headshots' seven, the corpses' three and the camps' LeashUnits, the invaders' three, their Origin and the gates' four bands', the boss guard's three, the held dungeons' NewPlacesWithin, the Daedra sieges' three, BanishSeconds and AfterMainQuest, LegionDistance, the Daedric disguise's three, the marching weather's two - every INI setting but BandsMost, the boss words, Name, CampSpacingUnits, the corpses' LogSeconds, "
 	      "StruggleControl, the lists and the test and proof switches");
 	bool categories = walkers::kLinkCategoryFirst == 68;
 	for (UInt32 k = 0; k < walkers::kReplaceCategoryCount; ++k) {
@@ -534,7 +534,7 @@ void TestFiles() {
 	          iniText.find("set Walkers.ini_speed_multiplier to 100\r\n") != std::string::npos &&
 	          iniText.find("set Walkers.ini_night_speed to 130\r\n") != std::string::npos,
 	      "the INI: a set line per setting, the plugin INI's values (LINK's defaults button)");
-	Check(iniText.find("set Walkers.ini_version to 47\r\n") != std::string::npos, "and the version last");
+	Check(iniText.find("set Walkers.ini_version to 48\r\n") != std::string::npos, "and the version last");
 	const UInt32 cfg = walkers::LinkCfgText(text, sizeof(text));
 	const std::string cfgText(text, cfg);
 	Check(cfg > 0 && cfgText.find("set LINK.cfg_setting_name to sv_Construct \"Walkers.ini_health_percent\"") !=
@@ -666,13 +666,13 @@ void TestInvaders() {
 	std::printf("The invaders' three in LINK (4.22 step 1, 2026-11-15)\n");
 	walkers::RiseSettings rise;
 	walkers::ReplaceSettings replace;
-	const int kind = IndexOf("ini_invaders_mode");
-	const int share = IndexOf("ini_invaders_daedra_percent");
-	const int summons = IndexOf("ini_invaders_summons");
+	const int kind = IndexOf("ini_daedra_mode");
+	const int share = IndexOf("ini_daedra_share_percent");
+	const int summons = IndexOf("ini_daedra_summons");
 	Check(kind == 208 && share == 209 && summons == 210, "three at the table's end, 208 to 210");
 	Check(walkers::LinkValue(rise, replace, kind) == 0.0 && walkers::LinkValue(rise, replace, share) == 50.0 &&
 	          walkers::LinkValue(rise, replace, summons) == 0.0,
-	      "the INI's defaults: Kind 0, DaedraPercent 50, Summons 0");
+	      "the INI's defaults: Kind 0, SharePercent 50, Summons 0");
 	Check(walkers::SetLinkValue(rise, replace, kind, 2.0) && rise.invaders.kind == walkers::InvaderKind::Both &&
 	          walkers::LinkValue(rise, replace, kind) == 2.0,
 	      "Kind 2 from the menu: both, read back as 2");
@@ -686,11 +686,11 @@ void TestInvaders() {
 	          kLinkSettings[share].effect == walkers::LinkEffect::Spawns &&
 	          kLinkSettings[summons].effect == walkers::LinkEffect::Spawns,
 	      "all three change the spawns: the lists written anew");
-	const int origin = IndexOf("ini_invaders_only_from_oblivion_gates");
-	const int until = IndexOf("ini_invaders_everywhere_until_gates");
-	const int hours = IndexOf("ini_invaders_band_hours");
-	const int smallest = IndexOf("ini_invaders_band_min");
-	const int largest = IndexOf("ini_invaders_band_max");
+	const int origin = IndexOf("ini_daedra_only_from_oblivion_gates");
+	const int until = IndexOf("ini_daedra_everywhere_until_gates");
+	const int hours = IndexOf("ini_daedra_band_hours");
+	const int smallest = IndexOf("ini_daedra_band_min");
+	const int largest = IndexOf("ini_daedra_band_max");
 	Check(origin == 211 && until == 212 && hours == 213 && smallest == 214 && largest == 215,
 	      "the gates' five after them, 211 to 215");
 	Check(walkers::LinkValue(rise, replace, origin) == 0.0 && walkers::LinkValue(rise, replace, until) == 0.0 &&
@@ -722,8 +722,8 @@ void TestInvaders() {
 	const int daedric = IndexOf("ini_disguise_daedric");
 	const int nearer = IndexOf("ini_disguise_daedric_near");
 	const int forget = IndexOf("ini_disguise_daedric_forget");
-	const int march = IndexOf("ini_invaders_march_weather");
-	const int marchUnits = IndexOf("ini_invaders_march_weather_distance");
+	const int march = IndexOf("ini_daedra_march_weather");
+	const int marchUnits = IndexOf("ini_daedra_march_weather_distance");
 	Check(legion == 225 && daedric == 226 && nearer == 227 && forget == 228 && march == 229 && marchUnits == 230,
 	      "4.22 ideas 10, 7 and 9 after them, 225 to 230");
 	Check(walkers::LinkValue(rise, replace, legion) == 16000.0 && walkers::LinkValue(rise, replace, daedric) == 1.0 &&
@@ -742,7 +742,7 @@ void TestInvaders() {
 		live = live && kLinkSettings[i].effect == walkers::LinkEffect::Live;
 	}
 	Check(live, "all six read live");
-	Check(walkers::kLinkVersion == 47.0, "the version 47");
+	Check(walkers::kLinkVersion == 48.0, "the version 48 ([Daedra], 2026-11-20)");
 }
 
 void TestPageTest() {

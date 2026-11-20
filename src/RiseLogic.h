@@ -189,13 +189,13 @@ struct RiseSettings {
 	CorpseSettings corpses;
 	// [Night] (4.20.5, NightLogic.h): nights are worse.
 	NightSettings night;
-	// [Invaders] (4.22, KindLogic.h): who comes - the spawn replacement and
+	// [Daedra] (4.22, KindLogic.h): who comes - the spawn replacement and
 	// the rise follow it.
 	InvaderSettings invaders;
-	// [Invaders] Origin and the bands out of the gates (4.22 step 3,
+	// [Daedra] Origin and the bands out of the gates (4.22 step 3,
 	// BandLogic.h).
 	BandSettings bands;
-	// [Invaders] BanishSeconds, BanishShader (4.22a step 5b, BanishLogic.h):
+	// [Daedra] BanishSeconds, BanishShader (4.22a step 5b, BanishLogic.h):
 	// the plugin's dead Daedra back to Oblivion.
 	BanishSettings banish;
 	// [Survivors] (4.20.6, CampLogic.h): the survivors' camps.
@@ -207,7 +207,7 @@ struct RiseSettings {
 	DisguiseSettings disguise;
 	// 4.22 idea 7: the Daedric disguise ([Disguise] Daedric...).
 	DaedricSettings daedric;
-	// 4.22 idea 9: the marching weather ([Invaders] MarchWeather...).
+	// 4.22 idea 9: the marching weather ([Daedra] MarchWeather...).
 	MarchWeatherSettings march;
 	// [Dungeons] OnlyChosen (4.20.7; Nadi, 2026-11-13: the player chooses,
 	// all candidates the default): 1 keeps the chosen dungeons only.
@@ -600,7 +600,7 @@ enum class DeathVerdict : UInt8 {
 	HeadOff,          // OBVR cut his head off: no walker with a head from him
 	InCity,           // NoRiseInCities=1 and he fell in a city's streets
 	ListFull,         // kWaitingMost references wait already
-	NotForInvaders,   // [Invaders] Kind: no walkers in play (1), or a Daedra fell (4.22 MayRise)
+	NotForInvaders,   // [Daedra] Kind: no walkers in play (1), or a Daedra fell (4.22 MayRise)
 };
 
 inline const char* VerdictText(DeathVerdict verdict) {
@@ -632,7 +632,7 @@ inline const char* VerdictText(DeathVerdict verdict) {
 		case DeathVerdict::ListFull:
 			return "stays down (the waiting list is full)";
 		case DeathVerdict::NotForInvaders:
-			return "stays down (Invaders Mode: no walkers, or a Daedra)";
+			return "stays down (Daedra Mode: no walkers, or a Daedra)";
 	}
 	return "?";
 }

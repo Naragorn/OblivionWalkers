@@ -1,10 +1,10 @@
 #pragma once
 
-// Invaders from Oblivion, step 1 - the kind's rules, process-free
+// Daedra from Oblivion, step 1 - the kind's rules, process-free
 // (docs/walkers-spec.md 4.22; Nadi, 2026-11-13: "0 zombies, 1 Dremora, 2
 // both", decided the same day; built 2026-11-15, not wired in yet).
 //
-// `[Invaders] Mode` (named Kind until 2026-11-16, Nadi: a better key) says
+// `[Daedra] Mode` (named Kind until 2026-11-16, Nadi: a better key) says
 // which groups are in play: 0 the walkers as they
 // are, 1 the Daedra in their place, 2 both at war with each other, 3 both
 // as allies (Nadi, 2026-11-15: walkers and Daedra friends, the fallen rise
@@ -37,12 +37,12 @@ inline constexpr UInt32 kGameDaedraList = 0x00034097;
 inline constexpr UInt32 kInvaderDaedraLocalId = 0xA93;
 inline constexpr UInt32 kInvaderDaedraNoSummonLocalId = 0xA94;
 
-// [Invaders] in OblivionWalkers.ini.
+// [Daedra] in OblivionWalkers.ini.
 struct InvaderSettings {
 	InvaderKind kind = InvaderKind::Walkers;  // Kind: 0 by default (decided 2026-11-13)
-	UInt32 daedraPercent = 50;                 // DaedraPercent: Kind 2's share of the replaced spawns
+	UInt32 daedraPercent = 50;                 // SharePercent: Kind 2's share of the replaced spawns
 	bool summons = false;                      // Summons: the summoners keep their summons (idea 11, off)
-	bool afterMainQuest = false;               // DaedraAfterMainQuest (step 6): off - they stop with the main quest
+	bool afterMainQuest = false;               // AfterMainQuest (step 6): off - they stop with the main quest
 };
 
 // The INI's number; anything but 1, 2 and 3 is the walkers - as without
@@ -147,7 +147,7 @@ inline UInt32 InvaderDaedraLocalId(const InvaderSettings& s) {
 
 // A stable roll 0..99 for one list entry, from its address (ListData): the
 // same entry takes the same group at every pass of a session, so a LINK
-// change of DaedraPercent moves only the entries it must.
+// change of SharePercent moves only the entries it must.
 inline UInt32 EntryRoll(UInt32 entryAddress) {
 	UInt32 h = entryAddress * 2654435761u;
 	h ^= h >> 16;
@@ -214,7 +214,7 @@ inline UInt32 OutpostBossActor(const InvaderSettings& s, UInt32 level, UInt32 ro
 	return RankListActor(OutpostBossList(s, level), roll);
 }
 
-// [Invaders] DaedraAfterMainQuest (4.22a step 6): off (0, the default), the
+// [Daedra] AfterMainQuest (4.22a step 6): off (0, the default), the
 // Daedra stop once the main quest is done - Oblivion.esm's MQ16 (0002A38F)
 // completed (TESQuest::questFlags +0x3C, bit 1). From then on every new
 // side is the walkers' (sieges, camp attacks, held places, bands); the

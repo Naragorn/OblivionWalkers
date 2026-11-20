@@ -55,7 +55,7 @@ void ConfigureMarchWeather(const MarchWeatherSettings* settings, ConsoleFn conso
 	g_console = console;
 	g_dead = dead;
 	g_log = log;
-	log("March weather: [Invaders] MarchWeather=%d MarchWeatherDistance=%.0f (the sky %08X)", settings->enabled ? 1 : 0,
+	log("March weather: [Daedra] MarchWeather=%d MarchWeatherDistance=%.0f (the sky %08X)", settings->enabled ? 1 : 0,
 	    settings->units, kMarchWeatherForm);
 }
 

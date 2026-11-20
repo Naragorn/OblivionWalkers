@@ -1,5 +1,5 @@
-# Invaders from Oblivion, step 1 (docs/walkers-spec.md 4.22): with
-# [Invaders] Mode=1 a replaced leveled-list entry names the ESP's
+# Daedra from Oblivion, step 1 (docs/walkers-spec.md 4.22): with
+# [Daedra] Mode=1 a replaced leveled-list entry names the ESP's
 # WalkersInvaderDaedraNoSummon (A94) instead of the walkers' variant list -
 # the Daedra in the walkers' place, by the player's level, the summoners as
 # their NOSUMMON twins (Summons=0).
@@ -8,8 +8,8 @@
 # goblins only) three times. Replaced with Mode=1, the roster ("HandScript:
 # actors") at the counted mark holds no goblin (0001FCB1, 00084B29) and no
 # walker; the plugin's log (checked by tools/daedra-harness.sh) says
-# "Spawns: Invaders Mode=1 ... entries point at the Daedra". The kill at
-# the end: nobody rises ("stays down (Invaders Mode ...)" or no rise line).
+# "Spawns: Daedra Mode=1 ... entries point at the Daedra". The kill at
+# the end: nobody rises ("stays down (Daedra Mode ...)" or no rise line).
 #
 # Runs through tools/daedra-harness.sh spawn (sets Kind in the INI, puts it
 # back).

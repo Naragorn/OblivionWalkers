@@ -1,4 +1,4 @@
-# Invaders: a war band outlives a save and a load, with its leader
+# Daedra: a war band outlives a save and a load, with its leader
 # (docs/walkers-spec.md 4.22 steps 2 and 3; Nadi, 2026-11-16: "go 1 2").
 # Mode 1, OnlyFromOblivionGates=1, TestBandSeconds=20 (set by
 # tools/daedra-harness.sh save): the band placed 20 s after the load, its

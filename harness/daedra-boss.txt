@@ -1,6 +1,6 @@
 # The boss guard (docs/walkers-spec.md 8c): Oblivion.esm's LL1GoblinBossLvl100
 # (000340BA), a boss list, is kept from the walkers' replacement - placed
-# three times outdoors at cow Tamriel -3 3 with [Invaders] Mode 0 (the
+# three times outdoors at cow Tamriel -3 3 with [Daedra] Mode 0 (the
 # walkers' replacement on). MOO's dynamic lists rewrite the list in the game
 # to its region list MOOLL2RegionGoblin (empty in the TestingHall, so
 # outdoors); the guard points it at a clean copy (BossCopyLogic.h). The

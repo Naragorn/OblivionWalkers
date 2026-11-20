@@ -38,7 +38,7 @@ struct SiegeSettings {
 	UInt32 walkersMax = 120;
 	float pauseDays = 3.0f;
 	float guardKillsPerHour = 2.0f;  // while the player is away
-	// A Daedra siege (4.22a step 5a; [Invaders] Mode 1-3 roll each siege's
+	// A Daedra siege (4.22a step 5a; [Daedra] Mode 1-3 roll each siege's
 	// side as the spawns do): fewer, each worth more - placed by PlaceAtMe
 	// when the player comes, deleted when he leaves or it ends.
 	UInt32 daedraAtGate = 8;  // before the gate at once, held to 1..24
@@ -53,7 +53,7 @@ struct SiegeSettings {
 	// GetLockLevel logged every 5 s, with the player's cell (0: never).
 	UInt32 testReadDoor = 0;
 	// Test switch (harness/siege-daedra.txt): TestGate's siege a Daedra one
-	// of DaedraMin, whatever [Invaders] Mode.
+	// of DaedraMin, whatever [Daedra] Mode.
 	bool testDaedra = false;
 };
 

@@ -33,7 +33,7 @@ struct GateQuest {
 enum class GateQuestAction : UInt8 { None, Start, Done };
 
 struct GateQuestLook {
-	bool daedraInPlay = false;  // [Invaders] Mode 1-3, not stopped
+	bool daedraInPlay = false;  // [Daedra] Mode 1-3, not stopped
 	bool heard = false;         // the rumor's global set
 	bool gateOpen = false;      // the quest's gate still open
 	int nearestOpen = -1;       // the open gate nearest the player, -1 none
