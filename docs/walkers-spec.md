@@ -5746,6 +5746,17 @@ and pushed with its unit flows, the harness where it shows in the game):**
 7. *Told* - news, rumors and the journal name the nearest hotspot (as the
    held places, 4.20.7a A).
 
+Progress (2026-11-20): steps 1-6 built and committed (47ad572, 97201c7,
+7cea85c + b70da06, cb62d70 onboarding page 4, e3c1416, e4fff04, 7318ba3),
+unit flows green (50 tests); none of 3-6 run in the game yet - their
+harness runs (tools/necro-harness.sh hotspot, band, teams, rise) wait for a
+slot on the Linux game. Step 7 not begun. Not covered by the build so far:
+a Daedra that fights a necromancer is not stopped (only he lets go); the
+risen near the necromancers are free walkers, of no team; with the
+necromancers alone the held places' sieges and walker dungeons are the
+free walkers' (no team); [Dungeons] Enabled=0 leaves the realms numbers
+only.
+
 Mine, for the build (not asked; changed on a word): a hotspot holds
 `WalkersMin`..`WalkersMax` walkers, default 16 to 30 (the held walker
 dungeons' 8 to 16 doubled - "full of walkers"); a boss holds `RealmMost`
