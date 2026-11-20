@@ -2,8 +2,9 @@
 # (docs/walkers-spec.md 4.23 B, decided 12), run by tools/necro-harness.sh
 # daedra: [Daedra] Mode=2, the necromancers alone otherwise, one boss at
 # Toadstool Hollow (TestHome) with 2 walkers, TestFight=daedra. The player
-# goes in; once the necromancer is placed a Dremora (LL0Dremora0Churl100,
-# Oblivion.esm 00092DA6) is put down by the player; the plugin brings it to
+# goes in; once the necromancer is placed a Dremora (0001E5EF, the one
+# LL0Dremora0Churl100 gave on 2026-11-20 - the list gave none on its second
+# run) is put down by the player; the plugin brings it to
 # the necromancer and sets the two on each other. Twice a second both must be
 # told to let go (StopCombat). DieOnlyBeheaded=0: a fight that goes on
 # kills one of them. The roster at "after" must hold both alive.
@@ -17,7 +18,7 @@ console-at ready set timescale to 0
 console-at ready set gamehour to 12
 console-at ready player.setav chameleon 100
 console-at inside coc ToadstoolHollow
-console-at placed player.placeatme 00092DA6 1
+console-at placed player.placeatme 0001E5EF 1
 
 expect HandScript: finished
 reject HandScript: WARNING
