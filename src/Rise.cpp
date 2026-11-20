@@ -817,6 +817,15 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 			}
 		}
 	}
+	// 4.23 B step 6: without the apocalypse the dead rise only near the
+	// necromancers - in or near one of their places, or killed by theirs.
+	if (g_settings.invaders.necromancers && LooksLikeObject(ref)) {
+		bool inPlace = false;
+		const float distance = NearestNecroPlace(ref, inPlace);
+		const UInt32 killer = reinterpret_cast<UInt32>(arg1);
+		const bool byTheirs = LooksLikeObject(killer) && NecroTeamed(FormIdOf(killer));
+		fallen.nearNecro = NearNecromancers(inPlace, distance, g_settings.necro.riseWithin, byTheirs);
+	}
 	if (IsGateGuard(fallen.refId)) {
 		g_log("Death: gate guard %08X fell (killer %08X) - its pool sends the next and raises it when none is left",
 		      fallen.refId, FormIdOf(reinterpret_cast<UInt32>(arg1)));

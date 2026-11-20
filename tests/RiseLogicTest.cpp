@@ -189,6 +189,30 @@ void TestInvaderKinds() {
 	Check(std::strcmp(walkers::VerdictText(DeathVerdict::NotForInvaders), "?") != 0, "the verdict has its text");
 	Check(walkers::IsDremoraRace(0x00038010) && !walkers::IsDremoraRace(0x00000907), "the Dremora race, by its ID");
 	Check(!walkers::IsDremoraRace(0x0003E9A6), "DremoraFaction's ID is no race (the old check's mistake)");
+	// 4.23 B step 6 (decided 10): the necromancers on, no apocalypse - the dead rise only near them.
+	settings.invaders.necromancers = true;
+	const walkers::WalkersMode below[] = {walkers::WalkersMode::Off, walkers::WalkersMode::Zombies};
+	for (const walkers::WalkersMode w : below) {
+		settings.invaders.walkers = w;
+		walkers::WaitingList list;
+		walkers::Fallen far = Bandit(0xFF000D01);
+		walkers::Fallen near = Bandit(0xFF000D02);
+		near.nearNecro = true;
+		walkers::Fallen dremoraNear = dremora;
+		dremoraNear.nearNecro = true;
+		Check(walkers::NoteDeath(list, settings, far, 0, 0.0f) == DeathVerdict::FarFromNecromancers &&
+		          walkers::NoteDeath(list, settings, near, 0, 0.0f) == DeathVerdict::Waits &&
+		          walkers::NoteDeath(list, settings, dremoraNear, 0, 0.0f) == DeathVerdict::NotForInvaders,
+		      w == walkers::WalkersMode::Off ? "the necromancers alone: a bandit far stays down, one near rises, a Dremora never"
+		                                     : "the zombies and the necromancers: the same");
+	}
+	settings.invaders.walkers = walkers::WalkersMode::Apocalypse;
+	walkers::WaitingList everywhere;
+	Check(walkers::NoteDeath(everywhere, settings, Bandit(0xFF000D03), 0, 0.0f) == DeathVerdict::Waits,
+	      "with the apocalypse beside them: the dead rise everywhere as ever");
+	Check(std::strstr(walkers::VerdictText(DeathVerdict::FarFromNecromancers), "only near the necromancers") != nullptr,
+	      "its own verdict text");
+	settings.invaders.necromancers = false;
 }
 
 void TestTick() {

@@ -1821,6 +1821,37 @@ UInt32 DungeonPoolAtNecro(UInt32* refIds, UInt32 most, int& boss) {
 	return n;
 }
 
+float NearestNecroPlace(UInt32 actor, bool& inPlace) {
+	inPlace = false;
+	const UInt32 cell = LooksLikeObject(actor) ? Read(actor + kRefParentCellOffset) : 0;
+	if (!LooksLikeObject(cell)) {
+		return -1.0f;
+	}
+	const UInt32 cellId = FormIdOf(cell);
+	const bool interior = (Read8(cell + kCellFlagsOffset) & 1) != 0;
+	const float x = FloatAt(actor + kRefPositionOffset);
+	const float y = FloatAt(actor + kRefPositionOffset + 4);
+	float best = -1.0f;
+	for (UInt32 i = 0; i < g_sites.count; ++i) {
+		const DungeonSite& d = g_sites.sites[i];
+		if (d.necro == 0 || d.candidate >= kDungeonCandidateCount) {
+			continue;
+		}
+		const DungeonCandidate& c = kDungeonCandidates[d.candidate];
+		for (UInt32 k = 0; k < c.cellCount && k < kDungeonCellsMost; ++k) {
+			if (c.cells[k] != 0 && c.cells[k] == cellId) {
+				inPlace = true;
+				return 0.0f;
+			}
+		}
+		if (!interior) {
+			const float dist = std::hypot(x - c.x, y - c.y);
+			best = best < 0.0f || dist < best ? dist : best;
+		}
+	}
+	return best;
+}
+
 UInt32 NecroBossPlacedNow(int& boss) {
 	boss = -1;
 	const int site = g_necroBoss != 0 && g_necroCandidate >= 0 ? SiteOfCandidate(g_sites, static_cast<UInt32>(g_necroCandidate)) : -1;

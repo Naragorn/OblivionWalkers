@@ -132,7 +132,19 @@ inline constexpr GroupRules RulesOf(Group group) {
 // Whether one fallen gets up as a walker: only with the apocalypse (4.24:
 // Walkers Mode 1 raises nobody), never a Daedra; the Daedra's kills rise
 // too (idea 2; Nadi 2026-11-15 for allies).
-inline bool MayRise(const InvaderSettings& s, bool fallenIsDaedra) { return !fallenIsDaedra && Apocalypse(s); }
+// 4.23 B step 6 (decided 10): without the apocalypse, with the necromancers
+// on, the dead rise only near them - within RiseWithin of one of their
+// places' doors (or in it), or killed by one of their walkers (`nearNecro`).
+inline bool MayRise(const InvaderSettings& s, bool fallenIsDaedra, bool nearNecro = false) {
+	return !fallenIsDaedra && (Apocalypse(s) || (s.necromancers && nearNecro));
+}
+
+// The rise near the necromancers (step 6): in one of their places (`inPlace`),
+// within `within` of a door of theirs (`distance`, -1 none known), or killed
+// by one of their walkers.
+inline bool NearNecromancers(bool inPlace, float distance, float within, bool killedByTheirs) {
+	return inPlace || killedByTheirs || (distance >= 0.0f && distance <= within);
+}
 
 // The group a replaced spawn goes to, or none (4.22, 4.24). `daedraEverywhere`:
 // [Daedra] EverywhereUntilGatesOpen with no gate open (BandLogic.h) - the only

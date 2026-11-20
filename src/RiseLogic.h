@@ -514,6 +514,7 @@ struct Fallen {
 	bool headOff = false;       // OBVR cut his head off before the death (EndLogic.h HeadNotes)
 	bool inCity = false;        // he fell in a city's streets (IsCityWorldspace)
 	bool daedra = false;        // a Dremora (IsDremoraRace): never a walker, whatever the kind (4.22)
+	bool nearNecro = false;     // near a necromancer's place or killed by his walkers (4.23 B step 6)
 };
 
 // Oblivion.esm's Dremora race (00038010, RACE "Dremora", read 2026-11-16;
@@ -609,7 +610,8 @@ enum class DeathVerdict : UInt8 {
 	InCity,           // NoRiseInCities=1 and he fell in a city's streets
 	ListFull,         // kWaitingMost references wait already
 	NotForInvaders,   // [Walkers] Mode 0: no walkers, or a Daedra fell (4.22, 4.24 MayRise)
-	ZombiesOnly,      // [Walkers] Mode 1: the game's zombies only - the dead do not rise (4.24)
+	ZombiesOnly,          // [Walkers] Mode 1: the game's zombies only - the dead do not rise (4.24)
+	FarFromNecromancers,  // 4.23 B step 6: no apocalypse, the necromancers on, far from them
 };
 
 inline const char* VerdictText(DeathVerdict verdict) {
@@ -644,6 +646,8 @@ inline const char* VerdictText(DeathVerdict verdict) {
 			return "stays down (Walkers Mode 0: no walkers, or a Daedra fell)";
 		case DeathVerdict::ZombiesOnly:
 			return "stays down (Walkers Mode 1: the game's zombies only)";
+		case DeathVerdict::FarFromNecromancers:
+			return "stays down (no apocalypse: the dead rise only near the necromancers, RiseWithin)";
 	}
 	return "?";
 }
@@ -709,8 +713,12 @@ inline DeathVerdict NoteDeath(WaitingList& list, const RiseSettings& settings, c
 	if (fallen.essential) {
 		return DeathVerdict::Essential;
 	}
-	if (!MayRise(settings.invaders, fallen.daedra)) {
-		// A Daedra never rises; otherwise it is the walkers' switch: 0 none, 1 only the zombies.
+	if (!MayRise(settings.invaders, fallen.daedra, fallen.nearNecro)) {
+		// A Daedra never rises; with the necromancers the dead far from them stay down;
+		// otherwise it is the walkers' switch: 0 none, 1 only the zombies.
+		if (!fallen.daedra && settings.invaders.necromancers) {
+			return DeathVerdict::FarFromNecromancers;
+		}
 		return fallen.daedra || settings.invaders.walkers == WalkersMode::Off ? DeathVerdict::NotForInvaders
 		                                                                     : DeathVerdict::ZombiesOnly;
 	}

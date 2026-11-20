@@ -90,6 +90,22 @@ void TestDerivedKind() {
 	      "a side exists with the apocalypse or a Daedra mode - the zombies are no side");
 }
 
+void TestNearNecromancers() {
+	std::printf("The rise near the necromancers (4.23 B step 6)\n");
+	walkers::InvaderSettings necro = With(WalkersMode::Off, DaedraMode::Off);
+	necro.necromancers = true;
+	Check(walkers::MayRise(necro, false, true) && !walkers::MayRise(necro, false, false),
+	      "the necromancers alone: near them the dead rise, far they do not");
+	Check(!walkers::MayRise(necro, true, true), "a Daedra never");
+	Check(!walkers::MayRise(With(WalkersMode::Off, DaedraMode::Off), false, true), "without the necromancers: nobody");
+	Check(walkers::MayRise(With(WalkersMode::Apocalypse, DaedraMode::Off), false, false), "the apocalypse: everywhere");
+	Check(walkers::NearNecromancers(true, -1.0f, 8000.0f, false), "in one of their places: near");
+	Check(walkers::NearNecromancers(false, 8000.0f, 8000.0f, false) && !walkers::NearNecromancers(false, 8001.0f, 8000.0f, false),
+	      "within RiseWithin of a door: near; past it: not");
+	Check(walkers::NearNecromancers(false, -1.0f, 8000.0f, true), "killed by one of their walkers: near, wherever");
+	Check(!walkers::NearNecromancers(false, -1.0f, 8000.0f, false), "no place known, not theirs: not");
+}
+
 void TestInPlay() {
 	std::printf("Which group is in play\n");
 	Check(walkers::InPlay(InvaderKind::Walkers, Group::Walker) && !walkers::InPlay(InvaderKind::Walkers, Group::Daedra),
@@ -397,6 +413,7 @@ int main() {
 	TestSwitches();
 	TestDerivedKind();
 	TestInPlay();
+	TestNearNecromancers();
 	TestHostility();
 	TestRules();
 	TestRise();
