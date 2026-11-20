@@ -5823,6 +5823,11 @@ Wege mit eigenen Harness-Läufen prüfen"; 9c8d346, c833add):
   the stop: an access violation in Oblivion.exe+25D2 (a heap pool's
   allocation) on the loader's thread loading MagicEffects\fireShield.NIF,
   OBNG 68e6b3c2 in the game; not reproduced, cause unknown (told OBNG).
+  OBNG's reading of it: the pool allocator unlinking a free 12-byte block
+  whose link words were overwritten (mov [edx],ecx, edx 6EFEF8A0; the block
+  at 1DF25808 held {0, 6EFEF8A0}) - a write into freed memory by someone
+  earlier, not the model being loaded; OBNG's new routes were off in that
+  run. If it comes again: keep the crash log and that run's OBNG.log.
   Regression whocomes apocalypse PASS. Deployed 047e0345 to both games.
   The faction for him is not built; it stays the fallback if he and the
   Daedra are seen fighting in play.
