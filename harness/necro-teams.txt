@@ -1,7 +1,8 @@
 # Two necromancers' teams meet (docs/walkers-spec.md 4.23 B, build step 5),
 # run by tools/necro-harness.sh teams: the necromancers alone,
 # TestBandsSeconds=3 - two bands of 3 walkers, of teams 1 and 2 (enemies by
-# the default Teams), come near the player from the same side. Twice a
+# the default Teams), come near the player from the same side once he stands
+# outside (the harness save is indoors; moved before Toadstool Hollow's door). Twice a
 # second the plugin sets a team's walker that is not fighting on the nearest
 # enemy team's within 1500 units (StartCombat); DieOnlyBeheaded=0, so they
 # die of it. The roster at "fought" against "met" shows the dead.
@@ -13,6 +14,7 @@ ini SelfCheck ShowPanel=0
 console-at ready tgm
 console-at ready set timescale to 0
 console-at ready player.setav chameleon 100
+console-at ready player.moveto 00015243
 
 expect HandScript: finished
 reject HandScript: WARNING
@@ -22,7 +24,7 @@ wait 1
 mark ready
 wait 14
 mark met
-wait 25
+wait 45
 mark fought
 wait 2
 mark end

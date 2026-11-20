@@ -28,6 +28,7 @@ constexpr UInt32 kGameDaysPassedId = 0x00000039;
 constexpr UInt32 kRefBaseOffset = 0x1C;
 constexpr UInt32 kNpcLevelOffset = 0x24 + 0x0E;  // TESActorBaseData's level (Camps.cpp)
 constexpr UInt32 kVariantLocalId = 0x805;  // the walkers' list (Replace.cpp)
+constexpr UInt32 kAnyWalkerLocalId = 0x94A;  // one walker a pick (ReplaceLogic.h kAnyWalkerLocalId)
 constexpr float kStepSeconds = 1.0f;
 // A member is one of ours when it stands this near the marker the second
 // after the PlaceAtMe and was not there before.
@@ -311,8 +312,10 @@ void StepPlacing(const InvaderSettings& invaders, ConsoleFn console, LogFn log) 
 			g_placing.size = e.size;
 			g_placing.gate = e.gate;
 			g_placing.team = e.team;
-			// a gate's band is Daedra; a necromancer's the walkers' list (Replace.cpp's)
-			g_placing.list = e.team != 0 ? EspFormId(g_espBase, kVariantLocalId) : BandList(invaders);
+			// a gate's band is Daedra; a necromancer's one walker a pick: WalkersAnyWalker
+			// (the variant list 0x805 gives up to MaxCount each - 3 asked came as 15,
+			// necro-band 2026-11-20)
+			g_placing.list = e.team != 0 ? EspFormId(g_espBase, kAnyWalkerLocalId) : BandList(invaders);
 			g_placing.daedra = e.team == 0;
 			g_placing.band = g_nextBand++;
 			std::snprintf(line, sizeof(line), "MoveTo player %.0f %.0f %.0f", g_placing.dx, g_placing.dy, dz);

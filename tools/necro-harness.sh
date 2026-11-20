@@ -121,8 +121,15 @@ if scenario == "teams":
     came = show(find(r"Bands: a band of 3 walkers \(a necromancer's, team (\d+)\) comes near"))
     teams = {re.search(r"team (\d+)", l).group(1) for l in came}
     check(len(teams) == 2, "both placed, two teams (%s)" % sorted(teams))
-    set_on = show(find(r"Necromancers: teams - \d+ of theirs near; \d+ told StopCombat .*, (\d+) set on"))
-    check(any(int(re.search(r"(\d+) set on", l).group(1)) >= 1 for l in set_on), "set on an enemy team's (StartCombat)")
+    looks = show(find(r"Necromancers: teams - \d+ of theirs near; \d+ told StopCombat .*, (\d+) set on .*; (\d+) fight an enemy team's"), 3)
+    fights = [(int(re.search(r"(\d+) set on", l).group(1)), int(re.search(r"(\d+) fight an enemy team's", l).group(1))) for l in looks]
+    # set on by the plugin, or at it on their own (measured 2026-11-20: the engine had them fight at once)
+    check(any(s >= 1 or e >= 2 for s, e in fights), "the two teams fight each other (%s)" % fights[:4])
+    dead = sum(int(n) for n in re.findall(r"2B000[89A][0-9A-F]{2} x\d+ \(dead (\d+)\)", roster.get("fought", "")))
+    near = [int(re.search(r"teams - (\d+) of theirs near", l).group(1)) for l in looks]
+    # the dead lie in the roster or are gone from it (the bodies taken away)
+    check(dead >= 1 or (near and max(near) - near[-1] >= 1),
+          "walkers dead of it (dead at 'fought' %d; of theirs near %s)" % (dead, near))
     def walkers_at(mark):
         bases = re.findall(r"\b([0-9A-F]{8}) x(\d+)", roster.get(mark, ""))
         return sum(int(n) for b, n in bases if re.match(r"2B000[89A][0-9A-F]{2}$", b))

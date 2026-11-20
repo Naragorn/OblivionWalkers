@@ -247,8 +247,9 @@ void StepNecroInGame(float dt, LogFn log) {
 			g_testBandsDone = true;
 			const UInt8 a = g_state.count > 0 ? g_state.bosses[0].team : 1;
 			const UInt8 b = g_state.count > 1 ? g_state.bosses[1].team : static_cast<UInt8>(a == 1 ? 2 : 1);
-			QueueWalkerBand(px + 10000.0f, py, 3, a);
-			QueueWalkerBand(px + 10000.0f, py, 3, b);
+			// 3500 units off: past the bands' least distance (3000), inside the loaded cells
+			QueueWalkerBand(px + 3500.0f, py, 3, a);
+			QueueWalkerBand(px + 3500.0f, py, 3, b);
 			log("Necromancers: test - TestBandsSeconds=%.0f: two bands of 3, teams %u and %u, near you from the same side",
 			    g_testBandsSeconds, a, b);
 		}
@@ -428,12 +429,19 @@ void StepNecroTeams(float dt, LogFn log) {
 	const bool daedraAllies = g_invaders->daedra == DaedraMode::Allies;
 	UInt32 stopped = 0;
 	UInt32 set = 0;
+	UInt32 atEnemy = 0;  // fighting an enemy team's, left to it
+	UInt32 atOther = 0;  // fighting the living or the player
 	for (UInt32 i = 0; i < n; ++i) {
 		const bool fighting = ActorInCombat(f[i].id);
 		const UInt32 target = fighting ? ActorCombatTargetId(f[i].id) : 0;
+		if (fighting && (target == 0 || target == kPlayerId)) {
+			++atOther;
+		}
 		if (fighting && target != 0 && target != kPlayerId) {
 			bool known = false;
 			const UInt8 theirs = TeamOfTarget(target, f, n, known);
+			atEnemy += known && !NecroFightStops(f[i].team, theirs) ? 1u : 0u;
+			atOther += known ? 0u : 1u;
 			const bool daedra = !known && f[i].boss && daedraAllies && IsDaedraActor(LookupForm(target));
 			if (((known && NecroFightStops(f[i].team, theirs)) || daedra) && g_console(f[i].actor, "StopCombat")) {
 				++stopped;
@@ -461,11 +469,16 @@ void StepNecroTeams(float dt, LogFn log) {
 			}
 		}
 	}
-	if ((stopped > 0 || set > 0) && g_teamLogsLeft > 0) {
+	// A line when the plugin acted, and one every 5 s while any of theirs is near.
+	static float s_lookClock = 0.0f;
+	s_lookClock += 0.5f;
+	const bool look = n > 0 && s_lookClock >= 5.0f;
+	if ((stopped > 0 || set > 0 || look) && g_teamLogsLeft > 0) {
 		--g_teamLogsLeft;
+		s_lookClock = 0.0f;
 		log("Necromancers: teams - %u of theirs near; %u told StopCombat (an ally, a free walker or a Daedra of "
-		    "Daedra Mode 2), %u set on an enemy team's",
-		    n, stopped, set);
+		    "Daedra Mode 2), %u set on an enemy team's; %u fight an enemy team's, %u the living or the player",
+		    n, stopped, set, atEnemy, atOther);
 	}
 }
 
