@@ -62,6 +62,8 @@ struct CitySiege {
 	UInt8 gate = 0;          // kCityGates row
 	UInt8 lockedByUs = 0;    // bit 0 the Tamriel-side door, bit 1 the city-side one
 	bool daedra = false;     // Daedra besiege it (step 5a), not walkers
+	UInt8 team = 0;          // 4.23 B decided 13: a necromancers' team's walkers besiege it (0: the free walkers')
+	UInt8 bosses = 0;        // how many necromancers of that team joined
 	UInt32 walkersLeft = 0;
 	float tollFrom = -1.0f;  // the game day the guards' toll is counted from
 	float pauseUntil = -1.0f;
@@ -112,6 +114,8 @@ inline UInt32 Daedra(const SiegeSettings& s, UInt32 roll) {
 inline void Begin(CitySiege& c, UInt32 gate, UInt32 walkers, float now, bool daedra = false) {
 	c.active = true;
 	c.daedra = daedra;
+	c.team = 0;
+	c.bosses = 0;
 	c.gate = static_cast<UInt8>(gate);
 	c.lockedByUs = 0;
 	c.walkersLeft = walkers;
@@ -132,6 +136,34 @@ inline UInt32 End(CitySiege& c, UInt32 city, const SiegeSettings& s, float now, 
 inline bool Paused(const CitySiege& c, float now) { return c.pauseUntil >= 0.0f && now < c.pauseUntil; }
 
 }  // namespace siege_detail
+
+// Whether a city may be besieged now: none on, its pause after the last over.
+inline bool SiegeOpen(const CitySiege& c, float now) { return !c.active && !siege_detail::Paused(c, now); }
+
+// 4.23 B decided 13 (Nadi, 2026-11-20: "Belagerung durch einzelne oder Teams
+// des Nekromanten"): `bosses` necromancers of `team` besiege the city of gate
+// row `gate` - the gate their bands reached; for each of them a draw of
+// WalkersMin..WalkersMax. False when the city is not open, [Siege]
+// Enabled=0, no such gate or nobody.
+template <typename RollFn>
+bool BeginNecroSiege(SiegeState& st, const SiegeSettings& s, UInt32 gate, UInt8 team, UInt32 bosses, float now,
+                     RollFn& roll) {
+	if (!s.enabled || gate >= kCityGateCount || bosses == 0 || team == 0) {
+		return false;
+	}
+	CitySiege& c = st.cities[static_cast<UInt32>(kCityGates[gate].city)];
+	if (!SiegeOpen(c, now)) {
+		return false;
+	}
+	UInt32 walkers = 0;
+	for (UInt32 b = 0; b < bosses; ++b) {
+		walkers += siege_detail::Walkers(s, roll());
+	}
+	siege_detail::Begin(c, gate, walkers, now);
+	c.team = team;
+	c.bosses = static_cast<UInt8>(bosses);
+	return true;
+}
 
 // Once a frame or a second with game day `now`: a new whole day rolls each
 // city not besieged nor paused once - however many days went by - by
@@ -313,9 +345,11 @@ inline bool UnlocksDoor(const CitySiege& c, UInt32 door) { return door <= 1 && (
 // 2026-11-16: 0 walkers, 1 Daedra - an older save reads walkers), the walkers left, the
 // toll's day and the pause's end (floats as their bits).
 inline constexpr UInt32 kSiegeRecordType = 0x53494547;  // 'SIEG'
-inline constexpr UInt32 kSiegeRecordVersion = 1;
-inline constexpr UInt32 kSiegeCityBytes = 16;
+inline constexpr UInt32 kSiegeRecordVersion = 2;  // 2: a necromancers' team and how many (4.23 B)
+inline constexpr UInt32 kSiegeCityBytes = 20;
 inline constexpr UInt32 kSiegeImageBytes = 4 + kSiegeCities * kSiegeCityBytes;
+inline constexpr UInt32 kSiegeCityBytesV1 = 16;
+inline constexpr UInt32 kSiegeImageBytesV1 = 4 + kSiegeCities * kSiegeCityBytesV1;
 
 namespace siege_detail {
 
@@ -348,20 +382,30 @@ inline UInt32 SiegeImage(const SiegeState& st, UInt8* out, UInt32 capacity) {
 		Put32(at + 4, c.walkersLeft);
 		Put32(at + 8, siege_detail::Bits(c.tollFrom));
 		Put32(at + 12, siege_detail::Bits(c.pauseUntil));
+		at[16] = c.team;
+		at[17] = c.bosses;
+		at[18] = 0;
+		at[19] = 0;
 	}
 	return kSiegeImageBytes;
 }
 
-// `st` emptied first; false when too short (nothing read then).
+// `st` emptied first; false when too short (nothing read then). A version 1
+// image (16 bytes a city, no team) reads as the free walkers' sieges.
 inline bool ReadSiegeImage(SiegeState& st, const UInt8* in, UInt32 length) {
 	st = SiegeState{};
-	if (length < kSiegeImageBytes) {
+	if (length < kSiegeImageBytesV1) {
 		return false;
 	}
+	const UInt32 stride = length >= kSiegeImageBytes ? kSiegeCityBytes : kSiegeCityBytesV1;
 	st.lastDay = static_cast<int>(Get32(in));
 	for (UInt32 i = 0; i < kSiegeCities; ++i) {
 		CitySiege& c = st.cities[i];
-		const UInt8* at = in + 4 + i * kSiegeCityBytes;
+		const UInt8* at = in + 4 + i * stride;
+		if (stride == kSiegeCityBytes) {
+			c.team = at[16];
+			c.bosses = at[17];
+		}
 		c.active = at[0] != 0 && at[1] < kCityGateCount;
 		c.gate = at[1] < kCityGateCount ? at[1] : 0;
 		c.lockedByUs = static_cast<UInt8>(at[2] & 3);

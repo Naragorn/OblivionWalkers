@@ -150,6 +150,15 @@ void TestHomes() {
 	bool empty[kCount] = {};
 	Rolls r6{first, 1};
 	Check(walkers::PickNecroHomes(kPlaces, kCount, empty, 3, r6, homes) == 0, "no free place: no home");
+	// [Necromancers] TestHome: the first home given, the others by the rule
+	AllFree(free);
+	Rolls r7{first, 1};
+	n = walkers::PickNecroHomes(kPlaces, kCount, free, 2, r7, homes, 2);
+	Check(n == 2 && homes[0] == 2 && homes[1] != 2 && r7.at == 1, "the first home given (C), no roll for it; the next by the rule");
+	free[2] = false;
+	Rolls r8{first, 1};
+	n = walkers::PickNecroHomes(kPlaces, kCount, free, 1, r8, homes, 2);
+	Check(n == 1 && homes[0] == 0, "the given one not free: the first at random as ever");
 }
 
 void TestStart() {
@@ -350,6 +359,9 @@ void TestImage() {
 	bands.bands[1].size = 9;
 	bands.bands[1].x = -1234.5f;
 	bands.bands[1].y = 6789.25f;
+	st.siegeDay = 6;
+	st.siegePoints[2][1] = 35.5f;
+	st.siegeGate[2] = 5;
 	UInt8 image[walkers::kNecroImageBytes];
 	Check(walkers::NecroImage(st, bands, image, sizeof image) == walkers::kNecroImageBytes, "written whole");
 	NecroState back;
@@ -363,6 +375,13 @@ void TestImage() {
 	          back.bosses[2].places == 4 && std::fabs(back.bosses[2].bandCarry - 0.75f) < 1e-6f &&
 	          std::fabs(back.bosses[0].bandFrom - 2.5f) < 1e-6f && std::fabs(back.comeBackAt - 12.0f) < 1e-6f,
 	      "every field as it was");
+	Check(back.siegeDay == 6 && std::fabs(back.siegePoints[2][1] - 35.5f) < 1e-6f && back.siegeGate[2] == 5,
+	      "their siege points with it (version 3)");
+	NecroState v2;
+	walkers::NecroBands v2Bands;
+	Check(walkers::ReadNecroImage(v2, v2Bands, image, walkers::kNecroImageBytesV2, 91) && v2.count == 3 &&
+	          v2Bands.count == 2 && v2.siegeDay == -1 && v2.siegePoints[2][1] == 0.0f,
+	      "a version 2 image (no siege points): the realms read, the points none");
 	NecroState shorter;
 	walkers::NecroBands shorterBands;
 	shorterBands.count = 3;
@@ -447,6 +466,84 @@ void TestTeamsFight() {
 	Check(!walkers::NecroDaedraLetGo(true, true, false), "the necromancer against one not a Daedra: fights on");
 }
 
+void TestSieges() {
+	std::printf("Their sieges: one necromancer or his allies, or none (decided 13)\n");
+	using walkers::NecroSiege;
+	walkers::NecroSettings s;  // SiegeJoinPercent 50
+	NecroState st = Rose(3, 1.0f);
+	st.bosses[1].team = 1;  // bosses 0 and 1 allies (team 1), boss 2 team 3
+	const bool open[walkers::kNecroCities] = {true, true, true, true, true, true, true, true};
+	NecroSiege out[4];
+	const UInt32 none[] = {0};
+	Rolls zero{none, 1};
+	Check(walkers::NecroSiegesDue(st, s, 1.2f, open, zero, out, 4) == 0 && st.siegeDay == 1, "the first look: the day noted, nothing");
+	// boss 0's band reached Bruma (city 2) at its East Gate (row 4): 50 points
+	walkers::NecroBandArrived(st, 0, 2, 4, 50.0f);
+	walkers::NecroBandArrived(st, 0, 2, 4, 70.0f);
+	Check(std::fabs(st.siegePoints[2][0] - 100.0f) < 1e-4f && st.siegeGate[2] == 4, "points add up to 100 at most, the gate kept");
+	Check(walkers::NecroSiegesDue(st, s, 1.9f, open, zero, out, 4) == 0, "the same day: nothing");
+	// a new day: the roll 0 < 100 - besieged; boss 1 (his ally, no band there) joins at the roll 0 < 50
+	const UInt32 join[] = {0, 0, 0};
+	Rolls j{join, 3};
+	UInt32 n = walkers::NecroSiegesDue(st, s, 2.1f, open, j, out, 4);
+	Check(n == 1 && out[0].city == 2 && out[0].gate == 4 && out[0].team == 1 && out[0].bossMask == 3 && out[0].bosses == 2,
+	      "team 1 besieges Bruma at the gate its band reached: boss 0, and his ally joins - together");
+	Check(st.siegePoints[2][0] == 0.0f, "the points spent");
+	// alone: the ally does not join (roll 60 >= 50)
+	walkers::NecroBandArrived(st, 0, 2, 4, 100.0f);
+	const UInt32 alone[] = {0, 0, 60};
+	Rolls a{alone, 3};
+	n = walkers::NecroSiegesDue(st, s, 3.1f, open, a, out, 4);
+	Check(n == 1 && out[0].bossMask == 1 && out[0].bosses == 1, "alone: his ally stays home");
+	// both marched: both besiege, whatever the join roll
+	walkers::NecroBandArrived(st, 0, 2, 4, 30.0f);
+	walkers::NecroBandArrived(st, 1, 2, 5, 30.0f);
+	const UInt32 both[] = {0, 0, 99};
+	Rolls b{both, 3};
+	n = walkers::NecroSiegesDue(st, s, 4.1f, open, b, out, 4);
+	Check(n == 1 && out[0].bossMask == 3 && out[0].gate == 5, "both marched there: both besiege, 30 + 30 points, the last gate reached");
+	// none: the roll above the points
+	walkers::NecroBandArrived(st, 0, 2, 4, 10.0f);
+	const UInt32 miss[] = {0, 50};
+	Rolls m{miss, 2};
+	Check(walkers::NecroSiegesDue(st, s, 5.1f, open, m, out, 4) == 0 && st.siegePoints[2][0] > 0.0f,
+	      "not at all: the roll 50 above 10 points - the points stay");
+	// a city not open (besieged or pausing): none, the points stay
+	bool shut[walkers::kNecroCities] = {true, true, false, true, true, true, true, true};
+	Rolls z2{none, 1};
+	Check(walkers::NecroSiegesDue(st, s, 6.1f, shut, z2, out, 4) == 0 && st.siegePoints[2][0] > 0.0f, "Bruma besieged already: none");
+	// the dead: no points of theirs count, none of them joins
+	NecroState d = Rose(2, 1.0f);
+	d.bosses[1].team = 1;
+	d.siegeDay = 1;
+	walkers::NecroBandArrived(d, 1, 2, 4, 100.0f);
+	d.bosses[1].alive = false;
+	Rolls z3{none, 1};
+	Check(walkers::NecroSiegesDue(d, s, 2.5f, open, z3, out, 4) == 0, "a fallen necromancer's points: no siege");
+	walkers::NecroBandArrived(d, 0, 2, 4, 100.0f);
+	s.siegeJoinPercent = 100;
+	const UInt32 all[] = {0, 0, 0};
+	Rolls al{all, 3};
+	n = walkers::NecroSiegesDue(d, s, 3.5f, open, al, out, 4);
+	Check(n == 1 && out[0].bossMask == 1, "a fallen ally never joins");
+	// two teams at one city: one siege a day there
+	NecroState two = Rose(2, 1.0f);  // teams 1 and 2
+	two.siegeDay = 1;
+	walkers::NecroBandArrived(two, 0, 2, 4, 100.0f);
+	walkers::NecroBandArrived(two, 1, 2, 5, 100.0f);
+	const UInt32 zeros[] = {0, 0, 0, 0, 0, 0};
+	Rolls zs{zeros, 6};
+	Check(walkers::NecroSiegesDue(two, s, 2.5f, open, zs, out, 4) == 1, "two enemy teams before Bruma: one siege, one team");
+	// the points fade
+	NecroState f = Rose(1, 1.0f);
+	walkers::NecroBandArrived(f, 0, 3, 6, 20.0f);
+	walkers::NecroSiegeFade(f, 2.0f, 5.0f);
+	Check(std::fabs(f.siegePoints[3][0] - 10.0f) < 1e-4f, "BandSiegeFadePerDay 5 over two days: 20 down to 10");
+	walkers::NecroSiegeFade(f, 10.0f, 5.0f);
+	Check(f.siegePoints[3][0] == 0.0f, "never below none");
+	Check(walkers::NecroCityOfGate(4) == 2 && walkers::NecroCityOfGate(0) == 0, "a gate row's city");
+}
+
 void TestTestFight() {
 	std::printf("The harness's TestFight switch (INI only)\n");
 	Check(walkers::ParseNecroTestFight("") == walkers::NecroTestFight::Off &&
@@ -523,6 +620,7 @@ int main() {
 	TestTeamsFight();
 	TestBandsMeet();
 	TestTestFight();
+	TestSieges();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

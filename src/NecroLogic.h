@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "Bytes.h"
+#include "CityGates.h"
 #include "DungeonLogic.h"
 #include "DungeonSiteLogic.h"
 #include "Types.h"
@@ -43,6 +44,7 @@ struct NecroSettings {
 	UInt32 walkersMin = 16;         // WalkersMin: a hotspot's walkers
 	UInt32 walkersMax = 30;         // WalkersMax
 	UInt32 realmMost = 6;           // RealmMost: a boss's places, his home among them
+	UInt32 siegeJoinPercent = 50;   // SiegeJoinPercent: an ally whose bands did not march there joins a siege
 	// A band's pace on the map and where it comes into the world: the gates'
 	// bands' (BandLogic.h BandSettings unitsPerHour, nearUnits; not in the INI).
 	float bandUnitsPerHour = 10000.0f;
@@ -100,11 +102,21 @@ struct NecroBoss {
 	UInt8 places = 0;        // the places of his realm, his home among them
 };
 
+// The cities (CityGates.h City::Count) a siege is laid to.
+inline constexpr UInt32 kNecroCities = static_cast<UInt32>(City::Count);
+
 struct NecroState {
 	NecroBoss bosses[kNecroBossesMost];
 	UInt32 count = 0;          // risen in this set
 	float comeBackAt = -1.0f;  // all fell: the game day a new set rises; -1 none due
 	bool over = false;         // all fell with ComeBack=0
+	// Decided 13, their sieges: each boss's points at each city, raised by his
+	// bands that reached it (BandSiegePercent a band, 100 at most), fading by
+	// BandSiegeFadePerDay; the gate row a band of theirs reached last; the
+	// last whole game day rolled for, -1 none yet.
+	float siegePoints[kNecroCities][kNecroBossesMost] = {};
+	UInt8 siegeGate[kNecroCities] = {};
+	int siegeDay = -1;
 };
 
 enum class NecroEventKind : UInt8 { Rose, BandDue, PlaceDue, Fell, AllFell, CameBack };
@@ -190,11 +202,12 @@ inline UInt32 NecroBandSize(const NecroSettings& s, UInt32 roll) {
 }
 
 // Up to `want` homes among the places `free` (in the pool, no site there):
-// the first at random, each next among the kNecroFarthestFew free places
-// farthest from their nearest home taken (read 3). Returns how many.
+// the first at random - or `firstHome` when given and free ([Necromancers]
+// TestHome) - each next among the kNecroFarthestFew free places farthest
+// from their nearest home taken (read 3). Returns how many.
 template <typename RollFn>
 UInt32 PickNecroHomes(const DungeonCandidate* all, UInt32 count, const bool* free, UInt32 want, RollFn& roll,
-                      UInt16* out) {
+                      UInt16* out, int firstHome = -1) {
 	if (want > kNecroBossesMost) {
 		want = kNecroBossesMost;
 	}
@@ -206,11 +219,15 @@ UInt32 PickNecroHomes(const DungeonCandidate* all, UInt32 count, const bool* fre
 	if (freeCount == 0 || want == 0) {
 		return 0;
 	}
-	const UInt32 first = roll() % freeCount;
-	for (UInt32 c = 0, seen = 0; c < count; ++c) {
-		if (free[c] && seen++ == first) {
-			out[n++] = static_cast<UInt16>(c);
-			break;
+	if (firstHome >= 0 && static_cast<UInt32>(firstHome) < count && free[firstHome]) {
+		out[n++] = static_cast<UInt16>(firstHome);
+	} else {
+		const UInt32 first = roll() % freeCount;
+		for (UInt32 c = 0, seen = 0; c < count; ++c) {
+			if (free[c] && seen++ == first) {
+				out[n++] = static_cast<UInt16>(c);
+				break;
+			}
 		}
 	}
 	while (n < want) {
@@ -295,11 +312,11 @@ namespace necro_detail {
 
 template <typename RollFn>
 UInt32 Rise(NecroState& st, const NecroSettings& s, const DungeonCandidate* all, UInt32 count, const bool* free,
-            float now, RollFn& roll, NecroEvent* out, UInt32 n, UInt32 most, bool comeBack) {
+            float now, RollFn& roll, NecroEvent* out, UInt32 n, UInt32 most, bool comeBack, int firstHome) {
 	UInt32 want = dungeon_detail::Between(s.bossesMin, s.bossesMax, roll());
 	want = want == 0 ? 1u : (want > kNecroBossesMost ? kNecroBossesMost : want);
 	UInt16 homes[kNecroBossesMost] = {};
-	const UInt32 picked = PickNecroHomes(all, count, free, want, roll, homes);
+	const UInt32 picked = PickNecroHomes(all, count, free, want, roll, homes, firstHome);
 	if (picked == 0) {
 		return n;  // no free place: tried again at the next step
 	}
@@ -330,20 +347,21 @@ UInt32 Rise(NecroState& st, const NecroSettings& s, const DungeonCandidate* all,
 // after the last fall, ComeBack), and for every living boss the bands and the
 // new place due. `free`: the places in the pool with no site there. Returns
 // the events; the caller sends the bands, takes the places
-// (NecroPlaceTaken) and places the hotspots.
+// (NecroPlaceTaken) and places the hotspots. `firstHome`: the first set's
+// first home ([Necromancers] TestHome), -1 at random.
 template <typename RollFn>
 UInt32 StepNecromancers(NecroState& st, const NecroSettings& s, const DungeonCandidate* all, UInt32 count,
-                        const bool* free, float now, RollFn& roll, NecroEvent* out, UInt32 most) {
+                        const bool* free, float now, RollFn& roll, NecroEvent* out, UInt32 most, int firstHome = -1) {
 	if (!s.on || st.over) {
 		return 0;
 	}
 	UInt32 n = 0;
 	if (st.count == 0) {
-		return necro_detail::Rise(st, s, all, count, free, now, roll, out, n, most, false);
+		return necro_detail::Rise(st, s, all, count, free, now, roll, out, n, most, false, firstHome);
 	}
 	if (NecroAlive(st) == 0) {
 		if (st.comeBackAt >= 0.0f && now >= st.comeBackAt) {
-			return necro_detail::Rise(st, s, all, count, free, now, roll, out, n, most, true);
+			return necro_detail::Rise(st, s, all, count, free, now, roll, out, n, most, true, -1);
 		}
 		return 0;
 	}
@@ -396,6 +414,9 @@ inline UInt32 NecroBossFell(NecroState& st, const NecroSettings& s, UInt32 b, fl
 		return 0;
 	}
 	st.bosses[b].alive = false;
+	for (UInt32 c = 0; c < kNecroCities; ++c) {
+		st.siegePoints[c][b] = 0.0f;  // his marches count no more
+	}
 	UInt32 n = necro_detail::Put(out, 0, most, NecroEventKind::Fell, b, st.bosses[b].home);
 	if (NecroAlive(st) == 0) {
 		n = necro_detail::Put(out, n, most, NecroEventKind::AllFell, b, kDungeonNoCandidate);
@@ -682,17 +703,132 @@ UInt32 NecroBandsMeet(NecroBands& st, float meetUnits, RollFn& roll, NecroBandEv
 	return n;
 }
 
+// Decided 13 (Nadi, 2026-11-20: "Belagerung durch einzelne oder Teams des
+// Nekromanten. ein necro kann ja 0-n verbündete haben. diese können sich
+// zusammenschließen und belagern. oder einzeln. oder gar nicht."): a city one
+// necromancer's or his allies' walkers besiege.
+struct NecroSiege {
+	UInt8 city = 0;      // City
+	UInt8 gate = 0;      // the kCityGates row their bands reached last
+	UInt8 team = 0;
+	UInt8 bossMask = 0;  // bit b: boss b besieges
+	UInt8 bosses = 0;    // how many
+};
+
+// The city of a kCityGates row.
+inline UInt32 NecroCityOfGate(UInt32 row) {
+	return row < kCityGateCount ? static_cast<UInt32>(kCityGates[row].city) : 0u;
+}
+
+// A band of boss `b` reached `city` at gate row `gate`: his points there up
+// by `points`, 100 at most.
+inline void NecroBandArrived(NecroState& st, UInt32 b, UInt32 city, UInt32 gate, float points) {
+	if (b >= kNecroBossesMost || city >= kNecroCities) {
+		return;
+	}
+	const float p = st.siegePoints[city][b] + (points > 0.0f ? points : 0.0f);
+	st.siegePoints[city][b] = p > 100.0f ? 100.0f : p;
+	st.siegeGate[city] = static_cast<UInt8>(gate);
+}
+
+// The points fade by `perDay` a game day over `days`.
+inline void NecroSiegeFade(NecroState& st, float days, float perDay) {
+	const float fade = days > 0.0f && perDay > 0.0f ? days * perDay : 0.0f;
+	for (UInt32 c = 0; c < kNecroCities; ++c) {
+		for (UInt32 b = 0; b < kNecroBossesMost; ++b) {
+			const float p = st.siegePoints[c][b] - fade;
+			st.siegePoints[c][b] = p > 0.0f ? p : 0.0f;
+		}
+	}
+}
+
+// Once a game day, each city `open` to a siege (none on, no pause): the teams
+// whose living bosses' bands raised points there, from a rolled one on - a
+// team besieges it by the roll against the sum of its points (100 at most).
+// Its bosses whose bands marched there besiege it; each other living boss of
+// the team joins by SiegeJoinPercent. One siege a city a day; the team's
+// points there spent. No roll, no siege: the points stay (and fade).
+template <typename RollFn>
+UInt32 NecroSiegesDue(NecroState& st, const NecroSettings& s, float now, const bool* open, RollFn& roll,
+                      NecroSiege* out, UInt32 room) {
+	if (now < 0.0f) {
+		return 0;
+	}
+	const int day = static_cast<int>(now);
+	if (st.siegeDay < 0 || day <= st.siegeDay) {
+		st.siegeDay = st.siegeDay < 0 ? day : st.siegeDay;
+		return 0;
+	}
+	st.siegeDay = day;
+	const UInt32 count = st.count < kNecroBossesMost ? st.count : kNecroBossesMost;
+	UInt32 n = 0;
+	for (UInt32 c = 0; c < kNecroCities && n < room; ++c) {
+		if (!open[c]) {
+			continue;
+		}
+		UInt8 teams[kNecroBossesMost];
+		UInt32 teamCount = 0;
+		for (UInt32 b = 0; b < count; ++b) {
+			if (!st.bosses[b].alive || st.siegePoints[c][b] <= 0.0f) {
+				continue;
+			}
+			bool seen = false;
+			for (UInt32 k = 0; k < teamCount; ++k) {
+				seen = seen || teams[k] == st.bosses[b].team;
+			}
+			if (!seen) {
+				teams[teamCount++] = st.bosses[b].team;
+			}
+		}
+		if (teamCount == 0) {
+			continue;
+		}
+		const UInt32 start = roll() % teamCount;
+		for (UInt32 k = 0; k < teamCount; ++k) {
+			const UInt8 team = teams[(start + k) % teamCount];
+			float points = 0.0f;
+			for (UInt32 b = 0; b < count; ++b) {
+				points += st.bosses[b].alive && st.bosses[b].team == team ? st.siegePoints[c][b] : 0.0f;
+			}
+			if (static_cast<float>(roll() % 100) >= (points > 100.0f ? 100.0f : points)) {
+				continue;
+			}
+			NecroSiege siege;
+			siege.city = static_cast<UInt8>(c);
+			siege.gate = st.siegeGate[c];
+			siege.team = team;
+			for (UInt32 b = 0; b < count; ++b) {
+				if (!st.bosses[b].alive || st.bosses[b].team != team) {
+					continue;
+				}
+				const bool marched = st.siegePoints[c][b] > 0.0f;
+				if (marched || roll() % 100 < s.siegeJoinPercent) {
+					siege.bossMask = static_cast<UInt8>(siege.bossMask | (1u << b));
+					++siege.bosses;
+				}
+				st.siegePoints[c][b] = 0.0f;
+			}
+			out[n++] = siege;
+			break;
+		}
+	}
+	return n;
+}
+
 // The co-save record: type "NCRO", version 2 - the count, comeBackAt's bits,
 // over; then per boss of kNecroBossesMost: the home (16 bits), the team,
 // alive, bandFrom, bandCarry, placeFrom as their bits, the places; then the
 // far bands' count and per band of kNecroBandsMost: boss, team, city, size,
 // x and y as their bits.
 inline constexpr UInt32 kNecroRecordType = 0x4E43524F;  // 'NCRO'
-inline constexpr UInt32 kNecroRecordVersion = 2;
+// Version 3 adds their sieges: the last day rolled, the cities' gates, each
+// city's points per boss. A version 2 image reads with no points.
+inline constexpr UInt32 kNecroRecordVersion = 3;
 inline constexpr UInt32 kNecroBossBytes = 20;
 inline constexpr UInt32 kNecroBandBytes = 12;
-inline constexpr UInt32 kNecroImageBytes =
+inline constexpr UInt32 kNecroImageBytesV2 =
     12 + kNecroBossesMost * kNecroBossBytes + 4 + kNecroBandsMost * kNecroBandBytes;
+inline constexpr UInt32 kNecroImageBytes = kNecroImageBytesV2 + 4 + kNecroCities + kNecroCities * kNecroBossesMost * 4;
 
 inline UInt32 NecroImage(const NecroState& st, const NecroBands& bands, UInt8* out, UInt32 capacity) {
 	if (capacity < kNecroImageBytes) {
@@ -726,6 +862,14 @@ inline UInt32 NecroImage(const NecroState& st, const NecroBands& bands, UInt8* o
 		Put32(at + 4, dungeon_detail::Bits(b.x));
 		Put32(at + 8, dungeon_detail::Bits(b.y));
 	}
+	UInt8* sieges = out + kNecroImageBytesV2;
+	Put32(sieges, static_cast<UInt32>(st.siegeDay));
+	for (UInt32 c = 0; c < kNecroCities; ++c) {
+		sieges[4 + c] = st.siegeGate[c];
+		for (UInt32 b = 0; b < kNecroBossesMost; ++b) {
+			Put32(sieges + 4 + kNecroCities + (c * kNecroBossesMost + b) * 4, dungeon_detail::Bits(st.siegePoints[c][b]));
+		}
+	}
 	return kNecroImageBytes;
 }
 
@@ -734,7 +878,7 @@ inline UInt32 NecroImage(const NecroState& st, const NecroBands& bands, UInt8* o
 inline bool ReadNecroImage(NecroState& st, NecroBands& bands, const UInt8* in, UInt32 length, UInt32 candidates) {
 	st = NecroState{};
 	bands = NecroBands{};
-	if (length < kNecroImageBytes) {
+	if (length < kNecroImageBytesV2) {
 		return false;
 	}
 	const UInt32 count = Get32(in);
@@ -764,6 +908,17 @@ inline bool ReadNecroImage(NecroState& st, NecroBands& bands, const UInt8* in, U
 		b.size = at[3];
 		b.x = dungeon_detail::Float(Get32(at + 4));
 		b.y = dungeon_detail::Float(Get32(at + 8));
+	}
+	if (length >= kNecroImageBytes) {
+		const UInt8* sieges = in + kNecroImageBytesV2;
+		st.siegeDay = static_cast<int>(Get32(sieges));
+		for (UInt32 c = 0; c < kNecroCities; ++c) {
+			st.siegeGate[c] = sieges[4 + c] < kCityGateCount ? sieges[4 + c] : 0;
+			for (UInt32 b = 0; b < kNecroBossesMost; ++b) {
+				const float p = dungeon_detail::Float(Get32(sieges + 4 + kNecroCities + (c * kNecroBossesMost + b) * 4));
+				st.siegePoints[c][b] = p > 0.0f && p <= 100.0f ? p : 0.0f;
+			}
+		}
 	}
 	return true;
 }

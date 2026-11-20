@@ -48,6 +48,15 @@ float NearestDaedraSiegeToPlayer();
 // A new game or a load: the test switches and the clock start again.
 void ResetSiegeInGame();
 
+// 4.23 B decided 13, the necromancers' sieges: whether `city` may be
+// besieged now ([Siege] Enabled, none on, no pause); `bosses` necromancers of
+// `team` besiege the city of gate row `gate` (false: not open); and the
+// walkers out before the gate of a necromancers' siege the player is at, with
+// their team (0 and none when the siege shown is not theirs).
+bool SiegeOpenNow(UInt32 city);
+bool BeginNecroSiegeNow(UInt32 gate, UInt8 team, UInt32 bosses);
+UInt32 SiegeTeamWalkers(UInt32* refs, UInt32 most, UInt8& team);
+
 // Before a load or a new game replaces the sieges: the doors this session's
 // sieges locked unlocked - a door's lock outlives a load the save has no
 // change for (siege-lock.txt 2026-11-04 16:02: still locked after a reload).

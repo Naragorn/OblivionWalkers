@@ -1,0 +1,53 @@
+# A city besieged by a necromancer and his ally (docs/walkers-spec.md 4.23 B,
+# decided 13), run by tools/necro-harness.sh siege: the necromancers alone,
+# two allied bosses (Teams=1,1), the first at Toadstool Hollow (TestHome),
+# BandsPerDay=4, SiegeJoinPercent=100, [Daedra] BandSiegePercent=50,
+# BandSiegeFadePerDay=0, [Siege] ChancePerDayPercent=0, WalkersMin=WalkersMax
+# =40. The player stands far off at cow tamriel -3 3; the console moves the
+# game a day on every 8 s: the first boss's bands reach Bruma (East Gate) and
+# raise his points to 100, the next day team 1 besieges it - he and his ally,
+# who joins: 80 walkers. Then the player is put at Bruma East Gate: the
+# siege's walkers come out and carry team 1. Saved and loaded: the siege is
+# still theirs.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready player.setav chameleon 100
+console-at ready cow tamriel -3 3
+console-at d1 set gamedayspassed to 2
+console-at d2 set gamedayspassed to 3
+console-at d3 set gamedayspassed to 4
+console-at d4 set gamedayspassed to 5
+console-at gate player.moveto 00003614
+console-at saved save WalkersNecroSiege
+console-at reload load WalkersNecroSiege
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 15
+mark d1
+wait 8
+mark d2
+wait 8
+mark d3
+wait 8
+mark d4
+wait 8
+mark gate
+wait 20
+mark atgate
+wait 2
+mark saved
+wait 6
+mark reload
+wait 30
+mark end
+wait 1

@@ -20,6 +20,8 @@
 #                                    set on each other - both told to let go, both alive
 #   tools/necro-harness.sh march     harness/necro-march.txt: the days pass - the realm grows, its bands
 #                                    reach a city; saved and loaded, the realm comes back
+#   tools/necro-harness.sh siege     harness/necro-siege.txt: two allied necromancers besiege Bruma, their
+#                                    walkers before the gate carry their team; saved and loaded
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -27,8 +29,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise | allies | daedra | march) ;;
-	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march | siege) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -65,7 +67,7 @@ keys = [
     ("Necromancers", "BandsPerDay", "0"), ("Necromancers", "NewPlaceEveryDays", "0"),
     ("Necromancers", "ComeBack", "1"), ("Necromancers", "ComeBackDays", "3"),
     ("Necromancers", "Teams", "1,2,3,4,5"), ("Necromancers", "TestFight", ""),
-    ("Necromancers", "BossesMin", "3"), ("Necromancers", "BossesMax", "5"),
+    ("Necromancers", "BossesMin", "1"), ("Necromancers", "BossesMax", "1"), ("Necromancers", "SiegeJoinPercent", "50"),
     ("Dungeons", "Enabled", "1"), ("Dungeons", "TestSite", ""), ("Dungeons", "ActiveMin", "1"),
     ("Dungeons", "ActiveMax", "1"), ("Dungeons", "WalkersAtOnce", "6"), ("Dungeons", "WalkersOutsidePercent", "0"),
     ("Dungeons", "MessengerHours", "0"), ("Dungeons", "Journal", "1"), ("Dungeons", "Rumors", "1"),
@@ -76,10 +78,11 @@ if scenario == "band":
              ("Necromancers", "BandSizeMax", "3")]
 if scenario == "teams":
     keys += [("Necromancers", "TestHome", ""), ("Necromancers", "TestBandsSeconds", "3"),
-             ("Necromancers", "TestFight", "far")]
+             ("Necromancers", "TestFight", "far"), ("Necromancers", "BossesMin", "3"), ("Necromancers", "BossesMax", "5")]
 elif scenario == "allies":
     keys += [("Necromancers", "TestHome", ""), ("Necromancers", "TestBandsSeconds", "3"),
-             ("Necromancers", "TestFight", "ally"), ("Necromancers", "Teams", "1,1,1,1,1")]
+             ("Necromancers", "TestFight", "ally"), ("Necromancers", "Teams", "1,1,1,1,1"),
+             ("Necromancers", "BossesMin", "2"), ("Necromancers", "BossesMax", "2")]
 else:
     keys += [("Necromancers", "TestBandsSeconds", "0")]
 if scenario == "hotspot":
@@ -87,6 +90,13 @@ if scenario == "hotspot":
 if scenario == "daedra":
     keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "daedra"),
              ("Necromancers", "WalkersMin", "2"), ("Necromancers", "WalkersMax", "2")]
+if scenario == "siege":
+    keys += [("Necromancers", "BossesMin", "2"), ("Necromancers", "BossesMax", "2"), ("Necromancers", "Teams", "1,1"),
+             ("Necromancers", "BandsPerDay", "4"), ("Necromancers", "BandSizeMin", "3"), ("Necromancers", "BandSizeMax", "3"),
+             ("Necromancers", "SiegeJoinPercent", "100"),
+             ("Siege", "Enabled", "1"), ("Siege", "ChancePerDayPercent", "0"), ("Siege", "WalkersMin", "40"),
+             ("Siege", "WalkersMax", "40"), ("Siege", "WalkersAtGate", "12"),
+             ("Daedra", "BandSiegePercent", "50"), ("Daedra", "BandSiegeFadePerDay", "0")]
 if scenario == "march":
     keys += [("Necromancers", "BossesMin", "1"), ("Necromancers", "BossesMax", "1"),
              ("Necromancers", "NewPlaceEveryDays", "1"), ("Necromancers", "BandsPerDay", "4"),
@@ -219,6 +229,29 @@ if scenario == "daedra":
     hits = [l for l in log if re.match(r"Hit: ", l)]
     print("  hits logged: %d" % len(hits))
     end(scenario)
+if scenario == "siege":
+    saved_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: .* written", l)] or [len(log)])
+    load_at = min([i for i, l in enumerate(log) if i > saved_at and re.match(r"Co-save: .* read", l)] or [len(log)])
+    before, after = log[:load_at], log[load_at:]
+    def findin(lines, pattern):
+        return [l for l in lines if re.search(pattern, l)]
+    check(bool(show(findin(before, r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    check(bool(show(findin(before, r"Necromancers: boss 1 \(team 1\) rose at "))), "boss 1, his ally (team 1), rose too")
+    show(findin(before, r"siege points at Bruma"), 3)
+    sieges = show(findin(before, r"Necromancers: team 1 besieges Bruma (East|North) Gate - boss 0, boss 1 \(2 of them\)$"), 2)
+    check(bool(sieges), "team 1 besieges Bruma: boss 0, whose bands marched, and boss 1, who joined")
+    begun = show(findin(before, r"Siege: Bruma (East|North) Gate besieged - 80 walkers of the necromancers' team 1 \(2 of them\)"), 2)
+    check(bool(begun), "the siege: 40 walkers for each of the two")
+    out_at = min([i for i, l in enumerate(before) if re.search(r"Siege: the player at Bruma East Gate - its walkers come out", l)] or [len(before)])
+    check(out_at < len(before), "the player at the gate: their walkers come out")
+    looks = [int(re.search(r"teams - (\d+) of theirs near", l).group(1)) for l in before[out_at:] if re.search(r"Necromancers: teams - \d+ of theirs near", l)]
+    print("  info  theirs near at the gate: %s" % looks[:8])
+    check(any(n >= 1 for n in looks), "the siege's walkers carry team 1 (theirs near: %s)" % looks[:6])
+    read = show(findin(after, r"Co-save: (\d+) sieges on read \(version 2\)"), 1)
+    check(bool(read) and int(re.search(r"(\d+) sieges on", read[0]).group(1)) >= 1, "saved and loaded: the siege read back (version 2)")
+    looks2 = [int(re.search(r"teams - (\d+) of theirs near", l).group(1)) for l in after if re.search(r"Necromancers: teams - \d+ of theirs near", l)]
+    check(any(n >= 1 for n in looks2), "after the load its walkers are team 1's again (%s)" % looks2[:6])
+    end(scenario)
 if scenario == "march":
     # the load: the first co-save line read after the last written
     saved_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: .* written", l)] or [len(log)])
@@ -264,7 +297,7 @@ if scenario == "band":
     check(walkers >= 3, "the roster at 'counted' holds the walkers (%d)" % walkers)
     print("necro %s: %s" % (scenario, "PASS" if failures == 0 else "FAIL (%d)" % failures))
     sys.exit(1 if failures else 0)
-check(bool(show(find(r"Necromancers: test - TestHome=" + place + r": one boss there \(free\)"))), "TestHome free in the settled pool")
+check(bool(show(find(r"Necromancers: test - TestHome=" + place + r": the first boss there \(free\)"))), "TestHome free in the settled pool")
 rose = show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place + r" .* 4 walkers in it$"))
 check(bool(rose), "boss 0 rose at his home, 4 walkers in it")
 check(bool(show(find(r"the pool to site \d+ " + place))), "the pool's walkers sent to his place with the player inside")

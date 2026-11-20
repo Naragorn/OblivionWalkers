@@ -5,6 +5,7 @@
 // sites of their own (Dungeons.cpp AddNecroPlace) - the bosses and the
 // walkers placed where the player is, as the held places' are.
 
+#include "BandLogic.h"
 #include "KindLogic.h"
 #include "NecroLogic.h"
 #include "Rise.h"
@@ -17,12 +18,14 @@ using NecroDeadFn = bool (*)(UInt32 actor);
 using NecroIsWalkerFn = bool (*)(UInt32 ref);
 
 // `settings` and `invaders` are read at every step (LINK changes them);
-// `testHome` ([Necromancers] TestHome, INI only, a test switch): one boss
-// only, at that dungeon (DungeonCandidates.h's name), instead of the roll;
+// `testHome` ([Necromancers] TestHome, INI only, a test switch): the first
+// boss at that dungeon (DungeonCandidates.h's name), the others as rolled;
 // `testFight` ([Necromancers] TestFight, the same): NecroLogic.h NecroTestFight.
-void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, NecroRollFn roll,
-                    NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker, const char* testHome,
-                    float testBandsSeconds, const char* testFight, LogFn log);
+// `bands`: [Daedra] BandSiegePercent and BandSiegeFadePerDay, the points a
+// band of theirs that reached a city gives its necromancer there (decided 13).
+void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, const BandSettings* bands,
+                    NecroRollFn roll, NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker,
+                    const char* testHome, float testBandsSeconds, const char* testFight, LogFn log);
 
 // Step 5, the teams: twice a second the walkers of a team near let go of an
 // ally's or a free walker and are set on an enemy team's (NecroLogic.h);

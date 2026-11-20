@@ -14,6 +14,7 @@
 #include "Horde.h"
 #include "News.h"
 #include "Placer.h"
+#include "Siege.h"
 
 namespace walkers {
 using namespace engine;
@@ -21,6 +22,8 @@ namespace {
 
 const NecroSettings* g_settings = nullptr;
 const InvaderSettings* g_invaders = nullptr;
+const BandSettings* g_bandSettings = nullptr;  // [Daedra] BandSiegePercent, BandSiegeFadePerDay
+static_assert(kNecroCities == kSiegeCities, "the necromancers' cities are the sieges'");
 NecroRollFn g_roll = nullptr;
 NecroConsoleFn g_console = nullptr;
 NecroDeadFn g_dead = nullptr;
@@ -30,6 +33,9 @@ NecroIsWalkerFn g_isWalker = nullptr;
 std::unordered_map<UInt32, UInt8> g_teams;
 UInt32 g_poolTeamed[16] = {};
 UInt32 g_poolTeamedCount = 0;
+// The walkers out before a necromancers' siege the player is at (decided 13).
+UInt32 g_siegeTeamed[kSiegeAtGateMost] = {};
+UInt32 g_siegeTeamedCount = 0;
 float g_teamClock = 0.0f;
 UInt32 g_teamLogsLeft = 40;
 LogFn g_log = nullptr;
@@ -103,10 +109,17 @@ void CarryBandEvents(const NecroBandEvent* ev, UInt32 n, LogFn log) {
 				QueueWalkerBand(b.x, b.y, b.size, b.team);
 				BandLog(log, "comes near you - into the world", b);
 				break;
-			case NecroBandEventKind::Arrived:
-				AddCityPressureNow(static_cast<UInt8>(kCityGates[b.city < kCityGateCount ? b.city : 0].city));
-				BandLog(log, "reached its city - the city's siege pressure up", b);
+			case NecroBandEventKind::Arrived: {
+				const UInt32 city = NecroCityOfGate(b.city);
+				NecroBandArrived(g_state, b.boss, city, b.city,
+				                 g_bandSettings != nullptr ? static_cast<float>(g_bandSettings->siegePercentPerBand) : 5.0f);
+				BandLog(log, "reached its city - his siege points there up", b);
+				if (g_bandLogsLeft > 0 && b.boss < kNecroBossesMost && city < kNecroCities) {
+					log("Necromancers: boss %u's siege points at %s now %.0f", b.boss, kCityGates[b.city].name,
+					    g_state.siegePoints[city][b.boss]);
+				}
 				break;
+			}
 			case NecroBandEventKind::Dropped:
 				BandLog(log, "dropped - the most are on their way", b);
 				break;
@@ -206,9 +219,10 @@ bool IsHome(UInt32 boss, UInt32 candidate) {
 
 }  // namespace
 
-void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, NecroRollFn roll,
-                    NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker, const char* testHome,
-                    float testBandsSeconds, const char* testFight, LogFn log) {
+void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, const BandSettings* bands,
+                    NecroRollFn roll, NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker,
+                    const char* testHome, float testBandsSeconds, const char* testFight, LogFn log) {
+	g_bandSettings = bands;
 	g_testBandsSeconds = testBandsSeconds;
 	g_testFight = ParseNecroTestFight(testFight);
 	g_settings = settings;
@@ -236,6 +250,7 @@ void ResetNecroInGame() {
 	g_testFightClock = 0.0f;
 	g_testDaedra = 0;
 	g_poolTeamedCount = 0;
+	g_siegeTeamedCount = 0;
 	g_lastDays = -1.0f;
 	g_clock = kStepSeconds;  // the first step at once
 	g_waitLogged = false;
@@ -310,27 +325,48 @@ void StepNecroInGame(float dt, LogFn log) {
 		Roll meetRoll;
 		const UInt32 mn = NecroBandsMeet(g_bands, kNecroBandsMeetUnits, meetRoll, bev, kEventsMost);
 		CarryBandEvents(bev, mn, log);
+		// Decided 13: their points fade; once a day a city is besieged by a team.
+		NecroSiegeFade(g_state, hours / 24.0f, g_bandSettings != nullptr ? g_bandSettings->siegeFadePercentPerDay : 5.0f);
+		bool open[kNecroCities];
+		for (UInt32 c = 0; c < kNecroCities; ++c) {
+			open[c] = SiegeOpenNow(c);
+		}
+		Roll siegeRoll;
+		NecroSiege sieges[kNecroCities];
+		const UInt32 sn = NecroSiegesDue(g_state, s, now, open, siegeRoll, sieges, kNecroCities);
+		for (UInt32 k = 0; k < sn; ++k) {
+			const NecroSiege& sg = sieges[k];
+			char who[64] = {};
+			UInt32 at = 0;
+			for (UInt32 b = 0; b < kNecroBossesMost && at + 12 < sizeof(who); ++b) {
+				if ((sg.bossMask & (1u << b)) != 0) {
+					at += static_cast<UInt32>(std::snprintf(who + at, sizeof(who) - at, "%sboss %u", at > 0 ? ", " : "", b));
+				}
+			}
+			const bool begun = BeginNecroSiegeNow(sg.gate, sg.team, sg.bosses);
+			log("Necromancers: team %u besieges %s - %s (%u of them)%s", sg.team, kCityGates[sg.gate].name, who,
+			    sg.bosses, begun ? "" : " - the siege could not begin there");
+		}
 	}
 	bool free[kDungeonCandidateCount];
 	DungeonFreePlaces(free);
-	// [Necromancers] TestHome: one boss, at that place, for the first set.
+	// [Necromancers] TestHome: the first set's first boss at that place (the
+	// others as BossesMin..BossesMax roll); the set waits until it is free.
 	const int test = g_state.count == 0 && !g_state.over ? TestHomeCandidate() : -1;
 	if (test >= 0) {
-		for (UInt32 c = 0; c < kDungeonCandidateCount; ++c) {
-			free[c] = free[c] && static_cast<int>(c) == test;
-		}
-		s.bossesMin = 1;
-		s.bossesMax = 1;
 		if (!g_testLogged) {
-			log("Necromancers: test - TestHome=%s: one boss there (%s)", kDungeonCandidates[test].name,
+			log("Necromancers: test - TestHome=%s: the first boss there (%s)", kDungeonCandidates[test].name,
 			    free[test] ? "free" : "not free yet - a site holds it or it is out of the pool");
 			g_testLogged = free[test];
+		}
+		if (!free[test]) {
+			return;
 		}
 	}
 	Roll roll;
 	NecroEvent ev[kEventsMost];
 	const UInt32 n = StepNecromancers(g_state, s, kDungeonCandidates, kDungeonCandidateCount, free, now, roll, ev,
-	                                  kEventsMost);
+	                                  kEventsMost, test);
 	for (UInt32 k = 0; k < n && k < kEventsMost; ++k) {
 		const NecroEvent& e = ev[k];
 		NecroBoss& b = g_state.bosses[e.boss < kNecroBossesMost ? e.boss : 0];
@@ -541,6 +577,20 @@ void StepNecroTeams(float dt, LogFn log) {
 		for (UInt32 k = 0; k < n && team != 0; ++k) {
 			NoteTeam(refs[k], team);
 			g_poolTeamed[g_poolTeamedCount++] = refs[k];
+		}
+	}
+	// A necromancers' siege's walkers before the gate carry their team (decided 13).
+	{
+		UInt32 refs[kSiegeAtGateMost];
+		UInt8 team = 0;
+		const UInt32 n = SiegeTeamWalkers(refs, kSiegeAtGateMost, team);
+		for (UInt32 k = 0; k < g_siegeTeamedCount; ++k) {
+			NoteTeam(g_siegeTeamed[k], 0);
+		}
+		g_siegeTeamedCount = 0;
+		for (UInt32 k = 0; k < n && team != 0; ++k) {
+			NoteTeam(refs[k], team);
+			g_siegeTeamed[g_siegeTeamedCount++] = refs[k];
 		}
 	}
 	Fighter f[kFightersMost];

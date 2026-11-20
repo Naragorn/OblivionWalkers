@@ -3881,7 +3881,7 @@ void OnLoad(void*) {
 		}
 		if (type == kSiegeRecordType) {
 			UInt8 siege[kSiegeImageBytes];
-			const UInt32 read = version == kSiegeRecordVersion && length <= sizeof(siege)
+			const UInt32 read = version >= 1 && version <= kSiegeRecordVersion && length <= sizeof(siege)
 			                        ? g_serialization->ReadRecordData(siege, length)
 			                        : 0;
 			const bool whole = ReadSiegeImage(CurrentSieges(), siege, read);
@@ -3923,7 +3923,7 @@ void OnLoad(void*) {
 		}
 		if (type == kNecroRecordType) {
 			UInt8 necro[kNecroImageBytes];
-			const UInt32 read = version == kNecroRecordVersion && length <= sizeof(necro)
+			const UInt32 read = version >= 2 && version <= kNecroRecordVersion && length <= sizeof(necro)
 			                        ? g_serialization->ReadRecordData(necro, length)
 			                        : 0;
 			const bool whole =
@@ -4126,7 +4126,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureDungeonsInvaders(&g_invadersNow);
 	ConfigureDungeons(&g_dungeonsNow, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
-	ConfigureNecro(&g_settings.necro, &g_invadersNow, &NextRandom, &ConsoleOn, &IsDead, &IsWalkerRef,
+	ConfigureNecro(&g_settings.necro, &g_invadersNow, &g_settings.bands, &NextRandom, &ConsoleOn, &IsDead, &IsWalkerRef,
 	               g_settings.necroTestHome, g_settings.necroTestBandsSeconds, g_settings.necroTestFight, log);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);

@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace {
 
@@ -339,7 +340,49 @@ void TestRedSky() {
 
 }  // namespace
 
+void TestNecroSiege() {
+	std::printf("A necromancers' siege (4.23 B decided 13)\n");
+	SiegeSettings s;  // walkers 40..120
+	SiegeState st;
+	const UInt32 rolls[] = {0, 80};  // 40, then 40 + 80 = 120
+	Rolls two{rolls, 2};
+	// Bruma is city 2, its East Gate row 4
+	Check(walkers::SiegeOpen(st.cities[2], 5.0f), "a city not besieged nor pausing: open to a siege");
+	Check(walkers::BeginNecroSiege(st, s, 4, 1, 2, 5.0f, two), "two necromancers of team 1 besiege Bruma");
+	const CitySiege& c = st.cities[2];
+	Check(c.active && c.gate == 4 && c.team == 1 && c.bosses == 2 && !c.daedra && c.walkersLeft == 160,
+	      "at the gate their bands reached, the team kept, a draw of WalkersMin..WalkersMax for each: 40 + 120");
+	Check(!walkers::SiegeOpen(c, 5.0f) && !walkers::BeginNecroSiege(st, s, 4, 2, 1, 5.0f, two),
+	      "besieged already: no other team");
+	CitySiege paused;
+	paused.pauseUntil = 8.0f;
+	Check(!walkers::SiegeOpen(paused, 6.0f) && walkers::SiegeOpen(paused, 8.5f), "the pause after a siege: not before it ends");
+	SiegeState none;
+	Check(!walkers::BeginNecroSiege(none, s, 4, 1, 0, 5.0f, two), "no necromancer: no siege");
+	SiegeSettings off;
+	off.enabled = false;
+	Check(!walkers::BeginNecroSiege(none, off, 4, 1, 1, 5.0f, two), "[Siege] Enabled=0: none");
+	Check(!walkers::BeginNecroSiege(none, s, walkers::kCityGateCount, 1, 1, 5.0f, two), "no such gate: none");
+	// the co-save keeps whose siege it is; an older, shorter image reads as walkers'
+	UInt8 image[walkers::kSiegeImageBytes];
+	walkers::SiegeImage(st, image, sizeof(image));
+	SiegeState back;
+	Check(walkers::ReadSiegeImage(back, image, sizeof(image)) && back.cities[2].team == 1 && back.cities[2].bosses == 2 &&
+	          back.cities[2].walkersLeft == 160,
+	      "the co-save: the team and how many");
+	UInt8 old[walkers::kSiegeImageBytesV1] = {};
+	for (UInt32 i = 0; i < walkers::kSiegeCities; ++i) {
+		std::memcpy(old + 4 + i * walkers::kSiegeCityBytesV1, image + 4 + i * walkers::kSiegeCityBytes,
+		            walkers::kSiegeCityBytesV1);
+	}
+	std::memcpy(old, image, 4);
+	Check(walkers::ReadSiegeImage(back, old, sizeof(old)) && back.cities[2].active && back.cities[2].team == 0 &&
+	          back.cities[2].walkersLeft == 160,
+	      "a version 1 image (no team): read, the walkers' siege");
+}
+
 int main() {
+	TestNecroSiege();
 	TestGates();
 	TestBegin();
 	TestHordeBegin();

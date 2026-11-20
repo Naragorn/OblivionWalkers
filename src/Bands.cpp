@@ -69,7 +69,6 @@ struct Placing {
 };
 Placing g_placing;
 TeamMemberFn g_onTeamMember = nullptr;
-const BandSettings* g_lastBands = nullptr;
 // Near bands waiting for the marker (one is placed at a time).
 BandEvent g_queue[8];
 UInt32 g_queueCount = 0;
@@ -446,12 +445,6 @@ void QueueWalkerBand(float x, float y, UInt32 size, UInt8 team) {
 	Queue(e);
 }
 
-void AddCityPressureNow(UInt8 city) {
-	if (g_lastBands != nullptr) {
-		AddSiegePressure(g_state, *g_lastBands, city);
-	}
-}
-
 void ConfigureBandsTeams(TeamMemberFn onMember) { g_onTeamMember = onMember; }
 
 UInt32 BandsImage(UInt8* out, UInt32 capacity) { return BandImage(g_state, g_members, g_memberCount, out, capacity); }
@@ -532,7 +525,6 @@ void StepBandsInGame(float dt, const BandSettings& bands, const InvaderSettings&
 	if (g_espBase == kNoEsp) {
 		return;
 	}
-	g_lastBands = &bands;
 	g_clock += dt;
 	if (g_clock < kStepSeconds) {
 		return;

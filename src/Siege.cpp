@@ -304,8 +304,13 @@ void Carry(const SiegeEvent& ev, float now) {
 	CitySiege& c = g_state.cities[ev.city];
 	const CityGate& gate = kCityGates[ev.gate];
 	if (ev.kind == SiegeEvent::Begin) {
-		g_log("Siege: %s besieged - %u %s (game day %.2f), its gate open", gate.name, c.walkersLeft,
-		      c.daedra ? "Daedra" : "walkers", now);
+		char whose[64] = "walkers";
+		if (c.daedra) {
+			std::snprintf(whose, sizeof(whose), "Daedra");
+		} else if (c.team != 0) {
+			std::snprintf(whose, sizeof(whose), "walkers of the necromancers' team %u (%u of them)", c.team, c.bosses);
+		}
+		g_log("Siege: %s besieged - %u %s (game day %.2f), its gate open", gate.name, c.walkersLeft, whose, now);
 		NoteSiegeInNews(ev.city, true);
 		SetRumor(ev.city, true);
 	} else {
@@ -556,6 +561,47 @@ void ApplySiegeLocks() {
 			UnlockGate(c);
 		}
 	}
+}
+
+bool SiegeOpenNow(UInt32 city) {
+	const float now = GameDaysNow();
+	return g_settings != nullptr && g_settings->enabled && city < kSiegeCities && now >= 0.0f &&
+	       SiegeOpen(g_state.cities[city], now);
+}
+
+bool BeginNecroSiegeNow(UInt32 gate, UInt8 team, UInt32 bosses) {
+	const float now = GameDaysNow();
+	if (g_settings == nullptr || g_roll == nullptr || now < 0.0f) {
+		return false;
+	}
+	SiegeRollFn roll = g_roll;
+	if (!BeginNecroSiege(g_state, *g_settings, gate, team, bosses, now, roll)) {
+		return false;
+	}
+	Carry(SiegeEvent{SiegeEvent::Begin, static_cast<UInt32>(kCityGates[gate].city), gate}, now);
+	return true;
+}
+
+UInt32 SiegeTeamWalkers(UInt32* refs, UInt32 most, UInt8& team) {
+	team = 0;
+	if (g_shownGate < 0) {
+		return 0;
+	}
+	const CitySiege& c = g_state.cities[static_cast<UInt32>(kCityGates[g_shownGate].city)];
+	if (!c.active || c.team == 0 || c.daedra) {
+		return 0;
+	}
+	team = c.team;
+	UInt32 n = 0;
+	for (UInt32 i = 0; i < kSiegePool && n < most; ++i) {
+		if (g_out[i]) {
+			const UInt32 ref = PoolRef(i);
+			if (LooksLikeObject(ref)) {
+				refs[n++] = FormIdOf(ref);
+			}
+		}
+	}
+	return n;
 }
 
 void ResetSiegeInGame() {
