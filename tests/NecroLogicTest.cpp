@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace {
 
@@ -439,6 +440,26 @@ void TestTeamsFight() {
 	          !walkers::NecroSetOn(2, 0, false, 100.0f, walkers::kNecroSetOnUnits),
 	      "an ally, a free walker, or none's: never set on");
 	Check(!walkers::NecroSetOn(1, 2, false, -1.0f, walkers::kNecroSetOnUnits), "not measurable (another cell): not");
+	// decided 12: with Daedra Mode 2 a necromancer and a Daedra leave each other alone - both sides
+	Check(walkers::NecroDaedraLetGo(true, true, true), "Daedra Mode 2, a necromancer and a Daedra: let go (either side)");
+	Check(!walkers::NecroDaedraLetGo(false, true, true), "Daedra Mode 0 or 1: they fight as ever");
+	Check(!walkers::NecroDaedraLetGo(true, false, true), "not the necromancer (his walkers: the walkers' own rule)");
+	Check(!walkers::NecroDaedraLetGo(true, true, false), "the necromancer against one not a Daedra: fights on");
+}
+
+void TestTestFight() {
+	std::printf("The harness's TestFight switch (INI only)\n");
+	Check(walkers::ParseNecroTestFight("") == walkers::NecroTestFight::Off &&
+	          walkers::ParseNecroTestFight(nullptr) == walkers::NecroTestFight::Off,
+	      "empty or none: off");
+	Check(walkers::ParseNecroTestFight("ally") == walkers::NecroTestFight::Ally &&
+	          walkers::ParseNecroTestFight("Daedra") == walkers::NecroTestFight::Daedra &&
+	          walkers::ParseNecroTestFight(" FAR ") == walkers::NecroTestFight::Far,
+	      "ally, daedra, far - in any case, spaces around ignored");
+	Check(walkers::ParseNecroTestFight("allies") == walkers::NecroTestFight::Off, "anything else: off");
+	Check(std::strcmp(walkers::NecroTestFightName(walkers::NecroTestFight::Far), "far") == 0 &&
+	          std::strcmp(walkers::NecroTestFightName(walkers::NecroTestFight::Off), "off") == 0,
+	      "its name for the log");
 }
 
 void TestBandsMeet() {
@@ -499,6 +520,7 @@ int main() {
 	TestBands();
 	TestTeamsFight();
 	TestBandsMeet();
+	TestTestFight();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

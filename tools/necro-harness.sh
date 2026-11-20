@@ -10,9 +10,15 @@
 #   tools/necro-harness.sh band      harness/necro-band.txt: one boss at Toadstool Hollow, the player before
 #                                    its door, the clock fast - a band of his comes into the world near him
 #   tools/necro-harness.sh teams     harness/necro-teams.txt: two bands of enemy teams near the player - set
-#                                    on each other by the plugin
+#                                    on each other by the plugin; two enemy bands far off meet as numbers
 #   tools/necro-harness.sh rise      harness/necro-rise.txt: a bandit killed before a necromancer's door
 #                                    waits to rise, one killed far off stays down
+#   tools/necro-harness.sh allies    harness/necro-allies.txt: two bands of one team, one set on its ally -
+#                                    told to let go, all six alive
+#   tools/necro-harness.sh daedra    harness/necro-daedra.txt: Daedra Mode 2, a Dremora and the necromancer
+#                                    set on each other - both told to let go, both alive
+#   tools/necro-harness.sh march     harness/necro-march.txt: the days pass - the realm grows, its bands
+#                                    reach a city; saved and loaded, the realm comes back
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -20,8 +26,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise) ;;
-	*) echo "scenario: hotspot | band | teams | rise" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -57,6 +63,8 @@ keys = [
     ("Necromancers", "WalkersMin", "4"), ("Necromancers", "WalkersMax", "4"),
     ("Necromancers", "BandsPerDay", "0"), ("Necromancers", "NewPlaceEveryDays", "0"),
     ("Necromancers", "ComeBack", "1"), ("Necromancers", "ComeBackDays", "3"),
+    ("Necromancers", "Teams", "1,2,3,4,5"), ("Necromancers", "TestFight", ""),
+    ("Necromancers", "BossesMin", "3"), ("Necromancers", "BossesMax", "5"),
     ("Dungeons", "Enabled", "1"), ("Dungeons", "TestSite", ""), ("Dungeons", "ActiveMin", "1"),
     ("Dungeons", "ActiveMax", "1"), ("Dungeons", "WalkersAtOnce", "6"), ("Dungeons", "WalkersOutsidePercent", "0"),
     ("Dungeons", "MessengerHours", "0"), ("Dungeons", "Journal", "1"), ("Dungeons", "Rumors", "1"),
@@ -66,9 +74,22 @@ if scenario == "band":
              ("Necromancers", "BandsPerDay", "4"), ("Necromancers", "BandSizeMin", "3"),
              ("Necromancers", "BandSizeMax", "3")]
 if scenario == "teams":
-    keys += [("Necromancers", "TestHome", ""), ("Necromancers", "TestBandsSeconds", "3")]
+    keys += [("Necromancers", "TestHome", ""), ("Necromancers", "TestBandsSeconds", "3"),
+             ("Necromancers", "TestFight", "far")]
+elif scenario == "allies":
+    keys += [("Necromancers", "TestHome", ""), ("Necromancers", "TestBandsSeconds", "3"),
+             ("Necromancers", "TestFight", "ally"), ("Necromancers", "Teams", "1,1,1,1,1")]
 else:
     keys += [("Necromancers", "TestBandsSeconds", "0")]
+if scenario == "daedra":
+    keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "daedra"),
+             ("Necromancers", "WalkersMin", "2"), ("Necromancers", "WalkersMax", "2")]
+if scenario == "march":
+    keys += [("Necromancers", "BossesMin", "1"), ("Necromancers", "BossesMax", "1"),
+             ("Necromancers", "NewPlaceEveryDays", "1"), ("Necromancers", "BandsPerDay", "4"),
+             ("Necromancers", "BandSizeMin", "3"), ("Necromancers", "BandSizeMax", "3"),
+             ("Siege", "Enabled", "1"), ("Siege", "ChancePerDayPercent", "0"),
+             ("Daedra", "BandSiegePercent", "50"), ("Daedra", "BandSiegeFadePerDay", "0")]
 for section, key, value in keys:
     text = put(text, section, key, value)
 open(path, "w", encoding="latin-1", newline="").write(text)
@@ -121,6 +142,14 @@ if scenario == "teams":
     came = show(find(r"Bands: a band of 3 walkers \(a necromancer's, team (\d+)\) comes near"))
     teams = {re.search(r"team (\d+)", l).group(1) for l in came}
     check(len(teams) == 2, "both placed, two teams (%s)" % sorted(teams))
+    seton = show(find(r"Necromancers: [0-9A-F]{8} \(team (\d+)\) set on [0-9A-F]{8} \(team (\d+)"), 3)
+    check(any(re.search(r"team (\d+)\) set on [0-9A-F]{8} \(team (\d+)", l).group(1) !=
+              re.search(r"team (\d+)\) set on [0-9A-F]{8} \(team (\d+)", l).group(2) for l in seton),
+          "the plugin sets a walker on an enemy team's (%d lines)" % len(seton))
+    check(not find(r"told to let go of [0-9A-F]{8} \(an ally"), "no ally told to let go (none fought an ally)")
+    check(bool(show(find(r"Necromancers: test - TestFight=far: two bands of 4, teams 1 and 2"))), "the far test's two bands formed")
+    check(bool(show(find(r"Necromancers: a band of \d+ walkers \(boss \d+, team \d+\) (met an enemy band|destroyed by an enemy band)"))),
+          "far off they meet as numbers")
     looks = show(find(r"Necromancers: teams - \d+ of theirs near; \d+ told StopCombat .*, (\d+) set on .*; (\d+) fight an enemy team's"), 3)
     fights = [(int(re.search(r"(\d+) set on", l).group(1)), int(re.search(r"(\d+) fight an enemy team's", l).group(1))) for l in looks]
     # set on by the plugin, or at it on their own (measured 2026-11-20: the engine had them fight at once)
@@ -138,6 +167,78 @@ if scenario == "teams":
     print("  walkers at met %d, at fought %d" % (walkers_at("met"), walkers_at("fought")))
     print("necro %s: %s" % (scenario, "PASS" if failures == 0 else "FAIL (%d)" % failures))
     sys.exit(1 if failures else 0)
+def end(scenario):
+    print("necro %s: %s" % (scenario, "PASS" if failures == 0 else "FAIL (%d)" % failures))
+    sys.exit(1 if failures else 0)
+def walkers_dead(mark):
+    return sum(int(n) for b, n in re.findall(r"\b(2B000[89A][0-9A-F]{2}) x\d+ \(dead (\d+)\)", roster.get(mark, "")))
+if scenario == "allies":
+    check(bool(show(find(r"Necromancers: test - TestBandsSeconds=3: two bands of 3, teams 1 and 1"))), "two bands of team 1 queued")
+    came = show(find(r"Bands: a band of 3 walkers \(a necromancer's, team 1\) comes near"))
+    check(len(came) == 2, "both placed, team 1 (%d)" % len(came))
+    check(not find(r"\(team \d+\) set on [0-9A-F]{8} \(team"), "the rule sets no ally on an ally")
+    test = show(find(r"Necromancers: test - TestFight=ally: ([0-9A-F]{8}) \(team 1\) set on its ally ([0-9A-F]{8})"))
+    check(bool(test), "the test sets one on its ally")
+    lets = find(r"told to let go of [0-9A-F]{8} \(an ally of its team\)")
+    show(lets, 6)
+    check(bool(lets), "told to let go of its ally (%d lines)" % len(lets))
+    looks = find(r"Necromancers: teams - (\d+) of theirs near")
+    near = [int(re.search(r"teams - (\d+) of", l).group(1)) for l in looks]
+    show(looks[-2:], 2)
+    print("  roster fought: " + roster.get("fought", "")[:240])
+    check(walkers_dead("fought") == 0 and near and near[-1] == 6, "all six alive at the end (dead %d; near %s)" % (walkers_dead("fought"), near[-6:]))
+    end(scenario)
+if scenario == "daedra":
+    check(bool(show(find(r"^Mod: .*Daedra Mode=2"))), "Daedra Mode 2 (allies)")
+    check(bool(show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    check(bool(show(find(r"Dungeons: the necromancer \w+ came to " + place))), "the necromancer came")
+    brought = show(find(r"Necromancers: test - TestFight=daedra: the Daedra ([0-9A-F]{8}) .* brought to the necromancer"))
+    check(bool(brought), "a Daedra near brought to him")
+    check(bool(show(find(r"Necromancers: test - TestFight=daedra: the Daedra [0-9A-F]{8} and the necromancer [0-9A-F]{8} set on each other"))),
+          "the two set on each other")
+    his = find(r"Necromancers: [0-9A-F]{8} \(the necromancer of team 1\) told to let go of [0-9A-F]{8} \(a Daedra")
+    theirs = find(r"Necromancers: the Daedra [0-9A-F]{8} told to let go of the necromancer")
+    show(his, 3)
+    show(theirs, 3)
+    check(bool(his), "the necromancer told to let go of the Daedra (%d)" % len(his))
+    check(bool(theirs), "the Daedra told to let go of the necromancer (%d)" % len(theirs))
+    check(not find(place + r" - the necromancer fell"), "the necromancer did not fall")
+    after = roster.get("after", "")
+    print("  roster after: " + after[:300])
+    boss = re.findall(r"\b(0004B94[5-8]) x\d+(?: \(dead (\d+)\))?", after)
+    check(bool(boss) and all(not d or d == "0" for _, d in boss), "the necromancer in the roster, alive (%s)" % boss)
+    dremora = re.findall(r"\b(00092D[0-9A-F]{2}) x\d+(?: \(dead (\d+)\))?", after)
+    check(bool(dremora) and all(not d or d == "0" for _, d in dremora), "the Dremora in the roster, alive (%s)" % dremora)
+    hits = [l for l in log if re.match(r"Hit: ", l)]
+    print("  hits logged: %d" % len(hits))
+    end(scenario)
+if scenario == "march":
+    load_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: \d+ necromancers' bosses read", l)] or [len(log)])
+    before, after = log[:load_at], log[load_at:]
+    def findin(lines, pattern):
+        return [l for l in lines if re.search(pattern, l)]
+    check(bool(show(findin(before, r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    took = show(findin(before, r"Necromancers: boss 0 took .* place\(s\) now"), 4)
+    check(bool(took), "the realm grows: he took another dungeon (%d)" % len(took))
+    formed = findin(before, r"Necromancers: a band of 3 walkers \(boss 0, team 1\) left its home")
+    check(bool(formed), "his bands formed (%d)" % len(formed))
+    reached = show(findin(before, r"Necromancers: a band of 3 walkers \(boss 0, team 1\) reached its city"), 3)
+    check(bool(reached), "a band reached its city - the siege pressure up (%d)" % len(reached))
+    show(findin(log, r"besieged"), 3)
+    written = show(findin(before, r"Co-save: (\d+) necromancers' bosses and (\d+) of their far bands written"), 2)
+    read = show(findin(after, r"Co-save: (\d+) necromancers' bosses read, (\d+) of them alive, (\d+) far bands \(version 2\)$"), 2)
+    w = re.search(r"(\d+) necromancers' bosses and (\d+) of their far bands", written[-1]).groups() if written else None
+    r = re.search(r"(\d+) necromancers' bosses read, (\d+) of them alive, (\d+) far bands", read[-1]).groups() if read else None
+    check(w is not None and r is not None and w[0] == r[0] == "1" and r[1] == "1" and w[1] == r[2],
+          "the load reads back what the save wrote (written %s, read %s)" % (w, r))
+    dw = findin(before, r"Co-save: (\d+) held dungeons written")
+    dr = findin(after, r"Co-save: (\d+) held dungeons read")
+    show(dw[-1:] + dr[-1:], 2)
+    check(bool(dw) and bool(dr) and re.search(r"(\d+) held", dw[-1]).group(1) == re.search(r"(\d+) held", dr[-1]).group(1),
+          "the held dungeons (his places among them) read back")
+    check(not findin(after, r"Necromancers: boss \d+ \(team \d+\) rose at"), "no new boss rises after the load - the realm came back")
+    check(bool(show(findin(after, r"Necromancers: boss 0 took|Necromancers: a band of"), 2)) or True, "after the load the realm goes on (info)")
+    end(scenario)
 if scenario == "band":
     rose = show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))
     check(bool(rose), "boss 0 rose at his home")

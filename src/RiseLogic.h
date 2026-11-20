@@ -239,6 +239,7 @@ struct RiseSettings {
 	NecroSettings necro;
 	char necroTestHome[48] = {};  // [Necromancers] TestHome (INI only, a test switch; Necro.h)
 	float necroTestBandsSeconds = 0.0f;  // [Necromancers] TestBandsSeconds (INI only, a test switch; Necro.cpp)
+	char necroTestFight[16] = {};  // [Necromancers] TestFight (INI only, a test switch; NecroLogic.h)
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

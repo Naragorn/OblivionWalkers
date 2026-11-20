@@ -579,6 +579,66 @@ inline bool NecroSetOn(UInt8 mine, UInt8 theirs, bool fighting, float distance, 
 // walkers' own sight is slow, 4.21).
 inline constexpr float kNecroSetOnUnits = 1500.0f;
 
+// Decided 12: with [Daedra] Mode=2 (`daedraAllies`) a necromancer and a
+// Daedra leave each other alone - whichever of the two fights the other lets
+// go. `oneIsBoss`: one of the two is a necromancer placed; `otherIsDaedra`:
+// the other is a Daedra. His walkers against the Daedra follow the walkers'
+// own rule (DisguiseLogic.h WalkerDropsAlly).
+inline bool NecroDaedraLetGo(bool daedraAllies, bool oneIsBoss, bool otherIsDaedra) {
+	return daedraAllies && oneIsBoss && otherIsDaedra;
+}
+
+// [Necromancers] TestFight (INI only, a test switch for the harness,
+// tools/necro-harness.sh): `ally` - the two test bands are of one team and
+// one walker is set on the other, so the allies' StopCombat shows; `daedra` -
+// a Daedra near is brought to the necromancer placed and the two set on each
+// other, so decided 12's StopCombat shows; `far` - two enemy bands formed far
+// from the player at one spot, so they meet as numbers.
+enum class NecroTestFight : UInt8 { Off, Ally, Daedra, Far };
+
+inline NecroTestFight ParseNecroTestFight(const char* text) {
+	if (text == nullptr) {
+		return NecroTestFight::Off;
+	}
+	while (*text == ' ') {
+		++text;
+	}
+	char word[8] = {};
+	UInt32 n = 0;
+	for (; text[n] != '\0' && text[n] != ' '; ++n) {
+		if (n + 1 >= sizeof(word)) {
+			return NecroTestFight::Off;
+		}
+		const char c = text[n];
+		word[n] = c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+	}
+	for (UInt32 k = n; text[k] != '\0'; ++k) {
+		if (text[k] != ' ') {
+			return NecroTestFight::Off;
+		}
+	}
+	if (std::strcmp(word, "ally") == 0) {
+		return NecroTestFight::Ally;
+	}
+	if (std::strcmp(word, "daedra") == 0) {
+		return NecroTestFight::Daedra;
+	}
+	return std::strcmp(word, "far") == 0 ? NecroTestFight::Far : NecroTestFight::Off;
+}
+
+inline const char* NecroTestFightName(NecroTestFight t) {
+	switch (t) {
+		case NecroTestFight::Ally:
+			return "ally";
+		case NecroTestFight::Daedra:
+			return "daedra";
+		case NecroTestFight::Far:
+			return "far";
+		default:
+			return "off";
+	}
+}
+
 // Enemy bands far away that meet - within `meetUnits` - fight as numbers:
 // each loses by the other's size, between half and all of it by the roll
 // (the sizes before the fight); a band down to none is gone (Destroyed).

@@ -6,6 +6,8 @@
 # second the plugin sets a team's walker that is not fighting on the nearest
 # enemy team's within 1500 units (StartCombat); DieOnlyBeheaded=0, so they
 # die of it. The roster at "fought" against "met" shows the dead.
+# TestFight=far: two enemy bands of 4 are formed 40000 units from the player
+# at one spot - far away they meet and fight as numbers.
 
 ini Hands Enabled=1
 ini Debug GripTrace=0

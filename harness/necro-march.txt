@@ -1,0 +1,51 @@
+# A realm grows, its bands reach a city, and it outlives a save and a load
+# (docs/walkers-spec.md 4.23 B, build steps 1, 3 and 4), run by
+# tools/necro-harness.sh march: the necromancers alone, one boss at Toadstool
+# Hollow (TestHome, BossesMin=BossesMax=1), NewPlaceEveryDays=1, BandsPerDay=4,
+# [Daedra] BandSiegePercent=50, BandSiegeFadePerDay=0, [Siege]
+# ChancePerDayPercent=0. The player stands far off at cow tamriel -3 3; the
+# console moves the game a day on every 8 s (GameDaysPassed 2..6): the boss
+# takes more dungeons, his bands form and reach their city ("reached its
+# city"). Then the game is saved (WalkersNecroTest) and loaded: the realm,
+# its places and its far bands must come back from the co-save - no new boss
+# rises after the load.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready player.setav chameleon 100
+console-at ready cow tamriel -3 3
+console-at d1 set gamedayspassed to 2
+console-at d2 set gamedayspassed to 3
+console-at d3 set gamedayspassed to 4
+console-at d4 set gamedayspassed to 5
+console-at d5 set gamedayspassed to 6
+console-at saved save WalkersNecroTest
+console-at reload load WalkersNecroTest
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 15
+mark d1
+wait 8
+mark d2
+wait 8
+mark d3
+wait 8
+mark d4
+wait 8
+mark d5
+wait 8
+mark saved
+wait 6
+mark reload
+wait 30
+mark end
+wait 1

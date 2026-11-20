@@ -1,0 +1,38 @@
+# With Daedra Mode 2 a necromancer and the Daedra leave each other alone
+# (docs/walkers-spec.md 4.23 B, decided 12), run by tools/necro-harness.sh
+# daedra: [Daedra] Mode=2, the necromancers alone otherwise, one boss at
+# Toadstool Hollow (TestHome) with 2 walkers, TestFight=daedra. The player
+# goes in; once the necromancer is placed a Dremora (LL0Dremora0Churl100,
+# Oblivion.esm 00092DA6) is put down by the player; the plugin brings it to
+# the necromancer and sets the two on each other. Twice a second both must be
+# told to let go (StopCombat). DieOnlyBeheaded=0: a fight that goes on
+# kills one of them. The roster at "after" must hold both alive.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready player.setav chameleon 100
+console-at inside coc ToadstoolHollow
+console-at placed player.placeatme 00092DA6 1
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark inside
+wait 16
+mark placed
+wait 6
+mark fight
+wait 40
+mark after
+wait 2
+mark end
+wait 1

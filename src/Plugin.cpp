@@ -447,13 +447,15 @@ bool ReadSettings(walkers::Settings* settings) {
 		n.realmMost = necroWhole("RealmMost", 6, 1, 20);
 		IniString("Necromancers", "TestHome", "", rise.necroTestHome, sizeof(rise.necroTestHome), path);
 		rise.necroTestBandsSeconds = std::max(0.0f, IniFloat("Necromancers", "TestBandsSeconds", 0.0f, path));
+		IniString("Necromancers", "TestFight", "", rise.necroTestFight, sizeof(rise.necroTestFight), path);
 		Log("Settings from %s: [Necromancers] Mode=%d BossesMin=%u BossesMax=%u BandsPerDay=%.2f BandSizeMin=%u "
 		    "BandSizeMax=%u NewPlaceEveryDays=%.1f Teams=%u,%u,%u,%u,%u ComeBack=%d ComeBackDays=%.1f PaceByLiving=%d "
-		    "RiseWithin=%.0f WalkersMin=%u WalkersMax=%u RealmMost=%u TestHome=%s",
+		    "RiseWithin=%.0f WalkersMin=%u WalkersMax=%u RealmMost=%u TestHome=%s TestBandsSeconds=%.0f TestFight=%s",
 		    path, rise.invaders.necromancers ? 1 : 0, n.bossesMin, n.bossesMax, n.bandsPerDay, n.bandSizeMin,
 		    n.bandSizeMax, n.newPlaceEveryDays, n.teams[0], n.teams[1], n.teams[2], n.teams[3], n.teams[4],
 		    n.comeBack ? 1 : 0, n.comeBackDays, n.paceByLiving ? 1 : 0, n.riseWithin, n.walkersMin, n.walkersMax,
-		    n.realmMost, rise.necroTestHome);
+		    n.realmMost, rise.necroTestHome, rise.necroTestBandsSeconds,
+		    walkers::NecroTestFightName(walkers::ParseNecroTestFight(rise.necroTestFight)));
 	}
 	camps.testEscort = IniInt("Survivors", "TestEscort", -1, path);
 	camps.testEscortBehind = IniInt("Survivors", "TestEscortBehind", 0, path) != 0;

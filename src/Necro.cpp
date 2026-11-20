@@ -1,6 +1,7 @@
 #include "Necro.h"
 
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <unordered_map>
 
@@ -12,6 +13,7 @@
 #include "Engine.h"
 #include "Horde.h"
 #include "News.h"
+#include "Placer.h"
 
 namespace walkers {
 using namespace engine;
@@ -50,6 +52,27 @@ constexpr float kNecroBandsMeetUnits = 3000.0f;
 float g_testBandsSeconds = 0.0f;
 float g_testBandsClock = 0.0f;
 bool g_testBandsDone = false;
+// [Necromancers] TestFight (INI only, a test switch; NecroLogic.h): its stage
+// 0 waiting, 1 the Daedra brought (daedra), 2 done; the Daedra brought.
+NecroTestFight g_testFight = NecroTestFight::Off;
+UInt32 g_testFightStage = 0;
+float g_testFightClock = 0.0f;
+UInt32 g_testDaedra = 0;
+// A line for each fight the plugin starts or ends, while these last.
+UInt32 g_actLogsLeft = 40;
+
+void ActLog(LogFn log, const char* format, ...) {
+	if (g_actLogsLeft == 0 || log == nullptr) {
+		return;
+	}
+	--g_actLogsLeft;
+	char line[256];
+	va_list args;
+	va_start(args, format);
+	std::vsnprintf(line, sizeof(line), format, args);
+	va_end(args);
+	log("Necromancers: %s", line);
+}
 
 // The cities the bands head for: the gates' outside spots (CityGates.h), as
 // the gates' bands.
@@ -185,8 +208,9 @@ bool IsHome(UInt32 boss, UInt32 candidate) {
 
 void ConfigureNecro(const NecroSettings* settings, const InvaderSettings* invaders, NecroRollFn roll,
                     NecroConsoleFn console, NecroDeadFn dead, NecroIsWalkerFn isWalker, const char* testHome,
-                    float testBandsSeconds, LogFn log) {
+                    float testBandsSeconds, const char* testFight, LogFn log) {
 	g_testBandsSeconds = testBandsSeconds;
+	g_testFight = ParseNecroTestFight(testFight);
 	g_settings = settings;
 	g_invaders = invaders;
 	g_roll = roll;
@@ -208,6 +232,9 @@ void ResetNecroInGame() {
 	g_teams.clear();  // the bands' members went with the load (Bands.cpp keeps its own)
 	g_testBandsClock = 0.0f;
 	g_testBandsDone = false;
+	g_testFightStage = 0;
+	g_testFightClock = 0.0f;
+	g_testDaedra = 0;
 	g_poolTeamedCount = 0;
 	g_lastDays = -1.0f;
 	g_clock = kStepSeconds;  // the first step at once
@@ -256,6 +283,22 @@ void StepNecroInGame(float dt, LogFn log) {
 	}
 	if (!playerKnown) {
 		px = py = 1.0e9f;  // nowhere near: no band comes into the world
+	}
+	// [Necromancers] TestFight=far: two enemy bands formed at one spot far
+	// from the player - they meet as numbers at once (the clock stands still).
+	if (g_testFight == NecroTestFight::Far && g_testFightStage == 0 && playerKnown && g_state.count > 0) {
+		g_testFightStage = 2;
+		const UInt8 a = g_state.bosses[0].team;
+		const UInt32 other = g_state.count > 1 ? 1u : 0u;
+		const UInt8 b = g_state.count > 1 ? g_state.bosses[1].team : static_cast<UInt8>(a == 1 ? 2 : 1);
+		NecroBandEvent fev[8];
+		UInt32 fn = NecroBandFormed(g_bands, s, 0, a, 4, px + 40000.0f, py, g_cities, kCityGateCount, px, py, fev, 4);
+		fn += NecroBandFormed(g_bands, s, other, b, 4, px + 40500.0f, py, g_cities, kCityGateCount, px, py, fev + fn,
+		                      4);
+		log("Necromancers: test - TestFight=far: two bands of 4, teams %u and %u, formed 40000 units from you at one "
+		    "spot",
+		    a, b);
+		CarryBandEvents(fev, fn, log);
 	}
 	// The far bands walk on.
 	{
@@ -372,6 +415,80 @@ UInt8 TeamOfTarget(UInt32 targetId, const Fighter* f, UInt32 n, bool& known) {
 	return 0;
 }
 
+// [Necromancers] TestFight=ally and =daedra (the harness): a fight the rules
+// must end, started once. `bossId` the necromancer placed and alive, or 0.
+void StepTestFight(const Fighter* f, UInt32 n, UInt32 bossId, UInt32 bossActor, LogFn log) {
+	if (g_testFight == NecroTestFight::Ally && g_testFightStage == 0) {
+		for (UInt32 i = 0; i < n; ++i) {
+			for (UInt32 k = i + 1; k < n; ++k) {
+				if (f[i].boss || f[k].boss || f[i].team == 0 || f[i].team != f[k].team || ActorInCombat(f[i].id) ||
+				    ActorInCombat(f[k].id)) {
+					continue;
+				}
+				const float d = Distance(f[i].actor, f[k].actor);
+				if (d < 0.0f || d > kNecroSetOnUnits) {
+					continue;
+				}
+				char line[32];
+				std::snprintf(line, sizeof(line), "StartCombat %08X", f[k].id);
+				g_console(f[i].actor, line);
+				g_testFightStage = 2;
+				log("Necromancers: test - TestFight=ally: %08X (team %u) set on its ally %08X, %.0f units off", f[i].id,
+				    f[i].team, f[k].id, d);
+				return;
+			}
+		}
+		return;
+	}
+	if (g_testFight != NecroTestFight::Daedra || g_testFightStage >= 2 || bossId == 0) {
+		return;
+	}
+	g_testFightClock += 0.5f;
+	if (g_testFightStage == 0) {
+		static UInt32 actors[256];
+		const UInt32 count = ActorsOnHighList(actors, 256);
+		UInt32 best = 0;
+		float bestDistance = 0.0f;
+		for (UInt32 k = 0; k < count; ++k) {
+			const float d = Distance(actors[k], bossActor);
+			if (actors[k] != bossActor && IsDaedraActor(actors[k]) && (g_dead == nullptr || !g_dead(actors[k])) &&
+			    d >= 0.0f && (best == 0 || d < bestDistance)) {
+				best = actors[k];
+				bestDistance = d;
+			}
+		}
+		if (best == 0) {
+			return;
+		}
+		char line[40];
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 150 0", bossId);
+		g_console(best, line);
+		g_testDaedra = FormIdOf(best);
+		g_testFightStage = 1;
+		g_testFightClock = 0.0f;
+		log("Necromancers: test - TestFight=daedra: the Daedra %08X (%.0f units off) brought to the necromancer %08X",
+		    g_testDaedra, bestDistance, bossId);
+		return;
+	}
+	if (g_testFightClock < 1.5f) {
+		return;
+	}
+	g_testFightStage = 2;
+	const UInt32 daedra = LookupForm(g_testDaedra);
+	if (!LooksLikeObject(daedra)) {
+		log("Necromancers: test - TestFight=daedra: the Daedra %08X is gone", g_testDaedra);
+		return;
+	}
+	char line[32];
+	std::snprintf(line, sizeof(line), "StartCombat %08X", bossId);
+	g_console(daedra, line);
+	std::snprintf(line, sizeof(line), "StartCombat %08X", g_testDaedra);
+	g_console(bossActor, line);
+	log("Necromancers: test - TestFight=daedra: the Daedra %08X and the necromancer %08X set on each other, %.0f units "
+	    "apart",
+	    g_testDaedra, bossId, Distance(daedra, bossActor));
+}
+
 }  // namespace
 
 bool NecroTeamed(UInt32 refId) {
@@ -423,10 +540,15 @@ void StepNecroTeams(float dt, LogFn log) {
 	int boss = -1;
 	const UInt32 bossId = NecroBossPlacedNow(boss);
 	const UInt32 bossActor = bossId != 0 ? LookupForm(bossId) : 0;
-	if (LooksLikeObject(bossActor) && n < kFightersMost && (g_dead == nullptr || !g_dead(bossActor))) {
+	const bool bossHere = LooksLikeObject(bossActor) && (g_dead == nullptr || !g_dead(bossActor));
+	if (bossHere && n < kFightersMost) {
 		f[n++] = Fighter{bossId, bossActor, BossTeam(boss), true};
 	}
 	const bool daedraAllies = g_invaders->daedra == DaedraMode::Allies;
+	StepTestFight(f, n, bossHere ? bossId : 0, bossActor, log);
+	// RunScriptLine2's answer is no success flag (StartCombat answers 0 though
+	// the fight starts - 4.21's slow aggression, measured 2026-11-08): a line
+	// sent counts, and the next look shows whether the fight changed.
 	UInt32 stopped = 0;
 	UInt32 set = 0;
 	UInt32 atEnemy = 0;  // fighting an enemy team's, left to it
@@ -440,11 +562,17 @@ void StepNecroTeams(float dt, LogFn log) {
 		if (fighting && target != 0 && target != kPlayerId) {
 			bool known = false;
 			const UInt8 theirs = TeamOfTarget(target, f, n, known);
-			atEnemy += known && !NecroFightStops(f[i].team, theirs) ? 1u : 0u;
+			const bool ally = known && NecroFightStops(f[i].team, theirs);
+			const bool daedra = !known && NecroDaedraLetGo(daedraAllies, f[i].boss, IsDaedraActor(LookupForm(target)));
+			atEnemy += known && !ally ? 1u : 0u;
 			atOther += known ? 0u : 1u;
-			const bool daedra = !known && f[i].boss && daedraAllies && IsDaedraActor(LookupForm(target));
-			if (((known && NecroFightStops(f[i].team, theirs)) || daedra) && g_console(f[i].actor, "StopCombat")) {
+			if (ally || daedra) {
+				g_console(f[i].actor, "StopCombat");
 				++stopped;
+				ActLog(log, "%08X (%s of team %u) told to let go of %08X (%s)", f[i].id,
+				       f[i].boss ? "the necromancer" : "a walker", f[i].team, target,
+				       daedra ? "a Daedra - Daedra Mode 2, decided 12"
+				              : (theirs == 0 ? "a free walker - decided 11" : "an ally of its team"));
 			}
 			continue;
 		}
@@ -464,8 +592,28 @@ void StepNecroTeams(float dt, LogFn log) {
 		if (best >= 0) {
 			char line[32];
 			std::snprintf(line, sizeof(line), "StartCombat %08X", f[best].id);
-			if (g_console(f[i].actor, line)) {
-				++set;
+			g_console(f[i].actor, line);
+			++set;
+			ActLog(log, "%08X (team %u) set on %08X (team %u%s), %.0f units off", f[i].id, f[i].team, f[best].id,
+			       f[best].team, f[best].boss ? ", their necromancer" : "", bestDistance);
+		}
+	}
+	// Decided 12, the Daedra's side: with Daedra Mode 2 a Daedra fighting the
+	// necromancer placed lets go of him too.
+	if (bossHere && daedraAllies) {
+		static UInt32 actors[256];
+		const UInt32 count = ActorsOnHighList(actors, 256);
+		for (UInt32 k = 0; k < count; ++k) {
+			const UInt32 a = actors[k];
+			if (!IsDaedraActor(a) || (g_dead != nullptr && g_dead(a))) {
+				continue;
+			}
+			const UInt32 id = FormIdOf(a);
+			if (ActorInCombat(id) && NecroDaedraLetGo(daedraAllies, ActorCombatTargetId(id) == bossId, true)) {
+				g_console(a, "StopCombat");
+				++stopped;
+				ActLog(log, "the Daedra %08X told to let go of the necromancer %08X (Daedra Mode 2, decided 12)", id,
+				       bossId);
 			}
 		}
 	}

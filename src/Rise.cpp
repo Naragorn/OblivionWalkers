@@ -4127,7 +4127,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	ConfigureDungeons(&g_dungeonsNow, &NextRandom, &ConsoleOn, &IsDead, &UnlistRising, &IsRisenWalker,
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureNecro(&g_settings.necro, &g_invadersNow, &NextRandom, &ConsoleOn, &IsDead, &IsWalkerRef,
-	               g_settings.necroTestHome, g_settings.necroTestBandsSeconds, log);
+	               g_settings.necroTestHome, g_settings.necroTestBandsSeconds, g_settings.necroTestFight, log);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);
 	ConfigureOnboarding(&g_settings.onboarding, g_iniPath, &ConsoleOn, &ApplyOnboardingChoice, log);
