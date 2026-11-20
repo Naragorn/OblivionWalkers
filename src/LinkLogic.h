@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 
 #include "ReplaceLogic.h"
 #include "RiseLogic.h"
@@ -39,7 +40,7 @@ inline constexpr const char* kLinkVersionVariable = "ini_version";
 // replacement categories, 2026-10-29), so a save of
 // the version before takes the plugin INI's values again - the new variable
 // would read 0 otherwise.
-inline constexpr double kLinkVersion = 49.0;  // 49: [Walkers] Mode (ini_walkers_mode) added, [Daedra] Mode 0-2 (0 off, 1 enemies, 2 allies) and OnlyFromOblivionGates removed - the Daedra come only out of the gates, 2026-11-20; 48: [Invaders] named [Daedra], its variables ini_daedra_*, DaedraPercent named SharePercent and DaedraAfterMainQuest AfterMainQuest, 2026-11-20; 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and AfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
+inline constexpr double kLinkVersion = 50.0;  // 50: ini_onboarding_show (4.24a), 2026-11-20; 49: [Walkers] Mode (ini_walkers_mode) added, [Daedra] Mode 0-2 (0 off, 1 enemies, 2 allies) and OnlyFromOblivionGates removed - the Daedra come only out of the gates, 2026-11-20; 48: [Invaders] named [Daedra], its variables ini_daedra_*, DaedraPercent named SharePercent and DaedraAfterMainQuest AfterMainQuest, 2026-11-20; 47: LegionDistance, the Daedric disguise's three and the marching weather's two (4.22 ideas 10, 7, 9), 2026-11-16; 46: the Daedra sieges' three, BanishSeconds and AfterMainQuest (4.22a steps 5a, 5b, 6), 2026-11-16; 45: the held dungeons' NewPlacesWithin (4.20.7a), 2026-11-16; 44: the boss guard's three (4.6c), 2026-11-16; 43: the invaders' OnlyFromOblivionGates and the gates' bands (4.22 step 3), 2026-11-16; 42: the invaders' three (4.22), 2026-11-15 - their Kind named Mode 2026-11-16; 41: the headshots' seven, the corpses' three and the camps' leash, 2026-11-15; 40: the held dungeons' WalkersOutsidePercent, 2026-11-14; 39: the six fractions in whole numbers (pace, night pace, city pull and the struggle's crowd in percent, the struggle's gap and the lunge in milliseconds), the grab's chance by 1 and the siege's counts from 5 - LINK's sliders cut every other value off, 2026-11-14; 38: the held dungeons' people 3 to 6 by default (a save's 4 to 8 replaced) and their beds, 2026-11-13; 37: the held dungeons' runner, 2026-11-13; 36: the held dungeons' journal and rumors, 2026-11-13; 35: the held dungeons' WalkersAtOnce, 2026-11-13; 34: the held dungeons' sixteen, 2026-11-13; 33: the refugee dungeons' OnlyChosen, 2026-11-13; 32: the slow aggression's calm time, 2026-11-11; 31: the gates' waiting three (4.11c), 2026-11-11; 30: EscortIntoCity, 2026-11-09; 29: the disguise's two, 2026-11-09; 28: OthersEndPercent, 2026-11-09; 27: the camps' things and the escort's five, 2026-11-08; 26: KeepQuestLists; 25: the slow aggression's level; 24: the slow aggression's time at random, fewest and most; 23: the slow aggression's three, 2026-11-08; 18: the nights' six (4.20.5); 19: the noise's three (4.20.2); 20: the camps' fifteen (4.20.6), 2026-11-05; 21: the camps' count (the dynamic camps); 22: the grab's shock sound, 2026-11-06
 
 enum class LinkKind : UInt8 { Header, Toggle, Slider };
 
@@ -98,6 +99,7 @@ inline constexpr LinkHeader kLinkHeaders[] = {
 	{68 + kReplaceCategoryCount + 94, "Survivors' camps - home"},
 	{68 + kReplaceCategoryCount + 95, "Who comes"},
 	{68 + kReplaceCategoryCount + 97, "Daedra from Oblivion"},
+	{68 + kReplaceCategoryCount + 118, "Onboarding"},
 };
 
 inline constexpr LinkSetting kLinkSettings[] = {
@@ -557,9 +559,22 @@ inline constexpr LinkSetting kLinkSettings[] = {
 	{"ini_daedra_march_weather_distance", "Daedra: the red sky within",
 	 "The red sky within this distance of a gate the Daedra besiege (units; 70 are about 1 m).",
 	 LinkKind::Slider, 2000, 40000, 1000, 0, false, LinkEffect::Live},
+	{"ini_onboarding_show", "Show the onboarding again",
+	 "On: the boxes that explain the mod and take your choice of who comes show again at the next quiet moment in the game. It switches itself off once you have chosen.",
+	 LinkKind::Toggle, 0, 1, 1, 0, false, LinkEffect::Live},
 };
 inline constexpr UInt32 kLinkSettingCount = sizeof(kLinkSettings) / sizeof(kLinkSettings[0]);
 inline constexpr UInt32 kLinkCategoryFirst = 68;
+
+// The index of the setting whose variable is `var`; -1 when there is none.
+inline int LinkIndexOf(const char* var) {
+	for (UInt32 i = 0; i < kLinkSettingCount; ++i) {
+		if (std::strcmp(kLinkSettings[i].var, var) == 0) {
+			return static_cast<int>(i);
+		}
+	}
+	return -1;
+}
 
 // A setting the plugin holds as a fraction (a pace of 1.3, 0.3 seconds), as
 // LINK holds it: in whole hundredths or thousandths (130, 300). LINK's slider
@@ -763,6 +778,7 @@ inline double LinkValue(const RiseSettings& rise, const ReplaceSettings& replace
 		case 228: return rise.daedric.forgetSeconds;
 		case 229: return rise.march.enabled ? 1.0 : 0.0;
 		case 230: return rise.march.units;
+		case 231: return rise.onboarding.show ? 1.0 : 0.0;
 		default: return 0.0;
 	}
 }
@@ -980,6 +996,7 @@ inline bool SetLinkValue(RiseSettings& rise, ReplaceSettings& replace, UInt32 i,
 		case 228: rise.daedric.forgetSeconds = fraction; break;
 		case 229: rise.march.enabled = on; break;
 		case 230: rise.march.units = fraction; break;
+		case 231: rise.onboarding.show = on; break;
 		default: return false;
 	}
 	return true;

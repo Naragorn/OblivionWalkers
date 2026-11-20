@@ -419,6 +419,9 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.daedric.nearUnits = std::max(0.0f, IniFloat("Disguise", "DaedricNearDistance", 200.0f, path));
 	rise.daedric.forgetSeconds = std::max(0.0f, IniFloat("Disguise", "DaedricForgetSeconds", 60.0f, path));
 	rise.disguiseTest = IniInt("Disguise", "Test", 0, path) != 0;
+	// 4.24a the onboarding: shown once; the test answers are INI only.
+	rise.onboarding.show = IniInt("Onboarding", "Show", 1, path) != 0;
+	IniString("Onboarding", "TestAnswers", "", rise.onboarding.testAnswers, sizeof(rise.onboarding.testAnswers), path);
 	camps.testEscort = IniInt("Survivors", "TestEscort", -1, path);
 	camps.testEscortBehind = IniInt("Survivors", "TestEscortBehind", 0, path) != 0;
 	camps.escortFollowSeconds = std::max(0.0f, IniFloat("Survivors", "EscortFollowSeconds", 5.0f, path));

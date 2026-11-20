@@ -13,6 +13,8 @@ ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 backup="$(mktemp)"
 cp "$ini" "$backup"
 trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_onboarding_off "$ini"  # 4.24a: no box over the run
 if grep -q '^\[Debug\]' "$ini"; then
 	sed -i '0,/^\[Debug\]\r\?$/s//[Debug]\nTestLinkPage=24/' "$ini"
 else

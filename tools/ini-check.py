@@ -25,6 +25,7 @@ EXPECTED = {
     "News": "Courier",
     "Grab": "Enabled",
     "Daedra": "Mode",
+    "Onboarding": "Show",
     "Debug": "StepTiming",
 }
 

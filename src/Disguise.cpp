@@ -1,6 +1,7 @@
 #include "Disguise.h"
 
 #include "Engine.h"
+#include "Onboarding.h"
 
 #include <cstdio>
 
@@ -251,7 +252,8 @@ void StepDisguiseInGame(float dt) {
 			g_offerDue = g_settings->enabled;
 		}
 	}
-	if (g_offerDue) {
+	// One game box at a time: the onboarding's first (Onboarding.h).
+	if (g_offerDue && !OnboardingBoxUp()) {
 		g_offerDue = false;
 		Ask();
 	}
@@ -265,6 +267,8 @@ void StepDisguiseInGame(float dt) {
 }
 
 bool Disguised() { return g_state.on; }
+
+bool DisguiseAsking() { return g_state.asking; }
 
 bool TakeDisguiseBegun() {
 	const bool begun = g_begun;

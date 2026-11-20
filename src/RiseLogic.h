@@ -26,6 +26,7 @@
 #include "KindLogic.h"
 #include "MissingLogic.h"
 #include "NewsLogic.h"
+#include "OnboardingLogic.h"
 #include "NightLogic.h"
 #include "SafeguardLogic.h"
 #include "SiegeLogic.h"
@@ -231,6 +232,8 @@ struct RiseSettings {
 	// [Debug] SampleLine (INI only): the verb of the console lines looked
 	// inside (SamplerLogic.h), e.g. SetStage; empty: none. Needs StepTiming=1.
 	char sampleLine[24] = {};
+	// [Onboarding] Show and TestAnswers (4.24a, OnboardingLogic.h).
+	OnboardingSettings onboarding;
 	// [Disguise] Test (harness/disguise.txt): the dialog offered 25 s after the load, the probes logged.
 	bool disguiseTest = false;
 };

@@ -33,6 +33,8 @@ text = re.sub(r"^MinCount=.*$", "MinCount=2", text, count=1, flags=re.M)
 text = re.sub(r"^MaxCount=.*$", "MaxCount=3", text, count=1, flags=re.M)
 open(path, "w", encoding="latin-1", newline="").write(text)
 INI
+source "$root/tools/walkers-ini-mode.sh"
+walkers_onboarding_off "$ini"  # 4.24a: no box over the run (an [Onboarding] section is no [Walkers])
 grep -n "^\[Zombies\]\|^HealthPercent=\|^MinCount=\|^MaxCount=" "$ini"
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/oldini.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") > "$root/artifacts/oldini-runner.txt" 2>&1 || true

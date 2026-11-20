@@ -16,6 +16,7 @@
 #include "News.h"
 #include "SoundLogic.h"
 #include "Pose.h"
+#include "Onboarding.h"
 #include "QuestVars.h"
 #include "SamplerLogic.h"
 #include "SkillLogic.h"
@@ -3049,6 +3050,29 @@ void ApplyLinkEffect(LinkEffect effect) {
 	}
 }
 
+// The player pressed Start in the onboarding (4.24a): the switches into the
+// running settings (Onboarding.cpp has switched `show` off), the LINK
+// variables of the three, and the spawn replacement written anew as a LINK
+// change of the Daedra mode does. The INI is written by the caller.
+void ApplyOnboardingChoice(WalkersMode walkers, DaedraMode daedra) {
+	g_settings.invaders.walkers = walkers;
+	g_settings.invaders.daedra = daedra;
+	const UInt32 quest = EspFormId(FindEspBase(), kLinkQuestLocalId);
+	const char* const vars[3] = {"ini_walkers_mode", "ini_daedra_mode", "ini_onboarding_show"};
+	UInt32 written = 0;
+	for (const char* name : vars) {
+		const int index = LinkIndexOf(name);
+		double* var = index >= 0 ? QuestVariable(quest, name) : nullptr;
+		if (var != nullptr) {
+			*var = LinkValue(g_settings, g_replace, static_cast<UInt32>(index));
+			++written;
+		}
+	}
+	g_log("Onboarding: Walkers Mode %u, Daedra Mode %u set; %u of 3 LINK variables written; the spawns written anew",
+	      static_cast<UInt32>(walkers), static_cast<UInt32>(daedra), written);
+	ApplyLinkEffect(LinkEffect::Spawns);
+}
+
 // At the first tick after a load, StartOf decides whether the plugin INI's
 // values go into the quest's variables or LINK's (the save's) into the
 // settings - at once, not a second on: a slider moved in LINK's menu within
@@ -3584,6 +3608,7 @@ void Tick() {
 	Timed(13, "camps", [dt] { StepCampsInGame(dt); });
 	Timed(14, "disguise", [dt] {
 		StepDisguiseInGame(dt);
+		StepOnboardingInGame(dt);
 		StepDaedricDisguiseInGame(dt);
 		StepCombatTrace(dt);
 	});
@@ -3730,6 +3755,7 @@ void OnLoad(void*) {
 	ResetCampsInGame();
 	ResetDungeonsInGame();
 	ResetDisguise();
+	ResetOnboarding();
 	ResetDaedricDisguise();
 	ResetMarchWeather();
 	g_banished.clear();
@@ -3925,6 +3951,7 @@ void OnNewGame(void*) {
 	ResetCampsInGame();
 	ResetDungeonsInGame();
 	ResetDisguise();
+	ResetOnboarding();
 	ResetDaedricDisguise();
 	ResetMarchWeather();
 	g_banished.clear();
@@ -4038,6 +4065,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	                  g_settings.dungeonsTestSite, g_settings.dungeonsTestSiteState);
 	ConfigureDaedricDisguise(&g_settings.daedric, &ConsoleOn, &IsDead, log);
 	ConfigureMarchWeather(&g_settings.march, &ConsoleOn, &IsDead, log);
+	ConfigureOnboarding(&g_settings.onboarding, g_iniPath, &ConsoleOn, &ApplyOnboardingChoice, log);
 	ConfigureDisguise(&g_settings.disguise, g_settings.disguiseTest, &ConsoleOn, &IsWalkerRef, &IsDead, &SendToObvr, log);
 	return true;
 }

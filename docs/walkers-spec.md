@@ -5733,7 +5733,7 @@ read and tested logic; the risk is a system that starts walkers without
 any of these functions (the nights' extra spawns, the noise) - every
 place that places a walker read first.
 
-#### 4.24a The onboarding: what the mod does, and the player chooses (Nadi, 2026-11-20: "an onboarding where everything is explained and you choose what goes on"; designed, not built)
+#### 4.24a The onboarding: what the mod does, and the player chooses (Nadi, 2026-11-20: "an onboarding where everything is explained and you choose what goes on"; BUILT 2026-11-20 without the necromancers' page, harness and headset owed)
 
 At the first start a chain of the game's message boxes explains the mod
 page by page and takes the player's choice of the three switches (4.24).
@@ -5788,6 +5788,40 @@ Read and derived for it:
   own limit to be read). A page too long is split in two.
 - VR: OBVR shows the game's message boxes; whether the chain reads well
   in the headset is a headset check.
+
+As built 2026-11-20 (OnboardingLogic.h and IniEditLogic.h with
+OnboardingLogicTest and IniEditLogicTest; Onboarding.cpp shows the boxes):
+- Pages 1, 2, 3 and 5; no necromancers' page and no "Necromancers" line in
+  the summary until 4.23 B is built. Page 3 folds to two buttons with
+  walkers off ("No Daedra" / "Daedra", the second sets Daedra 1).
+- Each page's text is one paragraph that starts with its title and a colon
+  ("Walkers: Walkers are undead ..."), no line breaks: whether the game's
+  box takes a line feed in its text is not read. Every text is under 400
+  characters (the test checks it). The game's own limit for a box's text and
+  for the length of a button's label is still not read.
+- When: the player has a cell, no menu but the HUD's four (0x3EC, 0x3ED,
+  0x3EE, 0x3F2) is in the interface's menu stack, the disguise's box is not
+  up, and 5 s of play have passed since the load (0.5 s after an answer for
+  the next page). Both waits are guesses for the harness to set. The log says
+  once per menu "Onboarding: waiting - the menu NNN is open".
+- The disguise's offer waits while an onboarding box is up, and the
+  onboarding while the disguise's is (`DisguiseAsking`, `OnboardingBoxUp`).
+- Start: the switches go into the running settings and the LINK variables
+  `ini_walkers_mode`, `ini_daedra_mode` and `ini_onboarding_show`, the spawns
+  are written anew as a LINK change does, and `[Walkers] Mode`, `[Daedra]
+  Mode` and `[Onboarding] Show=0` are written into the INI by `SetIniKey`
+  (the keys changed in place, a missing key or section added, all else byte
+  for byte, the file's line ends). A save made before the choice still holds
+  `ini_onboarding_show` 1 and shows the chain once more when loaded.
+- LINK: `ini_onboarding_show` ("Show the onboarding again") is index 231,
+  header "Onboarding", LINK version 50.
+- Logs: "Onboarding: page 2 Walkers shown (..)", "Onboarding: answered 1 -
+  Apocalypse", "Onboarding: chosen Walkers 2 Daedra 1, written to the INI".
+- Test: `[Onboarding] TestAnswers=1,1,1,0` sends the console's
+  `SetButtonPressed N` for the box up, one a second ("Onboarding: test -
+  ..."), as harness/disguise.txt does (the disguise's own test mode only
+  offers its box; the harness answers it). The wrappers under tools/ put
+  `[Onboarding] Show=0` into the live INI (tools/walkers-ini-mode.sh).
 
 Harness: `[Onboarding] TestAnswers=` (INI only) presses the buttons in
 order, one a second, as the disguise's test mode does. Two runs - a full

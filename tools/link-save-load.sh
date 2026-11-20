@@ -8,6 +8,12 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 log="$game/OblivionWalkers.log"
+ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
+backup="$(mktemp)"
+cp "$ini" "$backup"
+trap 'cp "$backup" "$ini"; rm -f "$backup"' EXIT
+source "$root/tools/walkers-ini-mode.sh"
+walkers_onboarding_off "$ini"  # 4.24a: no box over the run
 (cd "$obvr" && python3 tools/hand-script-run.py "$root/harness/link-save-load.txt" --headless ${WALKERS_RUNNER_ARGS---no-steamvr} \
 	--artifact-root "$root/artifacts/hand-script") | tee "$root/artifacts/link-save-load-runner.txt"
 run="$(ls -td "$root"/artifacts/hand-script/link-save-load/*/ | head -1)"

@@ -81,6 +81,7 @@ def set_key(text, section, key, value):
 
 # the old Kind 0..3 as the two switches (4.24)
 walkers_mode, daedra_mode = {"0": ("2", "0"), "1": ("0", "1"), "2": ("2", "1"), "3": ("2", "2")}[kind]
+text = set_key(text, "Onboarding", "Show", "0")  # 4.24a: no box over a run
 text = set_key(text, "Walkers", "Mode", walkers_mode)
 text = set_key(text, "Daedra", "Mode", daedra_mode)
 if scenario in ("spawn", "fight", "fuel", "mainquest"):

@@ -32,6 +32,9 @@ void NoteDisguiseSmear(UInt32 corpse);
 void StepDisguiseInGame(float dt);
 // Whether the player is disguised now.
 bool Disguised();
+// Whether the disguise's offer (a message box) is up; the onboarding's box
+// waits for it, and it for the onboarding's (Onboarding.h).
+bool DisguiseAsking();
 // Whether the walkers leave the player be now: disguised, or in the Daedric
 // set with the walkers the Daedra's allies (DisguiseLogic.h WalkersFooled;
 // Rise.cpp, which knows the mode in effect).
