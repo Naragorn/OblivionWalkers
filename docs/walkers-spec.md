@@ -3947,7 +3947,8 @@ the invaders there.
 
 **The Daedra come only out of the gates** (Nadi, 2026-11-20, asked: he
 took the Daedra for the gates' and not for the walkers' places; decided;
-BUILT 2026-11-20, harness owed). Each threat has its own source: the walkers everywhere
+BUILT 2026-11-20; seen in the game 2026-11-20: daedra-gatesonly, -spawn, -band, -gate,
+-mainquest, -fuel PASS). Each threat has its own source: the walkers everywhere
 through the spawn replacement (the plague), the Daedra only out of open
 Oblivion gates (the invasion), the necromancers out of their realms (4.23
 B).
@@ -5615,7 +5616,7 @@ Recommended order: B first (it stands on what is built and proven today),
 A after its hit hook is read - the cheapest step to settle A's cost is to
 read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
 
-### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos", then "a 0 that switches everything off and a 1 that only replaces the existing zombies"; BUILT 2026-11-20 for Walkers and Daedra, harness owed; the necromancers' switch waits for 4.23 B)
+### 4.24 Who comes: three switches, every combination (Nadi, 2026-11-20: "a mode where the mod is off, then we have all combos", then "a 0 that switches everything off and a 1 that only replaces the existing zombies"; BUILT 2026-11-20 for Walkers and Daedra; seen in the game 2026-11-20: whocomes zombies, apocalypse, off PASS, both modes filmed; the necromancers' switch waits for 4.23 B)
 
 Until now one key mixed two questions: `[Daedra] Mode` 1 meant "the
 Daedra, and no walkers", and the necromancers' design had "alone" and
@@ -5733,7 +5734,7 @@ read and tested logic; the risk is a system that starts walkers without
 any of these functions (the nights' extra spawns, the noise) - every
 place that places a walker read first.
 
-#### 4.24a The onboarding: what the mod does, and the player chooses (Nadi, 2026-11-20: "an onboarding where everything is explained and you choose what goes on"; BUILT 2026-11-20 without the necromancers' page, harness and headset owed)
+#### 4.24a The onboarding: what the mod does, and the player chooses (Nadi, 2026-11-20: "an onboarding where everything is explained and you choose what goes on"; BUILT 2026-11-20 without the necromancers' page; seen in the game 2026-11-20: whocomes onboard (Choose, Apocalypse, Daedra enemies, Start) and onboardoff (Turn the mod off, Start) PASS through `[Onboarding] TestAnswers`; the boxes in the headset owed)
 
 At the first start a chain of the game's message boxes explains the mod
 page by page and takes the player's choice of the three switches (4.24).
