@@ -9,6 +9,8 @@
 #                                    player is inside, killall: he falls, the realm stops, a refuge won
 #   tools/necro-harness.sh band      harness/necro-band.txt: one boss at Toadstool Hollow, the player before
 #                                    its door, the clock fast - a band of his comes into the world near him
+#   tools/necro-harness.sh teams     harness/necro-teams.txt: two bands of enemy teams near the player - set
+#                                    on each other by the plugin
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -16,8 +18,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band) ;;
-	*) echo "scenario: hotspot | band" >&2; exit 2 ;;
+	hotspot | band | teams) ;;
+	*) echo "scenario: hotspot | band | teams" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -61,6 +63,10 @@ if scenario == "band":
     keys += [("Necromancers", "BossesMin", "1"), ("Necromancers", "BossesMax", "1"),
              ("Necromancers", "BandsPerDay", "4"), ("Necromancers", "BandSizeMin", "3"),
              ("Necromancers", "BandSizeMax", "3")]
+if scenario == "teams":
+    keys += [("Necromancers", "TestHome", ""), ("Necromancers", "TestBandsSeconds", "3")]
+else:
+    keys += [("Necromancers", "TestBandsSeconds", "0")]
 for section, key, value in keys:
     text = put(text, section, key, value)
 open(path, "w", encoding="latin-1", newline="").write(text)
@@ -98,6 +104,22 @@ for l in obvr:
 print("  roster " + roster.get("placed", "")[:300])
 place = "Toadstool Hollow"
 check(bool(show(find(r"^Mod: .*Necromancers Mode=1 \(their realms\)"))), "the start: Walkers 0, Daedra 0, Necromancers 1")
+if scenario == "teams":
+    check(bool(show(find(r"Necromancers: test - TestBandsSeconds=3: two bands of 3, teams (\d+) and (\d+)"))),
+          "the test's two bands queued")
+    came = show(find(r"Bands: a band of 3 walkers \(a necromancer's, team (\d+)\) comes near"))
+    teams = {re.search(r"team (\d+)", l).group(1) for l in came}
+    check(len(teams) == 2, "both placed, two teams (%s)" % sorted(teams))
+    set_on = show(find(r"Necromancers: teams - \d+ of theirs near; \d+ told StopCombat .*, (\d+) set on"))
+    check(any(int(re.search(r"(\d+) set on", l).group(1)) >= 1 for l in set_on), "set on an enemy team's (StartCombat)")
+    def walkers_at(mark):
+        bases = re.findall(r"\b([0-9A-F]{8}) x(\d+)", roster.get(mark, ""))
+        return sum(int(n) for b, n in bases if re.match(r"2B000[89A][0-9A-F]{2}$", b))
+    print("  roster met:    " + roster.get("met", "")[:200])
+    print("  roster fought: " + roster.get("fought", "")[:200])
+    print("  walkers at met %d, at fought %d" % (walkers_at("met"), walkers_at("fought")))
+    print("necro %s: %s" % (scenario, "PASS" if failures == 0 else "FAIL (%d)" % failures))
+    sys.exit(1 if failures else 0)
 if scenario == "band":
     rose = show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))
     check(bool(rose), "boss 0 rose at his home")
