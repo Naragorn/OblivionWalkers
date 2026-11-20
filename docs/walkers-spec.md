@@ -3944,6 +3944,45 @@ old names: the section never shipped (v0.1.0 is older). The code's own names
 (`InvaderSettings`, `InvaderKind`, `rise.invaders`) stay - the Daedra are
 the invaders there.
 
+**The Daedra come only out of the gates** (Nadi, 2026-11-20, asked: he
+took the Daedra for the gates' and not for the walkers' places; decided,
+not built). Each threat has its own source: the walkers everywhere
+through the spawn replacement (the plague), the Daedra only out of open
+Oblivion gates (the invasion), the necromancers out of their realms (4.23
+B).
+
+As built until then: `OnlyFromOblivionGates=0` by default - my proposal of
+2026-11-13, never Nadi's decision - put the Daedra into the spawn
+replacement by `SharePercent`; `=1` switched the whole replacement off,
+so the walkers too came only out of the gates (`BandLogic.h`
+ReplacementOn, `Bands.cpp` StepPlacing rolling each band's group). "The
+walkers everywhere and the Daedra out of the gates" could not be set.
+
+To change (design):
+- The spawn replacement puts in walkers only (Mode 0, 2, 3) - never a
+  Daedra. Mode 1 has no replacement at all: the world keeps its own
+  creatures, nobody rises, the Daedra come out of the gates.
+- A gate's band is always Daedra (no roll of the group).
+- `OnlyFromOblivionGates` goes - it is always so for the Daedra.
+  `EverywhereUntilGatesOpen` (default 0) stays for the Daedra alone:
+  before the first gate opens they come through the replacement by
+  `SharePercent`.
+- `SharePercent` stays the side's roll where both can come - a siege, a
+  camp's attack, a held dungeon's attackers (Mode 2, 3).
+- The modes read: 0 no Daedra; 1 the Daedra alone (no walker
+  apocalypse); 2 the walkers everywhere and the Daedra out of the gates,
+  at war; 3 the same as allies.
+- The early game stays as decided 2026-11-13 (a): no gate open, no
+  Daedra.
+
+Cost: small to medium - ReplacementOn and the replacement's group by
+mode, the band's group fixed, the INI and LINK key gone (LINK version
+49); unit flows in KindLogicTest and BandLogicTest, the harness runs
+`daedra-harness.sh spawn`, `band` and `gate` again. Sonnet 5.5 high: plain
+code on read and tested logic; the risk is a run that took the Daedra
+from the replacement (the camps', dungeons' and sieges' runs set Mode 1
+for that).
+
 **Kind 3, the allies** (Nadi, 2026-11-15): walkers and Daedra on one
 side, the fallen rise as walkers - Kind 2's spawns and rise, without the
 war between the two (`GroupsHostile` only for Kind 2).
@@ -5527,8 +5566,8 @@ Read and derived for it:
   | `[Necromancers] Mode` | `[Daedra] Mode` 0 | `[Daedra] Mode` 1-3 |
   |---|---|---|
   | 0 | today's apocalypse | today's Daedra modes |
-  | 1 | apocalypse + necromancers | apocalypse + necromancers + Daedra |
-  | 2 | necromancers alone | necromancers + Daedra (the replacement's Daedra share comes, its walker share stays the world's own creatures) |
+  | 1 | apocalypse + necromancers | apocalypse + necromancers + the Daedra out of the gates |
+  | 2 | necromancers alone | necromancers + the Daedra out of the gates |
 
 - **Who fights whom:** a boss's walkers carry his team (a faction per
   team); other teams' walkers and their bosses are enemies. The free
