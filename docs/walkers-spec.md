@@ -5704,3 +5704,70 @@ walker gets up again until its head is off). Sonnet 5.5 high: plain code over
 read and tested logic; the risk is a system that starts walkers without
 any of these functions (the nights' extra spawns, the noise) - every
 place that places a walker read first.
+
+#### 4.24a The onboarding: what the mod does, and the player chooses (Nadi, 2026-11-20: "an onboarding where everything is explained and you choose what goes on"; designed, not built)
+
+At the first start a chain of the game's message boxes explains the mod
+page by page and takes the player's choice of the three switches (4.24).
+The choice goes into the INI and into the save's LINK values at once (the
+spawns written anew, as a LINK change of `Mode` does); the chain is not
+shown again.
+
+**When:** the first frame in play after a load or a new game with no menu
+open - not over the race menu, the inventory or a dialogue, and not over
+OBVR's own onboarding (it waits until that box is closed). In a new game
+that is the prison cell. Shown once an install: `[Onboarding] Show=1` in
+the INI, set to 0 by the plugin once the player has chosen. LINK gets a
+switch "Show the onboarding again" (sets `Show=1`; the chain comes at
+the next frame in play).
+
+**The pages** (texts as proposed, in-game English; each a box with its
+buttons):
+
+1. *OblivionWalkers* - "This mod changes what threatens Cyrodiil. Pick
+   what you want. You can change it any time in the mod menu (LINK)."
+   Buttons: **Choose** (page 2) / **Just the game's zombies** (Walkers 1,
+   the rest off, to page 5) / **Turn the mod off** (all 0, to page 5).
+2. *Walkers* - "Walkers are undead that only stay down once their head
+   is off. Until then they get up again. They grab and bite, notice you
+   slowly, and come to noise. Their blood on you hides you from them.
+   Zombies only: the zombies you meet become walkers. Apocalypse:
+   walkers everywhere, the dead rise, hordes march on the cities."
+   Buttons: **Zombies only** / **Apocalypse** / **No walkers**.
+3. *Daedra* - "Out of every open Oblivion gate a Daedra war band marches
+   on the nearest city. Close the gate and its bands stop." With walkers
+   chosen: "Do they fight the walkers or stand with them?" Buttons:
+   **No Daedra** / **Daedra, enemies of the walkers** / **Daedra, allies
+   of the walkers**; without walkers: **No Daedra** / **Daedra**.
+4. *Necromancers* (only once 4.23 B is built) - "A few rival
+   necromancers hold dungeons full of walkers. They send walkers toward
+   the cities and take more places. Kill one and refugees move into his
+   place." Buttons: **No necromancers** / **Necromancers**.
+5. *Your world* - one line a switch, as chosen ("Walkers: zombies only.
+   Daedra: none. Necromancers: none."), then "Change it any time in LINK,
+   page 'Who comes'." Buttons: **Start** / **Choose again** (page 1).
+
+Read and derived for it:
+- The plugin shows the game's message box already: the disguise's offer
+  (`Disguise.cpp`, ShowMessageBox 0x00579C10 with its callback, the
+  button read at 0x00B09E24). The chain is that, one box after the other.
+- The pages' order is pure logic (`OnboardingLogic.h`): which page
+  follows which answer, which buttons page 3 has, the summary's lines,
+  what is written. Unit flows: every path through the five pages, "Choose
+  again", the two shortcuts on page 1, walkers 0 folding page 3.
+- Not read yet: how long a message box's text may be, and how many
+  buttons the game takes (xOBSE's MessageBoxEx allows ten - the game's
+  own limit to be read). A page too long is split in two.
+- VR: OBVR shows the game's message boxes; whether the chain reads well
+  in the headset is a headset check.
+
+Harness: `[Onboarding] TestAnswers=` (INI only) presses the buttons in
+order, one a second, as the disguise's test mode does. Two runs - a full
+path (Choose, Apocalypse, Daedra enemies, Start: the INI and the log
+show Walkers 2, Daedra 1) and "Turn the mod off" (all 0, nobody rises).
+The other harness runs need `Show=0` in the live INIs.
+
+Cost: small to medium - the box exists, new are the page logic, the
+INI write and a LINK switch. Sonnet 5.5 high: ordinary code on a call
+that works today; the risk is the box at the start of a game (it must
+not open over the race menu or OBVR's onboarding) and the text length.
