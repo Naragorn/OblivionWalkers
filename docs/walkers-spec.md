@@ -5895,6 +5895,22 @@ teams, the disguise, the allies) can hit it in play. Next: the fight arm
 with bUseBackgroundPathing=0 (NECRO_BGPATH_OFF=1) and with OBNG's routes off
 (OBNG's ask), five runs each.
 
+Run 2026-11-22 22:05-22:30, fight arm only: bgpath off 2/5 crashed, OBNG's
+five routes off 2/5, its two new ones off 2/5 - neither. The probe caught
+two breaks, and in both the plugin had sent StartCombat both ways and
+StopCombat on both actors in the same frame (2772, 2778); pool 12 broke 2
+and 226 frames later. Measured: with that pair 6 of 20 runs crashed
+(0x4025D2, 0x40163F, 0x4016B0, 0x401A46, 0x680C1D - all the heap or the A*
+list), without it 0 of 5. Derived: StartCombat and StopCombat on one actor
+in one frame is an engine use-after-free (the kin of Disable+Enable in one
+frame). Fixed (ac6f87e, CombatGuardLogic.h): a StopCombat on an actor
+within 10 frames of a StartCombat on it is held back - every rule sends it
+again half a second later (10 frames chosen, not measured). Rerun, 8 fight
+runs: no crash at those sites; 1 crash at kernel32.dll+FC8D (writing
+000001B4) while the Dremora fought the necromancer on (the held stops let
+the fight run longer) - a site OBNG saw on 13 Nov without Walkers too; not
+read. 0 of 8 against 6 of 20 is a strong sign, not a proof.
+
 Not covered by the build so far: the risen near the necromancers are free
 walkers, of no team; with the necromancers alone the held places' walker
 dungeons are the free walkers' (no team); [Dungeons] Enabled=0 leaves the
