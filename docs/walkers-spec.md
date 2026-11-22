@@ -5875,7 +5875,25 @@ thread under that lock; nothing ties them to it. Next, the cheapest: a
 per-frame check on the main thread that pool 12's head and next lie in the
 pool, logging the first frame it breaks with the plugin's lines of that
 frame; and `necro-harness.sh daedra` ten times with TestFight=daedra and ten
-without. Not done yet.
+without.
+
+2026-11-22, done: `[Debug] PoolProbe` (PoolProbeLogic.h; every frame,
+under the heap's lock taken with TryEnterCriticalSection) and
+`tools/necro-crash-ab.sh`, OBNG's five routes on: 1 crash in 5 fight runs, 0
+in 5 without; the probe found no broken pool-12 link in any run. The crash
+was another site: 0x0040163F, the heap's free path for large blocks, a
+non-heap pointer handed to free; its stack the A* path search's open list
+(0x680B40 pops the head node, 0x573D00 deletes a 12-byte list node {next,
+prev, data}), run as a background path task (`bUseBackgroundPathing`).
+Friday's crash was a freed 12-byte block written at +4 - the prev field this
+list writes. Both crashes came about 2 s after the test's pair "StartCombat
+both ways, then StopCombat both" (StopCombat's handler 0x501D30 calls the
+actor's vtable +0x334 and +0x340 - not read what they free). Guessed, not
+measured: StopCombat tears down the actor's path request while the
+background A* still walks its list. If so, every StopCombat of Walkers (the
+teams, the disguise, the allies) can hit it in play. Next: the fight arm
+with bUseBackgroundPathing=0 (NECRO_BGPATH_OFF=1) and with OBNG's routes off
+(OBNG's ask), five runs each.
 
 Not covered by the build so far: the risen near the necromancers are free
 walkers, of no team; with the necromancers alone the held places' walker
