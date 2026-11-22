@@ -11,7 +11,7 @@ set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 n="${1:-5}"
-routes="$(grep -E '^(FaceGenLoadOutside|BodyTexturePremake|AnimationLazyAppend)=' "$game/Data/OBSE/Plugins/OBNG.ini" 2>/dev/null | tr '\n' ' ')"
+routes="$(grep -E '^(FaceGenLoadOutside|BodyTexturePremake|AnimationLazyAppend|SoundFileCache|AnimationNameArena)=' "$game/Data/OBSE/Plugins/OBNG.ini" 2>/dev/null | tr '\n' ' ')"
 echo "necro-crash-ab: $n of each arm; OBNG routes: ${routes:-none read}"
 for i in $(seq 1 "$n"); do
 	for arm in fight nofight; do
