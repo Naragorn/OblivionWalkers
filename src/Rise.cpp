@@ -28,6 +28,7 @@
 #include "Camps.h"
 #include "Disguise.h"
 #include "CombatTraceLogic.h"
+#include "PoolProbeLogic.h"
 
 #include <windows.h>
 #include <intrin.h>
@@ -1570,7 +1571,22 @@ bool RunDirect(UInt32 ref, const DirectLine& d) {
 	return d.verb == DirectVerb::ModAV && engine::DirectModAV(ref, d.av, d.amount);
 }
 
+// [Debug] PoolProbe: the plugin's last console lines, with their frames.
+struct ProbeLine {
+	UInt32 frame;
+	UInt32 ref;
+	char text[44];
+};
+ProbeLine g_probeLines[16] = {};
+UInt32 g_probeLineNext = 0;
+
 bool ConsoleOn(UInt32 ref, const char* line) {
+	if (g_settings.poolProbe && line != nullptr) {
+		ProbeLine& p = g_probeLines[g_probeLineNext++ % 16];
+		p.frame = g_frame;
+		p.ref = FormIdOf(ref);
+		std::snprintf(p.text, sizeof(p.text), "%s", line);
+	}
 	DirectLine direct;
 	const bool byEngine = ParseDirectLine(line, direct);
 	if (g_console == nullptr && !byEngine) {
@@ -3607,8 +3623,68 @@ void ReportTiming(float dt) {
 	g_timingClock = 0.0f;
 }
 
+// [Debug] PoolProbe (read 2026-11-20 from the EXE): pool 12 is
+// *(0x00B3308C) (the pools by size/4 at 0x00B33080), its base +0x40, free
+// head +0x44, block size +0x100, page uses +0x108, pages +0x10C, size +0x110;
+// the heap's lock the critical section 0x00B32B80 - taken without waiting,
+// the frame skipped when another thread holds it.
+void StepPoolProbe() {
+	static bool s_said = false;
+	static bool s_broken = false;
+	static UInt32 s_checked = 0;
+	static UInt32 s_skipped = 0;
+	const UInt32 pool = *reinterpret_cast<const UInt32*>(0x00B3308C);
+	if (pool == 0) {
+		return;
+	}
+	if (!s_said) {
+		s_said = true;
+		g_log("Pool probe: on - pool 12 at %08X, block size %u, base %08X, %u bytes", pool, Read(pool + 0x100),
+		      Read(pool + 0x40), Read(pool + 0x110));
+	}
+	auto* lock = reinterpret_cast<CRITICAL_SECTION*>(0x00B32B80);
+	if (!TryEnterCriticalSection(lock)) {
+		++s_skipped;
+		return;
+	}
+	PoolView v;
+	v.base = Read(pool + 0x40);
+	v.size = Read(pool + 0x110);
+	v.blockSize = Read(pool + 0x100);
+	v.pageUses = reinterpret_cast<const UInt16*>(Read(pool + 0x108));
+	v.pages = Read(pool + 0x10C);
+	const UInt32 head = Read(pool + 0x44);
+	PoolLinkFault fault = CheckPoolLink(v, head);
+	UInt32 next = 0;
+	if (fault == PoolLinkFault::None && head != 0) {
+		next = Read(head + 4);
+		fault = CheckPoolLink(v, next);
+	}
+	LeaveCriticalSection(lock);
+	++s_checked;
+	if (s_checked % 36000 == 0) {
+		g_log("Pool probe: %u frames checked, %u skipped (the lock held), pool 12 sound", s_checked, s_skipped);
+	}
+	if (fault == PoolLinkFault::None || s_broken) {
+		return;
+	}
+	s_broken = true;
+	g_log("Pool probe: BROKEN at frame %u - head %08X, next %08X: %s (base %08X, %u bytes); the plugin's last console "
+	      "lines:",
+	      g_frame, head, next, PoolLinkFaultName(fault), v.base, v.size);
+	for (UInt32 k = 0; k < 16; ++k) {
+		const ProbeLine& p = g_probeLines[(g_probeLineNext + k) % 16];
+		if (p.text[0] != '\0') {
+			g_log("Pool probe:   frame %u on %08X: %s", p.frame, p.ref, p.text);
+		}
+	}
+}
+
 void Tick() {
 	++g_frame;
+	if (g_settings.poolProbe) {
+		StepPoolProbe();
+	}
 	if (!g_deathWatchOn && !TryRegisterDeath()) {
 		return;
 	}

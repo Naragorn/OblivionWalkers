@@ -1,0 +1,37 @@
+# Measurement: the player's own summoned Dremora with Daedra Mode 2 (asked
+# 2026-11-20: do the player's summons count as the necromancers' and the
+# walkers' allies?), run by tools/necro-harness.sh summon: [Daedra] Mode=2,
+# the necromancers alone, one boss at Toadstool Hollow with 4 walkers. The
+# player goes in without chameleon (so the walkers come for him), then casts
+# Summon Dremora (Oblivion.esm SPEL 000AA059) on himself. The log shows
+# whether the walkers and the necromancer are told to let go of it and
+# whether it is told to let go of him; the Hit lines whom it struck.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at inside coc ToadstoolHollow
+console-at placed player.addspell 000AA059
+console-at placed player.cast 000AA059 player
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark inside
+wait 16
+mark placed
+wait 6
+mark summoned
+wait 30
+mark fought
+wait 2
+mark end
+wait 1

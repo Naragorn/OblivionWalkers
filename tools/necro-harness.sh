@@ -20,6 +20,8 @@
 #                                    set on each other - both told to let go, both alive
 #   tools/necro-harness.sh march     harness/necro-march.txt: the days pass - the realm grows, its bands
 #                                    reach a city; saved and loaded, the realm comes back
+#   tools/necro-harness.sh summon    harness/necro-summon.txt: a measurement - the player's own summoned
+#                                    Dremora with Daedra Mode 2: who lets go of whom
 #   tools/necro-harness.sh siege     harness/necro-siege.txt: two allied necromancers besiege Bruma, their
 #                                    walkers before the gate carry their team; saved and loaded
 set -euo pipefail
@@ -29,8 +31,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise | allies | daedra | march | siege) ;;
-	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march | siege | summon) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -43,7 +45,7 @@ restore() {
 }
 trap restore EXIT
 python3 - "$ini" "$scenario" <<'INI'
-import re, sys
+import os, re, sys
 path, scenario = sys.argv[1], sys.argv[2]
 text = open(path, encoding="latin-1", newline="").read()
 nl = "\r\n" if "\r\n" in text else "\n"
@@ -71,6 +73,7 @@ keys = [
     ("Dungeons", "Enabled", "1"), ("Dungeons", "TestSite", ""), ("Dungeons", "ActiveMin", "1"),
     ("Dungeons", "ActiveMax", "1"), ("Dungeons", "WalkersAtOnce", "6"), ("Dungeons", "WalkersOutsidePercent", "0"),
     ("Dungeons", "MessengerHours", "0"), ("Dungeons", "Journal", "1"), ("Dungeons", "Rumors", "1"),
+    ("Debug", "PoolProbe", "1"),
 ]
 if scenario == "band":
     keys += [("Necromancers", "BossesMin", "1"), ("Necromancers", "BossesMax", "1"),
@@ -88,8 +91,11 @@ else:
 if scenario == "hotspot":
     keys += [("Necromancers", "TestFight", "walkers")]
 if scenario == "daedra":
-    keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "daedra"),
+    # NECRO_NOFIGHT=1 (tools/necro-crash-ab.sh): the Dremora put down, not set on him - the control arm
+    keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "" if os.environ.get("NECRO_NOFIGHT") == "1" else "daedra"),
              ("Necromancers", "WalkersMin", "2"), ("Necromancers", "WalkersMax", "2")]
+if scenario == "summon":
+    keys += [("Daedra", "Mode", "2")]
 if scenario == "siege":
     keys += [("Necromancers", "BossesMin", "2"), ("Necromancers", "BossesMax", "2"), ("Necromancers", "Teams", "1,1"),
              ("Necromancers", "BandsPerDay", "4"), ("Necromancers", "BandSizeMin", "3"), ("Necromancers", "BandSizeMax", "3"),
@@ -228,6 +234,23 @@ if scenario == "daedra":
     check(all(not d or d == "0" for _, d in walkers_after), "his walkers alive - Daedra 2 makes them the Daedra's allies (%s)" % walkers_after)
     hits = [l for l in log if re.match(r"Hit: ", l)]
     print("  hits logged: %d" % len(hits))
+    end(scenario)
+if scenario == "summon":
+    check(bool(show(find(r"^Mod: .*Daedra Mode=2"))), "Daedra Mode 2 (allies)")
+    check(bool(show(find(r"Dungeons: the necromancer \w+ came to " + place))), "the necromancer came")
+    new = set(re.findall(r"\b([0-9A-F]{8}) x\d+", roster.get("summoned", ""))) - set(re.findall(r"\b([0-9A-F]{8}) x\d+", roster.get("placed", "")))
+    print("  roster summoned: " + roster.get("summoned", "")[:240])
+    print("  roster fought:   " + roster.get("fought", "")[:240])
+    check(bool(new), "a new actor after the cast - the summoned Dremora (%s)" % sorted(new))
+    w = find(r"Daedra: \d+ walkers fighting a Daedra told StopCombat")
+    n1 = find(r"\(the necromancer of team \d+\) told to let go of [0-9A-F]{8} \(a Daedra")
+    n2 = find(r"Necromancers: the Daedra [0-9A-F]{8} told to let go of the necromancer")
+    hits = [l for l in log if re.match(r"Hit: ", l)]
+    print("  info  walkers told to let go of a Daedra: %d lines; the necromancer of a Daedra: %d; a Daedra of the necromancer: %d" % (len(w), len(n1), len(n2)))
+    show(w, 2); show(n1, 2); show(n2, 2)
+    print("  info  hits logged: %d" % len(hits))
+    for l in hits[:12]:
+        print("  hit   " + l[:100])
     end(scenario)
 if scenario == "siege":
     saved_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: .* written", l)] or [len(log)])
