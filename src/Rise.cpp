@@ -29,6 +29,7 @@
 #include "Disguise.h"
 #include "CombatTraceLogic.h"
 #include "PoolProbeLogic.h"
+#include "CombatGuardLogic.h"
 
 #include <windows.h>
 #include <intrin.h>
@@ -1580,7 +1581,22 @@ struct ProbeLine {
 ProbeLine g_probeLines[16] = {};
 UInt32 g_probeLineNext = 0;
 
+// The combat guard (CombatGuardLogic.h): a StopCombat this soon after a
+// StartCombat on the same actor is held back - sent again by the rule later.
+CombatGuard g_combatGuard;
+UInt32 g_combatHeldLines = 20;
+
 bool ConsoleOn(UInt32 ref, const char* line) {
+	const CombatVerb verb = CombatVerbOf(line);
+	if (verb != CombatVerb::Other &&
+	    !CombatLineAllowed(g_combatGuard, FormIdOf(ref), verb, g_frame, kCombatGuardHoldFrames)) {
+		if (g_combatHeldLines > 0) {
+			--g_combatHeldLines;
+			g_log("Combat guard: \"%s\" on %08X held back - a StartCombat on it %s (frame %u)", line, FormIdOf(ref),
+			      "less than 10 frames ago", g_frame);
+		}
+		return false;
+	}
 	if (g_settings.poolProbe && line != nullptr) {
 		ProbeLine& p = g_probeLines[g_probeLineNext++ % 16];
 		p.frame = g_frame;
