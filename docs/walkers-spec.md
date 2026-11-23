@@ -5922,9 +5922,21 @@ its checks). Rerun 2026-11-23 with the guard, all OBNG routes on: 5 fight +
 Not covered by the build so far: the risen near the necromancers are free
 walkers, of no team; with the necromancers alone the held places' walker
 dungeons are the free walkers' (no team); [Dungeons] Enabled=0 leaves the
-realms numbers only; with Daedra Mode 2 the player's own summoned Daedra
-probably count as the necromancers' and walkers' allies (IsDaedra: a Daedra
-creature or a Dremora - not measured).
+realms numbers only; summons cast by companions or other NPCs still count
+as Daedra with Daedra Mode 2 (only the player's are left out, below).
+
+The player's summons (measured 2026-11-23, harness necro-summon with
+TestFight=summon: he and his summoned Dremora moved beside the necromancer,
+[Debug] CombatTrace on): with Daedra Mode 2 the summon counted as a Daedra -
+the walkers and the necromancer took it as their target, were told
+StopCombat (20 + 20 lines, and the summon twice of the necromancer) and never
+struck it, while it struck them 4 times; with Mode 0 (the control) they
+fought it both ways. Fixed (cef1c29, SummonLogic.h): IsDaedraActor leaves
+out the actors of the player's summon effects (MagicTarget at the player's
++0x68, GetEffectList slot 2; an effect whose code starts with 'Z', its actor
+at +0x3C - xOBSE GameObjects.h, GameMagicEffects.h). After: 0 let-go lines,
+the walkers and the necromancer hit it 4 times, as in the control; the
+daedra regression PASS.
 
 Mine, for the build (not asked; changed on a word): a hotspot holds
 `WalkersMin`..`WalkersMax` walkers, default 16 to 30 (the held walker
