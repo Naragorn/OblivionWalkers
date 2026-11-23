@@ -5931,8 +5931,14 @@ the teams' look from "4 of theirs near" to 5; regression `rise` PASS. Not
 seen in a run: a man killed by a team's walker (the killer's team - unit
 flows only), the risen walker fighting an enemy team.
 
-Not covered by the build so far: with the necromancers alone the held places' walker
-dungeons are the free walkers' (no team); [Dungeons] Enabled=0 leaves the
+A held place's walkers with the necromancers alone (Nadi, 2026-11-23: "go"
+on the nearest living boss): with `[Walkers] Mode` 0 there are no free
+walkers, so the walkers of a fallen refuge or of a refuge's siege carry the
+team of the living boss whose place is nearest to it (NecroLogic.h
+PoolBoss; the first found on a tie; none while no boss lives, nor for the
+Daedra's). With Walkers 1 or 2 they stay the free walkers'.
+
+Not covered by the build so far: [Dungeons] Enabled=0 leaves the
 realms numbers only; summons cast by companions or other NPCs still count
 as Daedra with Daedra Mode 2 (only the player's are left out, below).
 

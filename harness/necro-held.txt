@@ -1,0 +1,31 @@
+# A held place's walkers join the nearest living boss's team with the
+# necromancers alone (docs/walkers-spec.md 4.23 B; Nadi, 2026-11-23), run by
+# tools/necro-harness.sh held: one boss (team 1) at Toadstool Hollow, Grayrock
+# Cave a fallen refuge (TestSite, TestSiteState=4). The player goes inside
+# Grayrock Cave; its walkers must carry team 1.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready player.setav chameleon 100
+console-at inside player.moveto 0001512E
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark inside
+wait 16
+mark placed
+wait 12
+mark looked
+wait 1
+mark end
+wait 1

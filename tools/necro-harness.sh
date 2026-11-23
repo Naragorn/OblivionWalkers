@@ -4,6 +4,8 @@
 # checks OblivionWalkers.log and the roster in OBVR.log. Needs
 # tools/linux-walkers.sh on; announce "busy" first.
 #
+#   tools/necro-harness.sh held      harness/necro-held.txt: with the necromancers alone a fallen refuge's
+#                                    walkers carry the nearest living boss's team (4.23 B)
 #   tools/necro-harness.sh riseteam  harness/necro-riseteam.txt: a bandit killed before his door rises a walker of
 #                                    his team (4.23 B, the gap after step 7)
 #   tools/necro-harness.sh told      harness/necro-told.txt: news, the Courier, a read edition and the
@@ -35,8 +37,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam) ;;
-	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam | held) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam | held" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -109,6 +111,8 @@ if scenario == "siege":
              ("Siege", "Enabled", "1"), ("Siege", "ChancePerDayPercent", "0"), ("Siege", "WalkersMin", "40"),
              ("Siege", "WalkersMax", "40"), ("Siege", "WalkersAtGate", "12"),
              ("Daedra", "BandSiegePercent", "50"), ("Daedra", "BandSiegeFadePerDay", "0")]
+if scenario == "held":
+    keys += [("Dungeons", "TestSite", "Grayrock Cave"), ("Dungeons", "TestSiteState", "4")]
 if scenario == "march":
     keys += [("Necromancers", "BossesMin", "1"), ("Necromancers", "BossesMax", "1"),
              ("Necromancers", "NewPlaceEveryDays", "1"), ("Necromancers", "BandsPerDay", "4"),
@@ -247,6 +251,17 @@ if scenario == "riseteam":
     check(bool(verdicts), "the bandit before the door waits to rise")
     teamed = show(find(r"Rise: (walker [0-9A-F]{8} in [0-9A-F]{8}'s place - a walker|[0-9A-F]{8} gets up a walker) of the necromancers' team 1"))
     check(bool(teamed), "he gets up a walker of team 1")
+    end(scenario)
+if scenario == "held":
+    held = "Grayrock Cave"
+    check(bool(show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    check(bool(show(find(r"Dungeons: test - TestSite=" + held + r" made the first site: walker dungeon"))),
+          "Grayrock Cave a fallen refuge (a walker dungeon, no necromancer's)")
+    print("  roster " + roster.get("looked", "")[:300])
+    teamed = show(find(r"Necromancers: the pool's \d+ walker\(s\) at site \d+ \(a held place, the nearest living boss's\) carry boss 0's team 1"))
+    check(bool(teamed), "its walkers carry boss 0's team 1")
+    near = show(find(r"Necromancers: teams - [1-9]\d* of theirs near"), 2)
+    check(bool(near), "the teams' look counts them as theirs")
     end(scenario)
 if scenario == "told":
     # 4.23 B step 7: news, Courier, paper and journal name the necromancer's place

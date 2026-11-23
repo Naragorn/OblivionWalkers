@@ -633,6 +633,49 @@ void TestRisenTeam() {
 	Check(walkers::TakeRisenTeam(p, 0) == 0, "no reference: never noted");
 }
 
+void TestPoolBoss() {
+	std::printf("whose walkers stand in a place (4.23 B: a held place with the necromancers alone)\n");
+	using walkers::DungeonSite;
+	using walkers::DungeonSitesState;
+	using walkers::DungeonState;
+	using walkers::PoolBoss;
+	NecroState n = Rose(2, 0.0f);
+	DungeonSitesState st;
+	st.count = 4;
+	st.sites[0] = walkers::NecroPlace(0, 0, 10, 0.0f);  // boss 0 at A (x 0)
+	st.sites[1] = walkers::NecroPlace(5, 1, 10, 0.0f);  // boss 1 at F (x 50000)
+	st.sites[2].candidate = 3;                           // D (x 30000): nearer F
+	st.sites[2].state = DungeonState::WalkerDungeon;
+	st.sites[3].candidate = 1;                           // B (x 10000): nearer A
+	st.sites[3].state = DungeonState::Besieged;
+	const UInt32 count = sizeof(kPlaces) / sizeof(kPlaces[0]);
+	Check(PoolBoss(st, 0, n, kPlaces, count, false) == 0 && PoolBoss(st, 1, n, kPlaces, count, true) == 1,
+	      "his own place: its boss, the free walkers on or not");
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == 1, "a fallen refuge, the necromancers alone: the nearest boss");
+	Check(PoolBoss(st, 3, n, kPlaces, count, false) == 0, "a refuge's siege, the necromancers alone: the nearest boss");
+	Check(PoolBoss(st, 2, n, kPlaces, count, true) == -1, "the free walkers on: theirs, no team");
+	st.sites[1].candidate = 4;  // boss 1 at E (x 40000)
+	st.sites[2].candidate = 2;  // C (x 20000): as near A as E
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == 0, "two bosses as near: the first found");
+	st.sites[1].candidate = 5;
+	st.sites[2].candidate = 3;
+	n.bosses[1].alive = false;
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == 0, "the nearest boss dead: the nearest living one");
+	n.bosses[0].alive = false;
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == -1, "no boss alive: no team");
+	n.bosses[0].alive = true;
+	st.sites[2].daedra = true;
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == -1, "the Daedra's outpost: no team");
+	st.sites[2].daedra = false;
+	st.sites[2].state = DungeonState::Refuge;
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == -1, "a refuge still held: no walkers, no team");
+	Check(PoolBoss(st, -1, n, kPlaces, count, false) == -1 && PoolBoss(st, 4, n, kPlaces, count, false) == -1,
+	      "no place, or one past the count: no team");
+	st.sites[2].state = DungeonState::WalkerDungeon;
+	st.sites[2].candidate = 99;
+	Check(PoolBoss(st, 2, n, kPlaces, count, false) == -1, "a place of no known candidate: no team");
+}
+
 int main() {
 	TestTeams();
 	TestPace();
@@ -651,6 +694,7 @@ int main() {
 	TestTestFight();
 	TestSieges();
 	TestRisenTeam();
+	TestPoolBoss();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

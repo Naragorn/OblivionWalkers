@@ -600,6 +600,43 @@ inline UInt8 RisenTeam(UInt8 killerTeam, UInt8 placeTeam, bool nearPlace) {
 	return nearPlace ? placeTeam : 0;
 }
 
+// The boss whose walkers stand in site `site`'s pool (4.23 B; Nadi,
+// 2026-11-23: "go" on the nearest living boss). His own place - its boss.
+// With the necromancers alone (`walkersOn` false) a held place that is no
+// necromancer's (a fallen refuge, a refuge's siege) has no free walkers to
+// hold it: the living boss with a place nearest to it, the first found on a
+// tie. The free walkers on, the Daedra's, a refuge, no boss alive - none, -1.
+inline int PoolBoss(const DungeonSitesState& st, int site, const NecroState& n, const DungeonCandidate* all,
+                    UInt32 count, bool walkersOn) {
+	if (site < 0 || static_cast<UInt32>(site) >= st.count || static_cast<UInt32>(site) >= kDungeonActiveMost) {
+		return -1;
+	}
+	const DungeonSite& d = st.sites[site];
+	if (IsNecroPlace(d)) {
+		return static_cast<int>(d.necro) - 1;
+	}
+	const bool walkers = d.state == DungeonState::WalkerDungeon || d.state == DungeonState::Besieged;
+	if (walkersOn || !walkers || d.necro != 0 || d.daedra || d.candidate >= count) {
+		return -1;
+	}
+	int best = -1;
+	float bestDistance = 0.0f;
+	for (UInt32 k = 0; k < st.count && k < kDungeonActiveMost; ++k) {
+		const DungeonSite& p = st.sites[k];
+		const UInt32 boss = p.necro - 1u;
+		if (!IsNecroPlace(p) || p.candidate >= count || boss >= n.count || boss >= kNecroBossesMost ||
+		    !n.bosses[boss].alive) {
+			continue;
+		}
+		const float distance = necro_detail::Dist(all[d.candidate], all[p.candidate]);
+		if (best < 0 || distance < bestDistance) {
+			best = static_cast<int>(boss);
+			bestDistance = distance;
+		}
+	}
+	return best;
+}
+
 // The fallen waiting to rise with a team, by reference: noted at the death,
 // taken when he gets up (himself, or the walker that takes his place). Not
 // kept in the save, as the teams are not (Necro.cpp: a load clears them).

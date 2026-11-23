@@ -33,6 +33,7 @@ NecroIsWalkerFn g_isWalker = nullptr;
 std::unordered_map<UInt32, UInt8> g_teams;
 UInt32 g_poolTeamed[16] = {};
 UInt32 g_poolTeamedCount = 0;
+int g_poolBossLogged = -1;  // the boss whose team the pool carried at the last log line
 // The walkers out before a necromancers' siege the player is at (decided 13).
 UInt32 g_siegeTeamed[kSiegeAtGateMost] = {};
 UInt32 g_siegeTeamedCount = 0;
@@ -250,6 +251,7 @@ void ResetNecroInGame() {
 	g_testFightClock = 0.0f;
 	g_testDaedra = 0;
 	g_poolTeamedCount = 0;
+	g_poolBossLogged = -1;
 	g_siegeTeamedCount = 0;
 	g_lastDays = -1.0f;
 	g_clock = kStepSeconds;  // the first step at once
@@ -609,12 +611,23 @@ void StepNecroTeams(float dt, LogFn log) {
 	if (g_invaders == nullptr || !g_invaders->necromancers || g_console == nullptr) {
 		return;
 	}
-	// The pool's walkers carry the team of the place they stand at.
+	// The pool's walkers carry the team of the place they stand at; with the
+	// necromancers alone a held place's, the nearest living boss's (PoolBoss).
 	{
 		UInt32 refs[16];
-		int boss = -1;
-		const UInt32 n = DungeonPoolAtNecro(refs, 16, boss);
+		int site = -1;
+		const UInt32 n = DungeonPoolAt(refs, 16, site);
+		const int boss = PoolBoss(CurrentDungeons(), site, g_state, kDungeonCandidates, kDungeonCandidateCount,
+		                          WalkersOn(*g_invaders));
 		const UInt8 team = BossTeam(boss);
+		if (team != 0 && n > 0 && boss != g_poolBossLogged && log != nullptr) {
+			log("Necromancers: the pool's %u walker(s) at site %d (%s) carry boss %d's team %u", n, site,
+			    IsNecroPlace(CurrentDungeons().sites[site]) ? "his place" : "a held place, the nearest living boss's",
+			    boss, team);
+		}
+		if (n > 0) {
+			g_poolBossLogged = team != 0 ? boss : -1;
+		}
 		for (UInt32 k = 0; k < g_poolTeamedCount; ++k) {
 			NoteTeam(g_poolTeamed[k], 0);
 		}
