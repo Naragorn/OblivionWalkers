@@ -5910,6 +5910,14 @@ runs: no crash at those sites; 1 crash at kernel32.dll+FC8D (writing
 000001B4) while the Dremora fought the necromancer on (the held stops let
 the fight run longer) - a site OBNG saw on 13 Nov without Walkers too; not
 read. 0 of 8 against 6 of 20 is a strong sign, not a proof.
+That kernel32 crash, read 2026-11-23 (a fork and OBNG): InterlockedIncrement
+from 0x4740AC (fn 0x474070 add-refs [item+8]) in the animation clone loop
+0x476D10, the list at animData +0xB4 - an item queued raw, freed while
+waiting (an engine lifetime bug, derived; who frees it not read). Seen only
+in this one run; OBNG's AnimationLazyAppend writes that list (no mismatch in
+its checks). Rerun 2026-11-23 with the guard, all OBNG routes on: 5 fight +
+5 control runs, 0 crashes. Totals with the guard: 1 crash in 13 fight runs
+(not the heap class); without it 6 in 20.
 
 Not covered by the build so far: the risen near the necromancers are free
 walkers, of no team; with the necromancers alone the held places' walker
