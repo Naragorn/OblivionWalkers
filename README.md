@@ -1,7 +1,7 @@
 # Oblivion Walkers
 
 A zombie apocalypse for Oblivion (the 2006 one), built to sit beside
-[OBVR](https://github.com/Naragorn/OBVR) but not depending on it: an xOBSE
+[OBVR](https://github.com/Naragorn/OBVR) but not depending on it: an [xOBSE](https://github.com/llde/xOBSE)
 plugin plus a small ESP. The dead are now rising as walkers, spawns become walkers, cities get
 besieged by hordes, and everything has a switch in an INI.
 
@@ -74,7 +74,7 @@ is `docs/nexus.md`.
 
 ## Known conflicts
 
-- **Maskar's Oblivion Overhaul (MOO): is now compatible.
+- [Maskar's Oblivion Overhaul (MOO)](https://www.nexusmods.com/oblivion/mods/42780): compatible now.
 
 ## License
 
