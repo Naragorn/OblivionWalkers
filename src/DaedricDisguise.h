@@ -24,8 +24,10 @@ void NoteDaedricHit(UInt32 target, UInt32 attacker, bool targetAlliedWalker);
 void StepDaedricDisguiseInGame(float dt);
 
 // Whether `actor` (a reference) is a Daedra: a creature of the Daedra type or
-// a person of the Dremora race.
+// a person of the Dremora race - not one the player summoned (SummonLogic.h).
 bool IsDaedraActor(UInt32 actor);
+// Any Daedra, the player's summons too (IsDaedraActor leaves those out).
+bool IsDaedraKind(UInt32 actor);
 
 // Whether the Daedra take the player for one of theirs now.
 bool DaedricDisguised();

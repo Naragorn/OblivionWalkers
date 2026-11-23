@@ -258,6 +258,10 @@ if scenario == "summon":
     hit_it = [l for l in after_move if re.match(r"Hit: ", l) and sid in l]
     print("  info  hits with the summon: %d" % len(hit_it))
     show(hit_it, 8)
+    # the fix (SummonLogic.h): the player's summon is no Daedra ally - nobody told to let go of it, it fought back
+    let_go = [l for l in after_move if re.search(r"told to let go of %s|the Daedra %s told to let go" % (sid, sid), l)]
+    check(not let_go, "nobody told to let go of the player's summon, nor it of the necromancer (%d lines)" % len(let_go))
+    check(bool([l for l in hit_it if re.match(r"Hit: %s hit by" % sid, l)]), "the summon struck back at: hit by the walkers or the necromancer")
     w = find(r"Daedra: \d+ walkers fighting a Daedra told StopCombat")
     n1 = find(r"\(the necromancer of team \d+\) told to let go of [0-9A-F]{8} \(a Daedra")
     n2 = find(r"Necromancers: the Daedra [0-9A-F]{8} told to let go of the necromancer")

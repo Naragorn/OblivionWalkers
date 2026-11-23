@@ -506,7 +506,7 @@ void StepTestFight(const Fighter* f, UInt32 n, UInt32 bossId, UInt32 bossActor, 
 		float summonDistance = 0.0f;
 		for (UInt32 k = 0; k < count; ++k) {
 			const float d = Distance(actors[k], player);
-			if (actors[k] != bossActor && IsDaedraActor(actors[k]) && (g_dead == nullptr || !g_dead(actors[k])) &&
+			if (actors[k] != bossActor && IsDaedraKind(actors[k]) && (g_dead == nullptr || !g_dead(actors[k])) &&
 			    d >= 0.0f && d < 1500.0f && (summon == 0 || d < summonDistance)) {
 				summon = actors[k];
 				summonDistance = d;

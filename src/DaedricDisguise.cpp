@@ -7,6 +7,7 @@
 #include "QuestVars.h"
 #include "RiseLogic.h"
 #include "Placer.h"
+#include "SummonLogic.h"
 
 namespace walkers {
 
@@ -207,7 +208,46 @@ void Line(const char* text) {
 
 }  // namespace
 
-bool IsDaedraActor(UInt32 actor) { return LooksLikeObject(actor) && IsDaedra(actor); }
+namespace {
+
+// The player's summoned actors (SummonLogic.h): MagicTarget::GetEffectList,
+// slot 2 of the MagicTarget at the player's +0x68 (xOBSE GameObjects.h; a
+// thiscall), its list walked with guarded reads.
+constexpr UInt32 kActorMagicTargetOffset = 0x68;
+constexpr UInt32 kGetEffectListSlot = 0x08;
+constexpr UInt32 kCodeStart = 0x00401000;  // Oblivion.exe .text (Rise.cpp, Pose.cpp)
+constexpr UInt32 kCodeEnd = 0x00A27C39;
+
+UInt32 PlayerSummonActors(UInt32* out, UInt32 room) {
+	const UInt32 player = LookupForm(kPlayerRefId);
+	if (!LooksLikeObject(player)) {
+		return 0;
+	}
+	const UInt32 target = player + kActorMagicTargetOffset;
+	const UInt32 vtable = Read(target);
+	const UInt32 fn = LooksLikeObject(vtable) ? Read(vtable + kGetEffectListSlot) : 0;
+	if (fn < kCodeStart || fn >= kCodeEnd) {
+		return 0;
+	}
+	using ListFn = UInt32(__fastcall*)(void* target, void* edx);
+	const UInt32 head = reinterpret_cast<ListFn>(fn)(reinterpret_cast<void*>(target), nullptr);
+	const auto read = [](UInt32 address) { return LooksLikeObject(address) ? Read(address) : 0u; };
+	return PlayerSummons(LooksLikeObject(head) ? head : 0u, read, out, room);
+}
+
+}  // namespace
+
+bool IsDaedraKind(UInt32 actor) { return LooksLikeObject(actor) && IsDaedra(actor); }
+
+// A Daedra, and not one the player summoned (SummonLogic.h DaedraAlly).
+bool IsDaedraActor(UInt32 actor) {
+	if (!LooksLikeObject(actor) || !IsDaedra(actor)) {
+		return false;
+	}
+	UInt32 summons[8];
+	const UInt32 count = PlayerSummonActors(summons, 8);
+	return DaedraAlly(true, actor, summons, count);
+}
 
 void ConfigureDaedricDisguise(const DaedricSettings* settings, ConsoleFn console, DeadFn dead, LogFn log) {
 	g_settings = settings;
