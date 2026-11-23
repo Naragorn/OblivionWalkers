@@ -5919,8 +5919,19 @@ its checks). Rerun 2026-11-23 with the guard, all OBNG routes on: 5 fight +
 5 control runs, 0 crashes. Totals with the guard: 1 crash in 13 fight runs
 (not the heap class); without it 6 in 20.
 
-Not covered by the build so far: the risen near the necromancers are free
-walkers, of no team; with the necromancers alone the held places' walker
+The risen near them join a team (Nadi, 2026-11-23: "go"; cdc7651): killed
+by a walker of a team - that team; else in or within `RiseWithin` of a
+necromancer's place - his boss's team; else a free walker (NecroLogic.h
+RisenTeam). Noted at the death, taken when he gets up himself or when the
+walker that takes his place is found (RisenTeams, 32 at most, not kept in
+the save - the teams are not). Harness `riseteam` PASS (2026-11-23 14:10,
+Linux, headless): a bandit killed before Toadstool Hollow's door, 30 s later
+"walker FF000FAC in FF000FA2's place - a walker of the necromancers' team 1",
+the teams' look from "4 of theirs near" to 5; regression `rise` PASS. Not
+seen in a run: a man killed by a team's walker (the killer's team - unit
+flows only), the risen walker fighting an enemy team.
+
+Not covered by the build so far: with the necromancers alone the held places' walker
 dungeons are the free walkers' (no team); [Dungeons] Enabled=0 leaves the
 realms numbers only; summons cast by companions or other NPCs still count
 as Daedra with Daedra Mode 2 (only the player's are left out, below).
