@@ -495,6 +495,37 @@ void StepTestFight(const Fighter* f, UInt32 n, UInt32 bossId, UInt32 bossActor, 
 		    killed, bossId);
 		return;
 	}
+	// TestFight=summon: once a Daedra stands within 1500 units of the player
+	// (his own summon), he and it are brought to the necromancer - his walkers
+	// meet it; [Debug] CombatTrace shows who fights whom.
+	if (g_testFight == NecroTestFight::Summon && g_testFightStage == 0 && bossId != 0) {
+		const UInt32 player = LookupForm(kPlayerId);
+		static UInt32 actors[256];
+		const UInt32 count = ActorsOnHighList(actors, 256);
+		UInt32 summon = 0;
+		float summonDistance = 0.0f;
+		for (UInt32 k = 0; k < count; ++k) {
+			const float d = Distance(actors[k], player);
+			if (actors[k] != bossActor && IsDaedraActor(actors[k]) && (g_dead == nullptr || !g_dead(actors[k])) &&
+			    d >= 0.0f && d < 1500.0f && (summon == 0 || d < summonDistance)) {
+				summon = actors[k];
+				summonDistance = d;
+			}
+		}
+		if (summon == 0) {
+			return;
+		}
+		g_testFightStage = 2;
+		char line[40];
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 400 0", bossId);
+		g_console(player, line);
+		std::snprintf(line, sizeof(line), "MoveTo %08X 0 300 0", bossId);
+		g_console(summon, line);
+		log("Necromancers: test - TestFight=summon: the player and his summon %08X (%.0f units off him) brought to "
+		    "the necromancer %08X",
+		    FormIdOf(summon), summonDistance, bossId);
+		return;
+	}
 	if (g_testFight != NecroTestFight::Daedra || g_testFightStage >= 2 || bossId == 0) {
 		return;
 	}

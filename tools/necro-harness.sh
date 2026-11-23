@@ -95,7 +95,9 @@ if scenario == "daedra":
     keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "" if os.environ.get("NECRO_NOFIGHT") == "1" else "daedra"),
              ("Necromancers", "WalkersMin", "2"), ("Necromancers", "WalkersMax", "2")]
 if scenario == "summon":
-    keys += [("Daedra", "Mode", "2")]
+    # NECRO_DAEDRA=0: the same with Daedra Mode 0 - the control arm (the summon not the walkers' ally)
+    keys += [("Daedra", "Mode", os.environ.get("NECRO_DAEDRA", "2")), ("Necromancers", "TestFight", "summon"),
+             ("Debug", "CombatTrace", "1")]
 if scenario == "siege":
     keys += [("Necromancers", "BossesMin", "2"), ("Necromancers", "BossesMax", "2"), ("Necromancers", "Teams", "1,1"),
              ("Necromancers", "BandsPerDay", "4"), ("Necromancers", "BandSizeMin", "3"), ("Necromancers", "BandSizeMax", "3"),
@@ -242,6 +244,20 @@ if scenario == "summon":
     print("  roster summoned: " + roster.get("summoned", "")[:240])
     print("  roster fought:   " + roster.get("fought", "")[:240])
     check(bool(new), "a new actor after the cast - the summoned Dremora (%s)" % sorted(new))
+    moved = show(find(r"TestFight=summon: the player and his summon [0-9A-F]{8}"))
+    check(bool(moved), "the player and his summon brought to the necromancer")
+    sid = re.search(r"his summon ([0-9A-F]{8})", moved[0]).group(1) if moved else "--------"
+    at = [i for i, l in enumerate(log) if "TestFight=summon" in l]
+    after_move = log[at[0]:] if at else []
+    by_it = [l for l in after_move if re.match(r"Combat: %s " % sid, l)]
+    at_it = [l for l in after_move if re.match(r"Combat: (?!%s)\S+ .* now fights %s" % (sid, sid), l)]
+    print("  info  the summon's own targets after the move: %d lines" % len(by_it))
+    show(by_it, 8)
+    print("  info  others who took the summon as target: %d lines" % len(at_it))
+    show(at_it, 8)
+    hit_it = [l for l in after_move if re.match(r"Hit: ", l) and sid in l]
+    print("  info  hits with the summon: %d" % len(hit_it))
+    show(hit_it, 8)
     w = find(r"Daedra: \d+ walkers fighting a Daedra told StopCombat")
     n1 = find(r"\(the necromancer of team \d+\) told to let go of [0-9A-F]{8} \(a Daedra")
     n2 = find(r"Necromancers: the Daedra [0-9A-F]{8} told to let go of the necromancer")
