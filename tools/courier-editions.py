@@ -172,7 +172,30 @@ def editions() -> list[tuple[str, str, str]]:
     out += [_camp_saved(), _camp_lost()]
     out.append(_refuges())
     out.append(_daedra_siege())
+    out.append(_necro_realm())
     return out
+
+
+def _necro_realm() -> tuple[str, str, str]:
+    """A necromancer's place is the news (4.23 B step 7): the edition while
+    nothing else is to report; reading it tells of that place."""
+    return (
+        "WalkersCourierNecroRealm",
+        "Necromancers Raise the Dead!",
+        _sheet(
+            "Necromancers Raise the Dead!",
+            [
+                "Not every walker on our roads rose by chance. Travellers tell of necromancers who have taken old "
+                "forts, caves and ruins for their lairs, and who raise the dead around them and send them out in "
+                "bands.",
+                "Where such a lair stands, they say, the dead are thickest. The bands that come out of it raid the "
+                "roads and march on the nearest city. Some of these necromancers are rivals and set their dead on "
+                "each other's.",
+                "The Courier has word of one such lair and prints it here for the bold. Readers who would end its "
+                "master are asked to mark it on their maps. Kill the necromancer, and his dead stop coming.",
+            ],
+        ),
+    )
 
 
 def _daedra_siege() -> tuple[str, str, str]:

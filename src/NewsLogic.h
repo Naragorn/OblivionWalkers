@@ -32,7 +32,7 @@ struct NewsSettings {
 	float headingHoldDays = 0.5f;
 };
 
-enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost, Refuges, DaedraSiege };
+enum class EditionKind : UInt8 { General, Approaching, Attack, Several, Besieged, Lifted, CampSaved, CampLost, Refuges, DaedraSiege, NecroRealm };
 
 struct Edition {
 	EditionKind kind = EditionKind::General;
@@ -41,8 +41,10 @@ struct Edition {
 
 // The edition's number - the order tools/esp-write.py writes the books in:
 // general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25 and
-// lifted 26-33 (4.12), a refugee camp saved 34 and lost 35 (4.20.6).
-inline constexpr UInt32 kEditionCount = 6 + 4 * kNewsCities;  // + the Daedra siege (4.22a step 6)
+// lifted 26-33 (4.12), a refugee camp saved 34 and lost 35 (4.20.6), the
+// held dungeons' 36, the Daedra siege's 37 (4.22a step 6), the
+// necromancers' 38 (4.23 B step 7).
+inline constexpr UInt32 kEditionCount = 7 + 4 * kNewsCities;
 
 inline UInt32 EditionIndex(const Edition& e) {
 	switch (e.kind) {
@@ -64,6 +66,8 @@ inline UInt32 EditionIndex(const Edition& e) {
 			return 4 + 4 * kNewsCities;
 		case EditionKind::DaedraSiege:
 			return 5 + 4 * kNewsCities;
+		case EditionKind::NecroRealm:
+			return 6 + 4 * kNewsCities;
 		case EditionKind::General:
 		default:
 			return 0;
@@ -77,8 +81,18 @@ inline UInt32 EditionIndex(const Edition& e) {
 inline UInt32 EditionLocalId(UInt32 index) {
 	// 36, the held dungeons': DungeonQuestLogic.h kDungeonEditionLocalId.
 	// 37, the Daedra siege's (4.22a step 6): 0xA97, after the place marker.
-	return index < 18 ? 0x8FC + index
-	                  : (index < 34 ? 0x9B7 + (index - 18) : (index < 36 ? 0xA38 + (index - 34) : (index < 37 ? 0xA75 : 0xA97)));
+	// 38, the necromancers' (4.23 B step 7): DungeonQuestLogic.h
+	// kDungeonNecroEditionLocalId, 0xA9D.
+	if (index < 18) {
+		return 0x8FC + index;
+	}
+	if (index < 34) {
+		return 0x9B7 + (index - 18);
+	}
+	if (index < 36) {
+		return 0xA38 + (index - 34);
+	}
+	return index < 37 ? 0xA75 : (index < 38 ? 0xA97 : 0xA9D);
 }
 
 struct NewsState {
@@ -95,7 +109,15 @@ struct NewsState {
 	float campDays = -1.0f;
 	bool campSaved = false;
 	bool refuges = false;  // a held dungeon is news now (Dungeons.cpp says it each second; not kept in the save)
+	bool necro = false;    // a necromancer's place is news now (4.23 B step 7; the same)
 };
+
+// The held dungeons' news kind this second (DungeonQuestLogic.h
+// DungeonNewsKind): 1-4 a held place, 5 a necromancer's, 0 none.
+inline void NoteDungeonNews(NewsState& news, UInt8 kind) {
+	news.refuges = kind >= 1 && kind <= 4;
+	news.necro = kind == 5;
+}
 
 // A camp saved or lost at game day `days`: the camps' latest news.
 inline void NoteCampNews(NewsState& news, bool saved, float days) {
@@ -190,6 +212,9 @@ inline Edition ChooseEdition(const NewsState& news, float now, float recentDays,
 	if (news.headingCity >= 0 && news.headingCity < static_cast<int>(kNewsCities) && news.headingDays >= 0.0f &&
 	    now - news.headingDays <= holdDays) {
 		return Edition{EditionKind::Approaching, news.headingCity};
+	}
+	if (news.necro) {
+		return Edition{EditionKind::NecroRealm, -1};
 	}
 	return Edition{news.refuges ? EditionKind::Refuges : EditionKind::General, -1};
 }

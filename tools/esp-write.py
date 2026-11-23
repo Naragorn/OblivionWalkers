@@ -298,6 +298,8 @@ DUNGEON_STAGES = [
                 "out, they can make it their refuge."),
     (40, False, "{name} is lost. Whoever held it is dead, and the dead walk its halls. If I put every last one of "
                 "them down, the living could take the place again."),
+    (45, False, "A necromancer has made {name} his lair. The dead rise around it and march out in bands. If I kill "
+                "him, no more will come - but his dead will fill the place until I clear it out."),
     (50, True, "The walkers at {name} are beaten. The refugees hold the place, and they will not forget my help."),
     (55, True, "The refugees of {name} have beaten the walkers off without me. They hold the place still."),
     (60, True, "{name} is cleared. Refugees have moved in and barred the doors - it is a refuge now."),
@@ -355,6 +357,12 @@ DUNGEON_RUMORS = [
     (4, "You hear about that refuge out in the wilds? Gone. The dead got in, and now they have the run of the "
         "place. I'll mark it on your map, so you can stay well clear of it. Or not."),
 ]
+
+# A necromancer's place (4.23 B step 7): the rumor said while the news' kind
+# is 5 (DungeonQuestLogic.h kDungeonNewsNecro), at kDungeonNecroRumorLocalId.
+DUNGEON_NECRO_RUMOR = (5, "They say a necromancer has taken an old place out in the wilds for his lair. The dead get "
+                          "up around it and walk out of it in bands. I'll mark it on your map - give it a wide berth, "
+                          "unless you mean to end him.")
 
 
 # The runner for help (4.20.7, DungeonQuestLogic.h's messenger): a refugee
@@ -774,13 +782,14 @@ def pool_local_id(city: int, slot: int) -> int:
 
 LOCAL_POOL_IDS = sorted(pool_local_id(c, n) for c in range(len(CITIES)) for n in range(GUARD_POOL))
 BROADSHEET_TEMPLATE = 0x0006D6F3  # Broadsheet01VampireNest
-EDITION_COUNT = 38  # NewsLogic.h kEditionCount
+EDITION_COUNT = 39  # NewsLogic.h kEditionCount
 # The first 18 (4.9) at 0x8FC.., the siege's 16 (4.12) after the siege pool
 # (NewsLogic.h EditionLocalId).
 LOCAL_EDITION_IDS = ([0x8FC + i for i in range(18)] + [0x9B7 + i for i in range(16)]
                      + [0xA38, 0xA39]  # the camps' two: CampLogic.h kCampExtraFirstLocalId
                      + [0xA75]  # the held dungeons': DungeonQuestLogic.h kDungeonEditionLocalId
-                     + [0xA97])  # the Daedra siege's (4.22a step 6), after the place marker
+                     + [0xA97]  # the Daedra siege's (4.22a step 6), after the place marker
+                     + [0xA9D])  # the necromancers' (4.23 B step 7): DungeonQuestLogic.h kDungeonNecroEditionLocalId
 ACHR_TEMPLATE = 0x000171CB
 RECORD_INITIALLY_DISABLED = 0x800
 VARIANT_SLOTS = 10  # ReplaceLogic.h kVariantSlots
@@ -1657,6 +1666,15 @@ def main() -> int:
     for k, (kind, text) in enumerate(DUNGEON_RUMORS):
         rumors += record(b"INFO", index | (talk["kDungeonRumorFirstLocalId"] + k),
                          build_news_rumor(talk_quest_form, news_global, kind, text, heard_global))
+    necro_ids = {name: int(value, 16) for name, value in re.findall(
+        r"inline constexpr UInt32 (kDungeonNecro\w+LocalId) = (0x[0-9A-Fa-f]+);",
+        (HERE.parent / "src" / "DungeonQuestLogic.h").read_text())}
+    if necro_ids.get("kDungeonNecroEditionLocalId") != LOCAL_EDITION_IDS[38] or \
+            necro_ids.get("kDungeonNecroRumorLocalId", SHOCK_FIRST_LOCAL) >= SHOCK_FIRST_LOCAL:
+        raise SystemExit("DungeonQuestLogic.h's necromancers' rumor or edition moved: LOCAL_EDITION_IDS[38]")
+    rumors += record(b"INFO", index | necro_ids["kDungeonNecroRumorLocalId"],
+                     build_news_rumor(talk_quest_form, news_global, DUNGEON_NECRO_RUMOR[0], DUNGEON_NECRO_RUMOR[1],
+                                      heard_global))
     # "Close the Gate" (4.22a step 6): the rumor, said while its global is 1,
     # sets the heard global; the quest.
     gate = gate_quest_ids()

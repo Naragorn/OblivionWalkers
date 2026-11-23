@@ -2060,7 +2060,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 	for (UInt32 i = 0; g_siteSettings->enabled && i < g_sites.count; ++i) {
 		DungeonSite& d = g_sites.sites[i];
 		if (JournalSees(d.state, closeness[i])) {
-			Tell(d, JournalNear(d.journal, d.state), "seen", log);
+			Tell(d, JournalNear(d.journal, d.state, IsNecroPlace(d)), "seen", log);
 		}
 	}
 	// The pool first: a siege's last walker ended makes the place a refuge
@@ -2087,14 +2087,15 @@ void StepDungeonsInGame(float dt, LogFn log) {
 		// dungeons, the notice - is read: it tells as a rumor does.
 		const UInt32 book = BookOpen();
 		bool byPaper = false;
-		const UInt32 papers[3] = {EspFormId(g_espBase, kDungeonEditionLocalId), EspFormId(g_espBase, kDungeonNoticeLocalId),
-		                          EspFormId(g_espBase, kDungeonBoardNoticeLocalId)};
-		if (g_espBase != kNoEsp && PaperOpened(book, g_bookBefore, papers, 3)) {
+		const UInt32 papers[4] = {EspFormId(g_espBase, kDungeonEditionLocalId), EspFormId(g_espBase, kDungeonNoticeLocalId),
+		                          EspFormId(g_espBase, kDungeonBoardNoticeLocalId),
+		                          EspFormId(g_espBase, kDungeonNecroEditionLocalId)};
+		if (g_espBase != kNoEsp && PaperOpened(book, g_bookBefore, papers, 4)) {
 			SetGlobal(kDungeonHeardGlobalLocalId, 1.0f);
 			log("Dungeons: news - the player reads %08X", book);
 			byPaper = true;
 		}
-		if (g_espBase != kNoEsp && book != g_bookBefore && IsPaper(g_bookBefore, papers, 3)) {
+		if (g_espBase != kNoEsp && book != g_bookBefore && IsPaper(g_bookBefore, papers, 4)) {
 			log("Dungeons: news - the paper %08X is closed (the book menu now holds %08X)", g_bookBefore, book);
 		}
 		g_bookBefore = book;
@@ -2105,13 +2106,14 @@ void StepDungeonsInGame(float dt, LogFn log) {
 			told = true;
 			if (news >= 0) {
 				DungeonSite& d = g_sites.sites[news];
-				Tell(d, JournalHeard(d.journal, d.state), "heard", log);
+				Tell(d, JournalHeard(d.journal, d.state, IsNecroPlace(d)), "heard", log);
 				news = DungeonNewsSiteNear(g_sites, kDungeonCandidates, kDungeonCandidateCount, g_playerX, g_playerY, g_playerKnown);
 			}
 		}
 		const UInt8 kind = DungeonNewsKind(g_sites, news);
 		if (SetGlobal(kDungeonNewsGlobalLocalId, static_cast<float>(kind))) {
-			log("Dungeons: news - now %u (0 none, 1 a refuge, 2 a siege, 3 a place to clear, 4 a fallen place)%s%s", kind,
+			log("Dungeons: news - now %u (0 none, 1 a refuge, 2 a siege, 3 a place to clear, 4 a fallen place, "
+			    "5 a necromancer's place)%s%s", kind,
 			    news >= 0 ? ": " : "", news >= 0 ? kDungeonCandidates[g_sites.sites[news].candidate].name : "");
 		}
 		// Which place the news names, whenever it changes - the kind's line
@@ -2130,7 +2132,7 @@ void StepDungeonsInGame(float dt, LogFn log) {
 				log("Dungeons: news - no site now");
 			}
 		}
-		NoteRefugesInNews(kind != 0);
+		NoteDungeonNewsKind(kind);
 		StepNotices(log);
 		StepBeds(player, log);
 		StepMessengerInGame(kind, told, byPaper, player, now, log);

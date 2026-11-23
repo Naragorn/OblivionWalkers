@@ -9,6 +9,7 @@
 //   20  besieged - help them                             (something to do)
 //   30  to clear - they wait outside                     (something to do)
 //   40  a walker dungeon - the place fallen              (something to do)
+//   45  a necromancer's place (4.23 B step 7)            (something to do)
 //   50  defended                                         (completes, rewards)
 //   55  the siege he knew of beaten off without him      (completes)
 //   60  cleared and taken                                (completes, rewards)
@@ -32,6 +33,7 @@ inline constexpr UInt8 kJournalRefuge = 10;
 inline constexpr UInt8 kJournalBesieged = 20;
 inline constexpr UInt8 kJournalToClear = 30;
 inline constexpr UInt8 kJournalWalkerDungeon = 40;
+inline constexpr UInt8 kJournalNecro = 45;
 inline constexpr UInt8 kJournalDefended = 50;
 inline constexpr UInt8 kJournalHeldAlone = 55;
 inline constexpr UInt8 kJournalTaken = 60;
@@ -60,6 +62,13 @@ inline constexpr UInt32 kDungeonLineCount = 11;
 inline constexpr UInt32 kDungeonRumorFirstLocalId = kDungeonLineFirstLocalId + kDungeonLineCount;  // 0xA71
 inline constexpr UInt32 kDungeonRumorCount = 4;
 inline constexpr UInt32 kDungeonTalkEnd = kDungeonRumorFirstLocalId + kDungeonRumorCount;  // 0xA75
+
+// A necromancer's place (4.23 B step 7): the news' kind 5, its rumor and the
+// Courier's edition on it, in the free IDs after the Daedra lists and the
+// gate's quest (KindLogic.h, GateQuestLogic.h; 0xA9C..0xAA3 were free).
+inline constexpr UInt8 kDungeonNewsNecro = 5;
+inline constexpr UInt32 kDungeonNecroRumorLocalId = 0xA9C;
+inline constexpr UInt32 kDungeonNecroEditionLocalId = 0xA9D;
 
 // After them: the Courier's edition on the held dungeons (NewsLogic.h
 // EditionLocalId(36)), a notice (a paper as the edition, to hang where
@@ -267,6 +276,7 @@ inline DungeonState JournalKnows(UInt8 told) {
 		case kJournalToClear:
 			return DungeonState::ToClear;
 		case kJournalWalkerDungeon:
+		case kJournalNecro:
 			return DungeonState::WalkerDungeon;
 		default:
 			return DungeonState::Free;
@@ -274,8 +284,13 @@ inline DungeonState JournalKnows(UInt8 told) {
 }
 
 // The player near the place: the stage to tell now, kJournalNone when he
-// knows it as it stands.
-inline UInt8 JournalNear(UInt8 told, DungeonState now) {
+// knows it as it stands. `necro`: the place a necromancer's (DungeonSiteLogic.h
+// IsNecroPlace) - told as his, also when told a fallen place before (a save
+// of the build before step 7).
+inline UInt8 JournalNear(UInt8 told, DungeonState now, bool necro = false) {
+	if (necro && now == DungeonState::WalkerDungeon) {
+		return told == kJournalNecro ? kJournalNone : kJournalNecro;
+	}
 	if (now == DungeonState::Free || JournalKnows(told) == now) {
 		return kJournalNone;
 	}
@@ -320,8 +335,8 @@ inline UInt8 JournalOnEvent(UInt8 told, DungeonEventKind kind) {
 
 // The player hears of the place (a rumor, the messenger, a notice): as near
 // it, but a quiet refuge is only heard of - and that once.
-inline UInt8 JournalHeard(UInt8 told, DungeonState now) {
-	const UInt8 there = JournalNear(told, now);
+inline UInt8 JournalHeard(UInt8 told, DungeonState now, bool necro = false) {
+	const UInt8 there = JournalNear(told, now, necro);
 	if (there != kJournalRefuge) {
 		return there;
 	}
@@ -336,7 +351,8 @@ inline int DungeonNewsSite(const DungeonSitesState& st) {
 	for (DungeonState wanted : order) {
 		for (UInt32 i = 0; i < st.count && i < kDungeonActiveMost; ++i) {
 			const DungeonSite& d = st.sites[i];
-			if (d.state == wanted && d.candidate != kDungeonNoCandidate && JournalHeard(d.journal, d.state) != kJournalNone) {
+			if (d.state == wanted && d.candidate != kDungeonNoCandidate &&
+			    JournalHeard(d.journal, d.state, IsNecroPlace(d)) != kJournalNone) {
 				return static_cast<int>(i);
 			}
 		}
@@ -368,7 +384,7 @@ inline int DungeonNewsSiteNear(const DungeonSitesState& st, const DungeonCandida
 	for (UInt32 i = 0; i < st.count && i < kDungeonActiveMost; ++i) {
 		const DungeonSite& d = st.sites[i];
 		if (d.candidate == kDungeonNoCandidate || d.candidate >= count || rank(d.state) > 3 ||
-		    JournalHeard(d.journal, d.state) == kJournalNone) {
+		    JournalHeard(d.journal, d.state, IsNecroPlace(d)) == kJournalNone) {
 			continue;
 		}
 		const float dx = all[d.candidate].x - px;
@@ -383,12 +399,12 @@ inline int DungeonNewsSiteNear(const DungeonSitesState& st, const DungeonCandida
 }
 
 // The news' kind for the rumors' global: 1 a refuge, 2 a siege, 3 a place
-// to clear, 4 a fallen place; 0 none.
+// to clear, 4 a fallen place, 5 a necromancer's place; 0 none.
 inline UInt8 DungeonNewsKind(const DungeonSitesState& st, int site) {
 	if (site < 0 || static_cast<UInt32>(site) >= st.count || site >= static_cast<int>(kDungeonActiveMost)) {
 		return 0;
 	}
-	return static_cast<UInt8>(st.sites[site].state);
+	return IsNecroPlace(st.sites[site]) ? kDungeonNewsNecro : static_cast<UInt8>(st.sites[site].state);
 }
 
 // Before `stage` is set: whether the quest is taken off "completed" first -

@@ -62,6 +62,8 @@ const char* EditionText(const Edition& edition) {
 			return "a refugee camp overrun";
 		case EditionKind::Refuges:
 			return "refugees in the old forts and caves";
+		case EditionKind::NecroRealm:
+			return "a necromancer's realm";
 		case EditionKind::General:
 		default:
 			return "the outbreak";
@@ -121,7 +123,7 @@ void NoteCampInNews(bool saved) {
 	}
 }
 
-void NoteRefugesInNews(bool news) { g_news.refuges = news; }
+void NoteDungeonNewsKind(UInt8 kind) { NoteDungeonNews(g_news, kind); }
 
 UInt32 EditionBookFormId(UInt32 index) {
 	return index < kEditionCount && LooksLikeObject(g_editions[index]) ? FormIdOf(g_editions[index]) : 0;

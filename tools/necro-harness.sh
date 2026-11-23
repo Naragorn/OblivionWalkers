@@ -4,6 +4,8 @@
 # checks OblivionWalkers.log and the roster in OBVR.log. Needs
 # tools/linux-walkers.sh on; announce "busy" first.
 #
+#   tools/necro-harness.sh told      harness/necro-told.txt: news, the Courier, a read edition and the
+#                                    journal name the necromancer's place (4.23 B step 7)
 #   tools/necro-harness.sh hotspot   harness/necro-hotspot.txt: the necromancers alone, one boss at
 #                                    Toadstool Hollow - he rises, his walkers and he are placed when the
 #                                    player is inside, his walkers killed: he stays, killall: he falls,
@@ -31,8 +33,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise | allies | daedra | march | siege | summon) ;;
-	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -236,6 +238,23 @@ if scenario == "daedra":
     check(all(not d or d == "0" for _, d in walkers_after), "his walkers alive - Daedra 2 makes them the Daedra's allies (%s)" % walkers_after)
     hits = [l for l in log if re.match(r"Hit: ", l)]
     print("  hits logged: %d" % len(hits))
+    end(scenario)
+if scenario == "told":
+    # 4.23 B step 7: news, Courier, paper and journal name the necromancer's place
+    check(bool(show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    check(bool(show(find(r"Dungeons: news - now 5 \(.*\): " + place))), "the news is kind 5, his place")
+    check(bool(show(find(r"Dungeons: news - the site now " + place + r" \(site \d+, \d+ units from the player's place -?\d+ -?\d+\)"))),
+          "named as the nearest, the player's place known")
+    check(bool(show(find(r"News: \d+ broadsheets? set to edition 38 \(a necromancer's realm\)"))), "the Courier carries edition 38")
+    check(bool(show(find(r"Dungeons: news - the player reads [0-9A-F]{5}A9D"))), "reading the edition tells")
+    heard = show(find(r"Dungeons: journal - " + place + r": stage (\d+) \(heard"))
+    check(bool(heard) and "stage 45 (heard" in heard[0], "the journal: stage 45 heard - his place, not a fallen refuge")
+    check(bool(show(find(r"Dungeons: journal - " + place + r"'s map marker [0-9A-F]{8} shown"))), "the map marker shown")
+    check(not find(r"Dungeons: journal - " + place + r": stage 40"), "never told stage 40 (a fallen refuge)")
+    check(not find(r"Dungeons: journal - " + place + r": stage 45 \(seen"), "inside: nothing new - he knows it")
+    check(bool(show(find(place + r" - the necromancer fell|the necromancer \w+ fell"))) or
+          bool(find(r"Dungeons: the necromancer .*fell")), "the necromancer fell")
+    check(bool(show(find(r"Dungeons: journal - " + place + r": stage 60 \(taken; told 45 before\)"))), "cleared: stage 60, taken")
     end(scenario)
 if scenario == "summon":
     check(bool(show(find(r"^Mod: .*Daedra Mode=2"))), "Daedra Mode 2 (allies)")

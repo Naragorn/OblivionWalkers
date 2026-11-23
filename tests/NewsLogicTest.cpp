@@ -125,14 +125,40 @@ void TestIndex() {
 	mark(Edition{EditionKind::CampLost, -1});
 	mark(Edition{EditionKind::Refuges, -1});
 	mark(Edition{EditionKind::DaedraSiege, -1});
+	mark(Edition{EditionKind::NecroRealm, -1});
 	bool all = true;
 	for (bool s : seen) {
 		all = all && s;
 	}
 	Check(unique && inRange && all,
-	      "38 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
-	      "lifted 26-33, the camps' 34 and 35, the held dungeons' 36, the Daedra siege's 37");
-	Check(walkers::kEditionCount == 38 && walkers::EditionLocalId(37) == 0xA97,
+	      "39 editions, each its own number: general 0, approaching 1-8, attack 9-16, several 17, besieged 18-25, "
+	      "lifted 26-33, the camps' 34 and 35, the held dungeons' 36, the Daedra siege's 37, the necromancers' 38");
+	Check(walkers::kEditionCount == 39 && walkers::EditionIndex(Edition{EditionKind::NecroRealm, -1}) == 38 &&
+	          walkers::EditionLocalId(38) == 0xA9D,
+	      "the necromancers' book at 0xA9D (after their rumor, DungeonQuestLogic.h kDungeonNecroEditionLocalId)");
+	{
+		walkers::NewsState n;
+		walkers::NoteDungeonNews(n, 5);
+		Check(n.necro && !n.refuges && walkers::ChooseEdition(n, 10.0f, 3.0f, 0.5f).kind == EditionKind::NecroRealm,
+		      "a necromancer's place the news (kind 5): their edition in place of the general one");
+		walkers::NoteDungeonNews(n, 4);
+		Check(!n.necro && n.refuges && walkers::ChooseEdition(n, 10.0f, 3.0f, 0.5f).kind == EditionKind::Refuges,
+		      "a held dungeon's news (kinds 1-4): the refuges' edition");
+		walkers::NoteDungeonNews(n, 0);
+		Check(!n.necro && !n.refuges && walkers::ChooseEdition(n, 10.0f, 3.0f, 0.5f).kind == EditionKind::General,
+		      "no news (0): the general one");
+		walkers::NoteDungeonNews(n, 5);
+		walkers::NoteHeading(n, 2, 9.9f);
+		Check(walkers::ChooseEdition(n, 10.0f, 3.0f, 0.5f).kind == EditionKind::Approaching,
+		      "a horde heading for a city goes before it");
+		UInt8 image[walkers::kNewsImageBytes];
+		walkers::NewsState back;
+		back.necro = true;
+		Check(walkers::NewsImage(n, image, sizeof(image)) == walkers::kNewsImageBytes &&
+		          walkers::ReadNewsImage(back, image, walkers::kNewsImageBytes) && !back.necro,
+		      "not kept in the save (the dungeons say it anew each second)");
+	}
+	Check(walkers::EditionLocalId(37) == 0xA97,
 	      "the Daedra siege's book at 0xA97 (after the place marker)");
 	{
 		walkers::NewsState news;
@@ -148,7 +174,7 @@ void TestIndex() {
 		      "the newest a walkers' siege: the city's own (an older Daedra siege waits)");
 		Check(walkers::ChooseEdition(news, 6.5f, 3.0f, 0.5f).kind == EditionKind::Besieged, "no sides known: the city's");
 	}
-	Check(walkers::kEditionCount == 38 && walkers::EditionIndex(Edition{EditionKind::Refuges, -1}) == 36 &&
+	Check(walkers::EditionIndex(Edition{EditionKind::Refuges, -1}) == 36 &&
 	          walkers::EditionLocalId(36) == 0xA75,
 	      "the held dungeons' book after their rumors (DungeonQuestLogic.h kDungeonEditionLocalId)");
 	{

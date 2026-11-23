@@ -196,6 +196,79 @@ void TestNewsNear() {
 	Check(DungeonNewsSiteNear(st, all, 3, 0.0f, 0.0f, true) == 0, "a candidate past the table: never news");
 }
 
+void TestNecro() {
+	std::printf("a necromancer's place (4.23 B step 7)\n");
+	Check(!JournalCompletes(kJournalNecro) && JournalKnows(kJournalNecro) == DungeonState::WalkerDungeon,
+	      "stage 45, a necromancer holds it: something to do, known as a walker dungeon");
+	Check(JournalNear(kJournalNone, DungeonState::WalkerDungeon, true) == kJournalNecro &&
+	          JournalNear(kJournalHeard, DungeonState::WalkerDungeon, true) == kJournalNecro,
+	      "found or come to: told his place, not a fallen refuge");
+	Check(JournalNear(kJournalWalkerDungeon, DungeonState::WalkerDungeon, true) == kJournalNecro,
+	      "told 40 before (a save of the build before): told 45 once");
+	Check(JournalNear(kJournalNecro, DungeonState::WalkerDungeon, true) == kJournalNone,
+	      "told 45: nothing new");
+	Check(JournalNear(kJournalNecro, DungeonState::Refuge, true) == kJournalTaken &&
+	          JournalNear(kJournalNecro, DungeonState::Refuge) == kJournalTaken,
+	      "his place found a refuge: taken");
+	Check(JournalNear(kJournalNone, DungeonState::Besieged, true) == kJournalBesieged,
+	      "the flag only counts for a walker dungeon");
+	Check(JournalOnEvent(kJournalNecro, DungeonEventKind::Taken) == kJournalTaken &&
+	          JournalOnEvent(kJournalNecro, DungeonEventKind::Left) == kJournalLeft,
+	      "his place cleared: taken; given up open: left");
+	Check(JournalHeard(kJournalNone, DungeonState::WalkerDungeon, true) == kJournalNecro &&
+	          JournalHeard(kJournalNecro, DungeonState::WalkerDungeon, true) == kJournalNone,
+	      "heard of: told his place, then no news");
+	Check(JournalUncompletesFirst(kJournalNone, kJournalNecro) &&
+	          JournalUncompletesFirst(kJournalTaken, kJournalNecro) &&
+	          !JournalUncompletesFirst(kJournalWalkerDungeon, kJournalNecro),
+	      "a quest completed before (an earlier refuge there) is taken off completed first");
+
+	DungeonSitesState st;
+	st.count = 2;
+	st.sites[0].candidate = 3;
+	st.sites[0].state = DungeonState::WalkerDungeon;
+	st.sites[1].candidate = 4;
+	st.sites[1].state = DungeonState::WalkerDungeon;
+	st.sites[1].necro = 1;
+	st.sites[0].journal = kJournalWalkerDungeon;
+	Check(DungeonNewsSite(st) == 1 && DungeonNewsKind(st, 1) == walkers::kDungeonNewsNecro &&
+	          walkers::kDungeonNewsNecro == 5,
+	      "his place is news of its own kind (5)");
+	Check(DungeonNewsKind(st, 0) == 4, "a fallen refuge stays kind 4");
+	st.sites[1].journal = kJournalWalkerDungeon;
+	Check(DungeonNewsSite(st) == 1, "told 40 by the build before: news again, as his place");
+	st.sites[1].journal = kJournalNecro;
+	Check(DungeonNewsSite(st) == -1, "told 45: no news");
+	st.sites[1].state = DungeonState::Refuge;
+	Check(DungeonNewsKind(st, 1) == 1 && DungeonNewsSite(st) == 1,
+	      "his place cleared, a refuge he has not seen: a refuge's news (kind 1)");
+
+	using walkers::DungeonCandidate;
+	using walkers::DungeonKind;
+	static const DungeonCandidate all[] = {
+	    {"Far refuge", DungeonKind::Cave, {1, 0, 0, 0}, 1, 0, 0, true, 90000.0f, 0.0f},
+	    {"Near lair", DungeonKind::Cave, {2, 0, 0, 0}, 1, 0, 0, true, 5000.0f, 0.0f},
+	    {"Near fallen", DungeonKind::Cave, {3, 0, 0, 0}, 1, 0, 0, true, 0.0f, 5000.0f},
+	};
+	DungeonSitesState near;
+	near.count = 3;
+	near.sites[0].candidate = 0;
+	near.sites[0].state = DungeonState::Refuge;
+	near.sites[1].candidate = 1;
+	near.sites[1].state = DungeonState::WalkerDungeon;
+	near.sites[1].necro = 2;
+	near.sites[2].candidate = 2;
+	near.sites[2].state = DungeonState::WalkerDungeon;
+	near.sites[2].journal = kJournalWalkerDungeon;
+	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true) == 1, "the nearest with news: his place");
+	near.sites[1].journal = kJournalNecro;
+	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true) == 0, "told: the far refuge next");
+	near.sites[1].journal = kJournalNone;
+	near.sites[2].journal = kJournalNone;
+	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true) == 1,
+	      "as near as a fallen place: the tie as the kinds' order - his place ranks as a fallen one, the first wins");
+}
+
 void TestTelling() {
 	std::printf("telling a stage\n");
 	Check(JournalUncompletesFirst(kJournalNone, kJournalHeard) && JournalUncompletesFirst(kJournalNone, kJournalBesieged),
@@ -396,6 +469,7 @@ int main() {
 	TestHeard();
 	TestNews();
 	TestNewsNear();
+	TestNecro();
 	TestTelling();
 	TestTalk();
 	TestMessenger();

@@ -1,0 +1,62 @@
+# A necromancer's place told (docs/walkers-spec.md 4.23 B step 7), run by
+# tools/necro-harness.sh told: the necromancers alone, one boss at Toadstool
+# Hollow (TestHome), his walkers 4, DieOnlyBeheaded=0.
+#
+# The player in the open land (cow Tamriel 5 5, his place known): the news
+# must be kind 5 naming Toadstool Hollow. In the Black Horse Courier's office
+# the broadsheets must carry edition 38, the necromancers'. Back outside the
+# player reads that edition (additem, equipitem): stage 45 "heard", the map
+# marker shown. Then in the place: nothing new (he knows it). killall three
+# times: the necromancer falls, the place is taken - stage 60.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at ready fw 00038EEE
+console-at ready cow Tamriel 5 5
+console-at courier coc ICMarketDistrictBlackHorseCourier
+console-at back cow Tamriel 5 5
+console-at read player.additem {form:OblivionWalkers.esp:A9D} 1
+console-at read player.equipitem {form:OblivionWalkers.esp:A9D}
+console-at closed CloseAllMenus
+console-at inside coc ToadstoolHollow
+console-at kill1 killall
+console-at kill2 killall
+console-at kill3 killall
+console-at close CloseAllMenus
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 14
+mark courier
+wait 10
+mark back
+wait 10
+mark read
+wait 5
+mark opened
+wait 2
+mark closed
+wait 4
+mark inside
+wait 16
+mark placed
+wait 8
+mark kill1
+wait 10
+mark kill2
+wait 10
+mark kill3
+wait 10
+mark close
+wait 3
+mark end
+wait 1
