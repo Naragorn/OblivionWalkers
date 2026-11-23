@@ -5744,7 +5744,7 @@ and pushed with its unit flows, the harness where it shows in the game):**
    within `RiseWithin` of a realm's door or where a team's band killed
    (decided 10). Harness: a kill near a home rises, one far stays down.
 7. *Told* - news, rumors and the journal name the nearest hotspot (as the
-   held places, 4.20.7a A).
+   held places, 4.20.7a A). BUILT 2026-11-23, below.
 
 Progress (2026-11-20): steps 1-6 built and committed (47ad572, 97201c7,
 7cea85c + b70da06, cb62d70 onboarding page 4, e3c1416, e4fff04, 7318ba3,
@@ -5937,6 +5937,32 @@ out the actors of the player's summon effects (MagicTarget at the player's
 at +0x3C - xOBSE GameObjects.h, GameMagicEffects.h). After: 0 let-go lines,
 the walkers and the necromancer hit it 4 times, as in the control; the
 daedra regression PASS.
+
+**Step 7, told - BUILT 2026-11-23** (Nadi: "go schritt 7"; 3a0264d and the
+fix after the first run). Measured before (necro-hotspot 2026-11-22): his
+place was told as a fallen refuge - journal stage 40 ("... is lost. Whoever
+held it is dead") in "Refugees at <place>", rumor kind 4 ("that refuge ...
+Gone"). Now (DungeonQuestLogic.h, NewsLogic.h):
+- the journal: stage 45, "A necromancer has made <place> his lair ..."
+  (something to do); a save told 40 there before is told 45 once; cleared,
+  stage 60 as every place;
+- the news: kind 5, its own rumor (0xA9C); the nearest place with news is
+  named, his ranked as a fallen place;
+- the Courier: edition 38, "Necromancers Raise the Dead!" (0xA9D), in place
+  of the general one while his place is the news; read, it tells his place.
+  Each paper names its own kind (`NewsOf`): his edition his place, the
+  refugees' edition and notices a held place - the first run read his
+  edition while a fallen refuge (Grayrock Cave) was nearer and told that one.
+Harness `necro-harness.sh told` PASS (2026-11-23 12:50, Linux, headless):
+news kind 5 Toadstool Hollow, 28 broadsheets on edition 38, the edition read:
+"told ... by the necromancers' edition", stage 45 (heard), the map marker,
+inside nothing new, killall: he fell, stage 60. Regression `hotspot` PASS
+(stage 45 seen, then 60). In that run his place was the nearest, so the
+"another place nearer" case is covered by the unit flows and the red first
+run only. Not covered: a rumor said by an NPC (the same global as the paper,
+not seen spoken), the quest's name - still "Refugees at <place>" (a name is
+in the file; a neutral one would rename the refugees' quests too - open,
+Nadi's), the runner (never for his place), Windows and the headset.
 
 Mine, for the build (not asked; changed on a word): a hotspot holds
 `WalkersMin`..`WalkersMax` walkers, default 16 to 30 (the held walker

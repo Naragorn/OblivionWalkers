@@ -343,15 +343,24 @@ inline UInt8 JournalHeard(UInt8 told, DungeonState now, bool necro = false) {
 	return told == kJournalNone ? kJournalHeard : kJournalNone;
 }
 
+// Which places a news may name: any; the held places only (the refugees'
+// edition and notices); a necromancer's only (his edition, 4.23 B step 7 -
+// the harness told 2026-11-23: read while a fallen refuge was nearer, it
+// told that one).
+enum class NewsOf : UInt8 { Any, Held, Necro };
+inline bool NewsNames(const DungeonSite& d, NewsOf of) {
+	return of == NewsOf::Any || (of == NewsOf::Necro) == IsNecroPlace(d);
+}
+
 // The site there is news of, -1 none: a siege first, then a place to clear,
 // a fallen place, a refuge; the first of each.
-inline int DungeonNewsSite(const DungeonSitesState& st) {
+inline int DungeonNewsSite(const DungeonSitesState& st, NewsOf of = NewsOf::Any) {
 	static constexpr DungeonState order[4] = {DungeonState::Besieged, DungeonState::ToClear, DungeonState::WalkerDungeon,
 	                                         DungeonState::Refuge};
 	for (DungeonState wanted : order) {
 		for (UInt32 i = 0; i < st.count && i < kDungeonActiveMost; ++i) {
 			const DungeonSite& d = st.sites[i];
-			if (d.state == wanted && d.candidate != kDungeonNoCandidate &&
+			if (d.state == wanted && d.candidate != kDungeonNoCandidate && NewsNames(d, of) &&
 			    JournalHeard(d.journal, d.state, IsNecroPlace(d)) != kJournalNone) {
 				return static_cast<int>(i);
 			}
@@ -366,9 +375,9 @@ inline int DungeonNewsSite(const DungeonSitesState& st) {
 // DungeonNewsSite's order alone. `px`, `py` the player's place in Tamriel
 // (the last one known while inside).
 inline int DungeonNewsSiteNear(const DungeonSitesState& st, const DungeonCandidate* all, UInt32 count, float px,
-                               float py, bool playerKnown) {
+                               float py, bool playerKnown, NewsOf of = NewsOf::Any) {
 	if (!playerKnown) {
-		return DungeonNewsSite(st);
+		return DungeonNewsSite(st, of);
 	}
 	auto rank = [](DungeonState state) {
 		switch (state) {
@@ -383,7 +392,7 @@ inline int DungeonNewsSiteNear(const DungeonSitesState& st, const DungeonCandida
 	float bestD = 0.0f;
 	for (UInt32 i = 0; i < st.count && i < kDungeonActiveMost; ++i) {
 		const DungeonSite& d = st.sites[i];
-		if (d.candidate == kDungeonNoCandidate || d.candidate >= count || rank(d.state) > 3 ||
+		if (d.candidate == kDungeonNoCandidate || d.candidate >= count || rank(d.state) > 3 || !NewsNames(d, of) ||
 		    JournalHeard(d.journal, d.state, IsNecroPlace(d)) == kJournalNone) {
 			continue;
 		}

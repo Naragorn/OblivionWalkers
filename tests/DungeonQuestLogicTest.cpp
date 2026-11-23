@@ -265,6 +265,17 @@ void TestNecro() {
 	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true) == 0, "told: the far refuge next");
 	near.sites[1].journal = kJournalNone;
 	near.sites[2].journal = kJournalNone;
+	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true, NewsOf::Necro) == 1 &&
+	          DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true, NewsOf::Held) == 2,
+	      "the necromancers' edition read: his place; a refugees' paper: the held place (harness told, 2026-11-23: "
+	      "his edition told a fallen refuge nearer the player)");
+	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, false, NewsOf::Necro) == 1 &&
+	          DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, false, NewsOf::Held) == 2,
+	      "the player's place not known: the same split, by the kinds' order (a fallen place before a refuge)");
+	near.sites[1].journal = kJournalNecro;
+	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true, NewsOf::Necro) == -1,
+	      "his place told already: the edition tells nothing");
+	near.sites[1].journal = kJournalNone;
 	Check(DungeonNewsSiteNear(near, all, 3, 0.0f, 0.0f, true) == 1,
 	      "as near as a fallen place: the tie as the kinds' order - his place ranks as a fallen one, the first wins");
 }

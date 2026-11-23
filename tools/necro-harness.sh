@@ -250,7 +250,13 @@ if scenario == "told":
     heard = show(find(r"Dungeons: journal - " + place + r": stage (\d+) \(heard"))
     check(bool(heard) and "stage 45 (heard" in heard[0], "the journal: stage 45 heard - his place, not a fallen refuge")
     check(bool(show(find(r"Dungeons: journal - " + place + r"'s map marker [0-9A-F]{8} shown"))), "the map marker shown")
-    check(not find(r"Dungeons: journal - " + place + r": stage 40"), "never told stage 40 (a fallen refuge)")
+    check(bool(show(find(r"Dungeons: news - told to the player \(site \d+, by the necromancers' edition\)"))),
+          "his edition tells his place (a fallen refuge may be nearer)")
+    taken = [i for i, l in enumerate(log) if re.search(place + r": stage 60 \(taken", l)]
+    before_taken = log[:taken[0]] if taken else log
+    # after it was taken, the harness's killall also kills the refugees: a fallen refuge then, stage 40 by right
+    check(not [l for l in before_taken if re.search(r"journal - " + place + r": stage 40", l)],
+          "never told stage 40 (a fallen refuge) while it was his")
     check(not find(r"Dungeons: journal - " + place + r": stage 45 \(seen"), "inside: nothing new - he knows it")
     check(bool(show(find(place + r" - the necromancer fell|the necromancer \w+ fell"))) or
           bool(find(r"Dungeons: the necromancer .*fell")), "the necromancer fell")
