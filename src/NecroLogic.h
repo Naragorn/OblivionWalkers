@@ -589,6 +589,55 @@ inline bool NecroFightStops(UInt8 mine, UInt8 theirs) {
 	return NecroAllied(mine, theirs);
 }
 
+// The team a dead man rises into (the gap after step 7; spec 4.23 B "Not
+// covered"): killed by a walker of a team - that team (decided 10, "where a
+// team's band killed"); else in or near a necromancer's place (`nearPlace`,
+// the rise's own test) - that place's boss's team; else none, a free walker.
+inline UInt8 RisenTeam(UInt8 killerTeam, UInt8 placeTeam, bool nearPlace) {
+	if (killerTeam != 0) {
+		return killerTeam;
+	}
+	return nearPlace ? placeTeam : 0;
+}
+
+// The fallen waiting to rise with a team, by reference: noted at the death,
+// taken when he gets up (himself, or the walker that takes his place). Not
+// kept in the save, as the teams are not (Necro.cpp: a load clears them).
+inline constexpr UInt32 kRisenTeamsMost = 32;
+struct RisenTeams {
+	UInt32 refs[kRisenTeamsMost] = {};
+	UInt8 teams[kRisenTeamsMost] = {};
+	UInt32 count = 0;
+};
+
+inline UInt8 TakeRisenTeam(RisenTeams& p, UInt32 ref) {
+	for (UInt32 k = 0; ref != 0 && k < p.count; ++k) {
+		if (p.refs[k] == ref) {
+			const UInt8 team = p.teams[k];
+			for (UInt32 j = k + 1; j < p.count; ++j) {
+				p.refs[j - 1] = p.refs[j];
+				p.teams[j - 1] = p.teams[j];
+			}
+			--p.count;
+			return team;
+		}
+	}
+	return 0;
+}
+
+inline void NoteRisenTeam(RisenTeams& p, UInt32 ref, UInt8 team) {
+	if (ref == 0 || team == 0) {
+		return;
+	}
+	TakeRisenTeam(p, ref);
+	if (p.count == kRisenTeamsMost) {
+		TakeRisenTeam(p, p.refs[0]);  // the oldest makes room
+	}
+	p.refs[p.count] = ref;
+	p.teams[p.count] = team;
+	++p.count;
+}
+
 // Whether a walker of team `mine`, not fighting, is set on one of team
 // `theirs` `distance` away (a walker or a necromancer of that team).
 inline bool NecroSetOn(UInt8 mine, UInt8 theirs, bool fighting, float distance, float reach) {

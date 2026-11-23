@@ -1823,8 +1823,11 @@ UInt32 DungeonPoolAtNecro(UInt32* refIds, UInt32 most, int& boss) {
 	return n;
 }
 
-float NearestNecroPlace(UInt32 actor, bool& inPlace) {
+float NearestNecroPlace(UInt32 actor, bool& inPlace, int* boss) {
 	inPlace = false;
+	if (boss != nullptr) {
+		*boss = -1;
+	}
 	const UInt32 cell = LooksLikeObject(actor) ? Read(actor + kRefParentCellOffset) : 0;
 	if (!LooksLikeObject(cell)) {
 		return -1.0f;
@@ -1843,12 +1846,20 @@ float NearestNecroPlace(UInt32 actor, bool& inPlace) {
 		for (UInt32 k = 0; k < c.cellCount && k < kDungeonCellsMost; ++k) {
 			if (c.cells[k] != 0 && c.cells[k] == cellId) {
 				inPlace = true;
+				if (boss != nullptr) {
+					*boss = static_cast<int>(d.necro) - 1;
+				}
 				return 0.0f;
 			}
 		}
 		if (!interior) {
 			const float dist = std::hypot(x - c.x, y - c.y);
-			best = best < 0.0f || dist < best ? dist : best;
+			if (best < 0.0f || dist < best) {
+				best = dist;
+				if (boss != nullptr) {
+					*boss = static_cast<int>(d.necro) - 1;
+				}
+			}
 		}
 	}
 	return best;

@@ -606,6 +606,33 @@ void TestWalkers() {
 
 }  // namespace
 
+void TestRisenTeam() {
+	std::printf("the risen near them join a team (4.23 B, the gap after step 7)\n");
+	using walkers::RisenTeam;
+	Check(RisenTeam(2, 1, true) == 2, "killed by a walker of team 2 at team 1's place: team 2 (the killer's)");
+	Check(RisenTeam(0, 3, true) == 3, "killed by someone else near team 3's place: team 3");
+	Check(RisenTeam(0, 3, false) == 0, "far from every place, not killed by theirs: a free walker");
+	Check(RisenTeam(4, 0, false) == 4, "killed by team 4's walker far from any place: team 4");
+	Check(RisenTeam(0, 0, true) == 0, "near a place with no team known: a free walker");
+
+	walkers::RisenTeams p;
+	Check(walkers::TakeRisenTeam(p, 0x100) == 0, "nothing noted: no team");
+	walkers::NoteRisenTeam(p, 0x100, 2);
+	walkers::NoteRisenTeam(p, 0x200, 0);
+	Check(p.count == 1, "a fallen of no team is not noted");
+	walkers::NoteRisenTeam(p, 0x100, 3);
+	Check(p.count == 1 && walkers::TakeRisenTeam(p, 0x100) == 3 && p.count == 0,
+	      "noted again: the newer team; taken once, then gone");
+	for (UInt32 k = 0; k < walkers::kRisenTeamsMost + 3; ++k) {
+		walkers::NoteRisenTeam(p, 0x1000 + k, 1);
+	}
+	Check(p.count == walkers::kRisenTeamsMost && walkers::TakeRisenTeam(p, 0x1000) == 0 &&
+	          walkers::TakeRisenTeam(p, 0x1000 + walkers::kRisenTeamsMost + 2) == 1,
+	      "full: the oldest makes room for the newest");
+	walkers::NoteRisenTeam(p, 0, 1);
+	Check(walkers::TakeRisenTeam(p, 0) == 0, "no reference: never noted");
+}
+
 int main() {
 	TestTeams();
 	TestPace();
@@ -623,6 +650,7 @@ int main() {
 	TestBandsMeet();
 	TestTestFight();
 	TestSieges();
+	TestRisenTeam();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

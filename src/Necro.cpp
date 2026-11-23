@@ -586,6 +586,20 @@ bool NecroTeamed(UInt32 refId) {
 	return placed != 0 && placed == refId;
 }
 
+UInt8 NecroTeamOf(UInt32 refId) {
+	const auto it = g_teams.find(refId);
+	if (it != g_teams.end()) {
+		return it->second;
+	}
+	int boss = -1;
+	const UInt32 placed = NecroBossPlacedNow(boss);
+	return placed != 0 && placed == refId ? BossTeam(boss) : 0;
+}
+
+UInt8 NecroBossTeamOf(int boss) { return BossTeam(boss); }
+
+void NoteNecroTeam(UInt32 refId, UInt8 team) { NoteTeam(refId, team); }
+
 void StepNecroTeams(float dt, LogFn log) {
 	g_teamClock += dt;
 	if (g_teamClock < 0.5f) {

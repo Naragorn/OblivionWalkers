@@ -1,0 +1,33 @@
+# The risen near a necromancer join his team (docs/walkers-spec.md 4.23 B,
+# the gap after step 7), run by tools/necro-harness.sh riseteam: the
+# necromancers alone, one boss (team 1) at Toadstool Hollow. A bandit placed
+# before its door and killed must rise 20-30 s later as a walker of team 1.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready player.setav chameleon 100
+console-at near player.moveto 00015243
+console-at nearbandit player.placeatme 00069AD1 1 300 0
+console-at kill1 killall
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark near
+wait 4
+mark nearbandit
+wait 3
+mark kill1
+wait 40
+mark risen
+wait 1
+mark end
+wait 1

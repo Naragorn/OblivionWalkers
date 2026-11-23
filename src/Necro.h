@@ -34,6 +34,12 @@ void StepNecroTeams(float dt, LogFn log);
 // Whether `refId` belongs to a necromancer: a walker of a team, or a
 // necromancer placed - a free walker fighting it lets go (decided 11).
 bool NecroTeamed(UInt32 refId);
+// The team of `refId` (a walker of a team, or the necromancer placed), 0 none.
+UInt8 NecroTeamOf(UInt32 refId);
+// Boss `boss`'s team, 0 none (no such boss).
+UInt8 NecroBossTeamOf(int boss);
+// `refId` from now a walker of `team` (a risen one near them; 0 takes it off).
+void NoteNecroTeam(UInt32 refId, UInt8 team);
 
 // Every frame (stepped once a game second inside): with [Necromancers]
 // Mode=1 and the dungeon pool settled after the load, the realms risen and

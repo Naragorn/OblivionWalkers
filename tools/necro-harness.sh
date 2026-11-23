@@ -4,6 +4,8 @@
 # checks OblivionWalkers.log and the roster in OBVR.log. Needs
 # tools/linux-walkers.sh on; announce "busy" first.
 #
+#   tools/necro-harness.sh riseteam  harness/necro-riseteam.txt: a bandit killed before his door rises a walker of
+#                                    his team (4.23 B, the gap after step 7)
 #   tools/necro-harness.sh told      harness/necro-told.txt: news, the Courier, a read edition and the
 #                                    journal name the necromancer's place (4.23 B step 7)
 #   tools/necro-harness.sh hotspot   harness/necro-hotspot.txt: the necromancers alone, one boss at
@@ -33,8 +35,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told) ;;
-	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -238,6 +240,13 @@ if scenario == "daedra":
     check(all(not d or d == "0" for _, d in walkers_after), "his walkers alive - Daedra 2 makes them the Daedra's allies (%s)" % walkers_after)
     hits = [l for l in log if re.match(r"Hit: ", l)]
     print("  hits logged: %d" % len(hits))
+    end(scenario)
+if scenario == "riseteam":
+    check(bool(show(find(r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    verdicts = show([l for l in log if "00069AD1" in l and "waits to rise" in l], 2)
+    check(bool(verdicts), "the bandit before the door waits to rise")
+    teamed = show(find(r"Rise: (walker [0-9A-F]{8} in [0-9A-F]{8}'s place - a walker|[0-9A-F]{8} gets up a walker) of the necromancers' team 1"))
+    check(bool(teamed), "he gets up a walker of team 1")
     end(scenario)
 if scenario == "told":
     # 4.23 B step 7: news, Courier, paper and journal name the necromancer's place

@@ -97,7 +97,7 @@ UInt32 DungeonPoolAtNecro(UInt32* refIds, UInt32 most, int& boss);
 UInt32 NecroBossPlacedNow(int& boss);
 // Step 6: the distance from `actor` (in Tamriel) to the nearest door of a
 // necromancer's place, -1 none; `inPlace` when it stands in one of its cells.
-float NearestNecroPlace(UInt32 actor, bool& inPlace);
+float NearestNecroPlace(UInt32 actor, bool& inPlace, int* boss = nullptr);
 void DungeonFreePlaces(bool* free);
 bool AddNecroPlace(UInt32 candidate, UInt32 boss, UInt32 walkers, float now);
 const char* DungeonCandidateName(UInt32 candidate);

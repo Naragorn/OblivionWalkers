@@ -191,6 +191,8 @@ UInt32 g_lootless[32] = {};
 UInt32 g_lootlessCount = 0;
 // The walkers risen from a corpse: lootable whatever NoLoot says.
 RisenSet g_risenSet;
+// The fallen near the necromancers waiting to rise into a team (NecroLogic.h).
+RisenTeams g_risenTeams;
 // 4.17 (EndLogic.h): whether OBVR cuts heads ('WGDM'), the heads it reported
 // ('WGHD', noted at once for a death in the same frame), and those still to
 // act on at the next frame tick.
@@ -823,10 +825,14 @@ void __cdecl OnDeath(void* arg0, void* arg1, void* thisObj) {
 	// necromancers - in or near one of their places, or killed by theirs.
 	if (g_settings.invaders.necromancers && LooksLikeObject(ref)) {
 		bool inPlace = false;
-		const float distance = NearestNecroPlace(ref, inPlace);
+		int placeBoss = -1;
+		const float distance = NearestNecroPlace(ref, inPlace, &placeBoss);
 		const UInt32 killer = reinterpret_cast<UInt32>(arg1);
 		const bool byTheirs = LooksLikeObject(killer) && NecroTeamed(FormIdOf(killer));
 		fallen.nearNecro = NearNecromancers(inPlace, distance, g_settings.necro.riseWithin, byTheirs);
+		const bool nearPlace = NearNecromancers(inPlace, distance, g_settings.necro.riseWithin, false);
+		const UInt8 team = RisenTeam(byTheirs ? NecroTeamOf(FormIdOf(killer)) : 0, NecroBossTeamOf(placeBoss), nearPlace);
+		NoteRisenTeam(g_risenTeams, fallen.refId, team);
 	}
 	if (IsGateGuard(fallen.refId)) {
 		g_log("Death: gate guard %08X fell (killer %08X) - its pool sends the next and raises it when none is left",
@@ -1708,6 +1714,10 @@ void RaiseAsSelf(UInt32 refId) {
 	using ResurrectFn = void(__fastcall*)(void* self, void* edx, UInt32 one, UInt32 withModel, UInt32 animate);
 	reinterpret_cast<ResurrectFn>(fn)(reinterpret_cast<void*>(ref), nullptr, 1, has3D, 1);
 	NoteRaised(ref, IsWalkerRef(ref) ? "a walker up again" : "the person himself");
+	if (const UInt8 team = TakeRisenTeam(g_risenTeams, refId)) {
+		NoteNecroTeam(refId, team);
+		g_log("Rise: %08X gets up a walker of the necromancers' team %u", refId, team);
+	}
 	g_risen = RisenWatch{};
 	g_risen.refId = refId;
 	g_risen.startMs = GetTickCount();
@@ -1991,6 +2001,13 @@ void StepSwapInFlight(float dt) {
 		         g_settings.lieSeconds < 0.0f ? 0.0f : g_settings.lieSeconds);
 	// Noted before its kill below: NoLoot never takes a risen walker.
 	NoteRisen(g_risenSet, g_swap.zombieId);
+	if (g_swap.zombieId != 0) {
+		if (const UInt8 team = TakeRisenTeam(g_risenTeams, g_swap.corpseId)) {
+			NoteNecroTeam(g_swap.zombieId, team);
+			g_log("Rise: walker %08X in %08X's place - a walker of the necromancers' team %u", g_swap.zombieId,
+			      g_swap.corpseId, team);
+		}
+	}
 	// The corpse out of the walker's way: before the walker is dropped onto
 	// it below, and each frame after until it takes.
 	if (ApartDue(g_settings.keepCorpseApart, g_swap.stage, g_apartWalker == g_swap.zombieId)) {
@@ -3875,6 +3892,7 @@ void OnLoad(void*) {
 	g_linkPageClock = 0.0f;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_risenTeams = RisenTeams{};
 	g_stand = StandWatch{};
 	g_fame = FameCount{};
 	g_famePending = 0;
@@ -4084,6 +4102,7 @@ void OnNewGame(void*) {
 	g_linkPageClock = 0.0f;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_risenTeams = RisenTeams{};
 	g_stand = StandWatch{};
 	g_fame = FameCount{};
 	g_famePending = 0;
@@ -4131,6 +4150,7 @@ bool InstallRise(const obse::Interface& xse, const RiseSettings& settings, const
 	g_lootlessCount = 0;
 	g_list = WaitingList{};
 	g_risenSet = RisenSet{};
+	g_risenTeams = RisenTeams{};
 	g_stand = StandWatch{};
 	g_fame = FameCount{};
 	g_famePending = 0;
