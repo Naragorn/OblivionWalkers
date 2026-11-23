@@ -286,6 +286,24 @@ void TestForce() {
 	      "to clear: the people waiting outside");
 	DungeonSitesState free;
 	Check(!walkers::ForceSite(free, kAll, 2, inPool, "A", DungeonState::Free, fs, 1.0f), "no state: nothing");
+
+	// The necromancers' places kept beside the test's site (4.23 B, harness held).
+	DungeonSitesState before;
+	before.count = 3;
+	before.sites[0].candidate = 0;
+	before.sites[0].state = DungeonState::Refuge;
+	before.sites[1] = walkers::NecroPlace(1, 0, 4, 1.0f);
+	before.sites[2] = walkers::NecroPlace(0, 2, 4, 1.0f);
+	DungeonSitesState kept;
+	walkers::ForceSite(kept, kAll, 2, inPool, "b", DungeonState::WalkerDungeon, fs, 1.0f);
+	walkers::KeepNecroSites(kept, before);
+	Check(kept.count == 3 && kept.sites[0].necro == 0 && kept.sites[0].candidate == 1 && kept.sites[1].necro == 1 &&
+	          kept.sites[2].necro == 3,
+	      "the test's site first, the necromancers' places after it, the other sites gone");
+	DungeonSitesState full;
+	full.count = walkers::kDungeonActiveMost;
+	walkers::KeepNecroSites(full, before);
+	Check(full.count == walkers::kDungeonActiveMost, "no room: none kept");
 }
 
 }  // namespace

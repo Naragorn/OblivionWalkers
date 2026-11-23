@@ -5936,7 +5936,15 @@ on the nearest living boss): with `[Walkers] Mode` 0 there are no free
 walkers, so the walkers of a fallen refuge or of a refuge's siege carry the
 team of the living boss whose place is nearest to it (NecroLogic.h
 PoolBoss; the first found on a tie; none while no boss lives, nor for the
-Daedra's). With Walkers 1 or 2 they stay the free walkers'.
+Daedra's). With Walkers 1 or 2 they stay the free walkers'. Harness `held`
+(TestSite=Grayrock Cave as a walker dungeon, one boss at Toadstool Hollow;
+TestSite now keeps the necromancers' places, DungeonKitLogic.h
+KeepNecroSites): before (the old rule with that test fix, 2026-11-23 16:54)
+FAIL - 6 walkers inside, no team, no teams' look; after (16:52) PASS - "the
+pool's 6 walker(s) at site 0 (a held place, the nearest living boss's)
+carry boss 0's team 1", "6 of theirs near"; regression `hotspot` PASS. Not
+seen in a run: a refuge's siege (unit flows only), two bosses (the nearer
+one - unit flows only).
 
 Not covered by the build so far: [Dungeons] Enabled=0 leaves the
 realms numbers only; summons cast by companions or other NPCs still count

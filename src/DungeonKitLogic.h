@@ -350,4 +350,14 @@ inline bool ForceSite(DungeonSitesState& st, const DungeonCandidate* all, UInt32
 	return false;
 }
 
+// The necromancers' places of `before` added after the test's site (4.23 B:
+// TestSite beside a realm, the harness's held scenario), while there is room.
+inline void KeepNecroSites(DungeonSitesState& st, const DungeonSitesState& before) {
+	for (UInt32 k = 0; k < before.count && k < kDungeonActiveMost && st.count < kDungeonActiveMost; ++k) {
+		if (before.sites[k].necro != 0) {
+			st.sites[st.count++] = before.sites[k];
+		}
+	}
+}
+
 }  // namespace walkers

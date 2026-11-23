@@ -1998,9 +1998,13 @@ void StepDungeonsInGame(float dt, LogFn log) {
 				named = g_inPool[c] && SameName(kDungeonCandidates[c].name, g_testSite) ? static_cast<int>(c) : -1;
 			}
 			if (named >= 0 && SiteOfCandidate(g_sites, static_cast<UInt32>(named)) < 0) {
+				const DungeonSitesState before = g_sites;
 				g_sites = DungeonSitesState{};
 				const bool forced = ForceSite(g_sites, kDungeonCandidates, kDungeonCandidateCount, g_inPool, g_testSite,
 				                              g_testState, *g_siteSettings, now);
+				if (forced) {
+					KeepNecroSites(g_sites, before);
+				}
 				g_sites.sites[0].daedra = g_siteSettings->testDaedra && (g_sites.sites[0].state == DungeonState::Besieged ||
 				                                                          g_sites.sites[0].state == DungeonState::WalkerDungeon);
 				log("Dungeons: test - TestSite=%s made the first site: %s, %u people, %u waiting, %u walkers (%d)",
