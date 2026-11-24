@@ -40,7 +40,7 @@ void TestSummons() {
 	std::printf("The player's summoned actors from his active effects\n");
 	Memory m;
 	UInt32 out[4] = {};
-	Check(walkers::PlayerSummons(0, m, out, 4) == 0, "no list: none");
+	Check(walkers::SummonsInList(0, m, out, 4) == 0, "no list: none");
 
 	// node 0x100 -> 0x110 -> 0x120 -> end: a summon, a fortify, a summon
 	m.words[0x100] = 0x1000; m.words[0x104] = 0x110;
@@ -49,26 +49,26 @@ void TestSummons() {
 	Effect(m, 0x1000, 0x5000, kZdre, 0xA000);
 	Effect(m, 0x2000, 0x5100, kFidg, 0xB000);
 	Effect(m, 0x3000, 0x5200, kZdre, 0xC000);
-	UInt32 n = walkers::PlayerSummons(0x100, m, out, 4);
+	UInt32 n = walkers::SummonsInList(0x100, m, out, 4);
 	Check(n == 2 && out[0] == 0xA000 && out[1] == 0xC000, "the summon effects' actors, the fortify skipped");
-	Check(walkers::PlayerSummons(0x100, m, out, 1) == 1 && out[0] == 0xA000, "no more than room for");
+	Check(walkers::SummonsInList(0x100, m, out, 1) == 1 && out[0] == 0xA000, "no more than room for");
 
 	Memory m2 = m;
 	m2.words[0x1000 + walkers::kSummonActorOffset] = 0;  // the summon not out yet
 	m2.words[0x110] = 0;                                   // an empty node
 	m2.words[0x3000 + walkers::kActiveEffectItemOffset] = 0;  // no effect item
-	n = walkers::PlayerSummons(0x100, m2, out, 4);
+	n = walkers::SummonsInList(0x100, m2, out, 4);
 	Check(n == 0, "no actor yet, an empty node, no effect item: none, the walk goes on");
 
 	Memory loop;
 	loop.words[0x100] = 0x1000; loop.words[0x104] = 0x100;  // a node pointing at itself
 	Effect(loop, 0x1000, 0x5000, kZdre, 0xA000);
-	n = walkers::PlayerSummons(0x100, loop, out, 4);
+	n = walkers::SummonsInList(0x100, loop, out, 4);
 	Check(n == 4, "a broken list loops: the room caps it, no hang");
 	Memory loop2;
 	loop2.words[0x100] = 0x2000; loop2.words[0x104] = 0x100;
 	Effect(loop2, 0x2000, 0x5100, kFidg, 0);
-	Check(walkers::PlayerSummons(0x100, loop2, out, 4) == 0, "a broken list with no summon: the step cap ends it");
+	Check(walkers::SummonsInList(0x100, loop2, out, 4) == 0, "a broken list with no summon: the step cap ends it");
 }
 
 void TestAlly() {
@@ -80,10 +80,39 @@ void TestAlly() {
 	Check(walkers::DaedraAlly(true, 0xA000, summons, 0), "no summons: a Daedra is an ally");
 }
 
+void TestCasters() {
+	std::printf("The summons of every caster who is no Daedra\n");
+	Memory m;
+	// the player's list 0x100: a summon 0xA000; a companion's 0x200: a summon
+	// 0xB000; a Dremora mage's 0x300: a summon 0xC000; a guard's 0x400: none
+	m.words[0x100] = 0x1000; m.words[0x104] = 0;
+	m.words[0x200] = 0x2000; m.words[0x204] = 0;
+	m.words[0x300] = 0x3000; m.words[0x304] = 0;
+	Effect(m, 0x1000, 0x5000, kZdre, 0xA000);
+	Effect(m, 0x2000, 0x5100, kZdre, 0xB000);
+	Effect(m, 0x3000, 0x5200, kZdre, 0xC000);
+	const auto listOf = [](UInt32 caster) {
+		return caster == 0x14 ? 0x100u : caster == 0x77 ? 0x200u : caster == 0x99 ? 0x300u : caster == 0x55 ? 0x400u : 0u;
+	};
+	const auto isDaedra = [](UInt32 caster) { return caster == 0x99; };
+	const UInt32 casters[] = {0x14, 0x77, 0x99, 0x55, 0, 0x77};
+	UInt32 out[8] = {};
+	UInt32 n = walkers::NonDaedraSummons(casters, 6, isDaedra, listOf, m, out, 8);
+	Check(n == 2 && out[0] == 0xA000 && out[1] == 0xB000,
+	      "the player's and the companion's summons; the Dremora mage's not, a caster 0 or twice skipped");
+	n = walkers::NonDaedraSummons(casters, 6, isDaedra, listOf, m, out, 1);
+	Check(n == 1 && out[0] == 0xA000, "no more than room for");
+	Check(walkers::NonDaedraSummons(casters, 0, isDaedra, listOf, m, out, 8) == 0, "no casters: none");
+	const UInt32 summons[] = {0xA000, 0xB000};
+	Check(!walkers::DaedraAlly(true, 0xB000, summons, 2), "the companion's summoned Dremora: no ally");
+	Check(walkers::DaedraAlly(true, 0xC000, summons, 2), "the Dremora mage's summon: still an ally");
+}
+
 }  // namespace
 
 int main() {
 	TestSummons();
+	TestCasters();
 	TestAlly();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

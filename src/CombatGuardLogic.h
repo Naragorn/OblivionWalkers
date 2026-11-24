@@ -67,4 +67,45 @@ inline bool CombatLineAllowed(CombatGuard& g, UInt32 ref, CombatVerb verb, UInt3
 	return true;
 }
 
+// [Debug] CombatGuardFrames measured (2026-11-24): how far apart a StartCombat
+// and a later StopCombat on one actor come. kCombatGapNone: no StartCombat
+// kept for it, or the frame counter went back (a load).
+inline constexpr UInt32 kCombatGapNone = 0xFFFFFFFFu;
+inline constexpr UInt32 kCombatGapNearFrames = 60;
+
+inline UInt32 FramesSinceStart(const CombatGuard& g, UInt32 ref, UInt32 frame) {
+	for (UInt32 k = 0; k < kCombatGuardMarks; ++k) {
+		if (g.ref[k] == ref && ref != 0) {
+			return frame >= g.frame[k] ? frame - g.frame[k] : kCombatGapNone;
+		}
+	}
+	return kCombatGapNone;
+}
+
+// The StopCombat lines counted by their gap: held back in the same frame or
+// later, sent within kCombatGapNearFrames of a StartCombat (the least gap
+// kept), sent later or with none before.
+struct CombatGaps {
+	UInt32 heldSameFrame = 0;
+	UInt32 heldLater = 0;
+	UInt32 sentNear = 0;
+	UInt32 sentFar = 0;
+	UInt32 leastSent = kCombatGapNone;
+};
+
+inline void CountStopGap(CombatGaps& c, UInt32 gap, bool sent) {
+	if (!sent) {
+		++(gap == 0 ? c.heldSameFrame : c.heldLater);
+		return;
+	}
+	if (gap < kCombatGapNearFrames) {
+		++c.sentNear;
+	} else {
+		++c.sentFar;
+	}
+	if (gap < c.leastSent) {
+		c.leastSent = gap;
+	}
+}
+
 }  // namespace walkers

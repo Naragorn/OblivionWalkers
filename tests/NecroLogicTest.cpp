@@ -676,6 +676,60 @@ void TestPoolBoss() {
 	Check(PoolBoss(st, 2, n, kPlaces, count, false) == -1, "a place of no known candidate: no team");
 }
 
+void TestTeamImage() {
+	std::printf("the teams in the co-save (record TEAM)\n");
+	using walkers::TeamEntry;
+	const TeamEntry teams[] = {{0xFF000F01, 1}, {0xFF000F02, 2}, {0x01000A10, 1}, {0xFF000F03, 0}, {0, 2}};
+	const UInt32 derived[] = {0x01000A10};  // a pool walker: its team taken again in play
+	walkers::RisenTeams risen;
+	walkers::NoteRisenTeam(risen, 0xFF000F20, 3);
+	static UInt8 image[walkers::kTeamImageMost];
+	Check(walkers::TeamImage(teams, 5, derived, 1, risen, image, walkers::kTeamImageMost - 1) == 0,
+	      "too little room: nothing written");
+	const UInt32 length = walkers::TeamImage(teams, 5, derived, 1, risen, image, sizeof(image));
+	Check(length == 4 + 3 * walkers::kTeamEntryBytes,
+	      "two walkers and one waiting written; the pool's walker, team 0 and reference 0 left out");
+	const auto same = [](UInt32 saved, UInt32& loaded) {
+		loaded = saved;
+		return true;
+	};
+	TeamEntry back[8] = {};
+	UInt32 count = 0;
+	walkers::RisenTeams risenBack;
+	Check(walkers::ReadTeamImage(image, length, same, back, count, 8, risenBack) && count == 2 &&
+	          back[0].ref == 0xFF000F01 && back[0].team == 1 && back[1].ref == 0xFF000F02 && back[1].team == 2,
+	      "read back: the two walkers with their teams");
+	Check(risenBack.count == 1 && walkers::TakeRisenTeam(risenBack, 0xFF000F20) == 3, "read back: the one waiting, team 3");
+	const auto dropF02 = [](UInt32 saved, UInt32& loaded) {
+		loaded = saved;
+		return saved != 0xFF000F02;
+	};
+	Check(walkers::ReadTeamImage(image, length, dropF02, back, count, 8, risenBack) && count == 1 &&
+	          back[0].ref == 0xFF000F01,
+	      "a reference the load does not resolve: dropped");
+	Check(walkers::ReadTeamImage(image, length, same, back, count, 1, risenBack) && count == 1,
+	      "no more than room for");
+	Check(!walkers::ReadTeamImage(image, length - 1, same, back, count, 8, risenBack) && count == 2 &&
+	          risenBack.count == 0,
+	      "cut short: false, what came before kept");
+	Check(!walkers::ReadTeamImage(image, 3, same, back, count, 8, risenBack) && count == 0, "no header: false, none");
+	UInt8 bad[4] = {0xFF, 0xFF, 0, 0};
+	Check(!walkers::ReadTeamImage(bad, 4, same, back, count, 8, risenBack) && count == 0, "a count past the most: none");
+	UInt8 zeroTeam[9] = {1, 0, 0, 0, 0x01, 0x0F, 0x00, 0xFF, 0};
+	Check(walkers::ReadTeamImage(zeroTeam, 9, same, back, count, 8, risenBack) && count == 0, "team 0 read: dropped");
+	static TeamEntry many[walkers::kTeamsSavedMost + 4];
+	for (UInt32 i = 0; i < walkers::kTeamsSavedMost + 4; ++i) {
+		many[i] = TeamEntry{0xFF001000 + i, 1};
+	}
+	const UInt32 full = walkers::TeamImage(many, walkers::kTeamsSavedMost + 4, nullptr, 0, walkers::RisenTeams{}, image,
+	                                       sizeof(image));
+	Check(full == 4 + walkers::kTeamsSavedMost * walkers::kTeamEntryBytes, "more walkers than the most: the first 256");
+	const UInt32 empty = walkers::TeamImage(nullptr, 0, nullptr, 0, walkers::RisenTeams{}, image, sizeof(image));
+	Check(empty == 4 && walkers::ReadTeamImage(image, empty, same, back, count, 8, risenBack) && count == 0 &&
+	          risenBack.count == 0,
+	      "no teams: the counts only, read back as none");
+}
+
 int main() {
 	TestTeams();
 	TestPace();
@@ -695,6 +749,7 @@ int main() {
 	TestSieges();
 	TestRisenTeam();
 	TestPoolBoss();
+	TestTeamImage();
 	std::printf(g_failures == 0 ? "All passed\n" : "%d FAILED\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

@@ -1,6 +1,7 @@
 // The DLL's exports and real side effects: the log, the INI, the rise's
 // installation. The decisions live in PluginEntry and RiseLogic.
 
+#include "CombatGuardLogic.h"
 #include "IniNames.h"
 #include "PluginEntry.h"
 #include "PoseLogic.h"
@@ -218,6 +219,10 @@ bool ReadSettings(walkers::Settings* settings) {
 	rise.stepTiming = IniInt("Debug", "StepTiming", 0, path) != 0;
 	rise.combatTrace = IniInt("Debug", "CombatTrace", 0, path) != 0;
 	rise.poolProbe = IniInt("Debug", "PoolProbe", 0, path) != 0;
+	{
+		const int frames = IniInt("Debug", "CombatGuardFrames", static_cast<int>(walkers::kCombatGuardHoldFrames), path);
+		rise.combatGuardFrames = frames < 0 ? 0u : static_cast<UInt32>(frames);
+	}
 	rise.testLinkPage = static_cast<float>(IniInt("Debug", "TestLinkPage", 0, path));
 	IniString("Debug", "SampleLine", "", rise.sampleLine, sizeof(rise.sampleLine), path);
 	IniString("Dungeons", "TestSite", "", rise.dungeonsTestSite, sizeof(rise.dungeonsTestSite), path);

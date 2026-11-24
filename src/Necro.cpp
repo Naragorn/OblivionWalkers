@@ -602,6 +602,36 @@ UInt8 NecroBossTeamOf(int boss) { return BossTeam(boss); }
 
 void NoteNecroTeam(UInt32 refId, UInt8 team) { NoteTeam(refId, team); }
 
+UInt32 NecroTeamsImage(const RisenTeams& risen, UInt8* out, UInt32 capacity) {
+	static TeamEntry teams[kTeamsSavedMost + kSiegeAtGateMost + 16];
+	UInt32 n = 0;
+	for (const auto& entry : g_teams) {
+		if (n == sizeof(teams) / sizeof(teams[0])) {
+			break;
+		}
+		if (LooksLikeObject(LookupForm(entry.first))) {
+			teams[n++] = TeamEntry{entry.first, entry.second};
+		}
+	}
+	UInt32 derived[16 + kSiegeAtGateMost];
+	UInt32 d = 0;
+	for (UInt32 k = 0; k < g_poolTeamedCount && d < 16; ++k) {
+		derived[d++] = g_poolTeamed[k];
+	}
+	for (UInt32 k = 0; k < g_siegeTeamedCount; ++k) {
+		derived[d++] = g_siegeTeamed[k];
+	}
+	return TeamImage(teams, n, derived, d, risen, out, capacity);
+}
+
+void RestoreNecroTeams(const TeamEntry* teams, UInt32 count) {
+	for (UInt32 i = 0; i < count; ++i) {
+		NoteTeam(teams[i].ref, teams[i].team);
+	}
+}
+
+UInt32 NecroTeamCount() { return static_cast<UInt32>(g_teams.size()); }
+
 void StepNecroTeams(float dt, LogFn log) {
 	g_teamClock += dt;
 	if (g_teamClock < 0.5f) {

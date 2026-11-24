@@ -11,6 +11,9 @@
 #     only the fight arm, with those OBNG [Route] keys set to 0 for the runs
 #     (OBNG.ini put back after, md5 checked; OBNG asked for it 2026-11-22);
 #     NECRO_OBNG_OFF=all: all five.
+#   NECRO_GUARD=N: [Debug] CombatGuardFrames=N for the runs (tools/necro-harness.sh);
+#     each run's last "Combat guard:" line (the StopCombat lines by their gap)
+#     is printed under it.
 #   NECRO_BGPATH_OFF=1: Oblivion.ini [Pathfinding] bUseBackgroundPathing=0 for
 #     the runs (the second crash's stack is the background A* search's list,
 #     read 2026-11-22), the file put back after (md5 checked).
@@ -55,6 +58,9 @@ for i in $(seq 1 "$n"); do
 		grep -q '^CRASH:' "$run/OBVR.log" 2>/dev/null && crash="CRASH $(grep -m1 '^CRASH: access' "$run/OBVR.log" | cut -c1-90)"
 		probe="$(grep -m1 'Pool probe: BROKEN' "$run/OblivionWalkers.log" 2>/dev/null | cut -c1-120)"
 		checked="$(grep -c 'Pool probe: on' "$run/OblivionWalkers.log" 2>/dev/null)"
-		echo "run $i $arm: $crash; probe on=$checked ${probe:-no broken link}; $(basename "$run")"
+		verdict="$(grep -m1 -E '^necro daedra: ' "$root/artifacts/necro-crash-ab-last.txt" | cut -c1-40)"
+		guard="$(grep 'Combat guard: [0-9]* StopCombat lines' "$run/OblivionWalkers.log" 2>/dev/null | tail -1 | cut -c1-220)"
+		echo "run $i $arm: $crash; probe on=$checked ${probe:-no broken link}; ${verdict:-no verdict}; $(basename "$run")"
+		echo "  ${guard:-Combat guard: no StopCombat lines}"
 	done
 done

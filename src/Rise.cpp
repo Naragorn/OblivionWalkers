@@ -1591,15 +1591,23 @@ UInt32 g_probeLineNext = 0;
 // StartCombat on the same actor is held back - sent again by the rule later.
 CombatGuard g_combatGuard;
 UInt32 g_combatHeldLines = 20;
+CombatGaps g_combatGaps;  // the StopCombat lines by their gap, logged as they change
+UInt32 g_combatGapsLogged = 0;
+float g_combatGapsClock = 0.0f;
 
 bool ConsoleOn(UInt32 ref, const char* line) {
 	const CombatVerb verb = CombatVerbOf(line);
-	if (verb != CombatVerb::Other &&
-	    !CombatLineAllowed(g_combatGuard, FormIdOf(ref), verb, g_frame, kCombatGuardHoldFrames)) {
+	const UInt32 gap = verb == CombatVerb::Stop ? FramesSinceStart(g_combatGuard, FormIdOf(ref), g_frame) : 0;
+	const bool allowed = verb == CombatVerb::Other ||
+	                     CombatLineAllowed(g_combatGuard, FormIdOf(ref), verb, g_frame, g_settings.combatGuardFrames);
+	if (verb == CombatVerb::Stop) {
+		CountStopGap(g_combatGaps, gap, allowed);
+	}
+	if (!allowed) {
 		if (g_combatHeldLines > 0) {
 			--g_combatHeldLines;
-			g_log("Combat guard: \"%s\" on %08X held back - a StartCombat on it %s (frame %u)", line, FormIdOf(ref),
-			      "less than 10 frames ago", g_frame);
+			g_log("Combat guard: \"%s\" on %08X held back - a StartCombat on it %u frame(s) ago, less than %u (frame %u)",
+			      line, FormIdOf(ref), gap, g_settings.combatGuardFrames, g_frame);
 		}
 		return false;
 	}
@@ -3621,6 +3629,27 @@ void StepSafeguardInGame(float dt) {
 	}
 }
 
+// The combat guard's gaps (CombatGuardLogic.h CombatGaps), a line every 10 s
+// while new StopCombat lines came.
+void StepCombatGaps(float dt) {
+	g_combatGapsClock += dt;
+	const CombatGaps& c = g_combatGaps;
+	const UInt32 total = c.heldSameFrame + c.heldLater + c.sentNear + c.sentFar;
+	if (g_combatGapsClock < 10.0f || total == g_combatGapsLogged) {
+		return;
+	}
+	g_combatGapsClock = 0.0f;
+	g_combatGapsLogged = total;
+	char least[16] = "none";
+	if (c.leastSent != kCombatGapNone) {
+		std::snprintf(least, sizeof(least), "%u", c.leastSent);
+	}
+	g_log("Combat guard: %u StopCombat lines (hold %u frames) - held back %u in the StartCombat's frame, %u later; "
+	      "sent %u within %u frames of one, %u later or with none; least gap sent %s",
+	      total, g_settings.combatGuardFrames, c.heldSameFrame, c.heldLater, c.sentNear, kCombatGapNearFrames, c.sentFar,
+	      least);
+}
+
 void ReportTiming(float dt) {
 	if (!g_settings.stepTiming) {
 		return;
@@ -3763,6 +3792,7 @@ void Tick() {
 		StepOnboardingInGame(dt);
 		StepDaedricDisguiseInGame(dt);
 		StepCombatTrace(dt);
+		StepCombatGaps(dt);
 	});
 	Timed(15, "heads", [] {
 		StepHeads();
@@ -3871,6 +3901,14 @@ void OnSave(void*) {
 	const bool pilesWritten = g_serialization->OpenRecord(kPileRecordType, kPileRecordVersion) &&
 	                          g_serialization->WriteRecordData(piles, pilesLength);
 	g_log("Co-save: %u piles of banished Daedra %s", pilesLength / 4, pilesWritten ? "written" : "could not be written");
+	static UInt8 teams[kTeamImageMost];
+	const UInt32 teamsLength = NecroTeamsImage(g_risenTeams, teams, sizeof(teams));
+	const bool teamsWritten = teamsLength > 0 && g_serialization->OpenRecord(kTeamRecordType, kTeamRecordVersion) &&
+	                          g_serialization->WriteRecordData(teams, teamsLength);
+	g_log("Co-save: %u walkers' teams and %u fallen waiting to rise with one %s (the pool's and a siege's taken again "
+	      "in play)",
+	      teamsLength >= 4 ? static_cast<UInt32>(teams[0] | (teams[1] << 8)) : 0u, g_risenTeams.count,
+	      teamsWritten ? "written" : "could not be written");
 	UInt8 gateQuest[kGateQuestImageBytes];
 	const UInt32 gateQuestLength = GateQuestImageNow(gateQuest, sizeof(gateQuest));
 	const bool gateQuestWritten = g_serialization->OpenRecord(kGateQuestRecordType, kGateQuestRecordVersion) &&
@@ -3936,6 +3974,19 @@ void OnLoad(void*) {
 			const bool whole = ReadSafeguardImage(g_safeguard, safe, read, &ResolveSaved, version);
 			g_log("Co-save: %u killed by walkers still to get up read%s", g_safeguard.count,
 			      whole ? "" : " (the record cut short)");
+			continue;
+		}
+		if (type == kTeamRecordType) {
+			static UInt8 teams[kTeamImageMost];
+			const UInt32 read = version == kTeamRecordVersion && length <= sizeof(teams)
+			                        ? g_serialization->ReadRecordData(teams, length)
+			                        : 0;
+			static TeamEntry kept[kTeamsSavedMost];
+			UInt32 keptCount = 0;
+			const bool whole = ReadTeamImage(teams, read, &ResolveSaved, kept, keptCount, kTeamsSavedMost, g_risenTeams);
+			RestoreNecroTeams(kept, keptCount);
+			g_log("Co-save: %u walkers' teams and %u fallen waiting to rise with one read (version %u)%s", keptCount,
+			      g_risenTeams.count, version, whole ? "" : " (version or length off: what came before kept)");
 			continue;
 		}
 		if (type == kGateQuestRecordType) {

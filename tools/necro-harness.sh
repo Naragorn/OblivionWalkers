@@ -30,6 +30,11 @@
 #                                    Dremora with Daedra Mode 2: who lets go of whom
 #   tools/necro-harness.sh siege     harness/necro-siege.txt: two allied necromancers besiege Bruma, their
 #                                    walkers before the gate carry their team; saved and loaded
+#   tools/necro-harness.sh summonnpc harness/necro-summonnpc.txt: an NPC's (Jauffre's) summoned Dremora with
+#                                    Daedra Mode 2 - no ally of the walkers, as the player's
+#   tools/necro-harness.sh teamsave  harness/necro-teamsave.txt: a risen walker of team 1, saved and loaded -
+#                                    he carries team 1 again (co-save record TEAM)
+#   NECRO_GUARD=N (any scenario): [Debug] CombatGuardFrames=N for the run (the combat guard's hold)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 obvr="${OBVR_DIR:-$root/../OBVR}"
@@ -37,8 +42,8 @@ game="${WALKERS_LINUX_GAME:-$HOME/.local/share/Steam/steamapps/common/Oblivion}"
 ini="$game/Data/OBSE/Plugins/OblivionWalkers.ini"
 scenario="${1:-hotspot}"
 case "$scenario" in
-	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam | held) ;;
-	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam | held" >&2; exit 2 ;;
+	hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam | held | summonnpc | teamsave) ;;
+	*) echo "scenario: hotspot | band | teams | rise | allies | daedra | march | siege | summon | told | riseteam | held | summonnpc | teamsave" >&2; exit 2 ;;
 esac
 backup="$(mktemp)"
 cp "$ini" "$backup"
@@ -100,7 +105,9 @@ if scenario == "daedra":
     # NECRO_NOFIGHT=1 (tools/necro-crash-ab.sh): the Dremora put down, not set on him - the control arm
     keys += [("Daedra", "Mode", "2"), ("Necromancers", "TestFight", "" if os.environ.get("NECRO_NOFIGHT") == "1" else "daedra"),
              ("Necromancers", "WalkersMin", "2"), ("Necromancers", "WalkersMax", "2")]
-if scenario == "summon":
+if os.environ.get("NECRO_GUARD", "") != "":
+    keys += [("Debug", "CombatGuardFrames", os.environ["NECRO_GUARD"])]
+if scenario in ("summon", "summonnpc"):
     # NECRO_DAEDRA=0: the same with Daedra Mode 0 - the control arm (the summon not the walkers' ally)
     keys += [("Daedra", "Mode", os.environ.get("NECRO_DAEDRA", "2")), ("Necromancers", "TestFight", "summon"),
              ("Debug", "CombatTrace", "1")]
@@ -285,6 +292,32 @@ if scenario == "told":
     check(bool(show(find(place + r" - the necromancer fell|the necromancer \w+ fell"))) or
           bool(find(r"Dungeons: the necromancer .*fell")), "the necromancer fell")
     check(bool(show(find(r"Dungeons: journal - " + place + r": stage 60 \(taken; told 45 before\)"))), "cleared: stage 60, taken")
+    end(scenario)
+if scenario == "summonnpc":
+    for l in obvr:
+        if re.search(r"HandScript: console.*(00023999|000AA059)", l):
+            print("  info  " + l[:160])
+    scenario = "summon"
+if scenario == "teamsave":
+    saved_at = max([i for i, l in enumerate(log) if re.match(r"Co-save: .* written", l)] or [len(log)])
+    load_at = min([i for i, l in enumerate(log) if i > saved_at and re.match(r"Co-save: .* read", l)] or [len(log)])
+    before, after = log[:load_at], log[load_at:]
+    def findin(lines, pattern):
+        return [l for l in lines if re.search(pattern, l)]
+    check(bool(show(findin(before, r"Necromancers: boss 0 \(team 1\) rose at " + place))), "boss 0 rose at Toadstool Hollow")
+    teamed = show(findin(before, r"Rise: (walker [0-9A-F]{8} in [0-9A-F]{8}'s place - a walker|[0-9A-F]{8} gets up a walker) of the necromancers' team 1"))
+    check(bool(teamed), "the bandit gets up a walker of team 1")
+    check(load_at < len(log), "saved and loaded")
+    written = show(findin(before, r"Co-save: \d+ walkers' teams and \d+ fallen waiting to rise with one written"), 1)
+    read = show(findin(after, r"Co-save: \d+ walkers' teams and \d+ fallen waiting to rise with one read \(version 1\)$"), 1)
+    w = int(re.search(r"(\d+) walkers' teams", written[-1]).group(1)) if written else -1
+    r = int(re.search(r"(\d+) walkers' teams", read[-1]).group(1)) if read else -1
+    check(w >= 1 and r == w, "the risen walker's team written and read back (written %d, read %d)" % (w, r))
+    def near(lines):
+        return [int(re.search(r"teams - (\d+) of theirs near", l).group(1)) for l in lines if re.search(r"Necromancers: teams - \d+ of theirs near", l)]
+    nb, na = near(before), near(after)
+    print("  info  theirs near before the save %s, after the load %s" % (nb[-4:], na[:6]))
+    check(bool(nb) and bool(na) and max(na) >= nb[-1], "after the load as many of theirs as before (before %s, after %s)" % (nb[-1:] , na[:4]))
     end(scenario)
 if scenario == "summon":
     check(bool(show(find(r"^Mod: .*Daedra Mode=2"))), "Daedra Mode 2 (allies)")

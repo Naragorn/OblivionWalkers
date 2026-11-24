@@ -1,0 +1,42 @@
+# The teams across a save and a load (docs/walkers-spec.md 4.23 B, the co-save
+# record "TEAM"; Nadi 2026-11-24: "go"), run by tools/necro-harness.sh
+# teamsave: as necro-riseteam.txt - a bandit killed before Toadstool Hollow's
+# door rises a walker of team 1 - then the game is saved as WalkersTeamSave
+# and loaded at once. Before the record the risen walker came back a free
+# walker (the teams' look one fewer after the load); with it he carries team 1
+# again.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready player.setav chameleon 100
+console-at near player.moveto 00015243
+console-at nearbandit player.placeatme 00069AD1 1 300 0
+console-at kill1 killall
+console-at risen save WalkersTeamSave
+console-at saved load WalkersTeamSave
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 10
+mark near
+wait 4
+mark nearbandit
+wait 3
+mark kill1
+wait 40
+mark risen
+wait 4
+mark saved
+wait 30
+mark loaded
+wait 12
+mark end
+wait 1

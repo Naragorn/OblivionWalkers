@@ -5919,12 +5919,24 @@ its checks). Rerun 2026-11-23 with the guard, all OBNG routes on: 5 fight +
 5 control runs, 0 crashes. Totals with the guard: 1 crash in 13 fight runs
 (not the heap class); without it 6 in 20.
 
+The hold measured (2026-11-24, Linux, headless, all OBNG routes on): the
+hold is `[Debug] CombatGuardFrames` now (INI only, 10 by default, 0 = off),
+and every 10 s the log counts the StopCombat lines by their gap to the last
+StartCombat on that actor ("Combat guard: ... held back N in the
+StartCombat's frame, M later; sent ... least gap sent G"). 8 fight runs
+with hold 10 and 8 with hold 1: 0 crashes in 16. In every run the only
+stops held back were in the StartCombat's own frame (2 a run), none later;
+the nearest stop sent came 36 or 37 frames after its StartCombat. So in
+these runs the danger is the same frame only; hold 1 is enough and 10
+leaves a margin no rule came near. Kept at 10. Totals with the guard now:
+1 crash in 29 fight runs (not the heap class); without it 6 in 20.
+
 The risen near them join a team (Nadi, 2026-11-23: "go"; cdc7651): killed
 by a walker of a team - that team; else in or within `RiseWithin` of a
 necromancer's place - his boss's team; else a free walker (NecroLogic.h
 RisenTeam). Noted at the death, taken when he gets up himself or when the
-walker that takes his place is found (RisenTeams, 32 at most, not kept in
-the save - the teams are not). Harness `riseteam` PASS (2026-11-23 14:10,
+walker that takes his place is found (RisenTeams, 32 at most; kept in the
+co-save since 2026-11-24, below). Harness `riseteam` PASS (2026-11-23 14:10,
 Linux, headless): a bandit killed before Toadstool Hollow's door, 30 s later
 "walker FF000FAC in FF000FA2's place - a walker of the necromancers' team 1",
 the teams' look from "4 of theirs near" to 5; regression `rise` PASS. Not
@@ -5946,9 +5958,22 @@ carry boss 0's team 1", "6 of theirs near"; regression `hotspot` PASS. Not
 seen in a run: a refuge's siege (unit flows only), two bosses (the nearer
 one - unit flows only).
 
+The teams in the save (2026-11-24): co-save record `TEAM` version 1
+(NecroLogic.h TeamImage/ReadTeamImage): two 16-bit counts, then 5 bytes an
+entry (the reference, the team) - first the walkers' teams kept (a band's
+men, the risen; 256 at most), then the fallen waiting to rise with one
+(RisenTeams, 32 at most). Left out: the pool's walkers and a siege's, whose
+team is given again every 0.5 s (the 12 pool references move between
+places), and team 0. At the load a reference that no longer resolves is
+dropped; a save without the record loads as before. Harness `teamsave`
+(as `riseteam`, then save and load; 2026-11-24): before FAIL - no TEAM
+lines, 4 of theirs near after the load against 5 before; after PASS - "1
+walkers' teams and 5 fallen waiting to rise with one written", the same
+read (version 1), 5 of theirs near after the load. Not seen in a run: a
+band's man kept over a load (the same path, unit flows only).
+
 Not covered by the build so far: [Dungeons] Enabled=0 leaves the
-realms numbers only; summons cast by companions or other NPCs still count
-as Daedra with Daedra Mode 2 (only the player's are left out, below).
+realms numbers only.
 
 The player's summons (measured 2026-11-23, harness necro-summon with
 TestFight=summon: he and his summoned Dremora moved beside the necromancer,
@@ -5962,6 +5987,24 @@ out the actors of the player's summon effects (MagicTarget at the player's
 at +0x3C - xOBSE GameObjects.h, GameMagicEffects.h). After: 0 let-go lines,
 the walkers and the necromancer hit it 4 times, as in the control; the
 daedra regression PASS.
+
+A companion's or another NPC's summons (2026-11-24, SummonLogic.h
+NonDaedraSummons): IsDaedraActor leaves out the summons of every caster that
+is no Daedra itself - the player and the actors on the high list, each
+one's own effect list read (the same +0x68 for every Actor, xOBSE
+GameObjects.h); a Dremora mage's summons stay allies. Read at most every
+250 ms. Measured: an NPC's self-cast summon lies in its own effect list
+(the after runs found it there). Harness `summonnpc` (Jauffre placed in
+Toadstool Hollow casts Summon Dremora on himself; TestFight=summon brings
+the player and that Dremora to the necromancer): before, 3 runs - once the
+Dremora was out of the hook's 1500 units (no test), once 18 walkers' let-go
+lines, once the necromancer told to let go of it 14 times while it struck
+4 walkers and nobody struck back; after, 3 runs - 0 let-go lines each, the
+walkers and the necromancer took it as target each time, struck it in 1 of
+3 (in the other two it was gone or they fought the player first). So the
+let-go is gone, measured; the strike back depends on the fight's course.
+Derived, not seen: the necromancer's own summons count as no Daedra now
+too (he is no Daedra), so they fight a Daedra as his walkers do.
 
 **Step 7, told - BUILT 2026-11-23** (Nadi: "go schritt 7"; 3a0264d and the
 fix after the first run). Measured before (necro-hotspot 2026-11-22): his

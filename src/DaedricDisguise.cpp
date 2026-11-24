@@ -1,5 +1,7 @@
 #include "DaedricDisguise.h"
 
+#include <windows.h>
+
 #include <cstdio>
 
 #include "Engine.h"
@@ -210,20 +212,23 @@ void Line(const char* text) {
 
 namespace {
 
-// The player's summoned actors (SummonLogic.h): MagicTarget::GetEffectList,
-// slot 2 of the MagicTarget at the player's +0x68 (xOBSE GameObjects.h; a
-// thiscall), its list walked with guarded reads.
+// The summoned actors of the player and of every other caster near who is no
+// Daedra (SummonLogic.h): MagicTarget::GetEffectList, slot 2 of the
+// MagicTarget at an actor's +0x68 (xOBSE GameObjects.h; a thiscall), its list
+// walked with guarded reads. Gathered at most every 250 ms - IsDaedraActor is
+// asked for many actors in one step.
 constexpr UInt32 kActorMagicTargetOffset = 0x68;
 constexpr UInt32 kGetEffectListSlot = 0x08;
 constexpr UInt32 kCodeStart = 0x00401000;  // Oblivion.exe .text (Rise.cpp, Pose.cpp)
 constexpr UInt32 kCodeEnd = 0x00A27C39;
+constexpr UInt32 kSummonsMost = 64;
+constexpr UInt32 kSummonsKeptMs = 250;
 
-UInt32 PlayerSummonActors(UInt32* out, UInt32 room) {
-	const UInt32 player = LookupForm(kPlayerRefId);
-	if (!LooksLikeObject(player)) {
+UInt32 EffectListOf(UInt32 actor) {
+	if (!LooksLikeObject(actor)) {
 		return 0;
 	}
-	const UInt32 target = player + kActorMagicTargetOffset;
+	const UInt32 target = actor + kActorMagicTargetOffset;
 	const UInt32 vtable = Read(target);
 	const UInt32 fn = LooksLikeObject(vtable) ? Read(vtable + kGetEffectListSlot) : 0;
 	if (fn < kCodeStart || fn >= kCodeEnd) {
@@ -231,21 +236,44 @@ UInt32 PlayerSummonActors(UInt32* out, UInt32 room) {
 	}
 	using ListFn = UInt32(__fastcall*)(void* target, void* edx);
 	const UInt32 head = reinterpret_cast<ListFn>(fn)(reinterpret_cast<void*>(target), nullptr);
+	return LooksLikeObject(head) ? head : 0u;
+}
+
+UInt32 g_summons[kSummonsMost] = {};
+UInt32 g_summonCount = 0;
+DWORD g_summonsAt = 0;
+bool g_summonsKnown = false;
+
+const UInt32* NonDaedraSummonActors(UInt32& count) {
+	const DWORD now = GetTickCount();
+	if (g_summonsKnown && now - g_summonsAt < kSummonsKeptMs) {
+		count = g_summonCount;
+		return g_summons;
+	}
+	static UInt32 casters[257];
+	casters[0] = LookupForm(kPlayerRefId);
+	const UInt32 n = 1 + ActorsOnHighList(casters + 1, 256);
 	const auto read = [](UInt32 address) { return LooksLikeObject(address) ? Read(address) : 0u; };
-	return PlayerSummons(LooksLikeObject(head) ? head : 0u, read, out, room);
+	const auto isDaedra = [](UInt32 actor) { return !LooksLikeObject(actor) || IsDaedra(actor); };
+	g_summonCount = NonDaedraSummons(casters, n, isDaedra, &EffectListOf, read, g_summons, kSummonsMost);
+	g_summonsAt = now;
+	g_summonsKnown = true;
+	count = g_summonCount;
+	return g_summons;
 }
 
 }  // namespace
 
 bool IsDaedraKind(UInt32 actor) { return LooksLikeObject(actor) && IsDaedra(actor); }
 
-// A Daedra, and not one the player summoned (SummonLogic.h DaedraAlly).
+// A Daedra, and not one the player, a companion or another NPC who is no
+// Daedra summoned (SummonLogic.h DaedraAlly).
 bool IsDaedraActor(UInt32 actor) {
 	if (!LooksLikeObject(actor) || !IsDaedra(actor)) {
 		return false;
 	}
-	UInt32 summons[8];
-	const UInt32 count = PlayerSummonActors(summons, 8);
+	UInt32 count = 0;
+	const UInt32* summons = NonDaedraSummonActors(count);
 	return DaedraAlly(true, actor, summons, count);
 }
 

@@ -638,8 +638,8 @@ inline int PoolBoss(const DungeonSitesState& st, int site, const NecroState& n, 
 }
 
 // The fallen waiting to rise with a team, by reference: noted at the death,
-// taken when he gets up (himself, or the walker that takes his place). Not
-// kept in the save, as the teams are not (Necro.cpp: a load clears them).
+// taken when he gets up (himself, or the walker that takes his place). Kept
+// in the co-save with the teams (record 'TEAM', below).
 inline constexpr UInt32 kRisenTeamsMost = 32;
 struct RisenTeams {
 	UInt32 refs[kRisenTeamsMost] = {};
@@ -1009,6 +1009,102 @@ inline bool ReadNecroImage(NecroState& st, NecroBands& bands, const UInt8* in, U
 				const float p = dungeon_detail::Float(Get32(sieges + 4 + kNecroCities + (c * kNecroBossesMost + b) * 4));
 				st.siegePoints[c][b] = p > 0.0f && p <= 100.0f ? p : 0.0f;
 			}
+		}
+	}
+	return true;
+}
+
+// The teams in the co-save (Nadi, 2026-11-24: "go"): record "TEAM", version
+// 1 - the walkers' teams noted in play (a band's members, the risen) and the
+// fallen waiting to rise with one. Two 16-bit counts, then 5 bytes an entry:
+// the reference, the team. Left out: the walkers whose team is taken again
+// every half second (the pool's, a siege's - `derived`: their 12 references
+// stand at another place after a load), team 0, reference 0. A load before
+// this record existed reads none: those walkers are free, as before.
+inline constexpr UInt32 kTeamRecordType = 0x5445414D;  // 'TEAM'
+inline constexpr UInt32 kTeamRecordVersion = 1;
+inline constexpr UInt32 kTeamsSavedMost = 256;
+inline constexpr UInt32 kTeamEntryBytes = 5;
+inline constexpr UInt32 kTeamImageMost = 4 + (kTeamsSavedMost + kRisenTeamsMost) * kTeamEntryBytes;
+
+struct TeamEntry {
+	UInt32 ref;
+	UInt8 team;
+};
+
+namespace necro_detail {
+inline void PutEntry(UInt8* at, UInt32 ref, UInt8 team) {
+	Put32(at, ref);
+	at[4] = team;
+}
+}  // namespace necro_detail
+
+inline UInt32 TeamImage(const TeamEntry* teams, UInt32 count, const UInt32* derived, UInt32 derivedCount,
+                        const RisenTeams& risen, UInt8* out, UInt32 capacity) {
+	if (capacity < kTeamImageMost) {
+		return 0;
+	}
+	UInt32 kept = 0;
+	UInt8* at = out + 4;
+	for (UInt32 i = 0; i < count && kept < kTeamsSavedMost; ++i) {
+		bool skip = teams[i].ref == 0 || teams[i].team == 0;
+		for (UInt32 k = 0; k < derivedCount && !skip; ++k) {
+			skip = derived[k] == teams[i].ref;
+		}
+		if (!skip) {
+			necro_detail::PutEntry(at, teams[i].ref, teams[i].team);
+			at += kTeamEntryBytes;
+			++kept;
+		}
+	}
+	UInt32 waiting = 0;
+	for (UInt32 i = 0; i < risen.count && i < kRisenTeamsMost; ++i) {
+		if (risen.refs[i] != 0 && risen.teams[i] != 0) {
+			necro_detail::PutEntry(at, risen.refs[i], risen.teams[i]);
+			at += kTeamEntryBytes;
+			++waiting;
+		}
+	}
+	out[0] = static_cast<UInt8>(kept & 0xFF);
+	out[1] = static_cast<UInt8>(kept >> 8);
+	out[2] = static_cast<UInt8>(waiting & 0xFF);
+	out[3] = static_cast<UInt8>(waiting >> 8);
+	return 4 + (kept + waiting) * kTeamEntryBytes;
+}
+
+// `teams` (room `room`) and `risen` filled from the image; a reference the
+// load does not resolve (its plugin gone) is dropped. False when the image is
+// cut short or a count is past the most (what was read before stays).
+template <typename ResolveFn>
+bool ReadTeamImage(const UInt8* in, UInt32 length, const ResolveFn& resolve, TeamEntry* teams, UInt32& count,
+                   UInt32 room, RisenTeams& risen) {
+	count = 0;
+	risen = RisenTeams{};
+	if (length < 4) {
+		return false;
+	}
+	const UInt32 kept = static_cast<UInt32>(in[0] | (in[1] << 8));
+	const UInt32 waiting = static_cast<UInt32>(in[2] | (in[3] << 8));
+	if (kept > kTeamsSavedMost || waiting > kRisenTeamsMost) {
+		return false;
+	}
+	const UInt8* at = in + 4;
+	const UInt8* end = in + length;
+	for (UInt32 i = 0; i < kept + waiting; ++i, at += kTeamEntryBytes) {
+		if (end - at < static_cast<long>(kTeamEntryBytes)) {
+			return false;
+		}
+		UInt32 ref = 0;
+		const UInt8 team = at[4];
+		if (team == 0 || !resolve(Get32(at), ref) || ref == 0) {
+			continue;
+		}
+		if (i < kept) {
+			if (count < room) {
+				teams[count++] = TeamEntry{ref, team};
+			}
+		} else {
+			NoteRisenTeam(risen, ref, team);
 		}
 	}
 	return true;

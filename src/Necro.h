@@ -40,6 +40,14 @@ UInt8 NecroTeamOf(UInt32 refId);
 UInt8 NecroBossTeamOf(int boss);
 // `refId` from now a walker of `team` (a risen one near them; 0 takes it off).
 void NoteNecroTeam(UInt32 refId, UInt8 team);
+// The co-save's record TEAM (NecroLogic.h TeamImage): the teams noted in play
+// (the pool's and a siege's left out - taken again every half second) and
+// `risen`, the fallen waiting to rise with one. Its length, 0 when no room.
+UInt32 NecroTeamsImage(const RisenTeams& risen, UInt8* out, UInt32 capacity);
+// After a load (ResetNecroInGame first): the teams read back noted again.
+void RestoreNecroTeams(const TeamEntry* teams, UInt32 count);
+// How many walkers carry a team now.
+UInt32 NecroTeamCount();
 
 // Every frame (stepped once a game second inside): with [Necromancers]
 // Mode=1 and the dungeon pool settled after the load, the realms risen and

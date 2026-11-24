@@ -1,0 +1,40 @@
+# A companion's or another NPC's summon with Daedra Mode 2 (docs/walkers-spec.md
+# 4.23 B; Nadi 2026-11-24: "go"), run by tools/necro-harness.sh summonnpc: as
+# necro-summon.txt, but not the player casts - Jauffre (00023999), placed
+# 60 units before him inside Toadstool Hollow, casts Summon Dremora (SPEL
+# 000AA059) on himself. TestFight=summon brings the player and the nearest
+# Daedra (that summon) to the necromancer. Before the fix the walkers and the
+# necromancer were told to let go of it (only the player's summons were left
+# out); after it nobody is, and it is struck.
+
+ini Hands Enabled=1
+ini Debug GripTrace=0
+ini Performance Enabled=0
+ini SelfCheck ShowPanel=0
+console-at ready tgm
+console-at ready set timescale to 0
+console-at ready set gamehour to 12
+console-at inside coc ToadstoolHollow
+console-at caster player.placeatme 00023999 1 60 0
+console-at placed {actor}.addspell 000AA059
+console-at placed {actor}.cast 000AA059 {actor}
+
+expect HandScript: finished
+reject HandScript: WARNING
+
+wait 12
+wait 1
+mark ready
+wait 8
+mark inside
+wait 4
+mark caster
+wait 12
+mark placed
+wait 6
+mark summoned
+wait 30
+mark fought
+wait 2
+mark end
+wait 1

@@ -231,6 +231,10 @@ struct RiseSettings {
 	// frame pool 12's free-list head and its next checked under the heap's
 	// lock; the first broken link logged with the plugin's last console lines.
 	bool poolProbe = false;
+	// [Debug] CombatGuardFrames (INI only; CombatGuardLogic.h): a StopCombat
+	// this many frames after a StartCombat on the same actor is held back;
+	// 0 the guard off. The gaps are logged (measured 2026-11-24).
+	UInt32 combatGuardFrames = 10;
 	// [Debug] TestLinkPage (INI only, a test switch; LinkLogic.h LinkPageTest):
 	// seconds after a load at which LINK's page of the plugin is shown, 0 never.
 	float testLinkPage = 0.0f;
