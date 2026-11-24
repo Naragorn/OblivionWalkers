@@ -13,9 +13,11 @@
 #
 #   tools/package-release.sh <version> [<Oblivion Data folder>]
 #
-# The DLL is the MSVC build in build-win/ when there is one (the release
-# build - the disk is shared, so a Linux pack takes the Windows build too),
-# else the clang-cl one in build-linux/ (tools/build-linux.sh); it says which.
+# The DLL is the newer of the MSVC build in build-win/ (the release build -
+# the disk is shared, so a Linux pack can take the Windows build too) and the
+# clang-cl one in build-linux/ (tools/build-linux.sh); it says which. The
+# newer, not build-win/ first: a build-win/ DLL left from an older version
+# was about to be packed silently (2026-11-24: build-win/ was from 3 Nov).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="${1:?usage: tools/package-release.sh <version> [<Data folder>]}"
@@ -23,9 +25,8 @@ data="${2:-$HOME/.local/share/Steam/steamapps/common/Oblivion/Data}"
 python="${PYTHON_PYFFI:-$HOME/obvr-venv/bin/python}"
 dll=""
 for candidate in "$root/build-win/OblivionWalkers.dll" "$root/build-linux/OblivionWalkers.dll"; do
-	if [[ -f "$candidate" ]]; then
+	if [[ -f "$candidate" && ( -z "$dll" || "$candidate" -nt "$dll" ) ]]; then
 		dll="$candidate"
-		break
 	fi
 done
 [[ -n "$dll" ]] || { echo "no DLL in build-win/ or build-linux/ - build first" >&2; exit 1; }
