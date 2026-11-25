@@ -16,7 +16,9 @@ What exists:
   `OblivionWalkers.ini` is the INI as deployed.
 - `tests/` - the unit tests, one flow each, built 32-bit natively.
 - `tools/build-linux.sh` - tests, then the DLL with clang-cl against xwin's
-  winsysroot; `--deploy` copies it into the games (not while Oblivion runs).
+  winsysroot; `--deploy` renews it in the games (not while Oblivion runs):
+  where the walkers are in, in `Data/OBSE/Plugins`, where they are out,
+  beside the parked one in `Data/OBSE/WalkersDisabled`.
 - `harness/` - scenarios for OBVR's hand script harness: the engine measured
   before the plugin (a leveled list's count at a world spawn point, a corpse
   raised by the console) and the plugin's own rise.

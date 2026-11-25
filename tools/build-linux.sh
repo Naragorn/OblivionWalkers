@@ -5,18 +5,23 @@
 # this is the build for working on Linux.
 #
 #   tools/build-linux.sh            tests and the INI check, then the DLL into build-linux/
-#   tools/build-linux.sh --deploy   also copy the DLL (and the INI, if none is
-#                                   there yet) into every game's Data/OBSE/Plugins,
-#                                   the ESP (tools/esp-write.py, its file time in
-#                                   the game kept - the load order goes by it) and
-#                                   the grab's animations (tools/grab-anims.py,
-#                                   build-linux/meshes) into its Data - refused
-#                                   while Oblivion runs
+#   tools/build-linux.sh --deploy   also renew the DLL in every game where it lies
+#                                   (tools/walkers-dll-place.sh: Data/OBSE/Plugins
+#                                   while the walkers are in that game, else parked
+#                                   in Data/OBSE/WalkersDisabled - a deploy never
+#                                   puts them in), the INI into Data/OBSE/Plugins
+#                                   if none is there yet, the ESP (tools/esp-write.py,
+#                                   its file time in the game kept - the load order
+#                                   goes by it) and the grab's animations
+#                                   (tools/grab-anims.py, build-linux/meshes) into
+#                                   its Data - refused while Oblivion runs
 #
 # The games: WALKERS_GAME_DIRS (colon-separated) or the two Steam copies on
 # this machine, the Linux one and the Windows one.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=walkers-dll-place.sh
+source "$root/tools/walkers-dll-place.sh"
 deploy=0
 if [[ "${1:-}" == "--deploy" ]]; then
 	deploy=1
@@ -82,9 +87,15 @@ if [[ $deploy -eq 1 ]]; then
 			echo "No plugin folder at $plugins - skipped" >&2
 			continue
 		fi
-		cp "$root/build-linux/OblivionWalkers.dll" "$plugins/"
+		place="$(walkers_dll_place "$game")"
+		mkdir -p "$place"
+		cp "$root/build-linux/OblivionWalkers.dll" "$place/"
 		[[ -f "$plugins/OblivionWalkers.ini" ]] || cp "$root/OblivionWalkers.ini" "$plugins/"
-		echo "Deployed to $plugins"
+		if [[ "$place" == "$plugins" ]]; then
+			echo "Deployed to $plugins"
+		else
+			echo "Deployed to $place - the walkers are out of this game, the DLL stays parked"
+		fi
 		if [[ -f "$root/OblivionWalkers.esp" ]]; then
 			esp="$game/Data/OblivionWalkers.esp"
 			stamp=""

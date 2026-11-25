@@ -23,3 +23,6 @@ foreach(name RiseLogicTest ReplaceLogicTest CategoryLogicTest PluginEntryTest Po
 	target_compile_options(${name} PRIVATE -Wall -Wextra)
 	add_test(NAME ${name} COMMAND ${name})
 endforeach()
+
+# Where the deploy renews the DLL (tools/walkers-dll-place.sh), a shell test.
+add_test(NAME WalkersDllPlaceTest COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/walkers-dll-place-test.sh)
