@@ -1618,7 +1618,8 @@ Cost: **small** (was cheap; the heap and the order were the work).
 
 ### 4.14 Infection - `[Infection] Enabled=1`, `BiteChancePercent=25`, `PlayerInfection=1`
 
-On the list of ideas again 2026-11-04 (4.20.3).
+On the list of ideas again 2026-11-04 (4.20.3). Comes with patient zero
+(4.23 A, decided 2026-11-26) as the player's part of it.
 
 What: a walker's bite gives Zombie Rot, a disease: fatigue and health drain
 over days, cured by Cure Disease like any other. An infected NPC who dies
@@ -4117,7 +4118,7 @@ population model; `Custom` leaves the INI as written.
 | `Off` | the plugin sleeps |
 | `Hive` | one random city starts infested; the horde spreads from it to the next city every few days |
 | `Horde` | one roaming horde moves city to city, leaving "sleeper" walkers behind |
-| `PatientZero` | one infected NPC somewhere; the infection spreads by bites until it is noticed |
+| `PatientZero` | one infected NPC somewhere; the infection spreads by bites until it is noticed - designed as 4.23 A (2026-11-26) |
 | `DawnOfTheDead` | every city's population at its maximum from the start |
 | `Arcade` | DawnOfTheDead with double populations and extra spawns at 100 % |
 | `OblivionCrisis` | **new**: walkers spawn only around the Oblivion gates (the lists `LL1DaedricBeastOblivionGate100` family, 107 spawn points, and the gate cells) and move out from there into the world; cities are hit only by hordes that walked there from a gate. Closing a gate stops its source. |
@@ -5465,7 +5466,7 @@ take it. (B) `FillDungeons` rolls among the free candidates within
 none is that near; 0 anywhere. LINK `ini_dungeons_new_within` (version
 45, 220 variables). DungeonQuestLogicTest, DungeonSiteLogicTest.
 
-### 4.23 Patient zero and the necromancers' hotspots (Nadi, 2026-11-16: "neue idee in die spec: patient zero ... und weitere szenario: ... necromancer hotspot"; A ideas, not decided; B designed with Nadi 2026-11-20, not built)
+### 4.23 Patient zero and the necromancers' hotspots (Nadi, 2026-11-16: "neue idee in die spec: patient zero ... und weitere szenario: ... necromancer hotspot"; A designed with Nadi 2026-11-26, design only, one point open; B designed with Nadi 2026-11-20 and built since, B's build below)
 
 Two new ways for the outbreak to begin and spread - each a scenario beside
 the present one (the walkers everywhere from the start).
@@ -5481,26 +5482,99 @@ Read and derived for it:
 - The plugin has a walker of its own base to place (the ESP's lists, the
   placer of 4.22a) and its rise (RiseLogic.h) - "turned" is the rise.
 - "Whoever he hits turns" is not the rise as it is (the rise takes the
-  dead). A hit becomes an infection: hit by patient zero or one of his
-  chain, a person falls after a while and rises (Kill, then the rise). Not
-  read yet: where the engine tells the plugin of a hit (Grab.cpp's hit
-  hook is OBVR's, from VR; the game's own melee hit needs a hook or an
-  OnHit event of xOBSE - to be read).
+  dead): the hit has to end in a death - by the grab's bites (decided 2
+  below).
+- **The hit reaches the plugin already** (read 2026-11-26; this line said
+  "to be read" before): the rise registers xOBSE's OnHit for every hit
+  (Rise.cpp, the log's "Hit watch on"), and the grab, both disguises and
+  the noise use it. Hits between two NPCs come too: the guard run of
+  2026-11-17 (`daedra-harness.sh daedricguard 3`) logged "Hit: FF000F8E
+  hit by FF000F8B" and three more between the walkers and the guard.
 - Unkillable for 10: the game's essential flag on his base (knocked out,
   not killed) taken off at the 10th - one ESP record, or the health set
-  back each second (no ID, but he can be seen at 1 health).
-- "Spreads over the whole game": the present walkers' systems (the spawn
-  replacement, the hordes, the sieges) held back until the outbreak is
-  "out" - a gate on most of the mod. "Stamped out": the chain's walkers all
-  ended (they are tracked - RisenSet), then N days and a new patient zero.
-- The player hit: he cannot turn - a disease instead (Porphyric
-  Hemophilia's way: a timer, then the game over or a cure)? Open.
+  back each second (no ID, but he can be seen at 1 health). Proposed
+  instead (2026-11-26): the walkers' own way - he falls and gets up again
+  (4.17's rise again) until his 10th victim has risen; no flag, no health
+  trick. Open: OBVR cutting his head off before that - refused by a
+  message to OBVR, or he ends and a new patient zero begins elsewhere?
+- **Far from the player he bites no one** (derived 2026-11-26): actors
+  far away are in low process and fight nothing - the reason the
+  necromancers' realms are counts far away (4.23 B, "far away, as
+  numbers"). So the chain is a count while the player is far - victims at
+  a pace where patient zero roams, as a realm grows - and its walkers are
+  placed as actors when the player comes near (WalkersAtOnce).
+- **One idea in three places:** section 5's preset `PatientZero` ("one
+  infected NPC somewhere ... until it is noticed"), 4.14's bite infection
+  and this. This section is the design, the preset sets it, and 4.14 is
+  the player's part (decided 3).
+- **A source like the others** (4.24): `[PatientZero] Mode` 0 off, 1 on,
+  beside the `Mode` of `[Walkers]`, `[Daedra]` and `[Necromancers]`. With
+  Walkers 0 or 1 only the chain's dead rise, as only the necromancers'
+  dead do (4.23 B, 10).
+- "Stamped out": the chain's walkers all ended (they are tracked -
+  RisenSet), then `RestartDays` and a new patient zero elsewhere.
 
-Open, to decide: (1) what "hit" means - any hit, or a hit that hurts
-(a blocked blow?); (2) does "spread over the whole game" switch on the
-present walkers everywhere, or does only the chain grow (slower, the
-world stays clean until it reaches you)? (3) the player hit; (4) how
-patient zero is found - a rumor, the news, a quest like 6's?
+**Decided (Nadi, 2026-11-26: "erstmal nur design" - designed, not
+built):**
+
+1. **Only a hit that lands counts; a blocked blow does not** ("nur
+   getroffene treffer. geblockt zählt nicht"). How the plugin tells: the
+   engine decides a block in 0x005F5B70 (thiscall: ECX the attacker,
+   [esp+0x18] the blocker; it writes "%.20s blocks %.0f%% of %.20s's
+   blow!"; read 2026-10-27, SkillLogic.h). A hook there notes the pair for
+   the frame; the hit is judged at the next frame, as the grab judges its
+   hits, so the order of the two calls does not matter. Not read: whether
+   OnHit fires for a blocked blow at all - xOBSE's dispatcher does not
+   look (DeepWiki, llde/xOBSE), the engine's side is not read. xOBSE's
+   IsBlocking is no proof: it says the actor is in its block, and a
+   blocking actor can be hit from the side. The cheapest step: a harness
+   run with a person blocking a walker's blows, the hook and OnHit logged
+   side by side.
+2. **The infection is the grab, on people too** (Nadi: "die neue
+   festhalten anim geht auch auf npcs, ginge das?" - it would). A landed
+   hit of patient zero or one of his chain grabs a person as a walker
+   grabs the player now (4.19): it holds with the grab's animation, bites
+   every `BiteSeconds`, and the last of `BitesToDie` bites kills; the dead
+   rises, and the chain has one more. A person who lands `StruggleHits`
+   blows on the holder breaks free and lives (infected only once 4.14 is
+   built).
+   - There already: the trigger (OnHit, above); the hold, the bite and
+     the let-go play on the walker through the idle queue, whoever it
+     holds (seen 2026-10-28, `grab-anims.txt`); the rooting is the write
+     that keeps the holder standing (HighProcess movement flags +0x1FC), so
+     a held person stands the same way (derived, not seen on a person);
+     the bites as `ModAV2 Health`, the last as `Kill`; a victim's blows on
+     the holder come through OnHit as the player's do.
+   - New: GrabLogic.h knows the player's two arms only - a small table of
+     held people beside it (holder, victim, bites, blows), with its unit
+     flows; no OBVR messages for people.
+   - Not known: how a hold looks on a person who fights back (the pose
+     reaches 50 units ahead at chest height, made for the player);
+     whether a person's AI pulls against the flags harder than a walker's.
+   - Open, Nadi's: people grabbed by the chain only, or by every walker (a
+     switch, `[Grab] People`)? Mine: the chain only for now - for every
+     walker it changes the apocalypse, so it gets its own switch later.
+3. **The player** (Nadi: "whatever" - the proposal stands): grabbed as
+   now (4.19); a bite gives 4.14's Zombie Rot; Cure Disease heals it;
+   untreated the player dies and rises as a walker (4.20.3). So 4.14
+   comes with A.
+4. **Found by the news and a rumor** (Nadi: "ok"): the Courier and a
+   rumor name where patient zero was last seen, as they name the nearest
+   held place now (4.20.7a A).
+
+**Open, Nadi's - point 2, said plainer** (Nadi, 2026-11-26: "versteh ich
+nicht"): if patient zero is not stopped, how does it reach the whole game?
+
+- (a) **Only the chain grows.** Each victim is one more walker; the rest
+  of the world stays clean. Slow, from where it began; far away a count.
+- (b) **The world tips.** At `OutbreakCount` victims (30?) the whole
+  apocalypse begins everywhere - `[Walkers] Mode` set to 2 as LINK and the
+  onboarding set it - and the Courier says so. Until then it is (a).
+
+Mine: (b). It is what "spreads over the whole game" says, it is cheap (the
+mode change exists - seen at a game's start through the onboarding,
+2026-11-20; not tried in the middle of one), and it is felt wherever the
+player is; the chain alone stays unseen while the player is far.
 
 **B. Necromancers' hotspots.** Instead of the refugee places, many
 dungeons - towers first - become a necromancer's hotspot: a necromancer
@@ -5705,12 +5779,19 @@ defaults are confirmed or changed when B is built.
 | B: teams (allies, enemies' walkers fighting, the bosses with the Daedra) | medium | no faction (read 2): a team a reference in the plugin, StartCombat/StopCombat and the allies' rules exist; off-screen fights as numbers are new; risk: the Daedra joining a team fight; one harness run with two teams' bands meeting near Daedra |
 | B: the necromancers alone (Walkers 0) - the rise near them | medium | the rise gated by distance; touches the hordes and the sieges (they start from walkers that are there) |
 | B: the first roll after the refreshed pool (read 1's open bug) | small | the refresh before FillDungeons; also fixes the refugees' places today |
-| A: patient zero placed, unkillable, the chain | medium-large | the hit hook is the unknown (to be read in xOBSE/the EXE); the infection timer, the count, the restart new |
-| A: "spread over the whole game" as a gate on the mod | large | touches the replacement, hordes, sieges, camps, dungeons; every one needs its "not yet" |
+| A: patient zero placed, up again until his 10th, the switch, the restart | small | the placer, 4.17's rise again, 4.24's switches and RisenSet exist (2026-11-26; the first guess, medium-large, waited on the hit hook - it was there) |
+| A: a blocked blow told apart (0x005F5B70) | small | one hook at a call the skill hook already reads; risk: a new engine hook; one harness run |
+| A: the grab on people (the chain's infection) | medium | the trigger, the animations, the rooting and the bites exist; new: the table of held people; risk: the look on a person who fights back |
+| A: the chain far away as a count | medium | the necromancers' pace and placing are the model |
+| A: "spread over the whole game" | small | the gate of the first guess (large) exists since 4.24 (2026-11-20): with `[Walkers] Mode` 0 or 1 the apocalypse's systems are off; (b) sets 2 as LINK and the onboarding do - not tried in the middle of a game |
+| A: the news and the rumor | small | the Courier and the rumors name the nearest place already |
+| A: the player's Zombie Rot (4.14), the death and the rise (4.20.3) | small to medium | the disease is one ESP record; the infected player's death and rise are new |
 
-Recommended order: B first (it stands on what is built and proven today),
-A after its hit hook is read - the cheapest step to settle A's cost is to
-read where a melee hit reaches the plugin (xOBSE's OnHit, the EXE).
+Recommended order: B first (built since 2026-11-20). A whole: medium to
+large (2026-11-26). Its hit hook is read (above); the cheapest step left
+is one harness run - a person blocking a walker's blows, and a walker
+holding a person (a test grab on a person, new) - which settles the block
+and the look of a hold on a person.
 
 **B's build (Nadi, 2026-11-20: "go"; steps in this order, each committed
 and pushed with its unit flows, the harness where it shows in the game):**
